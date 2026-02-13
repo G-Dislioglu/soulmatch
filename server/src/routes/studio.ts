@@ -5,7 +5,7 @@ import { buildSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
 
 export const studioRouter = Router();
 
-type ProviderName = 'openai' | 'deepseek' | 'grok';
+type ProviderName = 'openai' | 'deepseek' | 'xai';
 
 interface ProviderConfig {
   apiUrl: string;
@@ -24,17 +24,17 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
     supportsStructuredOutputs: true,
   },
   deepseek: {
-    apiUrl: 'https://api.deepseek.com/v1/chat/completions',
+    apiUrl: 'https://api.deepseek.com/chat/completions',
     envKey: 'DEEPSEEK_API_KEY',
     defaultModel: 'deepseek-chat',
     engineVersion: 'studio-1.0-deepseek',
     supportsStructuredOutputs: false,
   },
-  grok: {
+  xai: {
     apiUrl: 'https://api.x.ai/v1/chat/completions',
-    envKey: 'GROK_API_KEY',
-    defaultModel: 'grok-3-mini',
-    engineVersion: 'studio-1.0-grok',
+    envKey: 'XAI_API_KEY',
+    defaultModel: 'grok-4.1-fast',
+    engineVersion: 'studio-1.0-xai',
     supportsStructuredOutputs: false,
   },
 };

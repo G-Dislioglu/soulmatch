@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import type { AppSettings, AiProvider, ProviderKeyEntry } from '../../../shared/types/settings';
 import { Button, Card, CardHeader, CardContent } from '../../M02_ui-kit';
-import { loadSettings, saveSettings, defaultModelForProvider, maskApiKey } from '../lib/settingsStorage';
+import { loadSettings, saveSettings, defaultModelForProvider, maskApiKey, MODEL_OPTIONS } from '../lib/settingsStorage';
 
 const PROVIDERS: { value: AiProvider; label: string }[] = [
   { value: 'none', label: 'Kein Provider' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'grok', label: 'Grok' },
+  { value: 'xai', label: 'xAI' },
 ];
 
 const KEY_PROVIDERS: { value: AiProvider; label: string; placeholder: string }[] = [
   { value: 'openai', label: 'OpenAI', placeholder: 'sk-...' },
   { value: 'deepseek', label: 'DeepSeek', placeholder: 'sk-...' },
-  { value: 'grok', label: 'Grok', placeholder: 'xai-...' },
+  { value: 'xai', label: 'xAI', placeholder: 'xai-...' },
 ];
 
 interface SettingsPageProps {
@@ -28,7 +28,7 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
     return {
       openai: keys.openai?.apiKey ?? '',
       deepseek: keys.deepseek?.apiKey ?? '',
-      grok: keys.grok?.apiKey ?? '',
+      xai: keys.xai?.apiKey ?? '',
     };
   });
   const [saved, setSaved] = useState(false);
@@ -87,6 +87,9 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
     }));
   }
 
+  const activeProvider = settings.provider.provider;
+  const modelOptions = MODEL_OPTIONS[activeProvider] ?? [];
+
   return (
     <div className="mx-auto w-full max-w-lg flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -142,21 +145,23 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
             </select>
           </div>
 
-          {settings.provider.provider !== 'none' && (
+          {activeProvider !== 'none' && modelOptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-[color:var(--muted-fg)]">Modell</label>
-              <input
-                type="text"
-                value={settings.provider.model ?? ''}
+              <select
+                value={settings.provider.model ?? defaultModelForProvider(activeProvider)}
                 onChange={(e) =>
                   setSettings((prev) => ({
                     ...prev,
                     provider: { ...prev.provider, model: e.target.value },
                   }))
                 }
-                className="w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
-                placeholder={defaultModelForProvider(settings.provider.provider)}
-              />
+                className="w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)]"
+              >
+                {modelOptions.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
             </div>
           )}
         </CardContent>

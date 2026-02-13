@@ -1,4 +1,4 @@
-export type AiProvider = 'none' | 'openai' | 'deepseek' | 'grok';
+export type AiProvider = 'none' | 'openai' | 'deepseek' | 'xai';
 
 export interface FeatureFlags {
   studioEnabled: boolean;

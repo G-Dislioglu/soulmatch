@@ -16,10 +16,12 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<StudioResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSend() {
     if (!message.trim()) return;
     setLoading(true);
+    setError(null);
     try {
       const provider = getStudioProvider();
       const res = await provider.generateStudio({
@@ -32,7 +34,9 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
       });
       setResult(res);
     } catch (err) {
-      console.error('Studio computation failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      console.error('Studio error:', msg);
     } finally {
       setLoading(false);
     }
@@ -53,6 +57,16 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
           {loading ? 'Denke…' : 'Senden'}
         </Button>
       </div>
+
+      {error && (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-red-400">
+              <span className="font-semibold">Fehler:</span> {error}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {result && (
         <>

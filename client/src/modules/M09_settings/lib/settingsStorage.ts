@@ -6,7 +6,26 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   none: '',
   openai: 'gpt-4o-mini',
   deepseek: 'deepseek-chat',
-  grok: 'grok-1',
+  xai: 'grok-4.1-fast',
+};
+
+export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string }[]> = {
+  none: [],
+  openai: [
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
+  ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek Chat (V3.2)' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
+  ],
+  xai: [
+    { value: 'grok-4.1-fast', label: 'Grok 4.1 Fast' },
+    { value: 'grok-4.1-reasoning', label: 'Grok 4.1 Reasoning' },
+  ],
 };
 
 function defaultSettings(): AppSettings {
