@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #09090b;
+  --fg: #fafafa;
+  --muted: #27272a;
+  --muted-fg: #a1a1aa;
+  --card: #18181b;
+  --card-fg: #fafafa;
+  --border: #27272a;
+  --primary: #a78bfa;
+  --primary-fg: #09090b;
+  --radius: 0.5rem;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, sans-serif;
+}

@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "app": {
+    "name": "Soulmatch",
+    "stack": "react-ts-vite-tailwind",
+    "moduleIdFormat": "M##",
+    "rules": {
+      "noDeepImports": true,
+      "publicExportFile": "index.ts",
+      "contractsDir": "client/src/shared/types"
+    }
+  },
+  "modules": [
+    {
+      "id": "M01",
+      "slug": "app-shell",
+      "name": "App Shell & Routing",
+      "summary": "App-Start, Layout, Routing und globale Fehlergrenzen.",
+      "features": ["Vite entry", "Wouter routing", "Layout scaffold", "Error boundary"],
+      "exports": ["client/src/modules/M01_app-shell/index.ts"],
+      "dependsOn": ["M02"],
+      "status": "active",
+      "tags": ["core"]
+    },
+    {
+      "id": "M02",
+      "slug": "ui-kit",
+      "name": "UI Kit & Theme",
+      "summary": "UI-Komponenten, Theme-Tokens, Typografie und Kontrastregeln.",
+      "features": ["Button/Input/Card", "Basic modal/dialog", "Theme tokens", "Form styling"],
+      "exports": ["client/src/modules/M02_ui-kit/index.ts"],
+      "dependsOn": [],
+      "status": "active",
+      "tags": ["ui"]
+    },
+    {
+      "id": "M03",
+      "slug": "profile",
+      "name": "Profile & Onboarding",
+      "summary": "Profil erfassen, validieren und lokal persistieren; Onboarding-Skip.",
+      "features": ["Profile form", "Validation", "LocalStorage persistence", "Onboarding skip"],
+      "exports": ["client/src/modules/M03_profile/index.ts"],
+      "dependsOn": ["M02"],
+      "status": "planned",
+      "tags": ["domain"]
+    },
+    {
+      "id": "M04",
+      "slug": "astrology-adapter",
+      "name": "Astrology Engine Adapter",
+      "summary": "Schnittstelle + Adapter-Layer für echte Astrologie-Berechnung (Swiss Ephemeris später).",
+      "features": ["Engine interface", "Request/Result contracts", "Stub implementation"],
+      "exports": ["client/src/modules/M04_astrology-adapter/index.ts"],
+      "dependsOn": [],
+      "status": "planned",
+      "tags": ["engine"]
+    },
+    {
+      "id": "M05",
+      "slug": "numerology",
+      "name": "Numerology Engine",
+      "summary": "Numerologie-Kernberechnungen mit stabilen Ergebnisobjekten.",
+      "features": ["Core numerology calc", "Deterministic outputs", "Unit-testable functions"],
+      "exports": ["client/src/modules/M05_numerology/index.ts"],
+      "dependsOn": [],
+      "status": "planned",
+      "tags": ["engine"]
+    },
+    {
+      "id": "M06",
+      "slug": "scoring",
+      "name": "Scoring & Correlation Layer",
+      "summary": "Kombiniert Astrologie+Numerologie zu Score (0–100) + Begründungs-Claims.",
+      "features": ["Score model", "Weighted fusion", "Explainability claims", "Versioned scoring"],
+      "exports": ["client/src/modules/M06_scoring/index.ts"],
+      "dependsOn": ["M04", "M05"],
+      "status": "planned",
+      "tags": ["domain"]
+    },
+    {
+      "id": "M07",
+      "slug": "reports",
+      "name": "Reports & Rendering",
+      "summary": "Report-Seiten für Profil und Match; klare Sections und Rendering-Layout.",
+      "features": ["Profile report", "Match report", "Section renderer", "Basic export-ready layout"],
+      "exports": ["client/src/modules/M07_reports/index.ts"],
+      "dependsOn": ["M02", "M03", "M06"],
+      "status": "planned",
+      "tags": ["ui", "domain"]
+    },
+    {
+      "id": "M08",
+      "slug": "studio-chat",
+      "name": "Studio/Roundtable Chat",
+      "summary": "Roundtable mit vier Perspektiven (Maya/Luna/Orion/Karma) — Stub + OpenAI LLM via Server-Proxy.",
+      "features": ["StudioEngine interface", "StubStudioEngine", "4 Personas", "StudioPanel UI", "StudioPage", "SeatBadge", "TurnsView", "OpenAI Responses API (server)", "Structured Outputs JSON Schema"],
+      "exports": ["client/src/modules/M08_studio-chat/index.ts"],
+      "dependsOn": ["M02", "M09"],
+      "status": "active",
+      "tags": ["optional", "ui"]
+    },
+    {
+      "id": "M09",
+      "slug": "settings",
+      "name": "Settings & Provider Router",
+      "summary": "Provider-Auswahl, API-Key Verwaltung, Feature Flags, Provider Router für Studio.",
+      "features": ["Settings UI", "Feature flags", "Provider router", "API key storage", "maskApiKey", "defaultModelForProvider"],
+      "exports": ["client/src/modules/M09_settings/index.ts"],
+      "dependsOn": ["M02", "M08"],
+      "status": "active",
+      "tags": ["core"]
+    },
+    {
+      "id": "M10",
+      "slug": "quality-gates",
+      "name": "Quality Gates & Smoke",
+      "summary": "Minimaltests, typecheck/build scripts, Smoke-Flow Definition.",
+      "features": ["Vitest setup (optional)", "Typecheck script", "Build script", "Smoke steps doc"],
+      "exports": ["client/src/modules/M10_quality-gates/index.ts"],
+      "dependsOn": [],
+      "status": "planned",
+      "tags": ["quality"]
+    },
+    {
+      "id": "M11",
+      "slug": "match",
+      "name": "Matching Engine",
+      "summary": "Vergleicht zwei Profile via Scores und liefert MatchScoreResult (0–100) + Claims.",
+      "features": ["Match engine interface", "Diff-based matching", "Match claims", "computeMatch API"],
+      "exports": ["client/src/modules/M11_match/index.ts"],
+      "dependsOn": ["M06"],
+      "status": "active",
+      "tags": ["domain"]
+    }
+  ]
+}
