@@ -68,11 +68,25 @@ export function DevPanel({ onClose }: DevPanelProps) {
     };
   }, []);
 
-  function handleAuth() {
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  async function handleAuth() {
     if (!tokenInput.trim()) return;
+    setAuthError(null);
+    setAuthLoading(true);
     setDevToken(tokenInput.trim());
-    setAuthenticated(true);
-    setTokenInput('');
+    try {
+      await fetchHealth();
+      setAuthenticated(true);
+      setTokenInput('');
+    } catch {
+      setAuthError('Falsches Passwort');
+      setDevToken('');
+      setAuthenticated(false);
+    } finally {
+      setAuthLoading(false);
+    }
   }
 
   function formatUptime(seconds: number): string {
@@ -104,17 +118,22 @@ export function DevPanel({ onClose }: DevPanelProps) {
 
         {!authenticated ? (
           <div className="p-6 flex flex-col items-center gap-4">
-            <p className="text-sm text-[color:var(--muted-fg)]">Dev Token eingeben:</p>
+            <p className="text-sm text-[color:var(--muted-fg)]">Passwort eingeben:</p>
+            {authError && (
+              <div className="rounded bg-red-900/30 px-3 py-2 text-xs text-red-400">{authError}</div>
+            )}
             <input
               type="password"
               value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
+              onChange={(e) => { setTokenInput(e.target.value); setAuthError(null); }}
               onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
               className="w-64 rounded border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm font-mono text-[color:var(--fg)]"
-              placeholder="Token..."
+              placeholder="Passwort..."
               autoFocus
             />
-            <Button variant="primary" onClick={handleAuth}>Verbinden</Button>
+            <Button variant="primary" onClick={handleAuth} disabled={authLoading}>
+              {authLoading ? 'Prüfe…' : 'Verbinden'}
+            </Button>
           </div>
         ) : (
           <>
