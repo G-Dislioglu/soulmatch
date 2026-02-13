@@ -25,9 +25,12 @@ export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string }[
     { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
   ],
   xai: [
-    { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Fast (Reasoning)' },
-    { value: 'grok-4-fast-non-reasoning', label: 'Grok 4 Fast (kein Reasoning)' },
-    { value: 'grok-4-0709', label: 'Grok 4 (volles Reasoning)' },
+    { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Fast Reasoning' },
+    { value: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast Non-Reasoning' },
+    { value: 'grok-4-fast-reasoning', label: 'Grok 4 Fast Reasoning' },
+    { value: 'grok-4-fast-non-reasoning', label: 'Grok 4 Fast Non-Reasoning' },
+    { value: 'grok-4-0709', label: 'Grok 4' },
+    { value: 'grok-code-fast-1', label: 'Grok Code Fast 1' },
   ],
 };
 
