@@ -136,8 +136,15 @@ async function callChatCompletions(config: ProviderConfig, apiKey: string, model
     choices?: Array<{ message?: { content?: string } }>;
   };
 
-  const content = data.choices?.[0]?.message?.content;
+  let content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('No content in chat completion response');
+
+  // Strip markdown code fences if LLM wraps JSON in ```json ... ```
+  content = content.trim();
+  if (content.startsWith('```')) {
+    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+
   return JSON.parse(content);
 }
 
@@ -185,24 +192,63 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       parsed = await callChatCompletions(config, apiKey, model, systemPrompt, userPrompt);
     }
 
-    if (!parsed.turns || !Array.isArray(parsed.turns) || !parsed.nextSteps || !parsed.watchOut) {
-      res.status(502).json({ error: 'LLM response did not match StudioResult schema' });
+    console.log(`[${providerName}] Raw LLM keys:`, Object.keys(parsed));
+
+    // Normalize: some LLMs wrap result in a top-level key
+    if (!parsed.turns && parsed.result && typeof parsed.result === 'object') {
+      parsed = parsed.result;
+    }
+    if (!parsed.turns && parsed.data && typeof parsed.data === 'object') {
+      parsed = parsed.data;
+    }
+
+    // Normalize: nextSteps may come as next_steps
+    if (!parsed.nextSteps && parsed.next_steps) {
+      parsed.nextSteps = parsed.next_steps;
+      delete parsed.next_steps;
+    }
+
+    // Normalize: watchOut may come as watch_out
+    if (!parsed.watchOut && parsed.watch_out) {
+      parsed.watchOut = parsed.watch_out;
+      delete parsed.watch_out;
+    }
+
+    // Validate required fields
+    const missing: string[] = [];
+    if (!parsed.turns || !Array.isArray(parsed.turns)) missing.push('turns');
+    if (!parsed.nextSteps || !Array.isArray(parsed.nextSteps)) missing.push('nextSteps');
+    if (!parsed.watchOut || typeof parsed.watchOut !== 'string') missing.push('watchOut');
+
+    if (missing.length > 0) {
+      console.error(`[${providerName}] Schema mismatch. Missing: ${missing.join(', ')}. Got:`, JSON.stringify(parsed).slice(0, 500));
+      res.status(502).json({
+        error: `LLM-Antwort fehlt: ${missing.join(', ')}. Bitte anderen Provider oder anderes Modell versuchen.`,
+      });
       return;
     }
+
+    // Ensure turns have valid seat/text
+    parsed.turns = parsed.turns.map((t: Record<string, unknown>) => ({
+      seat: String(t.seat ?? 'maya'),
+      text: String(t.text ?? t.content ?? ''),
+    }));
+
+    // Ensure nextSteps is string array
+    parsed.nextSteps = parsed.nextSteps.map((s: unknown) => String(s));
 
     parsed.meta = {
       engine: 'llm',
       engineVersion: config.engineVersion,
       computedAt: new Date().toISOString(),
-      warnings: parsed.meta?.warnings ?? [],
+      warnings: [],
     };
 
     res.json(parsed);
   } catch (err) {
     console.error(`Studio API error (${providerName}):`, err);
     res.status(500).json({
-      error: `LLM call to ${providerName} failed`,
-      detail: err instanceof Error ? err.message : String(err),
+      error: `LLM-Aufruf an ${providerName} fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`,
     });
   }
 });
