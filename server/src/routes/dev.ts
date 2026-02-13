@@ -5,20 +5,18 @@ import type { LogLevel, LogCategory } from '../devLogger.js';
 
 export const devRouter = Router();
 
-// Auth middleware: requires DEV_TOKEN as query param or Authorization header
+const BUILTIN_PASSWORD = 'David ist cool';
+
+// Auth middleware: accepts built-in password or optional DEV_TOKEN env override
 function requireDevToken(req: Request, res: Response, next: NextFunction): void {
-  const token = process.env.DEV_TOKEN;
-  if (!token) {
-    res.status(503).json({ error: 'DEV_TOKEN not configured on server' });
-    return;
-  }
+  const validPassword = process.env.DEV_TOKEN || BUILTIN_PASSWORD;
 
   const provided =
     (req.query.token as string) ||
     req.headers.authorization?.replace('Bearer ', '');
 
-  if (provided !== token) {
-    res.status(401).json({ error: 'Invalid dev token' });
+  if (provided !== validPassword) {
+    res.status(401).json({ error: 'Falsches Passwort' });
     return;
   }
 
