@@ -75,7 +75,8 @@ async function callOpenAI(apiKey: string, model: string, systemPrompt: string, u
       text: {
         format: {
           type: 'json_schema',
-          json_schema: STUDIO_RESULT_SCHEMA,
+          name: 'studio_result',
+          schema: STUDIO_RESULT_SCHEMA.schema,
         },
       },
     }),
