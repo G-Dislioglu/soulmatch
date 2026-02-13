@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
 import { buildSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
+import { devLogger } from '../devLogger.js';
 
 export const studioRouter = Router();
 
@@ -184,8 +185,16 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     seats: studioRequest.seats,
   });
 
+  const startTime = Date.now();
+
   try {
     let parsed;
+
+    devLogger.info('llm', `Calling ${providerName}/${model}`, {
+      provider: providerName,
+      model,
+      messageLength: studioRequest.userMessage.length,
+    });
 
     if (providerName === 'openai') {
       parsed = await callOpenAI(apiKey, model, systemPrompt, userPrompt);
@@ -193,7 +202,13 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       parsed = await callChatCompletions(config, apiKey, model, systemPrompt, userPrompt);
     }
 
-    console.log(`[${providerName}] Raw LLM keys:`, Object.keys(parsed));
+    const durationMs = Date.now() - startTime;
+    devLogger.info('llm', `${providerName}/${model} responded in ${durationMs}ms`, {
+      provider: providerName,
+      model,
+      durationMs,
+      rawKeys: Object.keys(parsed),
+    });
 
     // Normalize: some LLMs wrap result in a top-level key
     if (!parsed.turns && parsed.result && typeof parsed.result === 'object') {
@@ -222,7 +237,14 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     if (!parsed.watchOut || typeof parsed.watchOut !== 'string') missing.push('watchOut');
 
     if (missing.length > 0) {
-      console.error(`[${providerName}] Schema mismatch. Missing: ${missing.join(', ')}. Got:`, JSON.stringify(parsed).slice(0, 500));
+      const errMsg = `Schema mismatch: missing ${missing.join(', ')}`;
+      devLogger.error('llm', errMsg, {
+        provider: providerName,
+        model,
+        durationMs: Date.now() - startTime,
+        rawSnippet: JSON.stringify(parsed).slice(0, 300),
+      });
+      devLogger.trackLLMCall(providerName, Date.now() - startTime, false, errMsg);
       res.status(502).json({
         error: `LLM-Antwort fehlt: ${missing.join(', ')}. Bitte anderen Provider oder anderes Modell versuchen.`,
       });
@@ -245,11 +267,19 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       warnings: [],
     };
 
+    devLogger.trackLLMCall(providerName, Date.now() - startTime, true);
     res.json(parsed);
   } catch (err) {
-    console.error(`Studio API error (${providerName}):`, err);
+    const durationMs = Date.now() - startTime;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    devLogger.error('llm', `${providerName} failed: ${errMsg}`, {
+      provider: providerName,
+      model,
+      durationMs,
+    });
+    devLogger.trackLLMCall(providerName, durationMs, false, errMsg);
     res.status(500).json({
-      error: `LLM-Aufruf an ${providerName} fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`,
+      error: `LLM-Aufruf an ${providerName} fehlgeschlagen: ${errMsg}`,
     });
   }
 });

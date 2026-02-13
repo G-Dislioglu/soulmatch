@@ -15,5 +15,7 @@ services:
         sync: false
       - key: XAI_API_KEY
         sync: false
+      - key: DEV_TOKEN
+        sync: false
       - key: NODE_VERSION
         value: 20.11.0

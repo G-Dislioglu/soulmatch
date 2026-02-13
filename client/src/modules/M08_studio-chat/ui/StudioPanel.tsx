@@ -3,6 +3,9 @@ import type { StudioResult, StudioSeat } from '../../../shared/types/studio';
 import { Button, Card, CardContent } from '../../M02_ui-kit';
 import { TurnsView } from './TurnsView';
 import { getStudioProvider } from '../../M09_settings';
+import { DevPanel } from '../../M12_dev-tools';
+
+const DEV_TRIGGER = '!dev';
 
 const DEFAULT_SEATS: StudioSeat[] = ['maya', 'luna', 'orion', 'karma'];
 
@@ -17,9 +20,18 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
   const [result, setResult] = useState<StudioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDev, setShowDev] = useState(false);
 
   async function handleSend() {
     if (!message.trim()) return;
+
+    // Secret dev panel trigger
+    if (message.trim().toLowerCase() === DEV_TRIGGER) {
+      setMessage('');
+      setShowDev(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -44,6 +56,7 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      {showDev && <DevPanel onClose={() => setShowDev(false)} />}
       <div className="flex gap-2">
         <input
           type="text"
