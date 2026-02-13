@@ -11,5 +11,9 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GROK_API_KEY
+        sync: false
       - key: NODE_VERSION
         value: 20.11.0

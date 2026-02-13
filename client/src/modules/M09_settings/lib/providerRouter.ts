@@ -1,4 +1,5 @@
 import type { StudioRequest, StudioResult } from '../../../shared/types/studio';
+import type { AiProvider } from '../../../shared/types/settings';
 import { StubStudioEngine } from '../../M08_studio-chat';
 import { loadSettings } from './settingsStorage';
 
@@ -14,13 +15,28 @@ class StubProvider implements StudioProvider {
   }
 }
 
-class OpenAIProvider implements StudioProvider {
+class LLMProvider implements StudioProvider {
+  private providerName: AiProvider;
+  private apiKey: string | undefined;
+  private model: string | undefined;
+
+  constructor(providerName: AiProvider, apiKey?: string, model?: string) {
+    this.providerName = providerName;
+    this.apiKey = apiKey;
+    this.model = model;
+  }
+
   async generateStudio(req: StudioRequest): Promise<StudioResult> {
     try {
       const res = await fetch('/api/studio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studioRequest: req }),
+        body: JSON.stringify({
+          studioRequest: req,
+          provider: this.providerName,
+          clientApiKey: this.apiKey,
+          model: this.model,
+        }),
       });
 
       if (!res.ok) {
@@ -57,30 +73,7 @@ class OpenAIProvider implements StudioProvider {
   }
 }
 
-class PlaceholderLLMProvider implements StudioProvider {
-  private providerName: string;
-
-  constructor(providerName: string) {
-    this.providerName = providerName;
-  }
-
-  async generateStudio(req: StudioRequest): Promise<StudioResult> {
-    const result = await stubEngine.compute(req);
-    return {
-      ...result,
-      meta: {
-        ...result.meta,
-        warnings: [
-          ...(result.meta.warnings ?? []),
-          `LLM provider "${this.providerName}" selected but not wired yet. Using stub fallback.`,
-        ],
-      },
-    };
-  }
-}
-
 const stubProvider = new StubProvider();
-const openaiProvider = new OpenAIProvider();
 
 export function getStudioProvider(): StudioProvider {
   const settings = loadSettings();
@@ -89,13 +82,14 @@ export function getStudioProvider(): StudioProvider {
     return stubProvider;
   }
 
-  if (settings.provider.provider === 'none') {
+  const provider = settings.provider.provider;
+  if (provider === 'none') {
     return stubProvider;
   }
 
-  if (settings.provider.provider === 'openai') {
-    return openaiProvider;
-  }
+  const keyEntry = settings.provider.keys?.[provider];
+  const apiKey = keyEntry?.apiKey ?? settings.provider.apiKey;
+  const model = settings.provider.model ?? keyEntry?.model;
 
-  return new PlaceholderLLMProvider(settings.provider.provider);
+  return new LLMProvider(provider, apiKey, model);
 }

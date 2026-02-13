@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { AppSettings, AiProvider } from '../../../shared/types/settings';
+import { useState } from 'react';
+import type { AppSettings, AiProvider, ProviderKeyEntry } from '../../../shared/types/settings';
 import { Button, Card, CardHeader, CardContent } from '../../M02_ui-kit';
 import { loadSettings, saveSettings, defaultModelForProvider, maskApiKey } from '../lib/settingsStorage';
 
@@ -10,6 +10,12 @@ const PROVIDERS: { value: AiProvider; label: string }[] = [
   { value: 'grok', label: 'Grok' },
 ];
 
+const KEY_PROVIDERS: { value: AiProvider; label: string; placeholder: string }[] = [
+  { value: 'openai', label: 'OpenAI', placeholder: 'sk-...' },
+  { value: 'deepseek', label: 'DeepSeek', placeholder: 'sk-...' },
+  { value: 'grok', label: 'Grok', placeholder: 'xai-...' },
+];
+
 interface SettingsPageProps {
   onBack: () => void;
   onSettingsChanged?: (settings: AppSettings) => void;
@@ -17,19 +23,37 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
-  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [keyInputs, setKeyInputs] = useState<Record<string, string>>(() => {
+    const keys = settings.provider.keys ?? {};
+    return {
+      openai: keys.openai?.apiKey ?? '',
+      deepseek: keys.deepseek?.apiKey ?? '',
+      grok: keys.grok?.apiKey ?? '',
+    };
+  });
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    setApiKeyInput(settings.provider.apiKey ?? '');
-  }, [settings.provider.apiKey]);
-
   function handleSave() {
+    const keys: Partial<Record<AiProvider, ProviderKeyEntry>> = {};
+    for (const p of KEY_PROVIDERS) {
+      const key = keyInputs[p.value] || undefined;
+      const existing = settings.provider.keys?.[p.value];
+      keys[p.value] = {
+        apiKey: key,
+        model: existing?.model ?? defaultModelForProvider(p.value),
+      };
+    }
+
+    const activeProvider = settings.provider.provider;
+    const activeKey = activeProvider !== 'none' ? keyInputs[activeProvider] : undefined;
+
     const next: AppSettings = {
       ...settings,
       provider: {
         ...settings.provider,
-        apiKey: apiKeyInput || undefined,
+        apiKey: activeKey || undefined,
+        model: settings.provider.model || defaultModelForProvider(activeProvider),
+        keys,
       },
     };
     saveSettings(next);
@@ -40,12 +64,15 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
   }
 
   function handleProviderChange(provider: AiProvider) {
+    const existingKey = keyInputs[provider] ?? '';
+    const existingModel = settings.provider.keys?.[provider]?.model;
     setSettings((prev) => ({
       ...prev,
       provider: {
         ...prev.provider,
         provider,
-        model: defaultModelForProvider(provider),
+        apiKey: existingKey || undefined,
+        model: existingModel ?? defaultModelForProvider(provider),
       },
     }));
   }
@@ -99,7 +126,7 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
 
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold">AI Provider</h2>
+          <h2 className="text-lg font-semibold">Aktiver Provider</h2>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
@@ -116,40 +143,59 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
           </div>
 
           {settings.provider.provider !== 'none' && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-[color:var(--muted-fg)]">Modell</label>
-                <input
-                  type="text"
-                  value={settings.provider.model ?? ''}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      provider: { ...prev.provider, model: e.target.value },
-                    }))
-                  }
-                  className="w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
-                  placeholder={defaultModelForProvider(settings.provider.provider)}
-                />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm text-[color:var(--muted-fg)]">Modell</label>
+              <input
+                type="text"
+                value={settings.provider.model ?? ''}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    provider: { ...prev.provider, model: e.target.value },
+                  }))
+                }
+                className="w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
+                placeholder={defaultModelForProvider(settings.provider.provider)}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-[color:var(--muted-fg)]">API Key</label>
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold">API Keys</h2>
+          <p className="text-xs text-[color:var(--muted-fg)]">
+            Lokal gespeichert. Auf Render werden ENV-Variablen bevorzugt.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {KEY_PROVIDERS.map((p) => {
+            const savedKey = settings.provider.keys?.[p.value]?.apiKey;
+            const isActive = settings.provider.provider === p.value;
+            return (
+              <div key={p.value} className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  {p.label}
+                  {isActive && (
+                    <span className="rounded bg-green-900/40 px-1.5 py-0.5 text-[10px] text-green-400">aktiv</span>
+                  )}
+                </label>
                 <input
                   type="password"
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  value={keyInputs[p.value] ?? ''}
+                  onChange={(e) => setKeyInputs((prev) => ({ ...prev, [p.value]: e.target.value }))}
                   className="w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
-                  placeholder="sk-..."
+                  placeholder={p.placeholder}
                 />
-                {settings.provider.apiKey && (
+                {savedKey && (
                   <p className="text-xs text-[color:var(--muted-fg)]">
-                    Gespeichert: {maskApiKey(settings.provider.apiKey)}
+                    Gespeichert: {maskApiKey(savedKey)}
                   </p>
                 )}
               </div>
-            </>
-          )}
+            );
+          })}
         </CardContent>
       </Card>
 

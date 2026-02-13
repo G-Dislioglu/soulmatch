@@ -45,6 +45,7 @@ export type {
 export type {
   AiProvider,
   FeatureFlags,
+  ProviderKeyEntry,
   ProviderSettings,
   AppSettings,
 } from './settings';

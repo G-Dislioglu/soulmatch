@@ -5,10 +5,16 @@ export interface FeatureFlags {
   llmEnabled: boolean;
 }
 
+export interface ProviderKeyEntry {
+  apiKey?: string;
+  model?: string;
+}
+
 export interface ProviderSettings {
   provider: AiProvider;
   apiKey?: string;
   model?: string;
+  keys?: Partial<Record<AiProvider, ProviderKeyEntry>>;
 }
 
 export interface AppSettings {
