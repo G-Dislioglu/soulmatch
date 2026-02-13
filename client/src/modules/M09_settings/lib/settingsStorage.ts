@@ -4,27 +4,30 @@ const STORAGE_KEY = 'soulmatch.settings.v1';
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   none: '',
-  openai: 'gpt-4o-mini',
+  openai: 'gpt-4.1-nano',
   deepseek: 'deepseek-chat',
-  xai: 'grok-4.1-fast',
+  xai: 'grok-4-1-fast-reasoning',
 };
 
 export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string }[]> = {
   none: [],
   openai: [
+    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (günstigste)' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
     { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4.1', label: 'GPT-4.1' },
-    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
+    { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
+    { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
   ],
   deepseek: [
     { value: 'deepseek-chat', label: 'DeepSeek Chat (V3.2)' },
     { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
   ],
   xai: [
-    { value: 'grok-4.1-fast', label: 'Grok 4.1 Fast' },
-    { value: 'grok-4.1-reasoning', label: 'Grok 4.1 Reasoning' },
+    { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Fast (Reasoning)' },
+    { value: 'grok-4-fast-non-reasoning', label: 'Grok 4 Fast (kein Reasoning)' },
+    { value: 'grok-4-0709', label: 'Grok 4 (volles Reasoning)' },
   ],
 };
 
