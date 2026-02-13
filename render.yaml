@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: soulmatch
+    runtime: node
+    plan: free
+    buildCommand: >
+      npm install -g pnpm &&
+      cd client && pnpm install && pnpm build &&
+      cd ../server && pnpm install && pnpm build
+    startCommand: node server/dist/index.js
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: 20.11.0
