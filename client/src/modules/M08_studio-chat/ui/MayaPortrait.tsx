@@ -8,16 +8,16 @@ interface MayaPortraitProps {
 const PORTRAIT_SIZES = '(max-width: 480px) 86vw, (max-width: 640px) 78vw, (max-width: 1024px) 340px, 260px';
 
 /**
- * Maya Portrait with artwork, warm gold glow, and vignette.
+ * Maya Portrait with artwork, cosmic purple glow, and vignette.
  * Uses ResponsiveArtwork (srcset+sizes), no Canvas, no JS loops.
  */
 export function MayaPortrait({ size = 260, baseName = 'maya' }: MayaPortraitProps) {
   return (
     <div style={{ position: 'relative', width: size, maxWidth: '100%', aspectRatio: '3 / 4.5' }}>
-      {/* Background warm glow */}
+      {/* Background cosmic purple glow */}
       <div style={{
         position: 'absolute', inset: '-10%',
-        background: 'radial-gradient(ellipse at 50% 55%, rgba(212,175,55,0.12) 0%, transparent 60%)',
+        background: 'radial-gradient(ellipse at 50% 55%, rgba(168,85,247,0.14) 0%, transparent 60%)',
         opacity: 0.5,
         pointerEvents: 'none',
       }} />
@@ -43,7 +43,7 @@ export function MayaPortrait({ size = 260, baseName = 'maya' }: MayaPortraitProp
       {/* Subtle border */}
       <div style={{
         position: 'absolute', inset: -1, borderRadius: 13,
-        border: '1px solid rgba(212,175,55,0.1)',
+        border: '1px solid rgba(168,85,247,0.1)',
         pointerEvents: 'none', zIndex: 4,
       }} />
     </div>
