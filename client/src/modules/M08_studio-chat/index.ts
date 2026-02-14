@@ -10,3 +10,6 @@ export type { LilithEyeState } from './ui/LilithEyes';
 export { LilithAvatar } from './ui/LilithAvatar';
 export { getLilithIntensity, setLilithIntensity } from './lib/lilithGate';
 export type { LilithIntensity } from './lib/lilithGate';
+export { PersonaSoloChat } from './ui/PersonaSoloChat';
+export { loadChatHistory, appendMessage, clearChatHistory } from './lib/chatHistory';
+export type { ChatMessage } from './lib/chatHistory';

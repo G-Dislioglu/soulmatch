@@ -18,10 +18,13 @@ interface SeatBadgeProps {
   seat: StudioSeat;
   disabled?: boolean;
   disabledTooltip?: string;
+  onClick?: () => void;
 }
 
-export function SeatBadge({ seat, disabled, disabledTooltip }: SeatBadgeProps) {
+export function SeatBadge({ seat, disabled, disabledTooltip, onClick }: SeatBadgeProps) {
   const colors = SEAT_COLORS[seat];
+  const clickable = !disabled && !!onClick;
+
   if (disabled) {
     return (
       <span
@@ -33,7 +36,15 @@ export function SeatBadge({ seat, disabled, disabledTooltip }: SeatBadgeProps) {
     );
   }
   return (
-    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${colors.border} ${colors.text} ${colors.bg}`}>
+    <span
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter') onClick?.(); } : undefined}
+      className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${colors.border} ${colors.text} ${colors.bg} ${
+        clickable ? 'cursor-pointer hover:brightness-125 transition-all' : ''
+      }`}
+    >
       {LABELS[seat]}
     </span>
   );

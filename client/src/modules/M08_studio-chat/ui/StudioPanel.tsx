@@ -50,7 +50,7 @@ export function StudioPanel({ profileId, mode, matchKey, lilithUnlocked = false 
         userMessage: message.trim(),
         seats: activeSeats,
         maxTurns: activeSeats.length,
-      }, intensity);
+      }, { lilithIntensity: intensity });
       setResult(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

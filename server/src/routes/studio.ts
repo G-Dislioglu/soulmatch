@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
-import { buildSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
+import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
 import type { LilithIntensity } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 
@@ -56,6 +56,7 @@ interface StudioRequestBody {
   profileExcerpt?: string;
   matchExcerpt?: string;
   lilithIntensity?: LilithIntensity;
+  soloPersona?: string;
 }
 
 function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | undefined {
@@ -179,7 +180,9 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   const { studioRequest, profileExcerpt, matchExcerpt } = body;
 
   const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
-  const systemPrompt = buildSystemPrompt(lilithIntensity);
+  const systemPrompt = body.soloPersona
+    ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity)
+    : buildSystemPrompt(lilithIntensity);
   const userPrompt = buildUserPrompt({
     mode: studioRequest.mode,
     profileExcerpt,
