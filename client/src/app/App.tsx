@@ -14,7 +14,7 @@ import {
 import { computeScore } from '../modules/M06_scoring';
 import { computeMatch } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
-import { StudioPage, LilithAvatar } from '../modules/M08_studio-chat';
+import { StudioPage, LilithAvatar, MayaAvatar } from '../modules/M08_studio-chat';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -392,7 +392,7 @@ function HomePage() {
 
             {/* Persona Auras */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 36, margin: '24px 0 28px', flexWrap: 'wrap' }}>
-              <AuraAvatar sign="◇" size={52} colors={[ACCENT, '#fbbf24', '#fb923c']} label="Maya" />
+              <MayaAvatar size={52} />
               <AuraAvatar sign="☽" size={52} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
               <AuraAvatar sign="△" size={52} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
               <LilithAvatar size={52} />
