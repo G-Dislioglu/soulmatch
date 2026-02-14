@@ -106,6 +106,7 @@ function HomePage() {
         <StudioPage
           profileId={profile.id}
           onBack={() => setView('summary')}
+          lilithUnlocked={hasProfile}
         />
       </div>
     );

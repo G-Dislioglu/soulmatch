@@ -1,12 +1,14 @@
 import { Button } from '../../M02_ui-kit';
 import { StudioPanel } from './StudioPanel';
+import { SeatBadge } from './SeatBadge';
 
 interface StudioPageProps {
   profileId: string;
   onBack: () => void;
+  lilithUnlocked?: boolean;
 }
 
-export function StudioPage({ profileId, onBack }: StudioPageProps) {
+export function StudioPage({ profileId, onBack, lilithUnlocked = false }: StudioPageProps) {
   return (
     <div className="mx-auto w-full max-w-lg flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -16,7 +18,17 @@ export function StudioPage({ profileId, onBack }: StudioPageProps) {
         </div>
         <Button variant="secondary" onClick={onBack}>Zurück</Button>
       </div>
-      <StudioPanel profileId={profileId} mode="profile" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <SeatBadge seat="maya" />
+        <SeatBadge seat="luna" />
+        <SeatBadge seat="orion" />
+        <SeatBadge
+          seat="lilith"
+          disabled={!lilithUnlocked}
+          disabledTooltip="Erstelle erst ein Profil für die volle Lilith-Erfahrung"
+        />
+      </div>
+      <StudioPanel profileId={profileId} mode="profile" lilithUnlocked={lilithUnlocked} />
     </div>
   );
 }

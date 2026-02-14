@@ -16,10 +16,22 @@ const SEAT_COLORS: Record<StudioSeat, { border: string; text: string; bg: string
 
 interface SeatBadgeProps {
   seat: StudioSeat;
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
-export function SeatBadge({ seat }: SeatBadgeProps) {
+export function SeatBadge({ seat, disabled, disabledTooltip }: SeatBadgeProps) {
   const colors = SEAT_COLORS[seat];
+  if (disabled) {
+    return (
+      <span
+        className="inline-block rounded-full border border-zinc-700/40 px-2 py-0.5 text-xs font-medium text-zinc-600 bg-zinc-800/30 cursor-not-allowed"
+        title={disabledTooltip}
+      >
+        🔒 {LABELS[seat]}
+      </span>
+    );
+  }
   return (
     <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${colors.border} ${colors.text} ${colors.bg}`}>
       {LABELS[seat]}

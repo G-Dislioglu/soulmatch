@@ -2,8 +2,10 @@ import type { StudioRequest, StudioResult } from '../../../shared/types/studio';
 import type { AiProvider } from '../../../shared/types/settings';
 import { loadSettings } from './settingsStorage';
 
+export type LilithIntensity = 'mild' | 'ehrlich' | 'brutal';
+
 export interface StudioProvider {
-  generateStudio(req: StudioRequest): Promise<StudioResult>;
+  generateStudio(req: StudioRequest, lilithIntensity?: LilithIntensity): Promise<StudioResult>;
 }
 
 class LLMProvider implements StudioProvider {
@@ -17,7 +19,7 @@ class LLMProvider implements StudioProvider {
     this.model = model;
   }
 
-  async generateStudio(req: StudioRequest): Promise<StudioResult> {
+  async generateStudio(req: StudioRequest, lilithIntensity?: LilithIntensity): Promise<StudioResult> {
     const res = await fetch('/api/studio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -26,6 +28,7 @@ class LLMProvider implements StudioProvider {
         provider: this.providerName,
         clientApiKey: this.apiKey,
         model: this.model,
+        lilithIntensity: lilithIntensity ?? 'ehrlich',
       }),
     });
 

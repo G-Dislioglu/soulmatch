@@ -4,23 +4,29 @@ import { Button, Card, CardContent } from '../../M02_ui-kit';
 import { TurnsView } from './TurnsView';
 import { getStudioProvider } from '../../M09_settings';
 import { DevPanel } from '../../M12_dev-tools';
+import { getLilithIntensity } from '../lib/lilithGate';
 
 const DEV_TRIGGER = '!dev';
 
-const DEFAULT_SEATS: StudioSeat[] = ['maya', 'luna', 'orion', 'lilith'];
+const BASE_SEATS: StudioSeat[] = ['maya', 'luna', 'orion'];
 
 interface StudioPanelProps {
   profileId: string;
   mode: 'profile' | 'match';
   matchKey?: string;
+  lilithUnlocked?: boolean;
 }
 
-export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
+export function StudioPanel({ profileId, mode, matchKey, lilithUnlocked = false }: StudioPanelProps) {
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<StudioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDev, setShowDev] = useState(false);
+
+  const activeSeats: StudioSeat[] = lilithUnlocked
+    ? [...BASE_SEATS, 'lilith']
+    : BASE_SEATS;
 
   async function handleSend() {
     if (!message.trim()) return;
@@ -36,14 +42,15 @@ export function StudioPanel({ profileId, mode, matchKey }: StudioPanelProps) {
     setError(null);
     try {
       const provider = getStudioProvider();
+      const intensity = getLilithIntensity();
       const res = await provider.generateStudio({
         mode,
         profileId,
         matchKey,
         userMessage: message.trim(),
-        seats: DEFAULT_SEATS,
-        maxTurns: 4,
-      });
+        seats: activeSeats,
+        maxTurns: activeSeats.length,
+      }, intensity);
       setResult(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
