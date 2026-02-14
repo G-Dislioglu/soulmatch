@@ -12,3 +12,4 @@ export type { CardSettings } from './SoulmatchCard';
 export { ControlsDropdown } from './ControlsDropdown';
 export { CosmicButton } from './CosmicButton';
 export { ScoreSkeleton } from './ScoreSkeleton';
+export { ResponsiveArtwork } from './ResponsiveArtwork';

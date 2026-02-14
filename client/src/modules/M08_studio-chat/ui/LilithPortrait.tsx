@@ -1,17 +1,20 @@
 import { LilithEyes } from './LilithEyes';
 import type { LilithEyeState } from './LilithEyes';
+import { ResponsiveArtwork } from '../../M02_ui-kit';
 
 interface LilithPortraitProps {
   state?: LilithEyeState;
   size?: number;
-  imageSrc?: string;
+  baseName?: string;
 }
+
+const PORTRAIT_SIZES = '(max-width: 480px) 86vw, (max-width: 640px) 78vw, (max-width: 1024px) 340px, 260px';
 
 /**
  * Lilith Portrait with artwork, SVG eye overlay, ember glow, and vignette.
- * Spec: WebP asset (512/1024/1536), lazy+async, 0 Canvas, 0 JS loops, <0.5ms/frame.
+ * Spec: WebP asset (512/1024/1536), srcset+sizes, lazy+async, 0 Canvas, 0 JS loops, <0.5ms/frame.
  */
-export function LilithPortrait({ state = 'idle', size = 260, imageSrc = '/assets/lilith.webp' }: LilithPortraitProps) {
+export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith' }: LilithPortraitProps) {
   const isActive = state === 'active' || state === 'truth';
   const isTruth = state === 'truth';
 
@@ -25,9 +28,11 @@ export function LilithPortrait({ state = 'idle', size = 260, imageSrc = '/assets
         transition: 'opacity 0.8s ease', pointerEvents: 'none',
       }} />
 
-      {/* Artwork */}
-      <img
-        src={imageSrc} alt="Lilith" loading="lazy" decoding="async"
+      {/* Artwork — responsive srcset, no JS switching */}
+      <ResponsiveArtwork
+        baseName={baseName}
+        alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
+        sizes={PORTRAIT_SIZES}
         style={{
           width: '100%', height: '100%', objectFit: 'cover',
           borderRadius: 12, display: 'block', position: 'relative', zIndex: 1,

@@ -1,16 +1,17 @@
 import { useState } from 'react';
+import { ResponsiveArtwork } from '../../M02_ui-kit';
 
 interface LilithAvatarProps {
   size?: number;
-  imageSrc?: string;
+  baseName?: string;
   onClick?: () => void;
 }
 
 /**
  * Lilith persona avatar for the Studio persona row.
- * Shows artwork thumbnail in a circular frame with ember aura rings.
+ * Shows artwork thumbnail via srcset (512w/1024w) in a circular frame with ember aura rings.
  */
-export function LilithAvatar({ size = 52, imageSrc = '/assets/lilith.webp', onClick }: LilithAvatarProps) {
+export function LilithAvatar({ size = 52, baseName = 'lilith', onClick }: LilithAvatarProps) {
   const [hover, setHover] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -54,7 +55,7 @@ export function LilithAvatar({ size = 52, imageSrc = '/assets/lilith.webp', onCl
             style={{ background: '#d49137', boxShadow: '0 0 6px rgba(212,145,55,0.5)' }}
           />
         </div>
-        {/* Avatar circle with artwork */}
+        {/* Avatar circle with artwork thumbnail */}
         <div
           className="relative w-full h-full rounded-full overflow-hidden z-[2]"
           style={{
@@ -71,11 +72,10 @@ export function LilithAvatar({ size = 52, imageSrc = '/assets/lilith.webp', onCl
               ☾
             </div>
           ) : (
-            <img
-              src={imageSrc}
-              alt="Lilith"
-              loading="lazy"
-              decoding="async"
+            <ResponsiveArtwork
+              baseName={baseName}
+              alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
+              sizes="96px"
               onError={() => setImgError(true)}
               style={{
                 width: '140%',
@@ -96,7 +96,7 @@ export function LilithAvatar({ size = 52, imageSrc = '/assets/lilith.webp', onCl
           transition: 'color 0.4s',
         }}
       >
-        Lilith
+        {baseName.charAt(0).toUpperCase() + baseName.slice(1)}
       </div>
     </div>
   );
