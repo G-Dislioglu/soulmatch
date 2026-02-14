@@ -109,6 +109,11 @@ function HomePage() {
     }
   }
 
+  async function handleStudioMatch(aId: string, bId: string) {
+    const result = await computeMatch({ aProfileId: aId, bProfileId: bId });
+    return result;
+  }
+
   /* ── Overlay views (full-screen) ── */
   if (overlay === 'settings') {
     return (
@@ -405,6 +410,8 @@ function HomePage() {
                 onBack={() => setActivePage(0)}
                 lilithUnlocked={hasProfile}
                 embedded
+                allProfiles={allProfiles}
+                onComputeMatch={handleStudioMatch}
               />
             </div>
           </div>
