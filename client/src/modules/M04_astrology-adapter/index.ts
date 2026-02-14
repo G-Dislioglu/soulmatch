@@ -2,11 +2,12 @@
 export type { AstrologyEngine } from './lib/astrologyEngine';
 export { buildAstrologyRequestFromProfile } from './lib/astrologyEngine';
 export { StubAstrologyEngine } from './lib/stubEngine';
+export { RealAstrologyEngine } from './lib/realEngine';
 
-import { StubAstrologyEngine } from './lib/stubEngine';
+import { RealAstrologyEngine } from './lib/realEngine';
 import type { AstrologyRequest, AstrologyResult } from '../../shared/types/astrology';
 
-const defaultEngine = new StubAstrologyEngine();
+const defaultEngine = new RealAstrologyEngine();
 
 export function computeAstrology(req: AstrologyRequest): Promise<AstrologyResult> {
   return defaultEngine.compute(req);
