@@ -13,3 +13,6 @@ export type { LilithIntensity } from './lib/lilithGate';
 export { PersonaSoloChat } from './ui/PersonaSoloChat';
 export { loadChatHistory, appendMessage, clearChatHistory } from './lib/chatHistory';
 export type { ChatMessage } from './lib/chatHistory';
+export { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from './lib/sensitivityTracker';
+export type { SensitivityState } from './lib/sensitivityTracker';
+export { detectToxicity, isBlocked, activateBlock, clearBlock, getBlockRemainingMs } from './lib/toxicityGuard';

@@ -6,6 +6,8 @@ import { getLilithIntensity, setLilithIntensity } from '../lib/lilithGate';
 import type { LilithIntensity } from '../lib/lilithGate';
 import { loadChatHistory, appendMessage, clearChatHistory } from '../lib/chatHistory';
 import type { ChatMessage } from '../lib/chatHistory';
+import { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from '../lib/sensitivityTracker';
+import { detectToxicity, isBlocked, activateBlock, getBlockRemainingMs } from '../lib/toxicityGuard';
 
 const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string }> = {
   maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin' },
@@ -26,12 +28,21 @@ interface PersonaSoloChatProps {
   onClose: () => void;
 }
 
+function formatBlockRemaining(ms: number): string {
+  const hours = Math.floor(ms / 3600000);
+  const mins = Math.floor((ms % 3600000) / 60000);
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
 export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(seat));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [intensity, setIntensity] = useState<LilithIntensity>(getLilithIntensity);
+  const [blocked, setBlocked] = useState(isBlocked);
+  const [sensitivityScore, setSensitivityScore] = useState(() => getSensitivityState().score);
+  const [autoNotice, setAutoNotice] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const theme = SEAT_THEMES[seat];
@@ -44,16 +55,63 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   function handleIntensityChange(level: LilithIntensity) {
     setIntensity(level);
     setLilithIntensity(level);
+    setAutoNotice(null);
   }
 
   function handleClear() {
     clearChatHistory(seat);
+    resetSensitivity();
     setMessages([]);
+    setSensitivityScore(70);
+    setAutoNotice(null);
   }
 
   async function handleSend() {
     const text = input.trim();
     if (!text || loading) return;
+
+    // Toxicity check (Lilith solo only)
+    if (isLilith && detectToxicity(text)) {
+      activateBlock();
+      setBlocked(true);
+      const warnMsg: ChatMessage = {
+        role: 'persona', seat: 'lilith',
+        text: "Das war's. Ich diskutiere nicht mit Toxizität. Chat pausiert für 24 Stunden.",
+        timestamp: new Date().toISOString(),
+      };
+      const updated = appendMessage(seat, warnMsg);
+      setMessages(updated);
+      setInput('');
+      return;
+    }
+
+    // Sensitivity tracking (Lilith solo only)
+    let effectiveIntensity = intensity;
+    if (isLilith) {
+      const state = updateSensitivity(text);
+      setSensitivityScore(state.score);
+
+      const downgrade = shouldDowngradeIntensity(intensity);
+      if (downgrade) {
+        effectiveIntensity = downgrade;
+        setIntensity(downgrade);
+        setLilithIntensity(downgrade);
+        setAutoNotice(`Intensität automatisch auf "${INTENSITY_LABELS[downgrade]}" reduziert.`);
+      }
+
+      // Maya handoff
+      if (shouldTriggerMayaHandoff()) {
+        const mayaMsg: ChatMessage = {
+          role: 'persona', seat: 'maya',
+          text: 'Maya hier – Lilith hat dich geschüttelt, lass uns das jetzt sanft sortieren. Atme kurz durch. Was beschäftigt dich gerade am meisten?',
+          timestamp: new Date().toISOString(),
+        };
+        const updated = appendMessage(seat, mayaMsg);
+        setMessages(updated);
+        setInput('');
+        return;
+      }
+    }
 
     const userMsg: ChatMessage = { role: 'user', seat, text, timestamp: new Date().toISOString() };
     const updated = appendMessage(seat, userMsg);
@@ -71,7 +129,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         seats: [seat],
         maxTurns: 1,
       }, {
-        lilithIntensity: intensity,
+        lilithIntensity: effectiveIntensity,
         soloPersona: seat,
       });
 
@@ -118,25 +176,52 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           </div>
         </div>
 
-        {/* Intensity Slider (Lilith only) */}
-        {isLilith && (
-          <div className="px-4 py-2 border-b border-orange-900/20 flex items-center gap-3">
-            <span className="text-[10px] text-orange-500/50 uppercase tracking-wider font-semibold">Intensity</span>
-            <div className="flex gap-1">
-              {(['mild', 'ehrlich', 'brutal'] as LilithIntensity[]).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleIntensityChange(level)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider transition-all ${
-                    intensity === level
-                      ? 'bg-orange-600/30 text-orange-300 border border-orange-500/40'
-                      : 'text-zinc-500 hover:text-orange-400 border border-transparent'
-                  }`}
-                >
-                  {INTENSITY_LABELS[level]}
-                </button>
-              ))}
+        {/* Blocked overlay (Lilith only) */}
+        {isLilith && blocked && (
+          <div className="px-4 py-4 border-b border-red-900/30 bg-red-950/20 text-center">
+            <p className="text-sm text-red-400 font-semibold">Chat pausiert</p>
+            <p className="text-xs text-red-500/70 mt-1">
+              Toxizitäts-Sperre aktiv. Verbleibend: {formatBlockRemaining(getBlockRemainingMs())}
+            </p>
+          </div>
+        )}
+
+        {/* Intensity Slider + Sensitivity (Lilith only) */}
+        {isLilith && !blocked && (
+          <div className="px-4 py-2 border-b border-orange-900/20 flex flex-col gap-1.5">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-orange-500/50 uppercase tracking-wider font-semibold">Intensity</span>
+              <div className="flex gap-1">
+                {(['mild', 'ehrlich', 'brutal'] as LilithIntensity[]).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => handleIntensityChange(level)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider transition-all ${
+                      intensity === level
+                        ? 'bg-orange-600/30 text-orange-300 border border-orange-500/40'
+                        : 'text-zinc-500 hover:text-orange-400 border border-transparent'
+                    }`}
+                  >
+                    {INTENSITY_LABELS[level]}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                <div className="w-12 h-1 rounded-full bg-zinc-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${sensitivityScore}%`,
+                      backgroundColor: sensitivityScore > 50 ? '#22c55e' : sensitivityScore > 25 ? '#eab308' : '#ef4444',
+                    }}
+                  />
+                </div>
+                <span className="text-[9px] text-zinc-600">{sensitivityScore}</span>
+              </div>
             </div>
+            {autoNotice && (
+              <p className="text-[10px] text-amber-500/80 animate-pulse">{autoNotice}</p>
+            )}
           </div>
         )}
 
@@ -193,10 +278,17 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-            placeholder={isLilith ? 'Frag Lilith…' : `Frag ${seat.charAt(0).toUpperCase() + seat.slice(1)}…`}
-            className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
+            disabled={isLilith && blocked}
+            placeholder={
+              isLilith && blocked
+                ? 'Chat gesperrt…'
+                : isLilith
+                  ? 'Frag Lilith…'
+                  : `Frag ${seat.charAt(0).toUpperCase() + seat.slice(1)}…`
+            }
+            className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)] disabled:opacity-40 disabled:cursor-not-allowed"
           />
-          <Button variant="primary" onClick={handleSend} disabled={loading || !input.trim()}>
+          <Button variant="primary" onClick={handleSend} disabled={loading || !input.trim() || (isLilith && blocked)}>
             {loading ? '…' : 'Senden'}
           </Button>
         </div>
