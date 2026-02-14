@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { LilithEyes } from './LilithEyes';
 import type { LilithEyeState } from './LilithEyes';
 import { ResponsiveArtwork } from '../../M02_ui-kit';
@@ -17,6 +18,7 @@ const PORTRAIT_SIZES = '(max-width: 480px) 86vw, (max-width: 640px) 78vw, (max-w
 export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith' }: LilithPortraitProps) {
   const isActive = state === 'active' || state === 'truth';
   const isTruth = state === 'truth';
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div style={{ position: 'relative', width: size, maxWidth: '100%', aspectRatio: '3 / 4.5' }}>
@@ -28,16 +30,31 @@ export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith'
         transition: 'opacity 0.8s ease', pointerEvents: 'none',
       }} />
 
-      {/* Artwork — responsive srcset, no JS switching */}
-      <ResponsiveArtwork
-        baseName={baseName}
-        alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
-        sizes={PORTRAIT_SIZES}
-        style={{
-          width: '100%', height: '100%', objectFit: 'cover',
-          borderRadius: 12, display: 'block', position: 'relative', zIndex: 1,
-        }}
-      />
+      {imgError ? (
+        <div style={{
+          width: '100%', height: '100%', borderRadius: 12, position: 'relative', zIndex: 1,
+          background: 'linear-gradient(160deg, rgba(154,52,18,0.12) 0%, rgba(120,40,10,0.18) 50%, rgba(15,10,10,0.95) 100%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <div style={{ fontSize: size * 0.28, opacity: 0.6 }}>☾</div>
+          <div style={{
+            fontFamily: "'Cormorant Garamond', serif", fontSize: size * 0.1, fontWeight: 700,
+            color: '#d49137', letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7,
+          }}>Lilith</div>
+          <div style={{ fontSize: size * 0.04, color: '#6b5530', opacity: 0.5 }}>Die Schatten-Jägerin</div>
+        </div>
+      ) : (
+        <ResponsiveArtwork
+          baseName={baseName}
+          alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
+          sizes={PORTRAIT_SIZES}
+          onError={() => setImgError(true)}
+          style={{
+            width: '100%', height: '100%', objectFit: 'cover',
+            borderRadius: 12, display: 'block', position: 'relative', zIndex: 1,
+          }}
+        />
+      )}
 
       {/* Ember overlay — CSS animation only, no JS */}
       <div style={{
