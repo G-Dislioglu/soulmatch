@@ -8,6 +8,7 @@ export { StudioPage } from './ui/StudioPage';
 export { LilithEyes } from './ui/LilithEyes';
 export type { LilithEyeState } from './ui/LilithEyes';
 export { LilithAvatar } from './ui/LilithAvatar';
+export { LilithPortrait } from './ui/LilithPortrait';
 export { getLilithIntensity, setLilithIntensity } from './lib/lilithGate';
 export type { LilithIntensity } from './lib/lilithGate';
 export { PersonaSoloChat } from './ui/PersonaSoloChat';

@@ -2,3 +2,11 @@
 export { Button } from './Button';
 export { Input } from './Input';
 export { Card, CardHeader, CardContent } from './Card';
+export { CosmicTrail } from './CosmicTrail';
+export { AuraAvatar } from './AuraAvatar';
+export { EnergyDivider } from './EnergyDivider';
+export { PageTransition } from './PageTransition';
+export type { PageDef } from './PageTransition';
+export { SoulmatchCard, DEFAULT_CARD_SETTINGS } from './SoulmatchCard';
+export type { CardSettings } from './SoulmatchCard';
+export { ControlsDropdown } from './ControlsDropdown';

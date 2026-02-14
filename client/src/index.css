@@ -1,25 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg: #09090b;
-  --fg: #fafafa;
+  --bg: #08060f;
+  --fg: #f0eadc;
   --muted: #27272a;
-  --muted-fg: #a1a1aa;
-  --card: #18181b;
-  --card-fg: #fafafa;
+  --muted-fg: #a09a8e;
+  --card: #0a0812;
+  --card-fg: #f0eadc;
   --border: #27272a;
-  --primary: #a78bfa;
-  --primary-fg: #09090b;
-  --radius: 0.5rem;
+  --accent: #d4af37;
+  --primary: #d4af37;
+  --primary-fg: #1a1a1a;
+  --radius: 0.75rem;
 }
 
 body {
   background-color: var(--bg);
   color: var(--fg);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
 }
+
+* { box-sizing: border-box; }
+
+/* ── Cosmic Keyframes ── */
+@keyframes plasmaRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes borderPulse {
+  0% { opacity: var(--pulse-max-opacity, 0.35); transform: scale(1); }
+  60% { opacity: 0; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.06); }
+}
+@keyframes scoreShine { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes auraPulse {
+  0%,100% { transform: scale(1); filter: blur(18px); opacity: 0.45; }
+  50% { transform: scale(1.2); filter: blur(22px); opacity: 0.7; }
+}
+@keyframes orbitalSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes breathe { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.15); opacity: 1; } }
+@keyframes waveFlow { 0% { transform: translateX(-200%); } 100% { transform: translateX(400%); } }
+@keyframes starTrail { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(0); } }
+@keyframes burstGlow { 0% { transform: scale(0.5); opacity: 0.8; } 100% { transform: scale(2); opacity: 0; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Lilith Eye Animations ── */
 @keyframes lilithEyeIdle {
@@ -42,18 +66,28 @@ body {
   60% { opacity: 0.9; filter: blur(0.1px) drop-shadow(0 0 18px #d49137) drop-shadow(0 0 30px rgba(212,145,55,0.3)); }
   100% { opacity: 0.8; filter: blur(0.2px) drop-shadow(0 0 12px rgba(212,145,55,0.6)); }
 }
+@keyframes lilithEmber { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.1; } }
+
 .lilith-eye-idle { animation: lilithEyeIdle 8s ease-in-out infinite; }
 .lilith-eye-active { animation: lilithEyeActive 4.5s ease-in-out infinite; }
 .lilith-eye-truth { animation: lilithEyeTruth 0.5s ease-out forwards; }
 
-/* ── Lilith Avatar Animations ── */
-@keyframes lilithAuraPulse {
-  0%, 100% { transform: scale(1); opacity: 0.35; }
-  50% { transform: scale(1.15); opacity: 0.6; }
+/* ── Slider Thumb ── */
+.fx-slider::-webkit-slider-thumb {
+  appearance: none; width: 15px; height: 15px; border-radius: 50%;
+  background: #f0eadc; border: 2px solid #d4af37;
+  box-shadow: 0 0 10px rgba(212,175,55,0.5); cursor: pointer;
 }
-@keyframes lilithOrbitalSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.fx-slider::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 16px rgba(212,175,55,0.7); }
+.fx-slider::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #f0eadc; border: 2px solid #d4af37;
+  box-shadow: 0 0 10px rgba(212,175,55,0.5); cursor: pointer;
 }
-.lilith-aura-pulse { animation: lilithAuraPulse 3s ease-in-out infinite; }
-.lilith-orbital-spin { animation: lilithOrbitalSpin 22s linear infinite; }
+
+/* ── Preset Buttons ── */
+.fx-preset:hover { border-color: rgba(212,175,55,0.3) !important; background: rgba(212,175,55,0.1) !important; color: #e8e4d9 !important; }
+
+/* ── Hidden Scrollbar ── */
+.hide-sb::-webkit-scrollbar { width: 0; }
+.hide-sb { scrollbar-width: none; }
