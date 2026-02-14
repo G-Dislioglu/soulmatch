@@ -75,6 +75,7 @@ export function LilithAvatar({ size = 52, baseName = 'lilith', onClick }: Lilith
             <ResponsiveArtwork
               baseName={baseName}
               alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
+              variant="thumb"
               sizes="96px"
               onError={() => setImgError(true)}
               style={{
