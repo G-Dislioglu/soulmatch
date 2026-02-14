@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import { Button } from '../../M02_ui-kit';
 import { getStudioProvider } from '../../M09_settings';
+import { MayaPortrait } from './MayaPortrait';
+import { LilithPortrait } from './LilithPortrait';
 import { getLilithIntensity, setLilithIntensity } from '../lib/lilithGate';
 import type { LilithIntensity } from '../lib/lilithGate';
 import { loadChatHistory, appendMessage, clearChatHistory } from '../lib/chatHistory';
@@ -154,11 +156,24 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
       <div className={`w-full max-w-lg rounded-xl border border-[color:var(--border)] ${theme.bg} shadow-2xl flex flex-col max-h-[85vh]`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${theme.headerBg}`}>
-          <div>
-            <h2 className={`text-sm font-bold ${theme.accent}`}>{theme.title}</h2>
-            <p className="text-[10px] text-zinc-500/60 uppercase tracking-wider mt-0.5">
-              {freeMode ? 'Freier Modus' : 'Solo-Chat'}
-            </p>
+          <div className="flex items-center gap-3">
+            {/* Persona portrait in header */}
+            {seat === 'maya' && <MayaPortrait size={48} />}
+            {seat === 'lilith' && <LilithPortrait size={48} />}
+            {seat !== 'maya' && seat !== 'lilith' && (
+              <div className="flex items-center justify-center rounded-lg" style={{
+                width: 48, height: 48 * 1.5, background: 'rgba(255,255,255,0.05)',
+                borderRadius: 8, fontSize: 22,
+              }}>
+                {seat === 'luna' ? '☽' : '△'}
+              </div>
+            )}
+            <div>
+              <h2 className={`text-sm font-bold ${theme.accent}`}>{theme.title}</h2>
+              <p className="text-[10px] text-zinc-500/60 uppercase tracking-wider mt-0.5">
+                {freeMode ? 'Freier Modus' : 'Solo-Chat'}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -247,8 +262,22 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}
             >
+              {/* Persona avatar next to message */}
+              {msg.role === 'persona' && (
+                <div className="flex-shrink-0" style={{ width: 28, height: 28 }}>
+                  {seat === 'maya' && <MayaPortrait size={28} />}
+                  {seat === 'lilith' && <LilithPortrait size={28} />}
+                  {seat !== 'maya' && seat !== 'lilith' && (
+                    <div className="w-full h-full rounded-md flex items-center justify-center" style={{
+                      background: 'rgba(255,255,255,0.06)', fontSize: 14,
+                    }}>
+                      {seat === 'luna' ? '☽' : '△'}
+                    </div>
+                  )}
+                </div>
+              )}
               <div
                 className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                   msg.role === 'user'
