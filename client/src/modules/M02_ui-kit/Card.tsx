@@ -5,7 +5,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {}
 export function Card({ className = '', children, ...rest }: CardProps) {
   return (
     <div
-      className={`rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--card-fg)] ${className}`}
+      className={`rounded-[var(--radius)] border border-white/[0.08] bg-[rgba(10,8,18,0.85)] text-[color:var(--card-fg)] backdrop-blur-sm ${className}`}
       {...rest}
     >
       {children}
@@ -15,7 +15,7 @@ export function Card({ className = '', children, ...rest }: CardProps) {
 
 export function CardHeader({ className = '', children, ...rest }: CardProps) {
   return (
-    <div className={`px-6 py-4 border-b border-[color:var(--border)] ${className}`} {...rest}>
+    <div className={`px-6 py-4 border-b border-white/[0.06] ${className}`} {...rest}>
       {children}
     </div>
   );

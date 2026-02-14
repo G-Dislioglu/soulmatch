@@ -15,7 +15,7 @@ export function Input({ label, id, className = '', ...rest }: InputProps) {
       )}
       <input
         id={inputId}
-        className={`w-full rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-shadow ${className}`}
+        className={`w-full rounded-[var(--radius)] border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 focus:border-[color:var(--primary)]/20 transition-all ${className}`}
         {...rest}
       />
     </div>

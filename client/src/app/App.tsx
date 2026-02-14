@@ -24,6 +24,7 @@ import {
   PageTransition,
   SoulmatchCard,
   ControlsDropdown,
+  CosmicButton,
   DEFAULT_CARD_SETTINGS,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
@@ -182,17 +183,9 @@ function HomePage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setOverlay('settings')}
-              style={{
-                padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                color: '#6b6560', fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 500,
-                transition: 'all 0.3s',
-              }}
-            >
+            <CosmicButton variant="ghost" onClick={() => setOverlay('settings')} style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>
               ⚙ Einstellungen
-            </button>
+            </CosmicButton>
             <ControlsDropdown settings={cardSettings} setSettings={setCardSettings} />
           </div>
         </div>
@@ -233,59 +226,28 @@ function HomePage() {
               </SoulmatchCard>
 
               <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button
-                  onClick={handleComputeScore}
-                  disabled={computing}
-                  style={{
-                    width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
-                    background: `linear-gradient(135deg, ${ACCENT}, #ffe8a0, ${ACCENT})`,
-                    backgroundSize: '200% 200%', animation: 'scoreShine 4s ease-in-out infinite',
-                    color: '#1a1a1a', fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 600,
-                    cursor: computing ? 'wait' : 'pointer', boxShadow: `0 0 20px ${ACCENT}30`,
-                    opacity: computing ? 0.6 : 1,
-                  }}
-                >
+                <CosmicButton variant="gold" onClick={handleComputeScore} disabled={computing}>
                   {computing ? 'Berechne…' : 'Score berechnen'}
-                </button>
+                </CosmicButton>
                 {studioEnabled && (
-                  <button
-                    onClick={() => setActivePage(2)}
-                    style={{
-                      width: '100%', padding: '14px 0', borderRadius: 14,
-                      border: `1px solid ${ACCENT}20`, background: 'rgba(10,8,18,0.8)',
-                      color: '#f0eadc', fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 500,
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <CosmicButton variant="outline" onClick={() => setActivePage(2)}>
                     Studio öffnen
-                  </button>
+                  </CosmicButton>
                 )}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => setOverlay('edit')}
-                    style={{
-                      flex: 1, padding: '12px 0', borderRadius: 12,
-                      border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)',
-                      color: '#a09a8e', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 500,
-                      cursor: 'pointer', transition: 'all 0.3s',
-                    }}
-                  >
+                  <CosmicButton variant="ghost" onClick={() => setOverlay('edit')} style={{ flex: 1 }}>
                     Bearbeiten
-                  </button>
-                  <button
+                  </CosmicButton>
+                  <CosmicButton
+                    variant="ghost"
                     onClick={() => {
                       if (allProfiles.length >= 2) setOverlay('match-select');
                       else setOverlay('new-profile');
                     }}
-                    style={{
-                      flex: 1, padding: '12px 0', borderRadius: 12,
-                      border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)',
-                      color: '#a09a8e', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 500,
-                      cursor: 'pointer', transition: 'all 0.3s',
-                    }}
+                    style={{ flex: 1 }}
                   >
                     Zum Match
-                  </button>
+                  </CosmicButton>
                 </div>
               </div>
             </div>
@@ -381,19 +343,9 @@ function HomePage() {
                     <p style={{ fontSize: 14, color: '#a09a8e', marginBottom: 20 }}>
                       Noch kein Report berechnet.
                     </p>
-                    <button
-                      onClick={handleComputeScore}
-                      disabled={computing}
-                      style={{
-                        padding: '12px 32px', borderRadius: 12, border: 'none',
-                        background: `linear-gradient(135deg, ${ACCENT}, #ffe8a0, ${ACCENT})`,
-                        backgroundSize: '200% 200%', animation: 'scoreShine 4s ease-in-out infinite',
-                        color: '#1a1a1a', fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 600,
-                        cursor: computing ? 'wait' : 'pointer', opacity: computing ? 0.6 : 1,
-                      }}
-                    >
+                    <CosmicButton variant="gold" onClick={handleComputeScore} disabled={computing} style={{ width: 'auto', padding: '12px 32px' }}>
                       {computing ? 'Berechne…' : 'Score berechnen'}
-                    </button>
+                    </CosmicButton>
                   </div>
                 </SoulmatchCard>
               )}
@@ -427,6 +379,7 @@ function HomePage() {
                 profileId={profile.id}
                 onBack={() => setActivePage(0)}
                 lilithUnlocked={hasProfile}
+                embedded
               />
             </div>
           </div>
