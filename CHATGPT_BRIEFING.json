@@ -1,0 +1,445 @@
+{
+  "project": {
+    "name": "Soulmatch",
+    "description": "Webapp für Persönlichkeitsanalyse, Partnerschafts-Matching und KI-gestützte Beratung basierend auf Astrologie und Numerologie.",
+    "repository": "https://github.com/G-Dislioglu/soulmatch",
+    "deployment": {
+      "platform": "Render",
+      "url": "https://soulmatch-dzky.onrender.com",
+      "plan": "free",
+      "autoDeploy": true,
+      "deployTrigger": "git push to main"
+    },
+    "lastUpdated": "2026-02-14T00:40:00+03:00"
+  },
+
+  "stack": {
+    "client": {
+      "framework": "React 18",
+      "language": "TypeScript",
+      "bundler": "Vite 6.4",
+      "styling": "Tailwind CSS",
+      "router": "Wouter",
+      "state": "LocalStorage (kein Backend-Sync)",
+      "packageManager": "pnpm"
+    },
+    "server": {
+      "runtime": "Node.js 20.11",
+      "framework": "Express",
+      "language": "TypeScript",
+      "buildTool": "tsc",
+      "packageManager": "pnpm"
+    },
+    "deployment": {
+      "renderYaml": true,
+      "buildCommand": "npm install -g pnpm && cd client && pnpm install && pnpm build && cd ../server && pnpm install && pnpm build",
+      "startCommand": "node server/dist/index.js"
+    }
+  },
+
+  "architecture": {
+    "pattern": "Modularer Monolith mit strikten Modul-Grenzen",
+    "moduleFormat": "M## — jedes Modul hat index.ts als Public API, keine Deep-Imports",
+    "contractsDir": "client/src/shared/types/",
+    "rules": [
+      "Kein Deep-Import über Modul-Grenzen",
+      "Public API nur über index.ts",
+      "Shared Types als Contracts in shared/types/",
+      "Gates: pnpm typecheck + pnpm build müssen GREEN sein vor jedem Push"
+    ]
+  },
+
+  "modules": {
+    "M01_app-shell": {
+      "name": "App Shell & Routing",
+      "status": "active",
+      "description": "Vite Entry, Wouter Routing, Layout, SPA-Fallback",
+      "keyFiles": ["client/src/app/App.tsx"],
+      "exports": [],
+      "dependsOn": ["M02"]
+    },
+    "M02_ui-kit": {
+      "name": "UI Kit & Theme",
+      "status": "active",
+      "description": "Button, Input, Card Komponenten + Theme Tokens via CSS Custom Properties",
+      "exports": ["Button", "Input", "Card", "CardHeader", "CardContent"],
+      "dependsOn": []
+    },
+    "M03_profile": {
+      "name": "Profile & Onboarding",
+      "status": "active",
+      "description": "Profil-Erfassung (Name, Geburtsdatum, -zeit, -ort), LocalStorage Persistenz, Multi-Profile Support",
+      "exports": ["ProfileForm", "ProfileSummary", "loadProfile", "saveProfile", "clearProfile", "hasValidProfile", "listProfiles", "getProfileById", "setCurrentProfileId", "getCurrentProfile", "getCurrentProfileId", "deleteProfile"],
+      "dependsOn": ["M02"],
+      "notes": "Multi-Profile Storage existiert bereits im Code, aber die UI dafür fehlt noch"
+    },
+    "M04_astrology-adapter": {
+      "name": "Astrology Engine Adapter",
+      "status": "STUB_ONLY",
+      "description": "Interface + Stub-Implementation. Liefert deterministische Fake-Daten, KEINE echte Astrologie-Berechnung.",
+      "exports": ["AstrologyEngine (type)", "buildAstrologyRequestFromProfile", "StubAstrologyEngine", "computeAstrology"],
+      "dependsOn": [],
+      "criticalNote": "DIES IST DER GRÖSSTE BLOCKER. Alle Scores basieren auf Fake-Daten. Swiss Ephemeris (WASM) oder eine API (AstrologyAPI.com) muss integriert werden, damit die App echten Nutzen liefert.",
+      "stubBehavior": "Deterministisch basierend auf Geburtsdatum, liefert immer gleiche fiktive Aspekte/Planeten-Positionen"
+    },
+    "M05_numerology": {
+      "name": "Numerology Engine",
+      "status": "active",
+      "description": "Echte Pythagorean-Numerologie Berechnung (Life Path, Expression, Soul Urge, etc.)",
+      "exports": ["NumerologyEngine (type)", "buildNumerologyRequestFromProfile", "computeNumerology"],
+      "dependsOn": [],
+      "notes": "Funktioniert korrekt mit echten Berechnungen, Master Numbers werden erkannt"
+    },
+    "M06_scoring": {
+      "name": "Scoring & Correlation Layer",
+      "status": "active",
+      "description": "Kombiniert Astrologie + Numerologie zu Score 0-100 mit Begründungs-Claims",
+      "exports": ["ScoringEngine (type)", "computeScore", "buildScoreRequestFromProfile", "scoreNumerology", "scoreAstrology", "scoreFusion"],
+      "dependsOn": ["M04", "M05"],
+      "formula": "scoreOverall = round(0.55 * numerology + 0.35 * astrology + 0.10 * fusion), clamped 0-100",
+      "notes": "Astrology-Subscore basiert aktuell auf Stub-Daten (M04)"
+    },
+    "M07_reports": {
+      "name": "Reports & Rendering",
+      "status": "active",
+      "description": "Report-UI für Profile Score und Match Report",
+      "exports": ["Section", "ReportLayout", "ScoreBar", "ClaimsList", "ProfileReport", "ScoreReport", "ReportPage", "MatchSelector", "MatchReport", "MatchReportPage"],
+      "dependsOn": ["M02", "M03", "M06"]
+    },
+    "M08_studio-chat": {
+      "name": "Studio/Roundtable Chat",
+      "status": "active",
+      "description": "Interaktives Chat-Panel mit 4 KI-Personas (Maya, Luna, Orion, Karma). Echte LLM-Integration über Server-Proxy.",
+      "exports": ["StudioEngine (type)", "StubStudioEngine", "SeatBadge", "TurnsView", "StudioPanel", "StudioPage"],
+      "dependsOn": ["M02", "M09"],
+      "personas": {
+        "maya": "strukturiert, neutral",
+        "luna": "emotional, intuitiv",
+        "orion": "analytisch, logisch",
+        "karma": "skeptisch, warnend"
+      },
+      "currentMode": "profile (nur ein Profil analysieren)",
+      "missingMode": "match (zwei Profile vergleichen) — noch nicht implementiert"
+    },
+    "M09_settings": {
+      "name": "Settings & Provider Router",
+      "status": "active",
+      "description": "Provider-Auswahl (OpenAI/DeepSeek/xAI), API-Key Verwaltung, Model-Dropdown, Feature Flags",
+      "exports": ["loadSettings", "saveSettings", "updateSettings", "defaultModelForProvider", "maskApiKey", "StudioProvider (type)", "getStudioProvider", "SettingsPage"],
+      "dependsOn": ["M02", "M08"]
+    },
+    "M10_quality-gates": {
+      "name": "Quality Gates & Smoke",
+      "status": "minimal",
+      "description": "Nur typecheck + build Scripts. Keine echten Unit-Tests.",
+      "exports": [],
+      "dependsOn": [],
+      "notes": "Vitest ist vorbereitet aber leer. Keine Test-Coverage."
+    },
+    "M11_match": {
+      "name": "Matching Engine",
+      "status": "active",
+      "description": "Vergleicht zwei Profile via M06 Scores, diff-basiertes Matching",
+      "exports": ["MatchEngine (type)", "computeMatch"],
+      "dependsOn": ["M06"],
+      "formula": "matchOverall = round(0.45 * numerology + 0.45 * astrology + 0.10 * fusion)"
+    },
+    "M12_dev-tools": {
+      "name": "Developer Console (Hidden)",
+      "status": "active",
+      "description": "Verstecktes Dev-Panel, nur über geheimen Code '!dev' im Studio-Chat erreichbar. Zeigt Server Health, Logs, Provider Stats.",
+      "exports": ["DevPanel", "setDevToken", "getDevToken"],
+      "dependsOn": ["M02"],
+      "accessMethod": "Im Studio-Chat '!dev' eingeben + Enter → Passwort eingeben → Dev Console öffnet sich",
+      "features": [
+        "Server Health (Uptime, Node Version, Memory, ENV Status)",
+        "Provider Stats (Requests, Erfolg/Fehler, Avg Duration pro Provider)",
+        "Live Logs mit Level-Filter (info/warn/error)",
+        "Client Error Reporting (globaler Error Handler → Server)",
+        "Auto-Refresh alle 10 Sekunden",
+        "Passwort-geschützt, komplett unsichtbar für normale User"
+      ]
+    }
+  },
+
+  "llm_integration": {
+    "status": "FUNKTIONIERT — alle 3 Provider getestet und bestätigt",
+    "architecture": "Client → POST /api/studio → Server-Proxy → Provider API → Structured JSON Response",
+    "providers": {
+      "openai": {
+        "status": "working",
+        "apiUrl": "https://api.openai.com/v1/responses",
+        "apiType": "OpenAI Responses API (NICHT Chat Completions!)",
+        "envKey": "OPENAI_API_KEY",
+        "defaultModel": "gpt-4.1-nano",
+        "availableModels": [
+          "gpt-4.1-nano (günstigste)",
+          "gpt-4.1-mini",
+          "gpt-4.1",
+          "gpt-4o-mini",
+          "gpt-4o",
+          "gpt-5-nano",
+          "gpt-5-mini"
+        ],
+        "structuredOutputs": true,
+        "specialHandling": "Verwendet text.format mit json_schema, name='studio_result', und schema-Objekt. Response-Parsing über output[].content[].text"
+      },
+      "deepseek": {
+        "status": "working",
+        "apiUrl": "https://api.deepseek.com/chat/completions",
+        "apiType": "OpenAI-kompatible Chat Completions API",
+        "envKey": "DEEPSEEK_API_KEY",
+        "defaultModel": "deepseek-chat",
+        "availableModels": [
+          "deepseek-chat (V3.2)",
+          "deepseek-reasoner (R1)"
+        ],
+        "structuredOutputs": false,
+        "specialHandling": "response_format: {type: 'json_object'}, Markdown-Fence-Stripping"
+      },
+      "xai": {
+        "status": "working",
+        "apiUrl": "https://api.x.ai/v1/chat/completions",
+        "apiType": "OpenAI-kompatible Chat Completions API",
+        "envKey": "XAI_API_KEY",
+        "defaultModel": "grok-4-1-fast-reasoning",
+        "availableModels": [
+          "grok-4-1-fast-reasoning (2M context, $0.20/$0.60)",
+          "grok-4-1-fast-non-reasoning (2M context, $0.20/$0.50)",
+          "grok-4-fast-reasoning (4M tpm, $0.20/$0.50)",
+          "grok-4-fast-non-reasoning (4M tpm, $0.20/$0.50)",
+          "grok-4-0709 (256K, $3.00/$15.00)",
+          "grok-code-fast-1 (256K, $0.20/$1.50)"
+        ],
+        "structuredOutputs": false,
+        "criticalNote": "xAI verwendet BINDESTRICHE in Model-IDs, keine Punkte! z.B. grok-4-1-fast-reasoning NICHT grok-4.1-fast"
+      }
+    },
+    "apiKeyResolution": "Server ENV hat Vorrang → dann Client-seitiger Key aus Settings → sonst Fehler",
+    "responseSchema": {
+      "name": "studio_result",
+      "fields": {
+        "turns": "Array von {seat: string, text: string} — 4-8 Persona-Antworten",
+        "nextSteps": "Array von 3 Strings — konkrete Handlungsempfehlungen",
+        "watchOut": "String — warnender Hinweis"
+      },
+      "serverSideNormalization": [
+        "Unwrap result.result oder result.data falls LLM wrapper benutzt",
+        "Rename next_steps → nextSteps (snake_case → camelCase)",
+        "Rename watch_out → watchOut",
+        "Strip Markdown Code-Fences",
+        "meta-Objekt wird serverseitig hinzugefügt (nicht vom LLM erwartet)"
+      ]
+    },
+    "systemPrompt": "4 Personas (maya/luna/orion/karma), ausschließlich JSON, Deutsch, exaktes Schema-Beispiel im Prompt enthalten",
+    "logging": "Jeder LLM-Call wird über devLogger getracked: Provider, Model, Duration, Success/Failure, Schema-Mismatches"
+  },
+
+  "dev_tools": {
+    "status": "active",
+    "accessMethod": "Studio-Chat → '!dev' eingeben → Enter → Passwort eingeben",
+    "authentication": "Eingebautes Passwort im Server-Code, optional überschreibbar via DEV_TOKEN ENV",
+    "serverEndpoints": {
+      "GET /api/dev/health": "Server-Status, ENV-Checks, Provider-Stats, Memory, Uptime",
+      "GET /api/dev/logs": "Ring-Buffer der letzten 200 Log-Einträge, filterbar nach Level/Category",
+      "POST /api/dev/client-error": "Client-seitige Fehler werden an Server gemeldet"
+    },
+    "serverLogger": {
+      "class": "DevLogger (Singleton)",
+      "file": "server/src/devLogger.ts",
+      "bufferSize": 200,
+      "categories": ["llm", "api", "system", "client"],
+      "levels": ["info", "warn", "error"],
+      "tracksPerProvider": "requests, successes, failures, lastError, avgDurationMs"
+    },
+    "clientPanel": {
+      "file": "client/src/modules/M12_dev-tools/ui/DevPanel.tsx",
+      "tabs": ["Health (Server-Info, ENV-Status, Provider-Stats)", "Logs (Live-Log mit Level-Filter)"],
+      "autoRefresh": "alle 10 Sekunden",
+      "errorReporting": "globaler window.onerror + unhandledrejection Handler"
+    }
+  },
+
+  "render_environment_variables": {
+    "OPENAI_API_KEY": "gesetzt ✅",
+    "DEEPSEEK_API_KEY": "gesetzt ✅",
+    "XAI_API_KEY": "gesetzt ✅",
+    "DEV_TOKEN": "nicht gesetzt (wird nicht benötigt, Passwort ist im Code)",
+    "NODE_VERSION": "20.11.0",
+    "notes": "sync: false in render.yaml — alle Keys müssen manuell im Render Dashboard gesetzt werden"
+  },
+
+  "bugs_fixed_in_this_session": [
+    {
+      "id": "BUG-001",
+      "title": "OpenAI: Missing required parameter text.format.name",
+      "rootCause": "OpenAI Responses API erwartet 'name' und 'schema' unter text.format, was im ursprünglichen Code fehlte",
+      "fix": "text.format um name: 'studio_result' und schema: STUDIO_RESULT_SCHEMA.schema ergänzt",
+      "file": "server/src/routes/studio.ts",
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-002",
+      "title": "xAI: Model not found — falsche Model-IDs mit Punkten statt Bindestrichen",
+      "rootCause": "Code verwendete 'grok-4.1-fast' statt 'grok-4-1-fast-reasoning'. xAI nutzt ausschließlich Bindestriche in IDs.",
+      "fix": "Alle xAI Model-IDs in settingsStorage.ts und studio.ts korrigiert, vollständige Liste von xAI Console übernommen",
+      "files": ["client/src/modules/M09_settings/lib/settingsStorage.ts", "server/src/routes/studio.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-003",
+      "title": "xAI: No API key — GROK_API_KEY statt XAI_API_KEY",
+      "rootCause": "ENV-Variable hieß noch GROK_API_KEY nach Rename von 'grok' zu 'xai' Provider",
+      "fix": "render.yaml, .env.example und Code auf XAI_API_KEY umgestellt. Manuelles Update auf Render Dashboard.",
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-004",
+      "title": "LLM Schema Mismatches bei DeepSeek/xAI",
+      "rootCause": "LLMs lieferten snake_case Keys (next_steps, watch_out) oder wrappten Ergebnis in result/data",
+      "fix": "Server-seitige Normalisierung: Unwrap, snake_case→camelCase, Markdown-Fence-Stripping",
+      "file": "server/src/routes/studio.ts",
+      "status": "fixed"
+    },
+    {
+      "id": "BUG-005",
+      "title": "Dev Console zeigte Tabs trotz falschem Passwort",
+      "rootCause": "authenticated wurde auf true gesetzt BEVOR der Server das Passwort validierte",
+      "fix": "Passwort wird jetzt zuerst über fetchHealth() validiert. Nur bei Erfolg wird authenticated=true gesetzt.",
+      "file": "client/src/modules/M12_dev-tools/ui/DevPanel.tsx",
+      "status": "fixed"
+    }
+  ],
+
+  "file_structure": {
+    "root": "soulmatch/",
+    "client/": {
+      "src/app/App.tsx": "Haupt-App mit Wouter Routing, HomePage verwaltet alle Views",
+      "src/shared/types/": "Shared Type Contracts (settings.ts, studio.ts, profile.ts, scoring.ts, match.ts, astrology.ts, numerology.ts)",
+      "src/modules/M01_app-shell/": "App Shell (minimal, exportiert nichts)",
+      "src/modules/M02_ui-kit/": "Button, Input, Card Komponenten",
+      "src/modules/M03_profile/": "ProfileForm, ProfileSummary, profileStorage",
+      "src/modules/M04_astrology-adapter/": "⚠️ NUR STUB — StubAstrologyEngine",
+      "src/modules/M05_numerology/": "Echte Pythagorean Numerologie Engine",
+      "src/modules/M06_scoring/": "Scoring Engine (numScore + astroScore + fusion)",
+      "src/modules/M07_reports/": "Report-UI (ProfileReport, ScoreReport, MatchReport)",
+      "src/modules/M08_studio-chat/": "Studio Chat UI + geheimer !dev Trigger",
+      "src/modules/M09_settings/": "Settings UI + Provider Router + settingsStorage",
+      "src/modules/M10_quality-gates/": "Leer — nur Gates-Definitionen",
+      "src/modules/M11_match/": "Matching Engine (diff-basiert)",
+      "src/modules/M12_dev-tools/": "Hidden Dev Panel + devApi"
+    },
+    "server/": {
+      "src/index.ts": "Express Server Entry — mountet /api/studio und /api/dev",
+      "src/routes/studio.ts": "POST /api/studio — Multi-Provider LLM Proxy (286 Zeilen)",
+      "src/routes/dev.ts": "GET /api/dev/health, GET /api/dev/logs, POST /api/dev/client-error",
+      "src/devLogger.ts": "DevLogger Singleton mit Ring-Buffer + Provider-Stats",
+      "src/studioSchema.ts": "STUDIO_RESULT_SCHEMA (JSON Schema für LLM Output)",
+      "src/studioPrompt.ts": "buildSystemPrompt() + buildUserPrompt() für LLM"
+    },
+    "render.yaml": "Render Deployment Config",
+    ".env.example": "ENV Template"
+  },
+
+  "current_state_summary": {
+    "whatWorks": [
+      "Profil erstellen, bearbeiten, löschen — persistent in LocalStorage",
+      "Multi-Profile Storage (Code existiert, UI noch nicht)",
+      "Numerologie-Berechnung (echt, Pythagorean)",
+      "Astrologie-Berechnung (NUR STUB — Fake-Daten!)",
+      "Scoring (0-100) mit Begründungs-Claims",
+      "Match-Scoring zwischen zwei Profilen",
+      "Profile Report + Match Report UI",
+      "Studio Chat mit 4 KI-Personas über echte LLM-APIs",
+      "3 LLM-Provider (OpenAI, DeepSeek, xAI) — alle funktionsfähig",
+      "Model-Dropdown in Settings",
+      "Hidden Developer Console mit Logging + Health + Stats",
+      "Auto-Deploy auf Render bei git push"
+    ],
+    "whatDoesNotWork": [
+      "M04 Astrologie ist ein Stub — alle Astrologie-Daten sind fake",
+      "Studio hat nur 'profile' Modus — 'match' Modus fehlt",
+      "Keine echten Unit-Tests",
+      "Keine User-Authentifizierung",
+      "Kein Server-seitiger Daten-Sync (alles LocalStorage)",
+      "Multi-Profile UI fehlt (nur Code, keine Oberfläche)",
+      "Mobile Responsive ist nicht optimiert"
+    ]
+  },
+
+  "recommended_next_steps": [
+    {
+      "priority": 1,
+      "title": "M04: Echte Astrologie-Berechnung",
+      "description": "Der Stub durch eine echte Engine ersetzen. Optionen: (A) Swiss Ephemeris via WASM im Browser, (B) Server-seitige Berechnung mit swisseph Node-Modul, (C) Externe API wie AstrologyAPI.com. Dies ist der größte Qualitätsblocker — ohne echte Astrologie-Daten sind alle Scores und Matches unbrauchbar.",
+      "complexity": "hoch",
+      "impact": "sehr hoch — verbessert alle Scores, Reports und Matches",
+      "recommendation": "Option B (Server-seitig) ist am stabilsten. swisseph npm-Paket existiert."
+    },
+    {
+      "priority": 2,
+      "title": "Studio Match-Modus",
+      "description": "Im Studio zwei Profile vergleichen lassen. Die 4 Personas (Maya, Luna, Orion, Karma) analysieren die Kompatibilität. Backend-Unterstützung (match mode, matchExcerpt) ist bereits vorbereitet in studio.ts.",
+      "complexity": "mittel",
+      "impact": "hoch — starkes User-Feature für Paare/Freunde",
+      "existingSupport": "studioRequest.mode === 'match' und matchExcerpt sind bereits im API-Schema definiert"
+    },
+    {
+      "priority": 3,
+      "title": "UX & Polish",
+      "description": "Mobile Responsive optimieren, Loading Skeletons, bessere Error-Handling UI (Retry-Button), Onboarding-Flow für neue User, Animations/Transitions.",
+      "complexity": "mittel",
+      "impact": "mittel — wichtig für User Experience"
+    },
+    {
+      "priority": 4,
+      "title": "Unit-Tests mit Vitest",
+      "description": "Tests für Numerologie-Engine, Scoring-Regeln, Matching-Logik, Schema-Validierung. Vitest ist bereits als Dependency vorhanden, aber keine Tests geschrieben.",
+      "complexity": "niedrig-mittel",
+      "impact": "mittel — verhindert Regressionen bei weiterer Entwicklung"
+    },
+    {
+      "priority": 5,
+      "title": "Multi-Profile UI",
+      "description": "M03 hat bereits listProfiles(), getProfileById(), deleteProfile() — die UI zum Verwalten mehrerer Profile fehlt aber. Ermöglicht Matching zwischen verschiedenen Personen.",
+      "complexity": "niedrig",
+      "impact": "mittel"
+    },
+    {
+      "priority": 6,
+      "title": "Server-Sync & Authentifizierung",
+      "description": "User-Accounts, Server-seitige Datenspeicherung statt LocalStorage. Notwendig für echte Nutzung, aber niedrige Priorität für MVP.",
+      "complexity": "hoch",
+      "impact": "hoch für Produktion, niedrig für MVP"
+    }
+  ],
+
+  "hard_rules_for_development": [
+    "Kein Scope-Drift — ein Feature nach dem anderen",
+    "Keine Refactors/Rewrites ohne expliziten Auftrag",
+    "Minimaler File-Touch — so wenig Dateien wie möglich ändern",
+    "Keine neuen Dependencies ohne Zustimmung",
+    "UI/UX unverändert außer bei UI-Task",
+    "Gates Pflicht: pnpm typecheck + pnpm build müssen GREEN sein vor jedem Push",
+    "Kein Dummy/Stub-Code der still benutzt wird — Fehler explizit melden",
+    "Phase B (DEV): package.json existiert → No-Refactor strikt"
+  ],
+
+  "critical_technical_details": {
+    "openai_api": {
+      "warning": "OpenAI verwendet die RESPONSES API (v1/responses), NICHT Chat Completions (v1/chat/completions). Das Format ist anders: 'input' statt 'messages', 'text.format' statt 'response_format', Response hat 'output[].content[].text' statt 'choices[].message.content'."
+    },
+    "xai_model_ids": {
+      "warning": "xAI Model-IDs verwenden BINDESTRICHE, keine Punkte. 'grok-4-1-fast-reasoning' ist korrekt, 'grok-4.1-fast' ist FALSCH und liefert 'Model not found'."
+    },
+    "render_env": {
+      "warning": "render.yaml hat sync: false — ENV-Variablen müssen MANUELL im Render Dashboard gesetzt werden. Änderungen in render.yaml aktualisieren NICHT automatisch bestehende ENV-Variablen."
+    },
+    "astrology_stub": {
+      "warning": "M04 liefert deterministische Fake-Daten. Alle Scores die auf Astrologie basieren (35% des Gesamt-Scores, 45% des Match-Scores) sind NICHT aussagekräftig bis eine echte Engine integriert wird."
+    },
+    "dev_console_access": {
+      "info": "Im Studio-Chat '!dev' eingeben → Passwort-Feld erscheint → Passwort eingeben. Komplett unsichtbar für normale User. Kein Menü-Eintrag, keine Route, kein sichtbarer Hinweis."
+    }
+  }
+}

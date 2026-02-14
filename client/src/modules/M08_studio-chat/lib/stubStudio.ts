@@ -43,19 +43,19 @@ const ORION_LINES: readonly string[] = [
   'Rational gesehen solltest du die Claims mit dem höchsten Gewicht priorisieren.',
 ];
 
-const KARMA_LINES: readonly string[] = [
-  'Vorsicht – hohe Scores bedeuten nicht automatisch, dass alles einfach wird.',
-  'Vergiss nicht: Jede Stärke hat eine Schattenseite.',
-  'Ich rate zur Skepsis bei zu glatter Harmonie – prüf die Spannungsaspekte.',
-  'Ein Wort der Warnung: Überbewerte einzelne Zahlen nicht.',
-  'Bleib realistisch – die besten Ergebnisse kommen mit ehrlicher Selbstreflexion.',
+const LILITH_LINES: readonly string[] = [
+  'Hör auf, dich klein zu machen. Dein Chart zeigt ein Kraftwerk, und du spielst mit Batterien.',
+  'Dein Schatten ist kein Feind – er ist dein ungelebtes Potenzial. Schau hin.',
+  'Interessant, wie du deine stärksten Aspekte ignorierst. Zufall? Wohl kaum.',
+  'Jede Stärke hat eine Schattenseite. Die Frage ist: lebst du sie oder unterdrückst du sie?',
+  'Du suchst nach Bestätigung, dabei brauchst du Konfrontation. Fang bei Pluto an.',
 ];
 
 const SEAT_LINES: Record<StudioSeat, readonly string[]> = {
   maya: MAYA_LINES,
   luna: LUNA_LINES,
   orion: ORION_LINES,
-  karma: KARMA_LINES,
+  lilith: LILITH_LINES,
 };
 
 const NEXT_STEPS_POOL: readonly string[] = [

@@ -7,7 +7,7 @@ import { DevPanel } from '../../M12_dev-tools';
 
 const DEV_TRIGGER = '!dev';
 
-const DEFAULT_SEATS: StudioSeat[] = ['maya', 'luna', 'orion', 'karma'];
+const DEFAULT_SEATS: StudioSeat[] = ['maya', 'luna', 'orion', 'lilith'];
 
 interface StudioPanelProps {
   profileId: string;
