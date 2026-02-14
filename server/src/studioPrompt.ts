@@ -79,14 +79,20 @@ Psychologische Sicherheitsregeln:
 - Baue ein mentales Profil des Users auf und passe dich im Verlauf an.`;
 }
 
-export function buildSoloSystemPrompt(seat: string, lilithIntensity: LilithIntensity = 'ehrlich'): string {
+export function buildSoloSystemPrompt(seat: string, lilithIntensity: LilithIntensity = 'ehrlich', freeMode = false): string {
   const personaBlock = seat === 'lilith'
     ? buildLilithSoloBlock(lilithIntensity)
     : (PERSONA_DESCRIPTIONS[seat] ?? PERSONA_DESCRIPTIONS.maya);
 
+  const modeBlock = freeMode
+    ? `Du befindest dich im FREIEN MODUS. Der User kann über JEDES Thema sprechen — Politik, Wetter, Philosophie, Alltag, Witze, was auch immer.
+Bleibe in deinem Charakter und deiner Persönlichkeit, aber beschränke dich NICHT auf Soulmatch/Astrologie/Numerologie.
+Du darfst Meinungen haben, kreativ sein, und frei diskutieren — immer in deinem Persona-Stil.`
+    : 'Du befindest dich in einem Solo-Chat. Der User spricht nur mit dir. Freie Themen sind erlaubt — du musst nicht auf Profil-Daten bestehen.';
+
   return `${personaBlock}
 
-Du befindest dich in einem Solo-Chat. Der User spricht nur mit dir. Freie Themen sind erlaubt — du musst nicht auf Profil-Daten bestehen.
+${modeBlock}
 
 Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
 

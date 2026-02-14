@@ -57,6 +57,7 @@ interface StudioRequestBody {
   matchExcerpt?: string;
   lilithIntensity?: LilithIntensity;
   soloPersona?: string;
+  freeMode?: boolean;
 }
 
 function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | undefined {
@@ -181,7 +182,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
 
   const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
   const systemPrompt = body.soloPersona
-    ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity)
+    ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity, body.freeMode ?? false)
     : buildSystemPrompt(lilithIntensity);
   const userPrompt = buildUserPrompt({
     mode: studioRequest.mode,

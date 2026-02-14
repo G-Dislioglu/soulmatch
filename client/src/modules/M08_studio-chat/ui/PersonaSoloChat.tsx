@@ -39,6 +39,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [freeMode, setFreeMode] = useState(false);
   const [intensity, setIntensity] = useState<LilithIntensity>(getLilithIntensity);
   const [blocked, setBlocked] = useState(isBlocked);
   const [sensitivityScore, setSensitivityScore] = useState(() => getSensitivityState().score);
@@ -131,6 +132,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
       }, {
         lilithIntensity: effectiveIntensity,
         soloPersona: seat,
+        freeMode,
       });
 
       const turn = res.turns[0];
@@ -154,11 +156,21 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         <div className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${theme.headerBg}`}>
           <div>
             <h2 className={`text-sm font-bold ${theme.accent}`}>{theme.title}</h2>
-            {isLilith && (
-              <p className="text-[10px] text-orange-500/60 uppercase tracking-wider mt-0.5">Solo-Chat</p>
-            )}
+            <p className="text-[10px] text-zinc-500/60 uppercase tracking-wider mt-0.5">
+              {freeMode ? 'Freier Modus' : 'Solo-Chat'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setFreeMode(!freeMode)}
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider transition-all ${
+                freeMode
+                  ? 'bg-emerald-600/25 text-emerald-300 border border-emerald-500/40'
+                  : 'text-zinc-500 hover:text-zinc-300 border border-zinc-700/50 hover:border-zinc-600/50'
+              }`}
+            >
+              {freeMode ? '🎯 Soulmatch' : '💬 Frei'}
+            </button>
             {messages.length > 0 && (
               <button
                 onClick={handleClear}

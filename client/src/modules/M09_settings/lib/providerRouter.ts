@@ -7,6 +7,7 @@ export type LilithIntensity = 'mild' | 'ehrlich' | 'brutal';
 export interface StudioCallOptions {
   lilithIntensity?: LilithIntensity;
   soloPersona?: string;
+  freeMode?: boolean;
 }
 
 export interface StudioProvider {
@@ -35,6 +36,7 @@ class LLMProvider implements StudioProvider {
         model: this.model,
         lilithIntensity: opts?.lilithIntensity ?? 'ehrlich',
         soloPersona: opts?.soloPersona,
+        freeMode: opts?.freeMode ?? false,
       }),
     });
 
