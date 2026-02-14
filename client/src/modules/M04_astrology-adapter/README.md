@@ -1,25 +1,51 @@
-# M04 — Astrology Engine Adapter
+# M04 — Astrology Engine
 
-**Summary:** Schnittstelle + Adapter-Layer für echte Astrologie-Berechnung (Swiss Ephemeris später).
+**Summary:** Echte astronomische Berechnungen basierend auf JPL-Orbitalelementen und Meeus-Algorithmen. Keine externen Dependencies.
 
 ## Features
-- AstrologyEngine interface (compute: Request → Result)
-- buildAstrologyRequestFromProfile (defaults: tropical, placidus, all include true)
-- StubAstrologyEngine (deterministisch, seed = profileId+birthDate+birthTime)
-- computeAstrology convenience function (default stub)
+- **RealAstrologyEngine** — Echte Planetenpositionen (Sonne, Mond, Merkur–Pluto, Chiron, Lilith)
+- **Astronomische Berechnungen** (astronomy.ts):
+  - Julian Day Konvertierung
+  - Planetenpositionen via JPL DE405 Orbitalelemente + Kepler-Gleichung
+  - Mondposition (Meeus Kap. 47, 16 Hauptterme)
+  - Mean Black Moon Lilith (Mondapogäum)
+  - Chiron (Näherung via Orbitalelemente)
+  - Retrograde-Erkennung
+  - Sternzeit (GMST) → ASC/MC Berechnung
+  - Häuserspitzen (Equal House + Whole Sign)
+  - Aspekt-Erkennung (Konjunktion, Opposition, Trigon, Quadrat, Sextil)
+- **Geocoding** (geocode.ts): Statische Tabelle mit ~100 Städten (DE/AT/CH/TR/EU/Welt)
+- **Zeitzonen + DST** Approximation für UT-Konvertierung
+- StubAstrologyEngine bleibt als Fallback/Testengine erhalten
+
+## Genauigkeit
+| Himmelskörper | Genauigkeit | Methode |
+|---|---|---|
+| Sonne | ~0.01° | VSOP87-äquivalent via JPL-Elemente |
+| Mond | ~0.3° | Meeus Kap. 47 (16 Terme) |
+| Merkur–Saturn | ~1° | JPL Orbitalelemente |
+| Uranus–Neptun | ~1° | JPL + Perturbationsterme |
+| Pluto | ~2° | JPL Orbitalelemente |
+| Chiron | ~3° | Näherung |
+| Lilith | exakt | Mittleres Mondapogäum (lineare Rate) |
+
+Gültigkeitsbereich: **1800–2050 AD**
 
 ## Public Exports
-- `index.ts`: AstrologyEngine (type), buildAstrologyRequestFromProfile, StubAstrologyEngine, computeAstrology
+- `AstrologyEngine` (type)
+- `buildAstrologyRequestFromProfile`
+- `computeAstrology` (nutzt RealAstrologyEngine als Default)
+- `RealAstrologyEngine`, `StubAstrologyEngine`
 
-## Dependencies
-- shared/types/astrology (Contracts)
-- shared/types/profile (UserProfile für Request Builder)
+## Dateien
+- `lib/astronomy.ts` — Kern-Astronomie (Julian Day, Planeten, Mond, Häuser, Aspekte)
+- `lib/geocode.ts` — Stadtname → {lat, lon, tz} + UT-Konvertierung
+- `lib/realEngine.ts` — AstrologyEngine-Implementierung
+- `lib/stubEngine.ts` — Deterministische Testdaten (Legacy)
+- `lib/astrologyEngine.ts` — Interface + Request-Builder
 
-## Non-Goals
-- Keine echte Swiss Ephemeris Integration im MVP (nur Stub)
-- Keine UI in diesem Modul
-
-## Smoke Test
-1) buildAstrologyRequestFromProfile(profile) → valider AstrologyRequest mit defaults
-2) computeAstrology(request) → AstrologyResult mit planets/angles/houses/aspects Arrays
-3) Gleicher Input → gleicher Output (deterministisch)
+## Einschränkungen
+- Häusersystem: Nur Equal House und Whole Sign (kein Placidus-Iteration)
+- Geburtsort muss in der statischen Tabelle sein (sonst keine Häuser/ASC/MC)
+- DST-Berechnung ist approximativ (±1h möglich an Umstellungstagen)
+- Ohne Geburtszeit: Mittag-Default, Mond ±6° unsicher
