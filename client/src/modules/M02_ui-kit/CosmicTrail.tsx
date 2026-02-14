@@ -18,8 +18,15 @@ export function CosmicTrail({ containerRef }: CosmicTrailProps) {
   const moving = useRef(false);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef(0);
+  const isTouch = useRef(false);
 
   useEffect(() => {
+    // Detect touch-primary devices and skip canvas entirely
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      isTouch.current = true;
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -129,6 +136,8 @@ export function CosmicTrail({ containerRef }: CosmicTrailProps) {
       cancelAnimationFrame(frame.current);
     };
   }, [containerRef]);
+
+  if (isTouch.current) return null;
 
   return (
     <canvas

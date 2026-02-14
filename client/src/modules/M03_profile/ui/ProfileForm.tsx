@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, Card, CardHeader, CardContent } from '../../M02_ui-kit';
+import { Button, Input } from '../../M02_ui-kit';
 import type { UserProfile } from '../../../shared/types/profile';
 import {
   validateProfileDraft,
@@ -67,69 +67,63 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <h1 className="text-xl font-bold">Profil anlegen</h1>
-        <p className="text-sm text-[color:var(--muted-fg)]">Deine Basisdaten für Soulmatch</p>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div>
-          <Input
-            label="Name"
-            type="text"
-            placeholder="Dein Name"
-            value={draft.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-          />
-          {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name}</p>}
-        </div>
+    <div className="flex flex-col gap-4">
+      <div>
+        <Input
+          label="Name"
+          type="text"
+          placeholder="Dein Name"
+          value={draft.name}
+          onChange={(e) => handleChange('name', e.target.value)}
+        />
+        {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name}</p>}
+      </div>
 
-        <div>
-          <Input
-            label="Geburtsdatum"
-            type="date"
-            value={draft.birthDate}
-            onChange={(e) => handleChange('birthDate', e.target.value)}
-          />
-          {errors.birthDate && <p className="mt-1 text-sm text-red-400">{errors.birthDate}</p>}
-        </div>
+      <div>
+        <Input
+          label="Geburtsdatum"
+          type="date"
+          value={draft.birthDate}
+          onChange={(e) => handleChange('birthDate', e.target.value)}
+        />
+        {errors.birthDate && <p className="mt-1 text-sm text-red-400">{errors.birthDate}</p>}
+      </div>
 
-        <div>
-          <Input
-            label="Geburtszeit (optional)"
-            type="time"
-            value={draft.birthTime}
-            onChange={(e) => handleChange('birthTime', e.target.value)}
-          />
-          {errors.birthTime && <p className="mt-1 text-sm text-red-400">{errors.birthTime}</p>}
-        </div>
+      <div>
+        <Input
+          label="Geburtszeit (optional)"
+          type="time"
+          value={draft.birthTime}
+          onChange={(e) => handleChange('birthTime', e.target.value)}
+        />
+        {errors.birthTime && <p className="mt-1 text-sm text-red-400">{errors.birthTime}</p>}
+      </div>
 
-        <div>
-          <Input
-            label="Geburtsort (optional)"
-            type="text"
-            placeholder="z.B. Berlin"
-            value={draft.birthPlace}
-            onChange={(e) => handleChange('birthPlace', e.target.value)}
-          />
-          {errors.birthPlace && <p className="mt-1 text-sm text-red-400">{errors.birthPlace}</p>}
-        </div>
+      <div>
+        <Input
+          label="Geburtsort (optional)"
+          type="text"
+          placeholder="z.B. Berlin"
+          value={draft.birthPlace}
+          onChange={(e) => handleChange('birthPlace', e.target.value)}
+        />
+        {errors.birthPlace && <p className="mt-1 text-sm text-red-400">{errors.birthPlace}</p>}
+      </div>
 
-        <div className="flex gap-2 pt-2">
-          <Button variant="primary" disabled={isRequiredEmpty} onClick={handleSubmit}>
-            Speichern & Weiter
-          </Button>
-          <Button variant="secondary" onClick={handleReset}>
-            Zurücksetzen
-          </Button>
-        </div>
+      <div className="flex gap-2 pt-2">
+        <Button variant="primary" disabled={isRequiredEmpty} onClick={handleSubmit}>
+          Speichern & Weiter
+        </Button>
+        <Button variant="secondary" onClick={handleReset}>
+          Zurücksetzen
+        </Button>
+      </div>
 
-        {initialProfile && onDelete && (
-          <Button variant="secondary" size="sm" onClick={onDelete} className="mt-2">
-            Profil löschen
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+      {initialProfile && onDelete && (
+        <Button variant="secondary" size="sm" onClick={onDelete} className="mt-2">
+          Profil löschen
+        </Button>
+      )}
+    </div>
   );
 }

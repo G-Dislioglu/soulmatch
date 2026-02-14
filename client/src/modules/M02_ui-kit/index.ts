@@ -11,3 +11,4 @@ export { SoulmatchCard, DEFAULT_CARD_SETTINGS } from './SoulmatchCard';
 export type { CardSettings } from './SoulmatchCard';
 export { ControlsDropdown } from './ControlsDropdown';
 export { CosmicButton } from './CosmicButton';
+export { ScoreSkeleton } from './ScoreSkeleton';

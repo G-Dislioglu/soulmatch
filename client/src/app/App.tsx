@@ -25,6 +25,7 @@ import {
   SoulmatchCard,
   ControlsDropdown,
   CosmicButton,
+  ScoreSkeleton,
   DEFAULT_CARD_SETTINGS,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
@@ -148,20 +149,40 @@ function HomePage() {
 
   if (overlay === 'new-profile') {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <ProfileForm onSaved={handleNewProfileSaved} />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>Neues Profil</h1>
+            <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
+          </div>
+          <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+            <ProfileForm onSaved={handleNewProfileSaved} />
+          </SoulmatchCard>
+        </div>
       </div>
     );
   }
 
   if (overlay === 'edit' || !hasProfile) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <ProfileForm
-          initialProfile={profile}
-          onSaved={handleSaved}
-          onDelete={profile ? handleDelete : undefined}
-        />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
+              {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
+            </h1>
+            <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
+              {hasProfile ? 'Deine Basisdaten anpassen' : 'Erstelle dein Profil für kosmische Einblicke'}
+            </p>
+          </div>
+          <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+            <ProfileForm
+              initialProfile={profile}
+              onSaved={handleSaved}
+              onDelete={profile ? handleDelete : undefined}
+            />
+          </SoulmatchCard>
+        </div>
       </div>
     );
   }
@@ -267,7 +288,11 @@ function HomePage() {
             </div>
 
             <div style={{ maxWidth: 500, margin: '0 auto' }}>
-              {scoreResult ? (
+              {computing ? (
+                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                  <ScoreSkeleton />
+                </SoulmatchCard>
+              ) : scoreResult ? (
                 <>
                   <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                     {/* Score overview */}
