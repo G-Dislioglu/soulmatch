@@ -53,6 +53,7 @@ function HomePage() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
   const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
+  const [soloTrigger, setSoloTrigger] = useState<PreviewSeat>(null);
 
   useEffect(() => {
     setProfile(loadProfile());
@@ -425,6 +426,8 @@ function HomePage() {
                 embedded
                 allProfiles={allProfiles}
                 onComputeMatch={handleStudioMatch}
+                initialSoloSeat={soloTrigger}
+                onSoloChatOpened={() => setSoloTrigger(null)}
               />
             </div>
 
@@ -433,6 +436,7 @@ function HomePage() {
               <PersonaPreview
                 seat={previewSeat}
                 onStartChat={() => {
+                  setSoloTrigger(previewSeat);
                   setPreviewSeat(null);
                 }}
                 onClose={() => setPreviewSeat(null)}

@@ -48,6 +48,8 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   const [blocked, setBlocked] = useState(isBlocked);
   const [sensitivityScore, setSensitivityScore] = useState(() => getSensitivityState().score);
   const [autoNotice, setAutoNotice] = useState<string | null>(null);
+  const [sigilState, setSigilState] = useState<SigilState>('idle');
+  const [showAuraSnap, setShowAuraSnap] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const theme = SEAT_THEMES[seat];
@@ -56,6 +58,12 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  // Aura-snap flash on mount
+  useEffect(() => {
+    const t = setTimeout(() => setShowAuraSnap(false), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   function handleIntensityChange(level: LilithIntensity) {
     setIntensity(level);
@@ -157,6 +165,12 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         const personaMsg: ChatMessage = { role: 'persona', seat, text: turn.text, timestamp: new Date().toISOString() };
         const withResponse = appendMessage(seat, personaMsg);
         setMessages(withResponse);
+
+        // Trigger 'truth' sigil flash for Lilith brutal responses
+        if (isLilith && effectiveIntensity === 'brutal') {
+          setSigilState('truth');
+          setTimeout(() => setSigilState('idle'), 1200);
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -168,6 +182,17 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      {/* Aura-snap flash on open */}
+      {showAuraSnap && (
+        <div style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 51,
+          background: `radial-gradient(circle at 50% 50%, ${
+            isLilith ? 'rgba(212,145,55,0.15)' : seat === 'maya' ? 'rgba(168,85,247,0.15)'
+            : seat === 'luna' ? 'rgba(192,132,252,0.15)' : 'rgba(56,189,248,0.15)'
+          } 0%, transparent 60%)`,
+          animation: 'auraSnap 0.6s ease-out forwards',
+        }} />
+      )}
       <div className={`w-full max-w-lg rounded-xl border border-[color:var(--border)] ${theme.bg} shadow-2xl flex flex-col max-h-[85vh]`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${theme.headerBg}`}>
@@ -272,7 +297,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         {/* Live Sigil Strip */}
         <LiveSigil
           seat={seat}
-          state={(loading ? 'speaking' : input.trim() ? 'typing' : 'idle') as SigilState}
+          state={sigilState !== 'idle' ? sigilState : (loading ? 'speaking' : input.trim() ? 'typing' : 'idle')}
         />
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 min-h-0">
           {messages.length === 0 && (

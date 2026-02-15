@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import type { UserProfile } from '../../../shared/types/profile';
 import type { MatchScoreResult } from '../../../shared/types/match';
@@ -14,6 +14,8 @@ interface StudioPageProps {
   embedded?: boolean;
   allProfiles?: UserProfile[];
   onComputeMatch?: (aId: string, bId: string) => Promise<MatchScoreResult | null>;
+  initialSoloSeat?: StudioSeat | null;
+  onSoloChatOpened?: () => void;
 }
 
 const ACCENT = '#d4af37';
@@ -25,8 +27,17 @@ export function StudioPage({
   embedded = false,
   allProfiles = [],
   onComputeMatch,
+  initialSoloSeat,
+  onSoloChatOpened,
 }: StudioPageProps) {
   const [soloSeat, setSoloSeat] = useState<StudioSeat | null>(null);
+
+  useEffect(() => {
+    if (initialSoloSeat) {
+      setSoloSeat(initialSoloSeat);
+      onSoloChatOpened?.();
+    }
+  }, [initialSoloSeat]);
   const [matchMode, setMatchMode] = useState(false);
   const [matchTargetId, setMatchTargetId] = useState('');
   const [matchResult, setMatchResult] = useState<MatchScoreResult | null>(null);
