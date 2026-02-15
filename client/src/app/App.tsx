@@ -59,7 +59,8 @@ function HomePage() {
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
   const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
   const [soloTrigger, setSoloTrigger] = useState<PreviewSeat>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
   const [showCrossing, setShowCrossing] = useState(false);
 
@@ -146,7 +147,8 @@ function HomePage() {
     onOpenSoulCard: (card) => setActiveSoulCard(card),
   }), []);
 
-  const toggleSidebar = useCallback(() => setSidebarOpen((p) => !p), []);
+  const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
+  const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
 
   // ── Maya Command Callbacks ──
   const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
@@ -303,39 +305,39 @@ function HomePage() {
 
       {/* Sidebar */}
       <Sidebar
-        open={sidebarOpen}
-        onToggle={toggleSidebar}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleCollapse}
+        mobileOpen={mobileDrawerOpen}
+        onMobileClose={closeMobileDrawer}
         lastScore={scoreResult?.scoreOverall ?? null}
         callbacks={sidebarCallbacks}
       />
 
-      <div style={{
+      <div className="app-content-main" style={{
         position: 'relative', zIndex: 10,
         padding: '32px 28px 60px', maxWidth: 1100,
-        marginLeft: sidebarOpen ? 280 : 0,
+        marginLeft: sidebarCollapsed ? 56 : 280,
         marginRight: 'auto',
-        transition: 'margin-left 0.3s ease',
+        transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Hamburger / sidebar toggle */}
-            {!sidebarOpen && (
-              <button
-                onClick={toggleSidebar}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#5a5550', fontSize: 20, padding: '4px 6px',
-                  borderRadius: 6, transition: 'color 0.2s ease',
-                  lineHeight: 1,
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; }}
-                aria-label="Sidebar öffnen"
-              >
-                ☰
-              </button>
-            )}
+            {/* Mobile-only hamburger */}
+            <button
+              className="mobile-hamburger"
+              onClick={() => setMobileDrawerOpen(true)}
+              style={{
+                display: 'none',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#5a5550', fontSize: 20, padding: '4px 6px',
+                borderRadius: 6, lineHeight: 1,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              aria-label="Sidebar öffnen"
+            >
+              ☰
+            </button>
             <div>
               <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
                 Soulmatch

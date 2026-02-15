@@ -10,6 +10,7 @@ import * as soulCardService from '../lib/soulCardService';
 
 const ACCENT = '#d4af37';
 const SIDEBAR_W = 280;
+const SIDEBAR_COLLAPSED_W = 56;
 const RECAP_SESSION_KEY = 'soulmatch_recap_dismissed';
 
 /* ═══════════════════════════════════════════
@@ -48,8 +49,10 @@ export interface SidebarCallbacks {
 }
 
 export interface SidebarProps {
-  open: boolean;
-  onToggle: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
   lastScore?: number | null;
   callbacks?: SidebarCallbacks;
 }
@@ -266,7 +269,7 @@ function SoulCardEntry({
    Sidebar  (main export)
    ═══════════════════════════════════════════ */
 
-export function Sidebar({ open, onToggle, lastScore, callbacks }: SidebarProps) {
+export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose, lastScore, callbacks }: SidebarProps) {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [soulCards, setSoulCards] = useState<SoulCard[]>([]);
   const [showRecap, setShowRecap] = useState(false);
@@ -287,10 +290,10 @@ export function Sidebar({ open, onToggle, lastScore, callbacks }: SidebarProps) 
     }
   }, [refresh, lastScore]);
 
-  // Refresh when sidebar opens
+  // Refresh when sidebar expands or mobile opens
   useEffect(() => {
-    if (open) refresh();
-  }, [open, refresh]);
+    if (!collapsed || mobileOpen) refresh();
+  }, [collapsed, mobileOpen, refresh]);
 
   const dismissRecap = useCallback(() => {
     setShowRecap(false);
@@ -326,13 +329,15 @@ export function Sidebar({ open, onToggle, lastScore, callbacks }: SidebarProps) 
 
   const visibleCards = showAllCards ? soulCards : soulCards.slice(0, 3);
 
+  const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_W : SIDEBAR_W;
+
   return (
     <>
       {/* ── Sidebar panel ── */}
       <aside
-        className={`sidebar ${open ? 'sidebar-open' : ''}`}
+        className={`sidebar ${mobileOpen ? 'sidebar-mobile-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}
         style={{
-          width: SIDEBAR_W,
+          width: sidebarWidth,
           height: '100vh',
           position: 'fixed',
           left: 0,
@@ -343,156 +348,239 @@ export function Sidebar({ open, onToggle, lastScore, callbacks }: SidebarProps) 
           flexDirection: 'column',
           zIndex: 40,
           overflow: 'hidden',
-          transition: 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+          transition: 'width 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
         {/* Ambient light overlay */}
-        <div className="sidebar-ambient" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }} />
+        {!collapsed && <div className="sidebar-ambient" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }} />}
 
         {/* Header */}
         <div style={{
-          padding: '20px 16px 12px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: collapsed ? '20px 0 12px' : '20px 16px 12px',
+          display: 'flex', justifyContent: collapsed ? 'center' : 'space-between', alignItems: 'center',
           flexShrink: 0,
         }}>
-          <div style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 20, fontWeight: 700, color: '#f0eadc',
-            letterSpacing: '0.02em',
-          }}>
-            Soulmatch
-          </div>
-          <button
-            onClick={onToggle}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#5a5550', fontSize: 16, padding: '4px 6px',
-              borderRadius: 6, transition: 'all 0.2s ease',
-              lineHeight: 1,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; }}
-            aria-label="Sidebar schließen"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Maya Recap */}
-        {showRecap && (
-          <MayaRecap
-            lastScore={lastScore}
-            onDismiss={dismissRecap}
-            onContinue={() => {
-              dismissRecap();
-              callbacks?.onNavigateScore?.('');
-            }}
-          />
-        )}
-
-        {/* Timeline entries (scrollable) */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4 }} className="hidden-scrollbar">
-          {/* Section label */}
-          <div style={{
-            padding: '0 16px 8px',
-            fontSize: 9, fontWeight: 600, color: '#5a5550',
-            textTransform: 'uppercase', letterSpacing: '0.12em',
-          }}>
-            Timeline
-          </div>
-
-          {entries.length === 0 ? (
-            <div style={{ padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>◈</div>
-              <div style={{ fontSize: 11, color: '#5a5550', lineHeight: 1.5 }}>
-                Noch keine Einträge.<br />
-                Berechne deinen Score oder starte einen Chat.
-              </div>
-            </div>
-          ) : (
-            entries.map((entry, i) => (
-              <TimelineEntryCard
-                key={entry.id}
-                entry={entry}
-                index={i}
-                onClick={() => handleEntryClick(entry)}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Soul Cards section */}
-        {soulCards.length > 0 && (
-          <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 10, paddingBottom: 4 }}>
+          {!collapsed && (
             <div style={{
-              padding: '0 16px 8px',
-              fontSize: 9, fontWeight: 600, color: '#5a5550',
-              textTransform: 'uppercase', letterSpacing: '0.12em',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 20, fontWeight: 700, color: '#f0eadc',
+              letterSpacing: '0.02em',
+              whiteSpace: 'nowrap', overflow: 'hidden',
             }}>
-              <span>Soul Cards ({soulCards.length})</span>
+              Soulmatch
             </div>
-
-            {visibleCards.map((card) => (
-              <SoulCardEntry
-                key={card.id}
-                card={card}
-                onClick={() => callbacks?.onOpenSoulCard?.(card)}
-              />
-            ))}
-
-            {soulCards.length > 3 && !showAllCards && (
-              <button
-                onClick={() => setShowAllCards(true)}
-                style={{
-                  display: 'block', width: '100%', padding: '8px 0',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#5a5550', fontSize: 10, fontWeight: 500,
-                  fontFamily: "'Outfit', sans-serif",
-                  transition: 'color 0.2s ease',
-                  textAlign: 'center',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; }}
-              >
-                Alle anzeigen →
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Settings link at bottom */}
-        <div style={{ flexShrink: 0, padding: '8px 10px 16px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          )}
           <button
-            onClick={callbacks?.onOpenSettings}
+            onClick={onToggleCollapse}
+            className="sidebar-collapse-btn"
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              width: '100%', padding: '8px 10px',
               background: 'none', border: 'none', cursor: 'pointer',
-              borderRadius: 8, color: '#5a5550', fontSize: 11,
-              fontFamily: "'Outfit', sans-serif",
-              transition: 'all 0.2s ease',
+              color: '#6b6560', fontSize: 16, padding: '4px 8px',
+              borderRadius: 6, transition: 'color 0.2s ease',
+              lineHeight: 1, flexShrink: 0,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#a09a8e';
-              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#5a5550';
-              e.currentTarget.style.background = 'none';
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = ACCENT; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#6b6560'; }}
+            aria-label={collapsed ? 'Sidebar erweitern' : 'Sidebar minimieren'}
           >
-            <span>⚙</span>
-            <span>Einstellungen</span>
+            {collapsed ? '»' : '«'}
           </button>
         </div>
+
+        {/* ── COLLAPSED VIEW: icon column ── */}
+        {collapsed ? (
+          <>
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 8 }} className="hidden-scrollbar">
+              {entries.map((entry) => {
+                const meta = ENTRY_TYPES[entry.type];
+                return (
+                  <button
+                    key={entry.id}
+                    onClick={() => { onToggleCollapse(); handleEntryClick(entry); }}
+                    title={entry.title}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '100%', padding: '12px 0',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: meta.color, fontSize: 16, lineHeight: 1,
+                      transition: 'background 0.2s ease',
+                      borderRadius: 0,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                  >
+                    {meta.icon}
+                  </button>
+                );
+              })}
+              {entries.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '16px 0', opacity: 0.3, fontSize: 16 }}>◈</div>
+              )}
+            </div>
+
+            {/* Soul card icons in collapsed */}
+            {soulCards.length > 0 && (
+              <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6, paddingBottom: 4 }}>
+                {soulCards.slice(0, 5).map((card) => (
+                  <button
+                    key={card.id}
+                    onClick={() => { onToggleCollapse(); callbacks?.onOpenSoulCard?.(card); }}
+                    title={card.title}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '100%', padding: '10px 0',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#e879f9', fontSize: 14, lineHeight: 1,
+                      transition: 'background 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                  >
+                    ◆
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Settings icon in collapsed */}
+            <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', padding: '8px 0 16px' }}>
+              <button
+                onClick={callbacks?.onOpenSettings}
+                title="Einstellungen"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '100%', padding: '8px 0',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#5a5550', fontSize: 14, lineHeight: 1,
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; e.currentTarget.style.background = 'none'; }}
+              >
+                ⚙
+              </button>
+            </div>
+          </>
+        ) : (
+          /* ── EXPANDED VIEW: full content ── */
+          <>
+            {/* Maya Recap */}
+            {showRecap && (
+              <MayaRecap
+                lastScore={lastScore}
+                onDismiss={dismissRecap}
+                onContinue={() => {
+                  dismissRecap();
+                  callbacks?.onNavigateScore?.('');
+                }}
+              />
+            )}
+
+            {/* Timeline entries (scrollable) */}
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4 }} className="hidden-scrollbar">
+              {/* Section label */}
+              <div style={{
+                padding: '0 16px 8px',
+                fontSize: 9, fontWeight: 600, color: '#5a5550',
+                textTransform: 'uppercase', letterSpacing: '0.12em',
+              }}>
+                Timeline
+              </div>
+
+              {entries.length === 0 ? (
+                <div style={{ padding: '20px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>◈</div>
+                  <div style={{ fontSize: 11, color: '#5a5550', lineHeight: 1.5 }}>
+                    Noch keine Einträge.<br />
+                    Berechne deinen Score oder starte einen Chat.
+                  </div>
+                </div>
+              ) : (
+                entries.map((entry, i) => (
+                  <TimelineEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    index={i}
+                    onClick={() => handleEntryClick(entry)}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Soul Cards section */}
+            {soulCards.length > 0 && (
+              <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 10, paddingBottom: 4 }}>
+                <div style={{
+                  padding: '0 16px 8px',
+                  fontSize: 9, fontWeight: 600, color: '#5a5550',
+                  textTransform: 'uppercase', letterSpacing: '0.12em',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <span>Soul Cards ({soulCards.length})</span>
+                </div>
+
+                {visibleCards.map((card) => (
+                  <SoulCardEntry
+                    key={card.id}
+                    card={card}
+                    onClick={() => callbacks?.onOpenSoulCard?.(card)}
+                  />
+                ))}
+
+                {soulCards.length > 3 && !showAllCards && (
+                  <button
+                    onClick={() => setShowAllCards(true)}
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 0',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#5a5550', fontSize: 10, fontWeight: 500,
+                      fontFamily: "'Outfit', sans-serif",
+                      transition: 'color 0.2s ease',
+                      textAlign: 'center',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; }}
+                  >
+                    Alle anzeigen →
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Settings link at bottom */}
+            <div style={{ flexShrink: 0, padding: '8px 10px 16px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+              <button
+                onClick={callbacks?.onOpenSettings}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '8px 10px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  borderRadius: 8, color: '#5a5550', fontSize: 11,
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#a09a8e';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#5a5550';
+                  e.currentTarget.style.background = 'none';
+                }}
+              >
+                <span>⚙</span>
+                <span>Einstellungen</span>
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       {/* ── Mobile backdrop ── */}
-      {open && (
+      {mobileOpen && (
         <div
           className="sidebar-backdrop"
-          onClick={onToggle}
+          onClick={onMobileClose}
           style={{
             position: 'fixed', inset: 0,
             background: 'rgba(0,0,0,0.6)',

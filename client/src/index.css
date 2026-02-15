@@ -274,16 +274,26 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%) !important;
+    width: 280px !important;
   }
-  .sidebar.sidebar-open {
+  .sidebar.sidebar-mobile-open {
     transform: translateX(0) !important;
   }
   .sidebar-backdrop {
     display: block !important;
   }
+  .app-content-main {
+    margin-left: 0 !important;
+  }
+  .mobile-hamburger {
+    display: flex !important;
+  }
 }
 @media (min-width: 769px) {
   .sidebar-backdrop {
+    display: none !important;
+  }
+  .mobile-hamburger {
     display: none !important;
   }
 }
