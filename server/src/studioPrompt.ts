@@ -121,6 +121,7 @@ export function buildUserPrompt(params: {
   profileExcerpt?: string;
   matchExcerpt?: string;
   chatExcerpt?: string;
+  userMemory?: string;
   userMessage: string;
   seats: string[];
 }): string {
@@ -138,6 +139,10 @@ export function buildUserPrompt(params: {
 
   if (params.chatExcerpt) {
     parts.push(`Chat-Verlauf (letzte Nachrichten):\n${params.chatExcerpt}`);
+  }
+
+  if (params.userMemory) {
+    parts.push(`Nutzer-Erinnerungen (Timeline früherer Gespräche — nutze diese um den User persönlich anzusprechen, auf frühere Themen Bezug zu nehmen, und Entwicklungen zu erkennen):\n${params.userMemory}`);
   }
 
   parts.push(`Seats (Perspektiven): ${params.seats.join(', ')}`);

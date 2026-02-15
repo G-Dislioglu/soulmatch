@@ -56,6 +56,7 @@ interface StudioRequestBody {
   profileExcerpt?: string;
   matchExcerpt?: string;
   chatExcerpt?: string;
+  userMemory?: string;
   lilithIntensity?: LilithIntensity;
   soloPersona?: string;
   freeMode?: boolean;
@@ -188,7 +189,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   }
 
   const model = body.model || config.defaultModel;
-  const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt } = body;
+  const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt, userMemory } = body;
 
   const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
   const systemPrompt = body.soloPersona
@@ -199,6 +200,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     profileExcerpt,
     matchExcerpt,
     chatExcerpt,
+    userMemory,
     userMessage: studioRequest.userMessage,
     seats: studioRequest.seats,
   });

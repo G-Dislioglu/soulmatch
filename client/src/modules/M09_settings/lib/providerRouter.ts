@@ -62,6 +62,7 @@ export interface StudioCallOptions {
   soloPersona?: string;
   freeMode?: boolean;
   chatExcerpt?: string;
+  userMemory?: string;
 }
 
 export interface StudioProvider {
@@ -101,6 +102,7 @@ class LLMProvider implements StudioProvider {
         soloPersona: opts?.soloPersona,
         freeMode: opts?.freeMode ?? false,
         chatExcerpt: opts?.chatExcerpt,
+        userMemory: opts?.userMemory,
       }),
     });
 

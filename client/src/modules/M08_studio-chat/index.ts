@@ -18,7 +18,12 @@ export { loadChatHistory, appendMessage, clearChatHistory } from './lib/chatHist
 export type { ChatMessage } from './lib/chatHistory';
 export { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from './lib/sensitivityTracker';
 export type { SensitivityState } from './lib/sensitivityTracker';
-export { detectToxicity, isBlocked, activateBlock, clearBlock, getBlockRemainingMs } from './lib/toxicityGuard';
+export { detectToxicity, isBlocked, activateBlock, clearBlock, getBlockRemainingMs, evaluateMessage } from './lib/toxicityGuard';
+export type { ToxicitySeverity, ModerationResult } from './lib/toxicityGuard';
+export { loadUserMemory, addMemoryEntry, addStrike, getBanStatus, buildMemoryContext, clearUserMemory, getUserMemoryEntries, getStrikeRecord } from './lib/userMemory';
+export type { MemoryEntry, MemoryEntryType, Sentiment, StrikeRecord, UserMemoryStore } from './lib/userMemory';
+export { extractInsights, checkMilestone } from './lib/insightExtractor';
+export { getLastPersona, setLastPersona } from './lib/personaPersist';
 export { LiveSigil } from './ui/LiveSigil';
 export type { SigilState } from './ui/LiveSigil';
 export { PersonaPreview } from './ui/PersonaPreview';

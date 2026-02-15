@@ -6,6 +6,7 @@ import { Button, CosmicButton, SoulmatchCard, DEFAULT_CARD_SETTINGS } from '../.
 import { StudioPanel } from './StudioPanel';
 import { SeatBadge } from './SeatBadge';
 import { PersonaSoloChat } from './PersonaSoloChat';
+import { setLastPersona } from '../lib/personaPersist';
 
 interface StudioPageProps {
   profileId: string;
@@ -32,9 +33,14 @@ export function StudioPage({
 }: StudioPageProps) {
   const [soloSeat, setSoloSeat] = useState<StudioSeat | null>(null);
 
+  function openSoloChat(s: StudioSeat) {
+    setSoloSeat(s);
+    setLastPersona(s);
+  }
+
   useEffect(() => {
     if (initialSoloSeat) {
-      setSoloSeat(initialSoloSeat);
+      openSoloChat(initialSoloSeat);
       onSoloChatOpened?.();
     }
   }, [initialSoloSeat]);
@@ -83,14 +89,14 @@ export function StudioPage({
             <Button variant="secondary" onClick={onBack}>Zurück</Button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <SeatBadge seat="maya" onClick={() => setSoloSeat('maya')} />
-            <SeatBadge seat="luna" onClick={() => setSoloSeat('luna')} />
-            <SeatBadge seat="orion" onClick={() => setSoloSeat('orion')} />
+            <SeatBadge seat="maya" onClick={() => openSoloChat('maya')} />
+            <SeatBadge seat="luna" onClick={() => openSoloChat('luna')} />
+            <SeatBadge seat="orion" onClick={() => openSoloChat('orion')} />
             <SeatBadge
               seat="lilith"
               disabled={!lilithUnlocked}
               disabledTooltip="Erstelle erst ein Profil für die volle Lilith-Erfahrung"
-              onClick={lilithUnlocked ? () => setSoloSeat('lilith') : undefined}
+              onClick={lilithUnlocked ? () => openSoloChat('lilith') : undefined}
             />
           </div>
         </>
@@ -98,14 +104,14 @@ export function StudioPage({
 
       {embedded && (
         <div className="flex items-center gap-2 flex-wrap justify-center">
-          <SeatBadge seat="maya" onClick={() => setSoloSeat('maya')} />
-          <SeatBadge seat="luna" onClick={() => setSoloSeat('luna')} />
-          <SeatBadge seat="orion" onClick={() => setSoloSeat('orion')} />
+          <SeatBadge seat="maya" onClick={() => openSoloChat('maya')} />
+          <SeatBadge seat="luna" onClick={() => openSoloChat('luna')} />
+          <SeatBadge seat="orion" onClick={() => openSoloChat('orion')} />
           <SeatBadge
             seat="lilith"
             disabled={!lilithUnlocked}
             disabledTooltip="Profil für Lilith nötig"
-            onClick={lilithUnlocked ? () => setSoloSeat('lilith') : undefined}
+            onClick={lilithUnlocked ? () => openSoloChat('lilith') : undefined}
           />
           <span style={{ fontSize: 10, color: '#6b6560', marginLeft: 4 }}>Klick = Solo-Chat</span>
         </div>

@@ -9,7 +9,9 @@ import type { LilithIntensity } from '../lib/lilithGate';
 import { loadChatHistory, appendMessage, clearChatHistory } from '../lib/chatHistory';
 import type { ChatMessage } from '../lib/chatHistory';
 import { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from '../lib/sensitivityTracker';
-import { detectToxicity, isBlocked, activateBlock, getBlockRemainingMs } from '../lib/toxicityGuard';
+import { isBlocked, getBlockRemainingMs, evaluateMessage } from '../lib/toxicityGuard';
+import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMemory';
+import { extractInsights, checkMilestone } from '../lib/insightExtractor';
 import { LiveSigil } from './LiveSigil';
 import type { SigilState } from './LiveSigil';
 
@@ -45,7 +47,8 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   const [error, setError] = useState<string | null>(null);
   const [freeMode, setFreeMode] = useState(false);
   const [intensity, setIntensity] = useState<LilithIntensity>(getLilithIntensity);
-  const [blocked, setBlocked] = useState(isBlocked);
+  const [blocked, setBlocked] = useState(() => isBlocked() || getBanStatus(profileId).banned);
+  const [banMessage, setBanMessage] = useState<string | null>(null);
   const [sensitivityScore, setSensitivityScore] = useState(() => getSensitivityState().score);
   const [autoNotice, setAutoNotice] = useState<string | null>(null);
   const [sigilState, setSigilState] = useState<SigilState>('idle');
@@ -79,13 +82,34 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
     setAutoNotice(null);
   }
 
-  function buildChatExcerpt(all: ChatMessage[], maxItems = 10, maxCharsPerLine = 280): string {
-    const tail = all.slice(-maxItems);
-    const lines = tail.map((m) => {
+  function buildChatExcerpt(all: ChatMessage[]): string {
+    const lines: string[] = [];
+    const total = all.length;
+
+    // Older than 30: just a count
+    if (total > 30) {
+      lines.push(`[... ${total - 30} ältere Nachrichten ...]`);
+    }
+
+    // Messages 11-30: truncated to 80 chars
+    const midStart = Math.max(0, total - 30);
+    const midEnd = Math.max(0, total - 10);
+    for (let i = midStart; i < midEnd; i++) {
+      const m = all[i]!;
       const who = m.role === 'user' ? 'USER' : `PERSONA(${m.seat})`;
-      const txt = (m.text ?? '').replace(/\s+/g, ' ').trim().slice(0, maxCharsPerLine);
-      return `${who}: ${txt}`;
-    });
+      const txt = (m.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      lines.push(`${who}: ${txt}`);
+    }
+
+    // Last 10: full text (capped at 280 chars)
+    const recentStart = Math.max(0, total - 10);
+    for (let i = recentStart; i < total; i++) {
+      const m = all[i]!;
+      const who = m.role === 'user' ? 'USER' : `PERSONA(${m.seat})`;
+      const txt = (m.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 280);
+      lines.push(`${who}: ${txt}`);
+    }
+
     return lines.join('\n');
   }
 
@@ -93,19 +117,24 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
     const text = input.trim();
     if (!text || loading) return;
 
-    // Toxicity check (Lilith solo only)
-    if (isLilith && detectToxicity(text)) {
-      activateBlock();
+    // Universal moderation — escalating ban system for ALL personas
+    const modResult = evaluateMessage(text, profileId);
+    if (modResult.action === 'ban' || modResult.action === 'block') {
       setBlocked(true);
-      const warnMsg: ChatMessage = {
-        role: 'persona', seat: 'lilith',
-        text: "Das war's. Ich diskutiere nicht mit Toxizität. Chat pausiert für 24 Stunden.",
+      setBanMessage(modResult.message);
+      const sysMsg: ChatMessage = {
+        role: 'persona', seat,
+        text: modResult.message,
         timestamp: new Date().toISOString(),
       };
-      const updated = appendMessage(seat, warnMsg);
+      const updated = appendMessage(seat, sysMsg);
       setMessages(updated);
       setInput('');
       return;
+    }
+    if (modResult.action === 'warn') {
+      setAutoNotice(modResult.message);
+      // Allow the message to go through but show warning
     }
 
     // Sensitivity tracking (Lilith solo only)
@@ -145,7 +174,8 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
 
     try {
       const provider = getStudioProvider();
-      const chatExcerpt = buildChatExcerpt(updated, 10, 280);
+      const chatExcerpt = buildChatExcerpt(updated);
+      const userMemory = buildMemoryContext(profileId, 2000);
 
       const res = await provider.generateStudio({
         mode: 'profile',
@@ -158,6 +188,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         soloPersona: seat,
         freeMode,
         chatExcerpt,
+        userMemory: userMemory || undefined,
       });
 
       const turn = res.turns[0];
@@ -170,6 +201,18 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         if (isLilith && effectiveIntensity === 'brutal') {
           setSigilState('truth');
           setTimeout(() => setSigilState('idle'), 1200);
+        }
+
+        // Extract insights and save to user memory
+        const insights = extractInsights(text, turn.text, seat);
+        for (const ins of insights) {
+          addMemoryEntry(profileId, ins);
+        }
+
+        // Check for milestones
+        const milestone = checkMilestone(withResponse.length, seat);
+        if (milestone) {
+          addMemoryEntry(profileId, milestone);
         }
       }
     } catch (err) {
@@ -366,17 +409,17 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-            disabled={isLilith && blocked}
+            disabled={blocked}
             placeholder={
-              isLilith && blocked
-                ? 'Chat gesperrt…'
+              blocked
+                ? (banMessage ?? 'Chat gesperrt…')
                 : isLilith
                   ? 'Frag Lilith…'
                   : `Frag ${seat.charAt(0).toUpperCase() + seat.slice(1)}…`
             }
             className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)] disabled:opacity-40 disabled:cursor-not-allowed"
           />
-          <Button variant="primary" onClick={handleSend} disabled={loading || !input.trim() || (isLilith && blocked)}>
+          <Button variant="primary" onClick={handleSend} disabled={loading || !input.trim() || blocked}>
             {loading ? '…' : 'Senden'}
           </Button>
         </div>
