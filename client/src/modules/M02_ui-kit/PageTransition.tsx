@@ -59,6 +59,14 @@ export function PageTransition({ pages, activePage, onPageChange }: PageTransiti
         ))}
       </div>
 
+      {/* Color bar under tabs */}
+      <div style={{
+        height: 2, borderRadius: 1, marginTop: 4,
+        background: `linear-gradient(90deg, ${pages[activePage]?.color ?? ACCENT}, ${ACCENT})`,
+        transition: 'background 0.8s ease',
+        opacity: 0.6,
+      }} />
+
       {transitioning && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none',

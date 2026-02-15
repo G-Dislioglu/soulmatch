@@ -30,6 +30,7 @@ import {
   CosmicButton,
   ScoreSkeleton,
   DEFAULT_CARD_SETTINGS,
+  DiscoveryFlow,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 
@@ -59,7 +60,7 @@ function HomePage() {
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [, setExpandedCard] = useState<string | null>(null);
   const [tourTarget, setTourTarget] = useState<string | null>(null);
   const [tourText, setTourText] = useState('');
 
@@ -285,7 +286,7 @@ function HomePage() {
 
         {/* ═══ PAGE 0: PROFIL ═══ */}
         {activePage === 0 && (
-          <div key="profil" style={{ animation: 'fadeUp 0.4s ease-out' }}>
+          <div key="profil" className="portal-enter">
             <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 28px' }}>
               <AuraAvatar sign="♏" size={88} colors={[ACCENT, '#9333ea', '#dc2626']} label={`${profile.name}`} />
             </div>
@@ -345,7 +346,7 @@ function HomePage() {
 
         {/* ═══ PAGE 1: REPORT ═══ */}
         {activePage === 1 && (
-          <div key="report" style={{ animation: 'fadeUp 0.4s ease-out' }}>
+          <div key="report" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 Soulmatch Report
@@ -403,54 +404,20 @@ function HomePage() {
 
                   <EnergyDivider color="#c084fc" speed={3.5} />
 
-                  {/* Claims / Insights */}
+                  {/* Discovery Flow — Expandable Insights */}
                   {scoreResult.claims && scoreResult.claims.length > 0 && (
                     <SoulmatchCard accent={ACCENT} settings={cardSettings}>
-                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 700, color: '#f0eadc', marginBottom: 16 }}>
-                        Erkenntnisse
-                      </div>
-                      {scoreResult.claims.map((claim, idx) => {
-                        const dotColor = claim.level === 'positive' ? '#34d399' : claim.level === 'info' ? ACCENT : '#fbbf24';
-                        const bgColor = claim.level === 'positive' ? 'rgba(34,211,153,0.1)' : claim.level === 'info' ? `${ACCENT}10` : 'rgba(251,191,36,0.1)';
-                        const borderColor = claim.level === 'positive' ? 'rgba(34,211,153,0.22)' : claim.level === 'info' ? `${ACCENT}28` : 'rgba(251,191,36,0.22)';
-                        const cardId = `claim-${idx}`;
-                        const isHighlighted = highlightedCard === cardId;
-                        const isTourTarget = tourTarget === cardId;
-                        return (
-                          <div
-                            key={idx}
-                            id={`card-${cardId}`}
-                            className={`${isHighlighted ? 'maya-card-highlight' : ''} ${isTourTarget ? 'maya-tour-target' : ''}`}
-                            style={{
-                              padding: '13px 15px', borderRadius: 11,
-                              background: bgColor, border: `1px solid ${borderColor}`, marginBottom: 8,
-                              cursor: expandedCard === cardId ? undefined : 'pointer',
-                            }}
-                            onClick={() => setExpandedCard((prev) => prev === cardId ? null : cardId)}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, boxShadow: `0 0 10px ${dotColor}90` }} />
-                              <span style={{ fontSize: 13, fontWeight: 600, color: '#f0eadc' }}>{claim.title}</span>
-                            </div>
-                            <p style={{ fontSize: 12, color: '#a09a8e', margin: 0, lineHeight: 1.55 }}>{claim.detail}</p>
-                          </div>
-                        );
-                      })}
+                      <DiscoveryFlow
+                        claims={scoreResult.claims}
+                        highlightedCard={highlightedCard}
+                        tourTarget={tourTarget}
+                        onAskMaya={() => {
+                          setSoloTrigger('maya');
+                          setActivePage(2);
+                        }}
+                        onNavigateStudio={() => setActivePage(2)}
+                      />
                     </SoulmatchCard>
-                  )}
-
-                  {/* Maya Tour overlay tooltip */}
-                  {tourTarget && tourText && (
-                    <div style={{
-                      position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)',
-                      padding: '12px 24px', borderRadius: 12, zIndex: 100,
-                      background: 'rgba(8,6,15,0.95)', backdropFilter: 'blur(12px)',
-                      border: '1px solid rgba(212,175,55,0.3)', maxWidth: 400,
-                      animation: 'fadeUp 0.3s ease-out',
-                    }}>
-                      <div style={{ fontSize: 10, color: ACCENT, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>◇ Maya Tour</div>
-                      <div style={{ fontSize: 13, color: '#b0a898', lineHeight: 1.6 }}>{tourText}</div>
-                    </div>
                   )}
                 </>
               ) : (
@@ -467,12 +434,26 @@ function HomePage() {
                 </SoulmatchCard>
               )}
             </div>
+
+            {/* Maya Tour overlay tooltip */}
+            {tourTarget && tourText && (
+              <div style={{
+                position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)',
+                padding: '12px 24px', borderRadius: 12, zIndex: 100,
+                background: 'rgba(8,6,15,0.95)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(212,175,55,0.3)', maxWidth: 400,
+                animation: 'fadeUp 0.3s ease-out',
+              }}>
+                <div style={{ fontSize: 10, color: ACCENT, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>◇ Maya Tour</div>
+                <div style={{ fontSize: 13, color: '#b0a898', lineHeight: 1.6 }}>{tourText}</div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ═══ PAGE 2: STUDIO ═══ */}
         {activePage === 2 && (
-          <div key="studio" style={{ animation: 'fadeUp 0.4s ease-out' }}>
+          <div key="studio" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 8px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 Persona Studio

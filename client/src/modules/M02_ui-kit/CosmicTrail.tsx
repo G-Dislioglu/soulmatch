@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 const ACCENT = '#d4af37';
 
 interface CosmicTrailProps {
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface TrailPoint {
@@ -12,7 +12,7 @@ interface TrailPoint {
   time: number;
 }
 
-export function CosmicTrail({ containerRef }: CosmicTrailProps) {
+export function CosmicTrail(_props: CosmicTrailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const points = useRef<TrailPoint[]>([]);
   const moving = useRef(false);
@@ -34,7 +34,7 @@ export function CosmicTrail({ containerRef }: CosmicTrailProps) {
 
     const resize = () => {
       canvas.width = window.innerWidth;
-      canvas.height = document.documentElement.scrollHeight;
+      canvas.height = window.innerHeight;
     };
     resize();
 
@@ -42,7 +42,7 @@ export function CosmicTrail({ containerRef }: CosmicTrailProps) {
       moving.current = true;
       if (stopTimer.current) clearTimeout(stopTimer.current);
       stopTimer.current = setTimeout(() => { moving.current = false; }, 80);
-      points.current.push({ x: e.pageX, y: e.pageY, time: Date.now() });
+      points.current.push({ x: e.clientX, y: e.clientY, time: Date.now() });
       if (points.current.length > 60) points.current.shift();
     };
 
@@ -126,23 +126,20 @@ export function CosmicTrail({ containerRef }: CosmicTrailProps) {
     document.addEventListener('mousemove', handleMove);
     animate();
     window.addEventListener('resize', resize);
-    const resizeObs = new ResizeObserver(resize);
-    if (containerRef?.current) resizeObs.observe(containerRef.current);
 
     return () => {
       document.removeEventListener('mousemove', handleMove);
       window.removeEventListener('resize', resize);
-      resizeObs.disconnect();
       cancelAnimationFrame(frame.current);
     };
-  }, [containerRef]);
+  }, []);
 
   if (isTouch.current) return null;
 
   return (
     <canvas
       ref={canvasRef}
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50 }}
+      style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 50 }}
     />
   );
 }
