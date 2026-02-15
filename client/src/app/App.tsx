@@ -419,17 +419,17 @@ function HomePage() {
             {/* Persona Portraits + Auras */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 20, margin: '24px 0 28px', flexWrap: 'wrap' }}>
               <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('maya')}>
-                <MayaPortrait size={100} />
+                <MayaPortrait size={150} />
                 <div style={{ fontSize: 10, color: '#a855f7', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
               </div>
               <div className="persona-card-hover" onClick={() => setPreviewSeat('luna')}>
-                <AuraAvatar sign="☽" size={48} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
+                <AuraAvatar sign="☽" size={56} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
               </div>
               <div className="persona-card-hover" onClick={() => setPreviewSeat('orion')}>
-                <AuraAvatar sign="△" size={48} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
+                <AuraAvatar sign="△" size={56} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
               </div>
               <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('lilith')}>
-                <LilithPortrait size={100} />
+                <LilithPortrait size={150} />
                 <div style={{ fontSize: 10, color: '#d49137', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
               </div>
             </div>

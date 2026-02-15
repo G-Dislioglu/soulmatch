@@ -47,8 +47,8 @@ body {
 
 /* ── Lilith Eye Animations ── */
 @keyframes lilithEyeIdle {
-  0%, 100% { opacity: 0.12; filter: blur(1.5px) drop-shadow(0 0 3px rgba(212,145,55,0.2)); }
-  50% { opacity: 0.22; filter: blur(1.5px) drop-shadow(0 0 5px rgba(212,145,55,0.3)); }
+  0%, 100% { opacity: 0.4; filter: blur(0.3px) drop-shadow(0 0 6px rgba(212,145,55,0.35)); }
+  50% { opacity: 0.55; filter: blur(0.2px) drop-shadow(0 0 10px rgba(212,145,55,0.45)); }
 }
 @keyframes lilithEyeActive {
   0%, 100% { opacity: 0.55; filter: blur(0px) drop-shadow(0 0 14px rgba(212,145,55,0.7)); }
