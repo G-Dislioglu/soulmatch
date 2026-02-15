@@ -120,6 +120,7 @@ export function buildUserPrompt(params: {
   mode: string;
   profileExcerpt?: string;
   matchExcerpt?: string;
+  chatExcerpt?: string;
   userMessage: string;
   seats: string[];
 }): string {
@@ -133,6 +134,10 @@ export function buildUserPrompt(params: {
 
   if (params.matchExcerpt) {
     parts.push(`Match-Kontext:\n${params.matchExcerpt}`);
+  }
+
+  if (params.chatExcerpt) {
+    parts.push(`Chat-Verlauf (letzte Nachrichten):\n${params.chatExcerpt}`);
   }
 
   parts.push(`Seats (Perspektiven): ${params.seats.join(', ')}`);

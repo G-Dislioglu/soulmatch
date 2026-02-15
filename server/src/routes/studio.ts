@@ -55,6 +55,7 @@ interface StudioRequestBody {
   model?: string;
   profileExcerpt?: string;
   matchExcerpt?: string;
+  chatExcerpt?: string;
   lilithIntensity?: LilithIntensity;
   soloPersona?: string;
   freeMode?: boolean;
@@ -115,7 +116,14 @@ async function callOpenAI(apiKey: string, model: string, systemPrompt: string, u
   return JSON.parse(resultText);
 }
 
-async function callChatCompletions(config: ProviderConfig, apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
+async function callChatCompletions(
+  config: ProviderConfig,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  opts?: { temperature?: number; extraUserInstruction?: string }
+) {
   const resp = await fetch(config.apiUrl, {
     method: 'POST',
     headers: {
@@ -126,10 +134,12 @@ async function callChatCompletions(config: ProviderConfig, apiKey: string, model
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        ...(opts?.extraUserInstruction
+          ? [{ role: 'user' as const, content: `${opts.extraUserInstruction}\n\n${userPrompt}` }]
+          : [{ role: 'user' as const, content: userPrompt }]),
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
+      temperature: opts?.temperature ?? 0.7,
     }),
   });
 
@@ -178,7 +188,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   }
 
   const model = body.model || config.defaultModel;
-  const { studioRequest, profileExcerpt, matchExcerpt } = body;
+  const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt } = body;
 
   const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
   const systemPrompt = body.soloPersona
@@ -188,6 +198,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     mode: studioRequest.mode,
     profileExcerpt,
     matchExcerpt,
+    chatExcerpt,
     userMessage: studioRequest.userMessage,
     seats: studioRequest.seats,
   });
@@ -251,11 +262,82 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
         durationMs: Date.now() - startTime,
         rawSnippet: JSON.stringify(parsed).slice(0, 300),
       });
-      devLogger.trackLLMCall(providerName, Date.now() - startTime, false, errMsg);
-      res.status(502).json({
-        error: `LLM-Antwort fehlt: ${missing.join(', ')}. Bitte anderen Provider oder anderes Modell versuchen.`,
-      });
-      return;
+
+      // === 1x Repair Retry (besonders wichtig für non-structured providers) ===
+      try {
+        devLogger.info('llm', `Attempting schema repair retry for ${providerName}/${model}`, {
+          provider: providerName,
+          model,
+          missing,
+        });
+
+        const repairInstruction =
+          `WICHTIG: Gib AUSSCHLIESSLICH ein JSON-Objekt zurück, das EXAKT dieses Schema erfüllt:\n` +
+          `- turns: Array von Objekten mit { seat: string, text: string }\n` +
+          `- nextSteps: Array von Strings\n` +
+          `- watchOut: String\n` +
+          `Keine weiteren Keys. Kein Markdown. Keine Codefences.`;
+
+        let repaired: Record<string, unknown>;
+
+        if (providerName === 'openai') {
+          repaired = await callOpenAI(apiKey, model, systemPrompt, `${repairInstruction}\n\n${userPrompt}`);
+        } else {
+          repaired = await callChatCompletions(
+            config,
+            apiKey,
+            model,
+            systemPrompt,
+            userPrompt,
+            { temperature: 0.0, extraUserInstruction: repairInstruction }
+          );
+        }
+
+        // Normalize again
+        if (!repaired.turns && repaired.result && typeof repaired.result === 'object') repaired = repaired.result as Record<string, unknown>;
+        if (!repaired.turns && repaired.data && typeof repaired.data === 'object') repaired = repaired.data as Record<string, unknown>;
+        if (!repaired.nextSteps && repaired.next_steps) { repaired.nextSteps = repaired.next_steps; delete repaired.next_steps; }
+        if (!repaired.watchOut && repaired.watch_out) { repaired.watchOut = repaired.watch_out; delete repaired.watch_out; }
+
+        const missing2: string[] = [];
+        if (!repaired.turns || !Array.isArray(repaired.turns)) missing2.push('turns');
+        if (!repaired.nextSteps || !Array.isArray(repaired.nextSteps)) missing2.push('nextSteps');
+        if (!repaired.watchOut || typeof repaired.watchOut !== 'string') missing2.push('watchOut');
+
+        if (missing2.length === 0) {
+          parsed = repaired;
+          devLogger.info('llm', `Schema repair retry succeeded for ${providerName}/${model}`, {
+            provider: providerName,
+            model,
+            durationMs: Date.now() - startTime,
+          });
+        } else {
+          const errMsg2 = `Schema repair failed: missing ${missing2.join(', ')}`;
+          devLogger.error('llm', errMsg2, {
+            provider: providerName,
+            model,
+            durationMs: Date.now() - startTime,
+            rawSnippet: JSON.stringify(repaired).slice(0, 300),
+          });
+          devLogger.trackLLMCall(providerName, Date.now() - startTime, false, errMsg2);
+          res.status(502).json({
+            error: `LLM-Antwort fehlt: ${missing.join(', ')}. Bitte anderen Provider oder anderes Modell versuchen.`,
+          });
+          return;
+        }
+      } catch (repairErr) {
+        const repairMsg = repairErr instanceof Error ? repairErr.message : String(repairErr);
+        devLogger.error('llm', `Schema repair retry errored: ${repairMsg}`, {
+          provider: providerName,
+          model,
+          durationMs: Date.now() - startTime,
+        });
+        devLogger.trackLLMCall(providerName, Date.now() - startTime, false, `Schema repair errored: ${repairMsg}`);
+        res.status(502).json({
+          error: `LLM-Antwort fehlt: ${missing.join(', ')}. Bitte anderen Provider oder anderes Modell versuchen.`,
+        });
+        return;
+      }
     }
 
     // Ensure turns have valid seat/text

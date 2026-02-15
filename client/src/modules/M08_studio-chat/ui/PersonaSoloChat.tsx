@@ -69,6 +69,16 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
     setAutoNotice(null);
   }
 
+  function buildChatExcerpt(all: ChatMessage[], maxItems = 10, maxCharsPerLine = 280): string {
+    const tail = all.slice(-maxItems);
+    const lines = tail.map((m) => {
+      const who = m.role === 'user' ? 'USER' : `PERSONA(${m.seat})`;
+      const txt = (m.text ?? '').replace(/\s+/g, ' ').trim().slice(0, maxCharsPerLine);
+      return `${who}: ${txt}`;
+    });
+    return lines.join('\n');
+  }
+
   async function handleSend() {
     const text = input.trim();
     if (!text || loading) return;
@@ -125,6 +135,8 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
 
     try {
       const provider = getStudioProvider();
+      const chatExcerpt = buildChatExcerpt(updated, 10, 280);
+
       const res = await provider.generateStudio({
         mode: 'profile',
         profileId,
@@ -135,6 +147,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         lilithIntensity: effectiveIntensity,
         soloPersona: seat,
         freeMode,
+        chatExcerpt,
       });
 
       const turn = res.turns[0];
