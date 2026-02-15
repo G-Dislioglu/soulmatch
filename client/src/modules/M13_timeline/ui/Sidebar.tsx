@@ -3,6 +3,7 @@ import type { TimelineEntry, SoulCard } from '../lib/types';
 import { ENTRY_TYPES } from '../lib/entryTypes';
 import * as timelineService from '../lib/timelineService';
 import * as soulCardService from '../lib/soulCardService';
+import { useGuide } from '../../M14_guide/GuideProvider';
 
 /* ═══════════════════════════════════════════
    Constants
@@ -46,7 +47,6 @@ export interface SidebarCallbacks {
   onNavigateInsight?: (claimId: string) => void;
   onOpenSettings?: () => void;
   onOpenSoulCard?: (card: SoulCard) => void;
-  onStartGuide?: () => void;
 }
 
 export interface SidebarProps {
@@ -271,6 +271,7 @@ function SoulCardEntry({
    ═══════════════════════════════════════════ */
 
 export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose, lastScore, callbacks }: SidebarProps) {
+  const { startOnboarding } = useGuide();
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [soulCards, setSoulCards] = useState<SoulCard[]>([]);
   const [showRecap, setShowRecap] = useState(false);
@@ -446,7 +447,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
             {/* Guide icon in collapsed */}
             <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6 }}>
               <button
-                onClick={callbacks?.onStartGuide}
+                onClick={() => startOnboarding()}
                 title="App-Führung"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -571,7 +572,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
             <div style={{ flexShrink: 0, padding: '4px 10px 0' }}>
               <button
                 id="sidebar-guide-btn"
-                onClick={callbacks?.onStartGuide}
+                onClick={() => startOnboarding()}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   width: '100%', padding: '10px 14px',

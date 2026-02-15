@@ -143,6 +143,7 @@ function InsightCard({
       data-visited={isVisited ? 'true' : undefined}
       data-level={claim.level}
       className={[
+        'discovery-card-item',
         isHighlighted ? 'maya-card-highlight' : '',
         isTourTarget ? 'maya-tour-target' : '',
         isRelatedPulsing ? 'related-glow' : '',

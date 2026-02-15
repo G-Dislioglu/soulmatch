@@ -35,7 +35,7 @@ import {
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
-import { GuideEngine, FULL_APP_GUIDE, MayaPointer, GuideOverlay } from '../modules/M14_guide';
+import { GuideProvider } from '../modules/M14_guide';
 
 const ACCENT = '#d4af37';
 const APP_PAGES: PageDef[] = [
@@ -64,13 +64,6 @@ function HomePage() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
   const [showCrossing, setShowCrossing] = useState(false);
-
-  // ── Guide System state ──
-  const [guideActive, setGuideActive] = useState(false);
-  const [guideTarget, setGuideTarget] = useState<string | null>(null);
-  const [guideMessage, setGuideMessage] = useState<string | null>(null);
-  const [guideProgress, setGuideProgress] = useState({ current: 0, total: 0 });
-  const guideEngineRef = useRef<GuideEngine | null>(null);
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
@@ -146,60 +139,6 @@ function HomePage() {
   const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
 
-  // ── Guide Engine ──
-  const startGuide = useCallback(() => {
-    guideEngineRef.current?.stop();
-
-    const engine = new GuideEngine({
-      steps: FULL_APP_GUIDE,
-      onStepChange: (_step, _index) => {
-        setGuideProgress(engine.getProgress());
-      },
-      onMayaMessage: (text) => setGuideMessage(text),
-      onPointTo: (elementId) => setGuideTarget(elementId),
-      onComplete: () => {
-        setGuideActive(false);
-        setGuideTarget(null);
-        setGuideMessage(null);
-      },
-      getAppState: () => ({
-        currentPage: activePage === 0 ? 'profil' : activePage === 1 ? 'report' : 'studio',
-        expandedCard: null,
-      }),
-    });
-
-    guideEngineRef.current = engine;
-    setGuideActive(true);
-    engine.start();
-  }, [activePage]);
-
-  const stopGuide = useCallback(() => {
-    guideEngineRef.current?.stop();
-  }, []);
-
-  // Notify guide of page changes
-  useEffect(() => {
-    const pageName = activePage === 0 ? 'profil' : activePage === 1 ? 'report' : 'studio';
-    guideEngineRef.current?.notifyAction('navigate', pageName);
-  }, [activePage]);
-
-  // Auto-suggest guide on first visit
-  const guideOfferedRef = useRef(false);
-  useEffect(() => {
-    if (!hasProfile || guideOfferedRef.current) return;
-    const seen = localStorage.getItem('soulmatch_guide_seen');
-    if (seen) return;
-    const entries = timelineService.getEntries();
-    if (entries.length === 0) {
-      guideOfferedRef.current = true;
-      const t = setTimeout(() => {
-        localStorage.setItem('soulmatch_guide_seen', '1');
-        startGuide();
-      }, 2000);
-      return () => clearTimeout(t);
-    }
-  }, [hasProfile, startGuide]);
-
   // ── Sidebar Callbacks ──
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
     onNavigateScore: () => setActivePage(1),
@@ -210,8 +149,7 @@ function HomePage() {
     onNavigateInsight: () => setActivePage(1),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
-    onStartGuide: () => startGuide(),
-  }), [startGuide]);
+  }), []);
 
   // ── Maya Command Callbacks ──
   const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
@@ -346,16 +284,6 @@ function HomePage() {
   return (
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
-
-      {/* Maya Guide System */}
-      <MayaPointer targetElementId={guideTarget} active={guideActive} />
-      {guideActive && (
-        <GuideOverlay
-          text={guideMessage}
-          progress={guideProgress}
-          onSkip={stopGuide}
-        />
-      )}
 
       {/* Soul Card Detail Modal */}
       {activeSoulCard && (
@@ -675,9 +603,11 @@ function NotFound() {
 
 export function App() {
   return (
-    <Switch>
-      <Route path="/" component={HomePage} />
-      <Route component={NotFound} />
-    </Switch>
+    <GuideProvider>
+      <Switch>
+        <Route path="/" component={HomePage} />
+        <Route component={NotFound} />
+      </Switch>
+    </GuideProvider>
   );
 }

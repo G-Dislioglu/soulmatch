@@ -1,17 +1,25 @@
-// Public API for module M14_guide
+// Public API for module M14_guide (V2)
 
 // Types
-export type { GuideStep, GuideAppState } from './lib/types';
+export type {
+  GuideStep,
+  GuideState,
+  GuideMode,
+  AppStateSnapshot,
+  GuideBubblePosition,
+} from './guideTypes';
 
-// Engine
-export { GuideEngine } from './lib/guideEngine';
-export type { GuideEngineConfig } from './lib/guideEngine';
+// Engine (singleton)
+export { guideEngine } from './guideEngine';
 
 // Steps
-export { FULL_APP_GUIDE } from './lib/guideSteps';
+export { ONBOARDING_STEPS } from './guideSteps';
 
-// UI
-export { MayaPointer } from './ui/MayaPointer';
-export type { MayaPointerProps } from './ui/MayaPointer';
-export { GuideOverlay } from './ui/GuideOverlay';
-export type { GuideOverlayProps } from './ui/GuideOverlay';
+// Context
+export { captureAppState, buildStepContext } from './guideContext';
+
+// LLM
+export { generateGuideText, generateContextualGuide } from './guideLLM';
+
+// React Integration
+export { GuideProvider, useGuide } from './GuideProvider';
