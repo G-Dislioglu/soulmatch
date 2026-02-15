@@ -76,7 +76,7 @@ export function LilithPortrait({ state = 'idle', intensity, size = 260, baseName
       }} />
 
       {/* SVG Eye Overlay */}
-      <LilithEyes state={state} intensity={intensity} />
+      <LilithEyes state={state} intensity={intensity} size={size} />
 
       {/* Subtle border */}
       <div style={{

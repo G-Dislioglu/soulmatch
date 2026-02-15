@@ -38,10 +38,10 @@ function Slider({ label, value, onChange, icon, color }: SliderProps) {
 }
 
 const PRESETS: Record<string, CardSettings> = {
-  Dezent: { glowIntensity: 55, plasmaIntensity: 20, pulseIntensity: 35, tiltIntensity: 25, saturation: 110 },
-  Balanced: { glowIntensity: 80, plasmaIntensity: 40, pulseIntensity: 55, tiltIntensity: 45, saturation: 135 },
-  Lebendig: { glowIntensity: 95, plasmaIntensity: 55, pulseIntensity: 70, tiltIntensity: 55, saturation: 155 },
-  Intensiv: { glowIntensity: 100, plasmaIntensity: 80, pulseIntensity: 90, tiltIntensity: 70, saturation: 175 },
+  Dezent: { glowIntensity: 55, plasmaIntensity: 20, pulseIntensity: 35, tiltIntensity: 25, saturation: 110, cosmicTrail: false },
+  Balanced: { glowIntensity: 80, plasmaIntensity: 40, pulseIntensity: 55, tiltIntensity: 45, saturation: 135, cosmicTrail: true },
+  Lebendig: { glowIntensity: 95, plasmaIntensity: 55, pulseIntensity: 70, tiltIntensity: 55, saturation: 155, cosmicTrail: true },
+  Intensiv: { glowIntensity: 100, plasmaIntensity: 80, pulseIntensity: 90, tiltIntensity: 70, saturation: 175, cosmicTrail: true },
 };
 
 interface ControlsDropdownProps {
@@ -102,12 +102,34 @@ export function ControlsDropdown({ settings, setSettings }: ControlsDropdownProp
           <Slider label="Pulse Rings" value={settings.pulseIntensity} onChange={update('pulseIntensity')} icon="💫" color="#38bdf8" />
           <Slider label="3D Tilt" value={settings.tiltIntensity} onChange={update('tiltIntensity')} icon="📐" color="#f472b6" />
           <Slider label="Farbsättigung" value={settings.saturation} onChange={update('saturation')} icon="🎨" color="#fb923c" />
+          <div style={{ marginTop: 4, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ fontSize: 13 }}>✨</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#e8e4d9' }}>Goldene Aura</span>
+            </div>
+            <button
+              onClick={() => setSettings({ ...settings, cosmicTrail: !settings.cosmicTrail })}
+              style={{
+                width: 38, height: 20, borderRadius: 10, cursor: 'pointer', border: 'none',
+                background: settings.cosmicTrail ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.1)',
+                position: 'relative', transition: 'background 0.2s',
+              }}
+            >
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%', position: 'absolute', top: 2,
+                left: settings.cosmicTrail ? 20 : 2,
+                background: settings.cosmicTrail ? '#d4af37' : '#555',
+                transition: 'left 0.2s, background 0.2s',
+                boxShadow: settings.cosmicTrail ? '0 0 8px rgba(212,175,55,0.5)' : 'none',
+              }} />
+            </button>
+          </div>
           <div style={{
             marginTop: 6, padding: '10px 12px', borderRadius: 8,
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
           }}>
             <code style={{ fontSize: 10, color: '#6b6560', lineHeight: 1.6, fontFamily: "'SF Mono','Fira Code',monospace" }}>
-              {`{ glow: ${settings.glowIntensity}, plasma: ${settings.plasmaIntensity}, pulse: ${settings.pulseIntensity}, tilt: ${settings.tiltIntensity}, sat: ${settings.saturation} }`}
+              {`{ glow: ${settings.glowIntensity}, plasma: ${settings.plasmaIntensity}, pulse: ${settings.pulseIntensity}, tilt: ${settings.tiltIntensity}, sat: ${settings.saturation}, trail: ${settings.cosmicTrail ? 'on' : 'off'} }`}
             </code>
           </div>
         </div>

@@ -4,10 +4,11 @@ export type LilithEyeIntensity = 'mild' | 'ehrlich' | 'brutal';
 interface LilithEyesProps {
   state?: LilithEyeState;
   intensity?: LilithEyeIntensity;
+  size?: number;
   className?: string;
 }
 
-export function LilithEyes({ state = 'idle', intensity, className = '' }: LilithEyesProps) {
+export function LilithEyes({ state = 'idle', intensity, size, className = '' }: LilithEyesProps) {
   // If intensity is provided and state is not truth, use intensity-coupled classes
   let stateClass: string;
   if (state === 'truth') {
@@ -20,6 +21,9 @@ export function LilithEyes({ state = 'idle', intensity, className = '' }: Lilith
     stateClass = state === 'active' ? 'lilith-eye-active' : 'lilith-eye-idle';
   }
 
+  // Scale eyes up for small portraits so they remain visible
+  const eyeWidth = size && size < 120 ? `${Math.max(28, size * 0.45)}%` : '11%';
+
   return (
     <svg
       className={`${stateClass} ${className}`}
@@ -29,7 +33,7 @@ export function LilithEyes({ state = 'idle', intensity, className = '' }: Lilith
         top: '22.3%',
         left: '50.5%',
         transform: 'translateX(-50%)',
-        width: '11%',
+        width: eyeWidth,
         pointerEvents: 'none',
         zIndex: 3,
       }}

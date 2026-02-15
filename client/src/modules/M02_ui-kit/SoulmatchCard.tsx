@@ -8,6 +8,7 @@ export interface CardSettings {
   pulseIntensity: number;
   tiltIntensity: number;
   saturation: number;
+  cosmicTrail: boolean;
 }
 
 export const DEFAULT_CARD_SETTINGS: CardSettings = {
@@ -16,6 +17,7 @@ export const DEFAULT_CARD_SETTINGS: CardSettings = {
   pulseIntensity: 65,
   tiltIntensity: 45,
   saturation: 150,
+  cosmicTrail: true,
 };
 
 interface EdgeGlow {

@@ -292,7 +292,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           animation: 'auraSnap 0.6s ease-out forwards',
         }} />
       )}
-      <div className={`w-full max-w-lg rounded-xl border border-[color:var(--border)] ${theme.bg} shadow-2xl flex flex-col max-h-[85vh]`}>
+      <div className={`w-full max-w-lg rounded-xl border border-white/[0.16] ${theme.bg} shadow-[0_0_24px_rgba(212,175,55,0.06),0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh]`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${theme.headerBg}`}>
           <div className="flex items-center gap-3">
@@ -355,7 +355,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
         {/* Shadow Dive Confirmation Modal */}
         {shadowDiveConfirm && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-sm rounded-xl bg-zinc-900 border border-red-800/40 p-5 shadow-2xl" style={{ boxShadow: '0 0 40px rgba(220,38,38,0.15)' }}>
+            <div className="w-full max-w-sm rounded-xl bg-zinc-900 border border-red-500/50 p-5" style={{ boxShadow: '0 0 40px rgba(220,38,38,0.2), 0 4px 24px rgba(0,0,0,0.5)' }}>
               <div className="text-center mb-4">
                 <div className="text-3xl mb-2">⚠️</div>
                 <h3 className="text-red-400 font-bold text-sm uppercase tracking-wider">Shadow Dive</h3>

@@ -9,8 +9,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[color:var(--primary)] text-[color:var(--primary-fg)] hover:brightness-110 hover:shadow-[0_0_16px_rgba(212,175,55,0.3)]',
-  secondary: 'bg-white/[0.03] text-[color:var(--fg)] hover:bg-white/[0.06] border border-white/[0.08] hover:border-[color:var(--primary)]/20',
+  primary: 'bg-[color:var(--primary)] text-[color:var(--primary-fg)] shadow-[0_0_12px_rgba(212,175,55,0.15)] hover:brightness-110 hover:shadow-[0_0_20px_rgba(212,175,55,0.35)]',
+  secondary: 'bg-white/[0.04] text-[color:var(--fg)] border border-white/[0.14] shadow-[0_0_10px_rgba(0,0,0,0.2)] hover:bg-white/[0.07] hover:border-white/[0.22] hover:shadow-[0_0_14px_rgba(212,175,55,0.1)]',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

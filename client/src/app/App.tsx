@@ -118,88 +118,105 @@ function HomePage() {
     return result;
   }
 
-  /* ── Overlay views (full-screen) ── */
-  if (overlay === 'settings') {
-    return (
-      <div className="min-h-screen p-4 py-8">
-        <SettingsPage
-          onBack={() => setOverlay(null)}
-          onSettingsChanged={(next) => setSettings(next)}
-        />
-      </div>
-    );
-  }
-
-  if (overlay === 'match' && matchResult && matchProfiles) {
-    return (
-      <div className="min-h-screen p-4 py-8">
-        <MatchReportPage
-          profileA={matchProfiles[0]}
-          profileB={matchProfiles[1]}
-          match={matchResult}
-          onBack={() => setOverlay(null)}
-        />
-      </div>
-    );
-  }
-
-  if (overlay === 'match-select' && hasProfile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <MatchSelector
-          profiles={allProfiles}
-          onMatch={handleComputeMatch}
-          computing={computing}
-          onBack={() => setOverlay(null)}
-        />
-      </div>
-    );
-  }
-
-  if (overlay === 'new-profile') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-        <div style={{ width: '100%', maxWidth: 420 }}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>Neues Profil</h1>
-            <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
-          </div>
-          <SoulmatchCard accent={ACCENT} settings={cardSettings}>
-            <ProfileForm onSaved={handleNewProfileSaved} />
-          </SoulmatchCard>
+  /* ── Overlay content (rendered inside global shell) ── */
+  function renderOverlay() {
+    if (overlay === 'settings') {
+      return (
+        <div className="min-h-screen p-4 py-8" style={{ position: 'relative', zIndex: 10 }}>
+          <SettingsPage
+            onBack={() => setOverlay(null)}
+            onSettingsChanged={(next) => setSettings(next)}
+          />
         </div>
+      );
+    }
+
+    if (overlay === 'match' && matchResult && matchProfiles) {
+      return (
+        <div className="min-h-screen p-4 py-8" style={{ position: 'relative', zIndex: 10 }}>
+          <MatchReportPage
+            profileA={matchProfiles[0]}
+            profileB={matchProfiles[1]}
+            match={matchResult}
+            onBack={() => setOverlay(null)}
+          />
+        </div>
+      );
+    }
+
+    if (overlay === 'match-select' && hasProfile) {
+      return (
+        <div className="flex min-h-screen items-center justify-center p-4" style={{ position: 'relative', zIndex: 10 }}>
+          <MatchSelector
+            profiles={allProfiles}
+            onMatch={handleComputeMatch}
+            computing={computing}
+            onBack={() => setOverlay(null)}
+          />
+        </div>
+      );
+    }
+
+    if (overlay === 'new-profile') {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 10 }}>
+          <div style={{ width: '100%', maxWidth: 420 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>Neues Profil</h1>
+              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
+            </div>
+            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+              <ProfileForm onSaved={handleNewProfileSaved} />
+            </SoulmatchCard>
+          </div>
+        </div>
+      );
+    }
+
+    if (overlay === 'edit' || !hasProfile) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 10 }}>
+          <div style={{ width: '100%', maxWidth: 420 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
+                {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
+              </h1>
+              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
+                {hasProfile ? 'Deine Basisdaten anpassen' : 'Erstelle dein Profil für kosmische Einblicke'}
+              </p>
+            </div>
+            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+              <ProfileForm
+                initialProfile={profile}
+                onSaved={handleSaved}
+                onDelete={profile ? handleDelete : undefined}
+              />
+            </SoulmatchCard>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
+  const overlayContent = renderOverlay();
+  if (overlayContent) {
+    return (
+      <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+        {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
+        {overlayContent}
       </div>
     );
   }
 
-  if (overlay === 'edit' || !hasProfile) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-        <div style={{ width: '100%', maxWidth: 420 }}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
-              {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
-            </h1>
-            <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-              {hasProfile ? 'Deine Basisdaten anpassen' : 'Erstelle dein Profil für kosmische Einblicke'}
-            </p>
-          </div>
-          <SoulmatchCard accent={ACCENT} settings={cardSettings}>
-            <ProfileForm
-              initialProfile={profile}
-              onSaved={handleSaved}
-              onDelete={profile ? handleDelete : undefined}
-            />
-          </SoulmatchCard>
-        </div>
-      </div>
-    );
-  }
+  // At this point overlay is null and hasProfile is true, so profile is guaranteed non-null
+  if (!profile) return null;
 
   /* ── Main 3-page cosmic shell ── */
   return (
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <CosmicTrail containerRef={containerRef} />
+      {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
 
       <div style={{ position: 'relative', zIndex: 10, padding: '32px 28px 60px', maxWidth: 1100, margin: '0 auto' }}>
         {/* Header */}
@@ -209,7 +226,7 @@ function HomePage() {
               Soulmatch
             </h1>
             <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-              Goldener Kometenschweif · Hover über Karten
+              {cardSettings.cosmicTrail ? 'Goldene Aura aktiv' : 'Hover über Karten'} · Effekt-Steuerung →
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
