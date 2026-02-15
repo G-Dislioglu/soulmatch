@@ -11,7 +11,6 @@ import { scoringRouter } from './routes/scoring.js';
 import { matchRouter } from './routes/match.js';
 import { healthRouter } from './routes/health.js';
 import { devLogger } from './devLogger.js';
-import { db } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

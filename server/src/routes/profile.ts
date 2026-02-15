@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
 import { devLogger } from '../devLogger.js';
-import { db, profiles, type ProfileRecord } from '../db.js';
+import { getDb, profiles, type ProfileRecord } from '../db.js';
 import { eq } from 'drizzle-orm';
 
 // Types from shared contract (copied from client/src/shared/types/profile.ts)
@@ -38,6 +38,7 @@ export const profileRouter = Router();
 // POST /api/profile
 profileRouter.post('/', async (req: Request, res: Response) => {
   try {
+    const db = getDb();
     const body: CreateProfileRequest = req.body;
     
     // Minimal validation
@@ -77,6 +78,7 @@ profileRouter.post('/', async (req: Request, res: Response) => {
 // GET /api/profile/:id
 profileRouter.get('/:id', async (req: Request, res: Response) => {
   try {
+    const db = getDb();
     const { id } = req.params;
     
     const result = await db
@@ -118,6 +120,7 @@ profileRouter.get('/:id', async (req: Request, res: Response) => {
 // PUT /api/profile/:id
 profileRouter.put('/:id', async (req: Request, res: Response) => {
   try {
+    const db = getDb();
     const { id } = req.params;
     const updates: UpdateProfileRequest = req.body;
     
@@ -162,6 +165,7 @@ profileRouter.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/profile/:id
 profileRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const db = getDb();
     const { id } = req.params;
     
     // Check if profile exists
