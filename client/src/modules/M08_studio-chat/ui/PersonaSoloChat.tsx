@@ -12,6 +12,7 @@ import { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, 
 import { isBlocked, getBlockRemainingMs, evaluateMessage } from '../lib/toxicityGuard';
 import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMemory';
 import { extractInsights, checkMilestone } from '../lib/insightExtractor';
+import { useGuide } from '../../../modules/M14_guide/GuideProvider';
 import { LiveSigil } from './LiveSigil';
 import type { SigilState } from './LiveSigil';
 import { parseResponse, parseSoulCard } from '../lib/commandParser';
@@ -102,6 +103,7 @@ function formatBlockRemaining(ms: number): string {
 }
 
 export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: PersonaSoloChatProps) {
+  const guide = useGuide();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(seat));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -178,8 +180,47 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
           commandCallbacks?.onTourStart?.(cmd.steps);
         }
         break;
+      case 'guide_start':
+        try {
+          guide.startOnboarding();
+        } catch (err) {
+          console.warn('Guide start failed:', err);
+          // Fallback: try highlight if available
+          if (cmd.target) {
+            commandCallbacks?.onHighlight?.(cmd.target);
+          }
+        }
+        break;
+      case 'guide_next':
+        try {
+          guide.nextStep();
+        } catch (err) {
+          console.warn('Guide next failed:', err);
+        }
+        break;
+      case 'guide_end':
+        try {
+          guide.stopGuide();
+        } catch (err) {
+          console.warn('Guide end failed:', err);
+        }
+        break;
+      case 'point_to':
+        try {
+          // GuideProvider doesn't have pointTo, use highlight fallback
+          if (cmd.target) {
+            commandCallbacks?.onHighlight?.(cmd.target);
+          }
+        } catch (err) {
+          console.warn('Point to failed:', err);
+          // Fallback to highlight
+          if (cmd.target) {
+            commandCallbacks?.onHighlight?.(cmd.target);
+          }
+        }
+        break;
     }
-  }, [commandCallbacks]);
+  }, [commandCallbacks, guide]);
 
   // Initialize command bus
   useEffect(() => {
