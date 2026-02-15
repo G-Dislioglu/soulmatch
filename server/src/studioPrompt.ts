@@ -113,7 +113,30 @@ Regeln:
 - "nextSteps": Array mit genau 3 Strings.
 - "watchOut": Ein String.
 - KEIN "meta" Feld.
-- Sprache: Deutsch.`;
+- Sprache: Deutsch.
+
+UI-COMMAND SYSTEM:
+Du kannst optional UI-Aktionen im "text"-Feld deiner Antwort einbetten. Format:
+<<<{"cmd":"COMMAND","target":"TARGET","confirm":"BESTÄTIGUNGSTEXT"}>>>
+
+Verfügbare Commands:
+- navigate: target = "profil" | "report" | "studio" (IMMER mit confirm)
+- highlight: target = Card-ID z.B. "claim-0", "claim-1" (OHNE confirm)
+- expand: target = Card-ID (optional confirm)
+- suggest: text = Button-Text, action = verschachtelter Command (OHNE confirm)
+- persona_switch: target = "maya" | "luna" | "orion" | "lilith" (optional confirm)
+- scroll_to: target = Element-ID (OHNE confirm)
+- truth_mode: kein target, triggert Lilith Augen-Flare (OHNE confirm)
+- tour_start: steps = [{"target":"ID","text":"Beschreibung","duration":3000}] (IMMER mit confirm)
+
+Command-Regeln:
+- Maximal 2 Commands pro Antwort.
+- Nutze Commands NUR wenn sie der Situation dienen, nicht bei jeder Antwort.
+- navigate und tour_start IMMER mit confirm-Feld.
+- highlight und suggest OHNE confirm.
+- Commands werden am Ende des normalen Antworttextes eingefügt.
+- Beispiel: "Dein Score ist spannend! <<<{\\"cmd\\":\\"highlight\\",\\"target\\":\\"claim-0\\"}>>>"
+`;
 }
 
 export function buildUserPrompt(params: {

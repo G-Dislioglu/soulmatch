@@ -6,6 +6,7 @@ import { Button, CosmicButton, SoulmatchCard, DEFAULT_CARD_SETTINGS } from '../.
 import { StudioPanel } from './StudioPanel';
 import { SeatBadge } from './SeatBadge';
 import { PersonaSoloChat } from './PersonaSoloChat';
+import type { MayaCommandCallbacks } from './PersonaSoloChat';
 import { setLastPersona } from '../lib/personaPersist';
 
 interface StudioPageProps {
@@ -17,6 +18,7 @@ interface StudioPageProps {
   onComputeMatch?: (aId: string, bId: string) => Promise<MatchScoreResult | null>;
   initialSoloSeat?: StudioSeat | null;
   onSoloChatOpened?: () => void;
+  commandCallbacks?: MayaCommandCallbacks;
 }
 
 const ACCENT = '#d4af37';
@@ -30,6 +32,7 @@ export function StudioPage({
   onComputeMatch,
   initialSoloSeat,
   onSoloChatOpened,
+  commandCallbacks,
 }: StudioPageProps) {
   const [soloSeat, setSoloSeat] = useState<StudioSeat | null>(null);
 
@@ -228,6 +231,7 @@ export function StudioPage({
           seat={soloSeat}
           profileId={profileId}
           onClose={() => setSoloSeat(null)}
+          commandCallbacks={commandCallbacks}
         />
       )}
     </div>

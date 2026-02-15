@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Route, Switch } from 'wouter';
 import type { UserProfile } from '../shared/types/profile';
 import type { ScoreResult } from '../shared/types/scoring';
@@ -15,6 +15,8 @@ import { computeScore } from '../modules/M06_scoring';
 import { computeMatch } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview } from '../modules/M08_studio-chat';
+import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
+import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
@@ -54,6 +56,12 @@ function HomePage() {
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
   const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
   const [soloTrigger, setSoloTrigger] = useState<PreviewSeat>(null);
+
+  // ── Maya Command System state ──
+  const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [tourTarget, setTourTarget] = useState<string | null>(null);
+  const [tourText, setTourText] = useState('');
 
   useEffect(() => {
     setProfile(loadProfile());
@@ -117,6 +125,40 @@ function HomePage() {
     const result = await computeMatch({ aProfileId: aId, bProfileId: bId });
     return result;
   }
+
+  // ── Maya Command Callbacks ──
+  const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
+    onNavigate(target: string) {
+      const pageMap: Record<string, number> = { profil: 0, report: 1, studio: 2 };
+      const idx = pageMap[target];
+      if (idx !== undefined) setActivePage(idx);
+    },
+    onHighlight(target: string) {
+      setHighlightedCard(target);
+      setTimeout(() => setHighlightedCard(null), 2200);
+    },
+    onExpand(target: string) {
+      setExpandedCard((prev) => (prev === target ? null : target));
+    },
+    onPersonaSwitch(target: StudioSeat) {
+      setSoloTrigger(target);
+    },
+    onScrollTo(target: string) {
+      const el = document.getElementById(target);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    async onTourStart(steps: TourStep[]) {
+      for (const step of steps) {
+        setTourTarget(step.target);
+        setTourText(step.text);
+        const el = document.getElementById(`card-${step.target}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await new Promise((r) => setTimeout(r, step.duration || 3000));
+      }
+      setTourTarget(null);
+      setTourText('');
+    },
+  }), []);
 
   /* ── Overlay content (rendered inside global shell) ── */
   function renderOverlay() {
@@ -322,7 +364,7 @@ function HomePage() {
                 <>
                   <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                     {/* Score overview */}
-                    <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                    <div id="card-score-card" style={{ textAlign: 'center', marginBottom: 20 }}>
                       <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 10, color: '#a09a8e', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>
                         Gesamtscore
                       </div>
@@ -371,11 +413,21 @@ function HomePage() {
                         const dotColor = claim.level === 'positive' ? '#34d399' : claim.level === 'info' ? ACCENT : '#fbbf24';
                         const bgColor = claim.level === 'positive' ? 'rgba(34,211,153,0.1)' : claim.level === 'info' ? `${ACCENT}10` : 'rgba(251,191,36,0.1)';
                         const borderColor = claim.level === 'positive' ? 'rgba(34,211,153,0.22)' : claim.level === 'info' ? `${ACCENT}28` : 'rgba(251,191,36,0.22)';
+                        const cardId = `claim-${idx}`;
+                        const isHighlighted = highlightedCard === cardId;
+                        const isTourTarget = tourTarget === cardId;
                         return (
-                          <div key={idx} style={{
-                            padding: '13px 15px', borderRadius: 11,
-                            background: bgColor, border: `1px solid ${borderColor}`, marginBottom: 8,
-                          }}>
+                          <div
+                            key={idx}
+                            id={`card-${cardId}`}
+                            className={`${isHighlighted ? 'maya-card-highlight' : ''} ${isTourTarget ? 'maya-tour-target' : ''}`}
+                            style={{
+                              padding: '13px 15px', borderRadius: 11,
+                              background: bgColor, border: `1px solid ${borderColor}`, marginBottom: 8,
+                              cursor: expandedCard === cardId ? undefined : 'pointer',
+                            }}
+                            onClick={() => setExpandedCard((prev) => prev === cardId ? null : cardId)}
+                          >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                               <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, boxShadow: `0 0 10px ${dotColor}90` }} />
                               <span style={{ fontSize: 13, fontWeight: 600, color: '#f0eadc' }}>{claim.title}</span>
@@ -385,6 +437,20 @@ function HomePage() {
                         );
                       })}
                     </SoulmatchCard>
+                  )}
+
+                  {/* Maya Tour overlay tooltip */}
+                  {tourTarget && tourText && (
+                    <div style={{
+                      position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)',
+                      padding: '12px 24px', borderRadius: 12, zIndex: 100,
+                      background: 'rgba(8,6,15,0.95)', backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(212,175,55,0.3)', maxWidth: 400,
+                      animation: 'fadeUp 0.3s ease-out',
+                    }}>
+                      <div style={{ fontSize: 10, color: ACCENT, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>◇ Maya Tour</div>
+                      <div style={{ fontSize: 13, color: '#b0a898', lineHeight: 1.6 }}>{tourText}</div>
+                    </div>
                   )}
                 </>
               ) : (
@@ -445,6 +511,7 @@ function HomePage() {
                 onComputeMatch={handleStudioMatch}
                 initialSoloSeat={soloTrigger}
                 onSoloChatOpened={() => setSoloTrigger(null)}
+                commandCallbacks={commandCallbacks}
               />
             </div>
 

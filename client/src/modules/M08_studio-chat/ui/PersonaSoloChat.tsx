@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import { Button } from '../../M02_ui-kit';
 import { getStudioProvider } from '../../M09_settings';
@@ -14,6 +14,10 @@ import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMem
 import { extractInsights, checkMilestone } from '../lib/insightExtractor';
 import { LiveSigil } from './LiveSigil';
 import type { SigilState } from './LiveSigil';
+import { parseResponse } from '../lib/commandParser';
+import type { MayaCommand, TourStep } from '../lib/commandParser';
+import { createCommandBus, sleep } from '../lib/commandBus';
+import type { CommandBus } from '../lib/commandBus';
 
 const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string }> = {
   maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin' },
@@ -68,10 +72,26 @@ const INTENSITY_UI: Record<LilithIntensity, {
 
 const SHADOW_DIVE_DISMISS_KEY = 'soulmatch.shadowDive.dismissed';
 
+interface MayaSuggestion {
+  id: number;
+  text: string;
+  action?: MayaCommand;
+}
+
+export interface MayaCommandCallbacks {
+  onNavigate?: (target: string) => void;
+  onHighlight?: (target: string) => void;
+  onExpand?: (target: string) => void;
+  onPersonaSwitch?: (target: StudioSeat) => void;
+  onScrollTo?: (target: string) => void;
+  onTourStart?: (steps: TourStep[]) => void;
+}
+
 interface PersonaSoloChatProps {
   seat: StudioSeat;
   profileId: string;
   onClose: () => void;
+  commandCallbacks?: MayaCommandCallbacks;
 }
 
 function formatBlockRemaining(ms: number): string {
@@ -80,7 +100,7 @@ function formatBlockRemaining(ms: number): string {
   return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 }
 
-export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatProps) {
+export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: PersonaSoloChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(seat));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -96,8 +116,99 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ── Maya Command System state ──
+  const [pendingCmd, setPendingCmd] = useState<MayaCommand | null>(null);
+  const [suggestions, setSuggestions] = useState<MayaSuggestion[]>([]);
+  const cmdBusRef = useRef<CommandBus | null>(null);
+
   const theme = SEAT_THEMES[seat];
   const isLilith = seat === 'lilith';
+
+  // ── Command Executor ──
+  const executeCommand = useCallback(async (cmd: MayaCommand) => {
+    // Commands with confirm field pause for user confirmation
+    if (cmd.confirm && !cmd._confirmed) {
+      setPendingCmd(cmd);
+      return;
+    }
+
+    switch (cmd.cmd) {
+      case 'navigate':
+        if (cmd.target) commandCallbacks?.onNavigate?.(cmd.target);
+        break;
+      case 'highlight':
+        if (cmd.target) {
+          commandCallbacks?.onHighlight?.(cmd.target);
+          const el = document.getElementById(`card-${cmd.target}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        break;
+      case 'expand':
+        if (cmd.target) {
+          commandCallbacks?.onExpand?.(cmd.target);
+          await sleep(300);
+          const el = document.getElementById(`card-${cmd.target}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        break;
+      case 'suggest':
+        if (cmd.text) {
+          setSuggestions((prev) => [...prev, { id: Date.now(), text: cmd.text!, action: cmd.action }]);
+        }
+        break;
+      case 'persona_switch':
+        if (cmd.target) commandCallbacks?.onPersonaSwitch?.(cmd.target as StudioSeat);
+        break;
+      case 'scroll_to':
+        if (cmd.target) {
+          commandCallbacks?.onScrollTo?.(cmd.target);
+          const el = document.getElementById(cmd.target);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        break;
+      case 'truth_mode':
+        setSigilState('truth');
+        setTimeout(() => setSigilState('idle'), 800);
+        break;
+      case 'tour_start':
+        if (cmd.steps && cmd.steps.length > 0) {
+          commandCallbacks?.onTourStart?.(cmd.steps);
+        }
+        break;
+    }
+  }, [commandCallbacks]);
+
+  // Initialize command bus
+  useEffect(() => {
+    cmdBusRef.current = createCommandBus(executeCommand);
+    return () => { cmdBusRef.current?.clear(); };
+  }, [executeCommand]);
+
+  function confirmPendingCommand() {
+    if (!pendingCmd) return;
+    const confirmed = { ...pendingCmd, _confirmed: true };
+    setPendingCmd(null);
+    cmdBusRef.current?.push(confirmed);
+  }
+
+  function rejectPendingCommand() {
+    if (!pendingCmd) return;
+    setPendingCmd(null);
+    const rejectMsg: ChatMessage = {
+      role: 'persona', seat,
+      text: 'Alles klar, kein Problem. Was möchtest du stattdessen tun?',
+      timestamp: new Date().toISOString(),
+    };
+    const updated = appendMessage(seat, rejectMsg);
+    setMessages(updated);
+  }
+
+  function executeSuggestion(suggestion: MayaSuggestion) {
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
+    if (suggestion.action) {
+      cmdBusRef.current?.push(suggestion.action);
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -249,7 +360,10 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
 
       const turn = res.turns[0];
       if (turn) {
-        const personaMsg: ChatMessage = { role: 'persona', seat, text: turn.text, timestamp: new Date().toISOString() };
+        // Parse commands from response text
+        const { text: cleanText, commands } = parseResponse(turn.text);
+
+        const personaMsg: ChatMessage = { role: 'persona', seat, text: cleanText, timestamp: new Date().toISOString() };
         const withResponse = appendMessage(seat, personaMsg);
         setMessages(withResponse);
 
@@ -259,8 +373,14 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           setTimeout(() => setSigilState('idle'), 1200);
         }
 
+        // Dispatch any extracted commands via the bus
+        if (commands.length > 0) {
+          await sleep(500);
+          cmdBusRef.current?.pushAll(commands);
+        }
+
         // Extract insights and save to user memory
-        const insights = extractInsights(text, turn.text, seat);
+        const insights = extractInsights(text, cleanText, seat);
         for (const ins of insights) {
           addMemoryEntry(profileId, ins);
         }
@@ -491,6 +611,51 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
               </div>
             </div>
           )}
+
+          {/* Maya Command: Pending confirmation dialog */}
+          {pendingCmd && (
+            <div className="maya-suggest-btn" style={{
+              padding: '12px 16px', borderRadius: 14, alignSelf: 'flex-start', maxWidth: '88%',
+              background: `rgba(212,175,55,0.06)`, border: '1px solid rgba(212,175,55,0.2)',
+            }}>
+              <p className="text-xs text-zinc-300 mb-2.5 leading-relaxed">
+                {pendingCmd.confirm || 'Soll ich fortfahren?'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmPendingCommand}
+                  className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', color: '#d4af37' }}
+                >
+                  Ja, mach das
+                </button>
+                <button
+                  onClick={rejectPendingCommand}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-500 border border-zinc-700/50 hover:border-zinc-500/50 transition-all"
+                >
+                  Nein
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Maya Command: Suggestion buttons */}
+          {suggestions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => executeSuggestion(s)}
+              className="maya-suggest-btn"
+              style={{
+                alignSelf: 'flex-start', padding: '9px 16px', borderRadius: 10, cursor: 'pointer',
+                background: 'rgba(212,145,55,0.06)', border: '1px solid rgba(212,145,55,0.2)',
+                color: '#d49137', fontSize: 12, fontWeight: 600,
+                fontFamily: "'Outfit', sans-serif", textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>→</span> {s.text}
+            </button>
+          ))}
         </div>
         </div>
 
