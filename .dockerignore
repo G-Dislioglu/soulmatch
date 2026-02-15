@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/.cache
+.git
+.gitignore
+.vscode
+.windsurf
+*.log
+.env
+.env.*
