@@ -14,8 +14,9 @@ import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMem
 import { extractInsights, checkMilestone } from '../lib/insightExtractor';
 import { LiveSigil } from './LiveSigil';
 import type { SigilState } from './LiveSigil';
-import { parseResponse } from '../lib/commandParser';
-import type { MayaCommand, TourStep } from '../lib/commandParser';
+import { parseResponse, parseSoulCard } from '../lib/commandParser';
+import type { MayaCommand, TourStep, SoulCardProposal } from '../lib/commandParser';
+import { soulCardService, timelineService } from '../../M13_timeline';
 import { createCommandBus, sleep } from '../lib/commandBus';
 import type { CommandBus } from '../lib/commandBus';
 
@@ -115,10 +116,12 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   const [showAuraSnap, setShowAuraSnap] = useState(true);
   const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const initialMsgCount = useRef(messages.length);
 
   // ── Maya Command System state ──
   const [pendingCmd, setPendingCmd] = useState<MayaCommand | null>(null);
   const [suggestions, setSuggestions] = useState<MayaSuggestion[]>([]);
+  const [cardProposal, setCardProposal] = useState<SoulCardProposal | null>(null);
   const cmdBusRef = useRef<CommandBus | null>(null);
 
   const theme = SEAT_THEMES[seat];
@@ -241,6 +244,18 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
     setShadowDiveConfirm(false);
   }
 
+  function handleClose() {
+    // Create timeline entry if new messages were sent during this session
+    const newMsgs = messages.length - initialMsgCount.current;
+    if (newMsgs >= 2) {
+      const lastPersonaMsg = [...messages].reverse().find((m) => m.role === 'persona');
+      const preview = lastPersonaMsg?.text?.slice(0, 80) ?? `${newMsgs} Nachrichten`;
+      const entryType = `chat_${seat}` as const;
+      timelineService.addEntry(entryType, `Chat mit ${seat.charAt(0).toUpperCase() + seat.slice(1)}`, preview, { personaId: seat });
+    }
+    onClose();
+  }
+
   function handleClear() {
     clearChatHistory(seat);
     resetSensitivity();
@@ -360,8 +375,12 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
 
       const turn = res.turns[0];
       if (turn) {
+        // Parse soul card proposal first (before command parsing strips it)
+        const { text: textAfterCard, card: soulCard } = parseSoulCard(turn.text);
+        if (soulCard) setCardProposal(soulCard);
+
         // Parse commands from response text
-        const { text: cleanText, commands } = parseResponse(turn.text);
+        const { text: cleanText, commands } = parseResponse(textAfterCard);
 
         const personaMsg: ChatMessage = { role: 'persona', seat, text: cleanText, timestamp: new Date().toISOString() };
         const withResponse = appendMessage(seat, personaMsg);
@@ -454,7 +473,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-zinc-400 hover:text-zinc-200 transition-colors text-lg leading-none"
             >
               ✕
@@ -634,6 +653,71 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                   className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-500 border border-zinc-700/50 hover:border-zinc-500/50 transition-all"
                 >
                   Nein
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Soul Card Proposal */}
+          {cardProposal && (
+            <div
+              className="sidebar-entry-fadein"
+              style={{
+                alignSelf: 'flex-start', maxWidth: '92%',
+                padding: '14px 16px', borderRadius: 14,
+                background: 'rgba(232,121,249,0.04)',
+                border: '1px solid rgba(232,121,249,0.15)',
+              }}
+            >
+              <div style={{ fontSize: 10, color: '#e879f9', fontWeight: 600, marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                ◆ Soul Card (Vorschlag)
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#f0eadc', marginBottom: 6, fontFamily: "'Cormorant Garamond', serif" }}>
+                {cardProposal.title}
+              </div>
+              <div style={{ fontSize: 12, color: '#b0a898', lineHeight: 1.65, marginBottom: 10 }}>
+                {cardProposal.essence}
+              </div>
+              {cardProposal.tags.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {cardProposal.tags.map((tag) => (
+                    <span key={tag} style={{
+                      fontSize: 10, padding: '2px 8px', borderRadius: 6,
+                      background: 'rgba(232,121,249,0.08)', color: '#e879f9',
+                      border: '1px solid rgba(232,121,249,0.12)',
+                    }}>
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => {
+                    const entry = timelineService.addEntry('soul_card', cardProposal.title, cardProposal.essence.slice(0, 80), {});
+                    const card = soulCardService.createCardFromProposal(cardProposal, entry.id, 'chat');
+                    soulCardService.confirmCard(card.id);
+                    setCardProposal(null);
+                  }}
+                  style={{
+                    flex: 1, padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                    background: 'rgba(232,121,249,0.1)', border: '1px solid rgba(232,121,249,0.25)',
+                    color: '#e879f9', fontSize: 11, fontWeight: 600,
+                    fontFamily: "'Outfit', sans-serif", transition: 'all 0.2s ease',
+                  }}
+                >
+                  ✓ Speichern
+                </button>
+                <button
+                  onClick={() => setCardProposal(null)}
+                  style={{
+                    padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    color: '#7a7468', fontSize: 11, fontWeight: 500,
+                    fontFamily: "'Outfit', sans-serif", transition: 'all 0.2s ease',
+                  }}
+                >
+                  ✕ Verwerfen
                 </button>
               </div>
             </div>

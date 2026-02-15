@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Route, Switch } from 'wouter';
 import type { UserProfile } from '../shared/types/profile';
 import type { ScoreResult } from '../shared/types/scoring';
@@ -33,6 +33,8 @@ import {
   DiscoveryFlow,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
+import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService } from '../modules/M13_timeline';
+import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 
 const ACCENT = '#d4af37';
 const APP_PAGES: PageDef[] = [
@@ -57,6 +59,9 @@ function HomePage() {
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
   const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
   const [soloTrigger, setSoloTrigger] = useState<PreviewSeat>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
+  const [showCrossing, setShowCrossing] = useState(false);
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
@@ -97,6 +102,8 @@ function HomePage() {
       const result = await computeScore({ profileId: profile.id });
       setScoreResult(result);
       setActivePage(1);
+      // Auto-create timeline entry
+      timelineService.addEntry('score', `Score: ${result.scoreOverall}`, `Numerologie ${result.breakdown.numerology}% · Astrologie ${result.breakdown.astrology}% · Fusion ${result.breakdown.fusion}%`, { score: result.scoreOverall });
     } catch (err) {
       console.error('Score computation failed:', err);
     } finally {
@@ -126,6 +133,20 @@ function HomePage() {
     const result = await computeMatch({ aProfileId: aId, bProfileId: bId });
     return result;
   }
+
+  // ── Sidebar Callbacks ──
+  const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
+    onNavigateScore: () => setActivePage(1),
+    onNavigateChat: (personaId: string) => {
+      setSoloTrigger(personaId as StudioSeat);
+      setActivePage(2);
+    },
+    onNavigateInsight: () => setActivePage(1),
+    onOpenSettings: () => setOverlay('settings'),
+    onOpenSoulCard: (card) => setActiveSoulCard(card),
+  }), []);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen((p) => !p), []);
 
   // ── Maya Command Callbacks ──
   const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
@@ -261,16 +282,68 @@ function HomePage() {
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
 
-      <div style={{ position: 'relative', zIndex: 10, padding: '32px 28px 60px', maxWidth: 1100, margin: '0 auto' }}>
+      {/* Soul Card Detail Modal */}
+      {activeSoulCard && (
+        <SoulCardDetail
+          card={activeSoulCard}
+          onClose={() => setActiveSoulCard(null)}
+          onDeleted={() => setActiveSoulCard(null)}
+          onUpdated={() => setActiveSoulCard(null)}
+        />
+      )}
+
+      {/* Crossing Modal */}
+      {showCrossing && (
+        <CrossingModal
+          cards={soulCardService.getConfirmedCards()}
+          onClose={() => setShowCrossing(false)}
+          onComplete={() => setShowCrossing(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <Sidebar
+        open={sidebarOpen}
+        onToggle={toggleSidebar}
+        lastScore={scoreResult?.scoreOverall ?? null}
+        callbacks={sidebarCallbacks}
+      />
+
+      <div style={{
+        position: 'relative', zIndex: 10,
+        padding: '32px 28px 60px', maxWidth: 1100,
+        marginLeft: sidebarOpen ? 280 : 0,
+        marginRight: 'auto',
+        transition: 'margin-left 0.3s ease',
+      }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
-              Soulmatch
-            </h1>
-            <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-              {cardSettings.cosmicTrail ? 'Goldene Aura aktiv' : 'Hover über Karten'} · Effekt-Steuerung →
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Hamburger / sidebar toggle */}
+            {!sidebarOpen && (
+              <button
+                onClick={toggleSidebar}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#5a5550', fontSize: 20, padding: '4px 6px',
+                  borderRadius: 6, transition: 'color 0.2s ease',
+                  lineHeight: 1,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#a09a8e'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5550'; }}
+                aria-label="Sidebar öffnen"
+              >
+                ☰
+              </button>
+            )}
+            <div>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
+                Soulmatch
+              </h1>
+              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
+                {cardSettings.cosmicTrail ? 'Goldene Aura aktiv' : 'Hover über Karten'} · Effekt-Steuerung →
+              </p>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <CosmicButton variant="ghost" onClick={() => setOverlay('settings')} style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>

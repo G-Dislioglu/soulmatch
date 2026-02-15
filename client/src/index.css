@@ -216,6 +216,100 @@ body {
 .related-glow { animation: relatedGlow 2s ease-in-out; }
 .portal-enter { animation: portalExpand 0.6s ease-out; }
 
+/* ═══ Sidebar ═══ */
+
+/* Ambient floating lights (CSS only, no JS) */
+.sidebar-ambient::before,
+.sidebar-ambient::after {
+  content: '';
+  position: absolute;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.03;
+}
+.sidebar-ambient::before {
+  background: #d4af37;
+  top: 20%; left: 30%;
+  animation: ambientFloat1 12s ease-in-out infinite;
+}
+.sidebar-ambient::after {
+  background: #c084fc;
+  bottom: 30%; right: 20%;
+  animation: ambientFloat2 15s ease-in-out infinite;
+}
+@keyframes ambientFloat1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(20px, -30px); }
+  66% { transform: translate(-15px, 20px); }
+}
+@keyframes ambientFloat2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-25px, -20px); }
+}
+
+/* Entry slide-in */
+@keyframes sidebarEntryIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.sidebar-entry-fadein {
+  animation: sidebarEntryIn 0.35s ease-out both;
+}
+
+/* Maya recap slide-down */
+@keyframes sidebarRecapIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Soul Card new-pulse */
+@keyframes soulCardNewPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232,121,249,0); }
+  50% { box-shadow: 0 0 12px 2px rgba(232,121,249,0.12); }
+}
+.soul-card-new { animation: soulCardNewPulse 3s ease-in-out 2; }
+
+/* Mobile sidebar */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%) !important;
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0) !important;
+  }
+  .sidebar-backdrop {
+    display: block !important;
+  }
+}
+@media (min-width: 769px) {
+  .sidebar-backdrop {
+    display: none !important;
+  }
+}
+
+/* Crossing animations */
+@keyframes crossingPulseLeft {
+  0%, 100% { transform: translateX(0); opacity: 1; }
+  50% { transform: translateX(8px); opacity: 0.8; }
+}
+@keyframes crossingPulseRight {
+  0%, 100% { transform: translateX(0); opacity: 1; }
+  50% { transform: translateX(-8px); opacity: 0.8; }
+}
+@keyframes crossingSpinSymbol {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Hidden scrollbar utility */
+.hidden-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hidden-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 /* ── Accessibility: Reduced Motion ── */
 @media (prefers-reduced-motion: reduce) {

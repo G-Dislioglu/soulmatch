@@ -24,8 +24,8 @@ export { loadUserMemory, addMemoryEntry, addStrike, getBanStatus, buildMemoryCon
 export type { MemoryEntry, MemoryEntryType, Sentiment, StrikeRecord, UserMemoryStore } from './lib/userMemory';
 export { extractInsights, checkMilestone } from './lib/insightExtractor';
 export { getLastPersona, setLastPersona } from './lib/personaPersist';
-export { parseResponse, VALID_COMMANDS } from './lib/commandParser';
-export type { MayaCommand, MayaCommandType, TourStep, ParsedResponse } from './lib/commandParser';
+export { parseResponse, parseSoulCard, VALID_COMMANDS } from './lib/commandParser';
+export type { MayaCommand, MayaCommandType, TourStep, ParsedResponse, SoulCardProposal } from './lib/commandParser';
 export { createCommandBus, sleep } from './lib/commandBus';
 export type { CommandBus, CommandDispatcher } from './lib/commandBus';
 export type { MayaCommandCallbacks } from './ui/PersonaSoloChat';

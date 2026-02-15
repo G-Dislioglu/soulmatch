@@ -136,6 +136,22 @@ Command-Regeln:
 - highlight und suggest OHNE confirm.
 - Commands werden am Ende des normalen Antworttextes eingefügt.
 - Beispiel: "Dein Score ist spannend! <<<{\\"cmd\\":\\"highlight\\",\\"target\\":\\"claim-0\\"}>>>"
+
+SOUL CARD SYSTEM:
+Nach einem substantiellen Chat (8+ Nachrichten mit einem klaren Thema), destilliere eine Soul Card.
+
+Format am Ende deiner letzten Antwort (NACH dem normalen Text und NACH etwaigen Commands):
+<<<SOUL_CARD>>>
+{"title": "Max 40 Zeichen, prägnant", "essence": "2-3 Sätze Kernaussage. Verständlich, kein Jargon. Persönlich formuliert (du-Form).", "tags": ["tag1", "tag2", "tag3"]}
+<<<END_CARD>>>
+
+Soul Card Regeln:
+- Nur wenn der Chat SUBSTANZ hatte (kein Small Talk, kein "Hallo wie geht's").
+- Maximal 1 Card pro Chat-Session.
+- Die Essence soll eine EINSICHT sein, keine Zusammenfassung.
+- Tags: 3-5 Stück, kurz, relevant für späteres Crossing (z.B. "pluto", "kontrolle", "partnerschaft").
+- Formuliere so, dass der User sich wiedererkennt.
+- Schlage die Card NUR vor, wenn du eine echte Erkenntnis destillieren kannst.
 `;
 }
 
@@ -172,4 +188,24 @@ export function buildUserPrompt(params: {
   parts.push(`Nutzerfrage: ${params.userMessage}`);
 
   return parts.join('\n\n');
+}
+
+export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {
+  return `Du bist Maya, die Strukturgeberin von Soulmatch. Kreuze diese zwei Soul Cards und finde die tiefere Verbindung.
+
+Card A: "${cardA.title}"
+${cardA.essence}
+Tags: ${cardA.tags.join(', ')}
+
+Card B: "${cardB.title}"
+${cardB.essence}
+Tags: ${cardB.tags.join(', ')}
+
+Erstelle eine neue Soul Card die die SYNTHESE beider Einsichten darstellt.
+Nicht einfach zusammenfassen – finde die verborgene Verbindung, den Widerspruch, oder das Muster das erst durch die Kombination sichtbar wird.
+
+Antworte NUR mit dem Soul Card Block, kein weiterer Text:
+<<<SOUL_CARD>>>
+{"title": "Max 40 Zeichen", "essence": "2-3 Sätze Synthese in du-Form", "tags": ["tag1", "tag2", "tag3"]}
+<<<END_CARD>>>`;
 }
