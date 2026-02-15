@@ -19,3 +19,6 @@ export type { ChatMessage } from './lib/chatHistory';
 export { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from './lib/sensitivityTracker';
 export type { SensitivityState } from './lib/sensitivityTracker';
 export { detectToxicity, isBlocked, activateBlock, clearBlock, getBlockRemainingMs } from './lib/toxicityGuard';
+export { LiveSigil } from './ui/LiveSigil';
+export type { SigilState } from './ui/LiveSigil';
+export { PersonaPreview } from './ui/PersonaPreview';

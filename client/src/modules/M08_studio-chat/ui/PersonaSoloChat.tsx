@@ -10,6 +10,8 @@ import { loadChatHistory, appendMessage, clearChatHistory } from '../lib/chatHis
 import type { ChatMessage } from '../lib/chatHistory';
 import { updateSensitivity, shouldDowngradeIntensity, shouldTriggerMayaHandoff, getSensitivityState, resetSensitivity } from '../lib/sensitivityTracker';
 import { detectToxicity, isBlocked, activateBlock, getBlockRemainingMs } from '../lib/toxicityGuard';
+import { LiveSigil } from './LiveSigil';
+import type { SigilState } from './LiveSigil';
 
 const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string }> = {
   maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin' },
@@ -265,7 +267,13 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           </div>
         )}
 
-        {/* Messages */}
+        {/* Messages + Sigil Strip */}
+        <div className="flex flex-1 min-h-0">
+        {/* Live Sigil Strip */}
+        <LiveSigil
+          seat={seat}
+          state={(loading ? 'speaking' : input.trim() ? 'typing' : 'idle') as SigilState}
+        />
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 min-h-0">
           {messages.length === 0 && (
             <p className="text-sm text-zinc-500 text-center py-8">
@@ -316,6 +324,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
               </div>
             </div>
           )}
+        </div>
         </div>
 
         {/* Error */}

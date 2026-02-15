@@ -14,7 +14,8 @@ import {
 import { computeScore } from '../modules/M06_scoring';
 import { computeMatch } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview } from '../modules/M08_studio-chat';
+import type { StudioSeat } from '../shared/types/studio';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -38,6 +39,7 @@ const APP_PAGES: PageDef[] = [
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
+type PreviewSeat = StudioSeat | null;
 
 function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,7 @@ function HomePage() {
   const [computing, setComputing] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
+  const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
 
   useEffect(() => {
     setProfile(loadProfile());
@@ -397,13 +400,17 @@ function HomePage() {
 
             {/* Persona Portraits + Auras */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 20, margin: '24px 0 28px', flexWrap: 'wrap' }}>
-              <div style={{ textAlign: 'center' }}>
+              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('maya')}>
                 <MayaPortrait size={100} />
                 <div style={{ fontSize: 10, color: '#a855f7', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
               </div>
-              <AuraAvatar sign="☽" size={48} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
-              <AuraAvatar sign="△" size={48} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
-              <div style={{ textAlign: 'center' }}>
+              <div className="persona-card-hover" onClick={() => setPreviewSeat('luna')}>
+                <AuraAvatar sign="☽" size={48} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
+              </div>
+              <div className="persona-card-hover" onClick={() => setPreviewSeat('orion')}>
+                <AuraAvatar sign="△" size={48} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
+              </div>
+              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('lilith')}>
                 <LilithPortrait size={100} />
                 <div style={{ fontSize: 10, color: '#d49137', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
               </div>
@@ -420,6 +427,17 @@ function HomePage() {
                 onComputeMatch={handleStudioMatch}
               />
             </div>
+
+            {/* Persona Preview Lightbox */}
+            {previewSeat && (
+              <PersonaPreview
+                seat={previewSeat}
+                onStartChat={() => {
+                  setPreviewSeat(null);
+                }}
+                onClose={() => setPreviewSeat(null)}
+              />
+            )}
           </div>
         )}
       </div>
