@@ -12,6 +12,9 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["sweph", "esbuild"]
+  },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
     "drizzle-orm": "^0.45.1",
