@@ -6,7 +6,7 @@ export { TurnsView } from './ui/TurnsView';
 export { StudioPanel } from './ui/StudioPanel';
 export { StudioPage } from './ui/StudioPage';
 export { LilithEyes } from './ui/LilithEyes';
-export type { LilithEyeState } from './ui/LilithEyes';
+export type { LilithEyeState, LilithEyeIntensity } from './ui/LilithEyes';
 export { LilithAvatar } from './ui/LilithAvatar';
 export { LilithPortrait } from './ui/LilithPortrait';
 export { MayaAvatar } from './ui/MayaAvatar';

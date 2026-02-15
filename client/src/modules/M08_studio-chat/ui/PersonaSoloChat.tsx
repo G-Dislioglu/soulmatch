@@ -298,7 +298,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           <div className="flex items-center gap-3">
             {/* Persona portrait in header */}
             {seat === 'maya' && <MayaPortrait size={48} />}
-            {seat === 'lilith' && <LilithPortrait size={48} />}
+            {seat === 'lilith' && <LilithPortrait size={48} intensity={intensity} />}
             {seat !== 'maya' && seat !== 'lilith' && (
               <div className="flex items-center justify-center rounded-lg" style={{
                 width: 48, height: 48 * 1.5, background: 'rgba(255,255,255,0.05)',
@@ -456,7 +456,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
               {msg.role === 'persona' && (
                 <div className="flex-shrink-0" style={{ width: 28, height: 28 }}>
                   {seat === 'maya' && <MayaPortrait size={28} />}
-                  {seat === 'lilith' && <LilithPortrait size={28} />}
+                  {seat === 'lilith' && <LilithPortrait size={28} intensity={intensity} />}
                   {seat !== 'maya' && seat !== 'lilith' && (
                     <div className="w-full h-full rounded-md flex items-center justify-center" style={{
                       background: 'rgba(255,255,255,0.06)', fontSize: 14,

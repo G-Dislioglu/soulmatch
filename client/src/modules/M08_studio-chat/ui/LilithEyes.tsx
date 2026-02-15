@@ -1,15 +1,24 @@
 export type LilithEyeState = 'idle' | 'active' | 'truth';
+export type LilithEyeIntensity = 'mild' | 'ehrlich' | 'brutal';
 
 interface LilithEyesProps {
   state?: LilithEyeState;
+  intensity?: LilithEyeIntensity;
   className?: string;
 }
 
-export function LilithEyes({ state = 'idle', className = '' }: LilithEyesProps) {
-  const stateClass =
-    state === 'truth' ? 'lilith-eye-truth' :
-    state === 'active' ? 'lilith-eye-active' :
-    'lilith-eye-idle';
+export function LilithEyes({ state = 'idle', intensity, className = '' }: LilithEyesProps) {
+  // If intensity is provided and state is not truth, use intensity-coupled classes
+  let stateClass: string;
+  if (state === 'truth') {
+    stateClass = 'lilith-eye-truth';
+  } else if (intensity) {
+    stateClass = intensity === 'brutal' ? 'lilith-eye-shadow'
+      : intensity === 'ehrlich' ? 'lilith-eye-sharp'
+      : 'lilith-eye-gentle';
+  } else {
+    stateClass = state === 'active' ? 'lilith-eye-active' : 'lilith-eye-idle';
+  }
 
   return (
     <svg

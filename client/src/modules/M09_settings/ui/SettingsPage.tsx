@@ -2,6 +2,14 @@ import { useState } from 'react';
 import type { AppSettings, AiProvider, ProviderKeyEntry } from '../../../shared/types/settings';
 import { Button, Card, CardHeader, CardContent } from '../../M02_ui-kit';
 import { loadSettings, saveSettings, defaultModelForProvider, maskApiKey, MODEL_OPTIONS } from '../lib/settingsStorage';
+import { getLilithIntensity, setLilithIntensity } from '../../M08_studio-chat/lib/lilithGate';
+import type { LilithIntensity } from '../../M08_studio-chat/lib/lilithGate';
+
+const INTENSITY_OPTIONS: { value: LilithIntensity; label: string; shortLabel: string; icon: string; bg: string; bgActive: string; text: string; ring: string; desc: string }[] = [
+  { value: 'mild', label: 'Gentle Mirror', shortLabel: 'Sanft', icon: '🪞', bg: 'bg-green-900/20', bgActive: 'bg-green-600/30', text: 'text-green-300', ring: 'ring-green-500/50', desc: 'Sanfte Reflexion, einfühlsam' },
+  { value: 'ehrlich', label: 'Sharp Truth', shortLabel: 'Ehrlich', icon: '⚡', bg: 'bg-orange-900/20', bgActive: 'bg-orange-600/30', text: 'text-orange-300', ring: 'ring-orange-500/50', desc: 'Direkt und klar, Standard' },
+  { value: 'brutal', label: 'Shadow Dive', shortLabel: 'Brutal', icon: '🔥', bg: 'bg-red-900/20', bgActive: 'bg-red-600/30', text: 'text-red-400', ring: 'ring-red-500/60', desc: 'Maximal intensiv, sarkastisch' },
+];
 
 const PROVIDERS: { value: AiProvider; label: string }[] = [
   { value: 'none', label: 'Kein Provider' },
@@ -23,6 +31,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const [lilithLevel, setLilithLevel] = useState<LilithIntensity>(getLilithIntensity);
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>(() => {
     const keys = settings.provider.keys ?? {};
     return {
@@ -201,6 +210,40 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold">Lilith — Intensity Default</h2>
+          <p className="text-xs text-[color:var(--muted-fg)]">
+            Standard-Intensität für neue Lilith Solo-Chats.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex gap-2">
+            {INTENSITY_OPTIONS.map((opt) => {
+              const active = lilithLevel === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setLilithLevel(opt.value);
+                    setLilithIntensity(opt.value);
+                  }}
+                  className={`flex-1 flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-center transition-all ${
+                    active
+                      ? `${opt.bgActive} ${opt.text} ring-1 ${opt.ring}`
+                      : `${opt.bg} text-zinc-500 hover:${opt.text}`
+                  }`}
+                >
+                  <span className="text-lg">{opt.icon}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{opt.label}</span>
+                  <span className="text-[9px] opacity-60">{opt.desc}</span>
+                </button>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 

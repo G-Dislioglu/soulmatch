@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { LilithEyes } from './LilithEyes';
-import type { LilithEyeState } from './LilithEyes';
+import type { LilithEyeState, LilithEyeIntensity } from './LilithEyes';
 import { ResponsiveArtwork } from '../../M02_ui-kit';
 
 interface LilithPortraitProps {
   state?: LilithEyeState;
+  intensity?: LilithEyeIntensity;
   size?: number;
   baseName?: string;
 }
@@ -15,9 +16,10 @@ const PORTRAIT_SIZES = '(max-width: 480px) 86vw, (max-width: 640px) 78vw, (max-w
  * Lilith Portrait with artwork, SVG eye overlay, ember glow, and vignette.
  * Spec: WebP asset (512/1024/1536), srcset+sizes, lazy+async, 0 Canvas, 0 JS loops, <0.5ms/frame.
  */
-export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith' }: LilithPortraitProps) {
-  const isActive = state === 'active' || state === 'truth';
+export function LilithPortrait({ state = 'idle', intensity, size = 260, baseName = 'lilith' }: LilithPortraitProps) {
+  const isActive = state === 'active' || state === 'truth' || !!intensity;
   const isTruth = state === 'truth';
+  const isShadow = intensity === 'brutal';
   const [imgError, setImgError] = useState(false);
 
   return (
@@ -26,7 +28,7 @@ export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith'
       <div style={{
         position: 'absolute', inset: '-10%',
         background: 'radial-gradient(ellipse at 50% 55%, rgba(180,100,20,0.18) 0%, transparent 60%)',
-        opacity: isTruth ? 1 : isActive ? 0.7 : 0.15,
+        opacity: isTruth ? 1 : isShadow ? 0.85 : isActive ? 0.7 : 0.15,
         transition: 'opacity 0.8s ease', pointerEvents: 'none',
       }} />
 
@@ -61,8 +63,8 @@ export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith'
         position: 'absolute', inset: 0, borderRadius: 12,
         background: 'radial-gradient(ellipse at 50% 80%, rgba(212,145,55,0.08) 0%, transparent 50%)',
         pointerEvents: 'none', zIndex: 2,
-        animation: isActive ? `lilithEmber ${isTruth ? '2s' : '3.5s'} ease-in-out infinite` : 'none',
-        opacity: isTruth ? 0.25 : isActive ? 0.15 : 0,
+        animation: isActive ? `lilithEmber ${isTruth ? '2s' : isShadow ? '1.5s' : '3.5s'} ease-in-out infinite` : 'none',
+        opacity: isTruth ? 0.25 : isShadow ? 0.2 : isActive ? 0.15 : 0,
         transition: 'opacity 0.6s ease',
       }} />
 
@@ -74,7 +76,7 @@ export function LilithPortrait({ state = 'idle', size = 260, baseName = 'lilith'
       }} />
 
       {/* SVG Eye Overlay */}
-      <LilithEyes state={state} />
+      <LilithEyes state={state} intensity={intensity} />
 
       {/* Subtle border */}
       <div style={{
