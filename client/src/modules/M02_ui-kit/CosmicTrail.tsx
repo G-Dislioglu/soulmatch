@@ -15,6 +15,8 @@ interface TrailPoint {
 export function CosmicTrail(_props: CosmicTrailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const points = useRef<TrailPoint[]>([]);
+  const smoothPos = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
   const moving = useRef(false);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef(0);
@@ -38,12 +40,24 @@ export function CosmicTrail(_props: CosmicTrailProps) {
     };
     resize();
 
+    const SMOOTH = 0.35; // lerp factor — lower = smoother (0.2–0.5 range)
+
     const handleMove = (e: MouseEvent) => {
       moving.current = true;
       if (stopTimer.current) clearTimeout(stopTimer.current);
-      stopTimer.current = setTimeout(() => { moving.current = false; }, 80);
-      points.current.push({ x: e.clientX, y: e.clientY, time: Date.now() });
-      if (points.current.length > 60) points.current.shift();
+      stopTimer.current = setTimeout(() => { moving.current = false; }, 100);
+
+      const raw = { x: e.clientX, y: e.clientY };
+      if (!hasMoved.current) {
+        smoothPos.current = { ...raw };
+        hasMoved.current = true;
+      } else {
+        smoothPos.current.x += (raw.x - smoothPos.current.x) * SMOOTH;
+        smoothPos.current.y += (raw.y - smoothPos.current.y) * SMOOTH;
+      }
+
+      points.current.push({ x: smoothPos.current.x, y: smoothPos.current.y, time: Date.now() });
+      if (points.current.length > 80) points.current.shift();
     };
 
     const animate = () => {
@@ -55,6 +69,10 @@ export function CosmicTrail(_props: CosmicTrailProps) {
       const pts = points.current;
 
       if (pts.length > 2) {
+        // Helper: midpoint between two points
+        const mid = (a: TrailPoint, b: TrailPoint) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+        // Outer glow pass (wide, faint gold)
         for (let i = 1; i < pts.length; i++) {
           const cur = pts[i]!; const prev = pts[i - 1]!;
           const age = (now - cur.time) / maxAge;
@@ -66,11 +84,19 @@ export function CosmicTrail(_props: CosmicTrailProps) {
           ctx.strokeStyle = ACCENT;
           ctx.lineWidth = width;
           ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
           ctx.beginPath();
-          ctx.moveTo(prev.x, prev.y);
-          ctx.lineTo(cur.x, cur.y);
+          if (i === 1) {
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+          } else {
+            const m = mid(prev, cur);
+            ctx.moveTo(mid(pts[i - 2]!, prev).x, mid(pts[i - 2]!, prev).y);
+            ctx.quadraticCurveTo(prev.x, prev.y, m.x, m.y);
+          }
           ctx.stroke();
         }
+        // Inner core pass (thin, bright cream)
         for (let i = 1; i < pts.length; i++) {
           const cur = pts[i]!; const prev = pts[i - 1]!;
           const age = (now - cur.time) / maxAge;
@@ -82,9 +108,16 @@ export function CosmicTrail(_props: CosmicTrailProps) {
           ctx.strokeStyle = '#f5e6a3';
           ctx.lineWidth = width;
           ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
           ctx.beginPath();
-          ctx.moveTo(prev.x, prev.y);
-          ctx.lineTo(cur.x, cur.y);
+          if (i === 1) {
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(cur.x, cur.y);
+          } else {
+            const m = mid(prev, cur);
+            ctx.moveTo(mid(pts[i - 2]!, prev).x, mid(pts[i - 2]!, prev).y);
+            ctx.quadraticCurveTo(prev.x, prev.y, m.x, m.y);
+          }
           ctx.stroke();
         }
         for (let i = Math.max(1, pts.length - 14); i < pts.length; i++) {
