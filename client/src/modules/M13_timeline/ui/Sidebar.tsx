@@ -46,6 +46,7 @@ export interface SidebarCallbacks {
   onNavigateInsight?: (claimId: string) => void;
   onOpenSettings?: () => void;
   onOpenSoulCard?: (card: SoulCard) => void;
+  onStartGuide?: () => void;
 }
 
 export interface SidebarProps {
@@ -442,8 +443,27 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
               </div>
             )}
 
+            {/* Guide icon in collapsed */}
+            <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6 }}>
+              <button
+                onClick={callbacks?.onStartGuide}
+                title="App-Führung"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '100%', padding: '10px 0',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#a09a8e', fontSize: 14, lineHeight: 1,
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#a09a8e'; e.currentTarget.style.background = 'none'; }}
+              >
+                🧭
+              </button>
+            </div>
+
             {/* Settings icon in collapsed */}
-            <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', padding: '8px 0 16px' }}>
+            <div style={{ flexShrink: 0, padding: '0 0 16px' }}>
               <button
                 onClick={callbacks?.onOpenSettings}
                 title="Einstellungen"
@@ -477,7 +497,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
             )}
 
             {/* Timeline entries (scrollable) */}
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4 }} className="hidden-scrollbar">
+            <div id="sidebar-timeline" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingTop: 4 }} className="hidden-scrollbar">
               {/* Section label */}
               <div style={{
                 padding: '0 16px 8px',
@@ -509,7 +529,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
 
             {/* Soul Cards section */}
             {soulCards.length > 0 && (
-              <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 10, paddingBottom: 4 }}>
+              <div id="sidebar-soul-cards" style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 10, paddingBottom: 4 }}>
                 <div style={{
                   padding: '0 16px 8px',
                   fontSize: 9, fontWeight: 600, color: '#5a5550',
@@ -546,6 +566,38 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onMobileClose
                 )}
               </div>
             )}
+
+            {/* Guide button */}
+            <div style={{ flexShrink: 0, padding: '4px 10px 0' }}>
+              <button
+                id="sidebar-guide-btn"
+                onClick={callbacks?.onStartGuide}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '10px 14px',
+                  borderRadius: 10, cursor: 'pointer',
+                  background: `${ACCENT}06`,
+                  border: `1px solid ${ACCENT}15`,
+                  color: '#a09a8e', fontSize: 12,
+                  fontFamily: "'Outfit', sans-serif",
+                  transition: 'all 0.25s ease',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `${ACCENT}0d`;
+                  e.currentTarget.style.borderColor = `${ACCENT}28`;
+                  e.currentTarget.style.color = ACCENT;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = `${ACCENT}06`;
+                  e.currentTarget.style.borderColor = `${ACCENT}15`;
+                  e.currentTarget.style.color = '#a09a8e';
+                }}
+              >
+                <span>🧭</span>
+                <span>App-Führung</span>
+              </button>
+            </div>
 
             {/* Settings link at bottom */}
             <div style={{ flexShrink: 0, padding: '8px 10px 16px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>

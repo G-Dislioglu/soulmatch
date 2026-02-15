@@ -14,6 +14,10 @@ export const VALID_COMMANDS = [
   'scroll_to',
   'truth_mode',
   'tour_start',
+  'point_to',
+  'guide_start',
+  'guide_next',
+  'guide_end',
 ] as const;
 
 export type MayaCommandType = (typeof VALID_COMMANDS)[number];

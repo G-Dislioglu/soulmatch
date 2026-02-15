@@ -46,7 +46,7 @@ export function PageTransition({ pages, activePage, onPageChange }: PageTransiti
     <div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 2 }}>
         {pages.map((p, i) => (
-          <button key={i} onClick={() => goTo(i)} style={{
+          <button key={i} id={`tab-${p.label.toLowerCase()}`} onClick={() => goTo(i)} style={{
             padding: '9px 18px', borderRadius: 10, cursor: 'pointer',
             background: activePage === i ? `${p.color}12` : 'rgba(255,255,255,0.02)',
             border: `1px solid ${activePage === i ? `${p.color}30` : 'rgba(255,255,255,0.05)'}`,
