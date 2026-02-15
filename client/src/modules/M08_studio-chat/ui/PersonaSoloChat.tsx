@@ -28,6 +28,46 @@ const INTENSITY_LABELS: Record<LilithIntensity, string> = {
   brutal: 'Brutal',
 };
 
+const INTENSITY_UI: Record<LilithIntensity, {
+  label: string;
+  icon: string;
+  bg: string;
+  bgActive: string;
+  text: string;
+  ring: string;
+  pulse: string;
+}> = {
+  mild: {
+    label: 'Gentle Mirror',
+    icon: '🪞',
+    bg: 'bg-green-900/20',
+    bgActive: 'bg-green-600/30',
+    text: 'text-green-300',
+    ring: 'ring-green-500/50',
+    pulse: '',
+  },
+  ehrlich: {
+    label: 'Sharp Truth',
+    icon: '⚡',
+    bg: 'bg-orange-900/20',
+    bgActive: 'bg-orange-600/30',
+    text: 'text-orange-300',
+    ring: 'ring-orange-500/50',
+    pulse: 'animate-pulse',
+  },
+  brutal: {
+    label: 'Shadow Dive',
+    icon: '🔥',
+    bg: 'bg-red-900/20',
+    bgActive: 'bg-red-600/30',
+    text: 'text-red-400',
+    ring: 'ring-red-500/60',
+    pulse: 'animate-pulse',
+  },
+};
+
+const SHADOW_DIVE_DISMISS_KEY = 'soulmatch.shadowDive.dismissed';
+
 interface PersonaSoloChatProps {
   seat: StudioSeat;
   profileId: string;
@@ -53,6 +93,7 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   const [autoNotice, setAutoNotice] = useState<string | null>(null);
   const [sigilState, setSigilState] = useState<SigilState>('idle');
   const [showAuraSnap, setShowAuraSnap] = useState(true);
+  const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const theme = SEAT_THEMES[seat];
@@ -69,9 +110,24 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
   }, []);
 
   function handleIntensityChange(level: LilithIntensity) {
+    if (level === 'brutal') {
+      const dismissed = localStorage.getItem(SHADOW_DIVE_DISMISS_KEY) === '1';
+      if (!dismissed) {
+        setShadowDiveConfirm(true);
+        return;
+      }
+    }
     setIntensity(level);
     setLilithIntensity(level);
     setAutoNotice(null);
+  }
+
+  function confirmShadowDive(dontShowAgain: boolean) {
+    if (dontShowAgain) localStorage.setItem(SHADOW_DIVE_DISMISS_KEY, '1');
+    setIntensity('brutal');
+    setLilithIntensity('brutal');
+    setAutoNotice(null);
+    setShadowDiveConfirm(false);
   }
 
   function handleClear() {
@@ -296,25 +352,68 @@ export function PersonaSoloChat({ seat, profileId, onClose }: PersonaSoloChatPro
           </div>
         )}
 
-        {/* Intensity Slider + Sensitivity (Lilith only) */}
+        {/* Shadow Dive Confirmation Modal */}
+        {shadowDiveConfirm && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-xl bg-zinc-900 border border-red-800/40 p-5 shadow-2xl" style={{ boxShadow: '0 0 40px rgba(220,38,38,0.15)' }}>
+              <div className="text-center mb-4">
+                <div className="text-3xl mb-2">⚠️</div>
+                <h3 className="text-red-400 font-bold text-sm uppercase tracking-wider">Shadow Dive</h3>
+                <p className="text-zinc-400 text-xs mt-2 leading-relaxed">
+                  Maximale Intensität — Lilith wird brutal ehrlich und sarkastisch.
+                  Dies kann emotional intensiv sein. Bereit?
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShadowDiveConfirm(false)}
+                  className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-400 border border-zinc-700 hover:border-zinc-500 transition-all"
+                >
+                  Nein, abbrechen
+                </button>
+                <button
+                  onClick={() => confirmShadowDive(false)}
+                  className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-red-300 bg-red-600/25 border border-red-500/40 hover:bg-red-600/40 transition-all animate-pulse"
+                >
+                  Ja, aktivieren
+                </button>
+              </div>
+              <button
+                onClick={() => confirmShadowDive(true)}
+                className="w-full mt-2 text-[9px] text-zinc-600 hover:text-zinc-400 transition-colors"
+              >
+                Ja + nicht mehr fragen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Intensity Control + Sensitivity (Lilith only) */}
         {isLilith && !blocked && (
           <div className="px-4 py-2 border-b border-orange-900/20 flex flex-col gap-1.5">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-orange-500/50 uppercase tracking-wider font-semibold">Intensity</span>
-              <div className="flex gap-1">
-                {(['mild', 'ehrlich', 'brutal'] as LilithIntensity[]).map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => handleIntensityChange(level)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider transition-all ${
-                      intensity === level
-                        ? 'bg-orange-600/30 text-orange-300 border border-orange-500/40'
-                        : 'text-zinc-500 hover:text-orange-400 border border-transparent'
-                    }`}
-                  >
-                    {INTENSITY_LABELS[level]}
-                  </button>
-                ))}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-orange-500/50 uppercase tracking-wider font-semibold shrink-0">Intensity</span>
+              <div className="flex gap-1 flex-1 min-w-0">
+                {(['mild', 'ehrlich', 'brutal'] as LilithIntensity[]).map((level) => {
+                  const ui = INTENSITY_UI[level];
+                  const active = intensity === level;
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => handleIntensityChange(level)}
+                      className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                        active
+                          ? `${ui.bgActive} ${ui.text} ring-1 ${ui.ring} ${ui.pulse}`
+                          : `text-zinc-500 hover:${ui.text} ${ui.bg} hover:ring-1 hover:${ui.ring}`
+                      }`}
+                      style={active && level === 'brutal' ? { animation: 'sigilPulse 2s ease-in-out infinite', transformOrigin: 'center' } : undefined}
+                    >
+                      <span className="text-[10px]">{ui.icon}</span>
+                      <span className="hidden sm:inline">{ui.label}</span>
+                      <span className="sm:hidden">{INTENSITY_LABELS[level]}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="ml-auto flex items-center gap-1.5">
                 <div className="w-12 h-1 rounded-full bg-zinc-800 overflow-hidden">
