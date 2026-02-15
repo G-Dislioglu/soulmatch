@@ -14,7 +14,7 @@ import {
 import { computeScore } from '../modules/M06_scoring';
 import { computeMatch } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
-import { StudioPage, LilithAvatar, MayaAvatar } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait } from '../modules/M08_studio-chat';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -395,12 +395,18 @@ function HomePage() {
               </div>
             </div>
 
-            {/* Persona Auras */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 36, margin: '24px 0 28px', flexWrap: 'wrap' }}>
-              <MayaAvatar size={52} />
-              <AuraAvatar sign="☽" size={52} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
-              <AuraAvatar sign="△" size={52} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
-              <LilithAvatar size={52} />
+            {/* Persona Portraits + Auras */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 20, margin: '24px 0 28px', flexWrap: 'wrap' }}>
+              <div style={{ textAlign: 'center' }}>
+                <MayaPortrait size={100} />
+                <div style={{ fontSize: 10, color: '#a855f7', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
+              </div>
+              <AuraAvatar sign="☽" size={48} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
+              <AuraAvatar sign="△" size={48} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
+              <div style={{ textAlign: 'center' }}>
+                <LilithPortrait size={100} />
+                <div style={{ fontSize: 10, color: '#d49137', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
+              </div>
             </div>
 
             {/* Studio integration */}
