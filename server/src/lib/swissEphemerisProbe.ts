@@ -1,7 +1,10 @@
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
 // Swiss Ephemeris Build Probe - Minimal test for Render compatibility
 export function swissEphemerisAvailable(): boolean {
   try {
-    // Try to require sweph - this will fail if native binding doesn't work
     require('sweph');
     return true;
   } catch (error) {
