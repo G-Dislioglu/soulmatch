@@ -2,13 +2,41 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
-// Swiss Ephemeris Build Probe - Minimal test for Render compatibility
-export function swissEphemerisAvailable(): boolean {
+export interface SwissEphemerisProbeResult {
+  available: boolean;
+  error?: string;
+  runtime: {
+    node: string;
+    platform: NodeJS.Platform;
+    arch: NodeJS.Architecture;
+  };
+}
+
+// Swiss Ephemeris Build Probe with diagnostics for Render compatibility
+export function swissEphemerisProbe(): SwissEphemerisProbeResult {
+  const runtime = {
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+  };
+
   try {
     require('sweph');
-    return true;
+    return {
+      available: true,
+      runtime,
+    };
   } catch (error) {
-    console.warn('Swiss Ephemeris not available:', error);
-    return false;
+    const errorMessage = error instanceof Error
+      ? `${error.message}\n${error.stack ?? ''}`.trim()
+      : String(error);
+
+    console.warn('Swiss Ephemeris not available:', errorMessage);
+
+    return {
+      available: false,
+      error: errorMessage,
+      runtime,
+    };
   }
 }
