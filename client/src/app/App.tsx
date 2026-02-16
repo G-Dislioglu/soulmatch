@@ -58,14 +58,32 @@ interface AstroCalcBody {
   speedLon: number;
 }
 
+interface AstroPlanet {
+  key: string;
+  lon: number;
+  sign: string;
+  degreeInSign: number;
+}
+
 interface AstroCalcResponse {
   status: 'ok';
+  engine: string;
+  engineVersion: string;
+  chartVersion: string;
   computedAt: string;
+  unknownTime: boolean;
   meta: {
     engine: string;
     engineVersion: string;
     computedAt?: string;
     unknownTime?: boolean;
+  };
+  planets?: AstroPlanet[];
+  elements?: {
+    fire: number;
+    earth: number;
+    air: number;
+    water: number;
   };
   bodies: {
     sun: AstroCalcBody;
@@ -768,11 +786,23 @@ function HomePage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Engine</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.meta.engine}</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.engine ?? astroResult.meta.engine}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Version</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.meta.engineVersion}</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.engineVersion ?? astroResult.meta.engineVersion}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Chart Version</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.chartVersion ?? 'n/a'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Unknown Time</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.unknownTime ? 'true' : 'false'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Planets</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.planets?.length ?? 0}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun.lon</span>

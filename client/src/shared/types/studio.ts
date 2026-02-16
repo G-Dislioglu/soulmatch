@@ -31,5 +31,13 @@ export interface StudioResult {
     reasons: string[];
     fallbackUsed: boolean;
     version: string;
+    anchorsExpected?: boolean;
+    anchorsRequired?: string[];
+    anchorsUsed?: string[];
   };
+  anchors?: Array<{
+    id: string;
+    label: string;
+    value: string;
+  }>;
 }

@@ -26,6 +26,24 @@ if (data?.status !== 'ok') {
   process.exit(1);
 }
 
+if (data?.chartVersion !== 'chart-v1') {
+  console.error('astro-probe-check: chartVersion must be "chart-v1"');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
+if (typeof data?.unknownTime !== 'boolean') {
+  console.error('astro-probe-check: unknownTime must be boolean');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
+if (!Array.isArray(data?.planets) || data.planets.length < 10) {
+  console.error('astro-probe-check: planets must be an array with at least 10 entries');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
 if (typeof data?.bodies?.sun?.lon !== 'number' || Number.isNaN(data.bodies.sun.lon)) {
   console.error('astro-probe-check: bodies.sun.lon must be a number');
   console.error(JSON.stringify(data));

@@ -2,6 +2,8 @@ export interface GateContext {
   mode?: 'profile' | 'match';
   seat?: string;
   source?: 'studio_turn' | 'studio_next_step' | 'studio_watch_out' | 'probe';
+  anchorsExpected?: boolean;
+  requiredAnchorIds?: string[];
 }
 
 export interface GateResult {
@@ -16,6 +18,9 @@ export interface NarrativeQualityDebug {
   reasons: string[];
   fallbackUsed: boolean;
   version: string;
+  anchorsExpected?: boolean;
+  anchorsRequired?: string[];
+  anchorsUsed?: string[];
 }
 
 export interface StudioNarrativePayload {

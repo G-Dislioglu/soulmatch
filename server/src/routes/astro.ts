@@ -54,6 +54,19 @@ interface BodyState {
   speedLon: number;
 }
 
+interface PlanetState extends BodyState {
+  key: BodyKey;
+  sign: string;
+  degreeInSign: number;
+}
+
+interface ElementSummary {
+  fire: number;
+  earth: number;
+  air: number;
+  water: number;
+}
+
 interface AstroMeta {
   engine: 'swiss_ephemeris' | 'unavailable';
   engineVersion: string;
@@ -66,8 +79,14 @@ interface AstroMeta {
 interface AstroCalcSuccess {
   status: 'ok';
   profileId: string;
+  engine: 'swiss_ephemeris';
+  engineVersion: string;
+  chartVersion: 'chart-v1';
   computedAt: string;
+  unknownTime: boolean;
   meta: AstroMeta & { engine: 'swiss_ephemeris' };
+  planets: PlanetState[];
+  elements?: ElementSummary;
   bodies: Record<BodyKey, BodyState>;
 }
 
@@ -94,6 +113,37 @@ interface SwephLike {
 type SwephFn = (...args: unknown[]) => unknown;
 
 const ENGINE_VERSION = '2.10.3-b-1';
+const CHART_VERSION = 'chart-v1';
+
+const ZODIAC_SIGNS = [
+  'Aries',
+  'Taurus',
+  'Gemini',
+  'Cancer',
+  'Leo',
+  'Virgo',
+  'Libra',
+  'Scorpio',
+  'Sagittarius',
+  'Capricorn',
+  'Aquarius',
+  'Pisces',
+] as const;
+
+const SIGN_TO_ELEMENT: Record<string, keyof ElementSummary> = {
+  Aries: 'fire',
+  Leo: 'fire',
+  Sagittarius: 'fire',
+  Taurus: 'earth',
+  Virgo: 'earth',
+  Capricorn: 'earth',
+  Gemini: 'air',
+  Libra: 'air',
+  Aquarius: 'air',
+  Cancer: 'water',
+  Scorpio: 'water',
+  Pisces: 'water',
+};
 
 const PLANETS: PlanetDef[] = [
   { key: 'sun', constantName: 'SE_SUN', fallbackId: 0 },
@@ -198,6 +248,43 @@ function normalizeLatitude(value: number): number {
 
 function normalizeSpeed(value: number): number {
   return Number(value.toFixed(8));
+}
+
+function formatDegreeInSign(lon: number): number {
+  return Number((lon % 30).toFixed(4));
+}
+
+function signFromLongitude(lon: number): string {
+  const normalized = normalizeLongitude(lon);
+  const signIndex = Math.floor(normalized / 30) % 12;
+  return ZODIAC_SIGNS[signIndex];
+}
+
+function toPlanets(bodies: Record<BodyKey, BodyState>): PlanetState[] {
+  return PLANETS.map((planet) => {
+    const state = bodies[planet.key];
+    const sign = signFromLongitude(state.lon);
+
+    return {
+      key: planet.key,
+      lon: state.lon,
+      lat: state.lat,
+      speedLon: state.speedLon,
+      sign,
+      degreeInSign: formatDegreeInSign(state.lon),
+    };
+  });
+}
+
+function summarizeElements(planets: PlanetState[]): ElementSummary {
+  const counts: ElementSummary = { fire: 0, earth: 0, air: 0, water: 0 };
+
+  for (const planet of planets) {
+    const element = SIGN_TO_ELEMENT[planet.sign];
+    if (element) counts[element] += 1;
+  }
+
+  return counts;
 }
 
 function getSweph(): SwephLike {
@@ -409,6 +496,8 @@ async function calculateAstrology(request: AstrologyRequest & { unknownTime: boo
   }
 
   const bodies = await calculateBodies(request);
+  const planets = toPlanets(bodies);
+  const elements = summarizeElements(planets);
 
   const meta: AstroCalcSuccess['meta'] = {
     engine: 'swiss_ephemeris',
@@ -425,8 +514,14 @@ async function calculateAstrology(request: AstrologyRequest & { unknownTime: boo
   return {
     status: 'ok',
     profileId: request.profileId,
+    engine: 'swiss_ephemeris',
+    engineVersion: ENGINE_VERSION,
+    chartVersion: CHART_VERSION,
     computedAt,
+    unknownTime: request.unknownTime,
     meta,
+    planets,
+    elements,
     bodies,
   };
 }
@@ -500,6 +595,9 @@ astrologyRouter.get('/probe', async (req: Request, res: Response) => {
     res.json({
       status: 'ok',
       computedAt: result.computedAt,
+      chartVersion: result.chartVersion,
+      unknownTime: result.unknownTime,
+      planets: result.planets,
       bodies: result.bodies,
       engine: result.meta.engine,
       engineVersion: result.meta.engineVersion,

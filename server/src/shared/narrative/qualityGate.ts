@@ -9,9 +9,26 @@ const DISALLOWED_PATTERNS: Array<{ reason: string; regex: RegExp }> = [
   { reason: 'contains_code_fence', regex: /```/ },
   { reason: 'contains_placeholder', regex: /\b(lorem ipsum|todo|placeholder)\b/i },
   { reason: 'contains_raw_json_hint', regex: /\{\s*"turns"\s*:/i },
+  { reason: 'contains_schema_words', regex: /\b(turns|nextSteps|watchOut)\b\s*[:=]/i },
   { reason: 'contains_insult', regex: /\b(idiot|dumm|stupid|hate you)\b/i },
   { reason: 'contains_role_leak', regex: /\b(as an ai|ich bin ein ki-modell)\b/i },
 ];
+
+const GENERIC_AFFIRMATIONS: RegExp[] = [
+  /du\s+bist\s+genau\s+richtig\s+so/i,
+  /alles\s+wird\s+gut/i,
+  /du\s+schaffst\s+das\s+schon/i,
+  /bleib\s+einfach\s+du\s+selbst/i,
+];
+
+function countInformativeSentences(text: string): number {
+  const parts = text
+    .split(/[.!?]+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 12 && /[a-zA-ZäöüÄÖÜ]/.test(part));
+
+  return parts.length;
+}
 
 function scoreText(text: string): number {
   let score = 1.0;
@@ -38,6 +55,18 @@ function collectReasons(text: string, ctx?: GateContext): string[] {
 
   for (const rule of DISALLOWED_PATTERNS) {
     if (rule.regex.test(text)) reasons.push(rule.reason);
+  }
+
+  if (GENERIC_AFFIRMATIONS.some((rule) => rule.test(text))) {
+    reasons.push('generic_affirmation');
+  }
+
+  if (ctx?.source === 'studio_turn' && countInformativeSentences(text) < 1) {
+    reasons.push('not_informative_enough');
+  }
+
+  if (ctx?.source === 'studio_watch_out' && countInformativeSentences(text) < 1) {
+    reasons.push('watch_out_not_specific');
   }
 
   if (ctx?.source === 'studio_next_step' && !/[a-zA-ZäöüÄÖÜ]/.test(text)) {

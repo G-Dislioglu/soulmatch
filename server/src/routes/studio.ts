@@ -5,6 +5,7 @@ import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt } from '../st
 import type { LilithIntensity } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
+import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioAnchors.js';
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 
 export const studioRouter = Router();
@@ -208,6 +209,12 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
 
   const model = body.model || config.defaultModel;
   const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt, userMemory } = body;
+  const anchors = buildStudioAnchors({
+    profileExcerpt,
+    matchExcerpt,
+    userMessage: studioRequest.userMessage,
+  });
+  const anchorInstruction = renderAnchorInstructionBlock(anchors);
 
   const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
   const systemPrompt = body.soloPersona
@@ -219,6 +226,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     matchExcerpt,
     chatExcerpt,
     userMemory,
+    anchorInstruction,
     userMessage: studioRequest.userMessage,
     seats: studioRequest.seats,
   });
@@ -379,6 +387,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       {
         mode: studioRequest.mode,
         seats: studioRequest.seats,
+        anchorsExpected: anchors.length > 0,
+        requiredAnchorIds: anchors.slice(0, 2).map((anchor) => anchor.id),
       },
     );
 
@@ -386,6 +396,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     parsed.nextSteps = gated.output.nextSteps;
     parsed.watchOut = gated.output.watchOut;
     parsed.qualityDebug = gated.qualityDebug;
+    parsed.anchors = anchors;
 
     const warnings: string[] = [];
     if (gated.qualityDebug.fallbackUsed) {
