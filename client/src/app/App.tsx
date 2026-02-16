@@ -38,14 +38,51 @@ import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
 
 const ACCENT = '#d4af37';
+const PAGE_PROFILE = 0;
+const PAGE_REPORT = 1;
+const PAGE_STUDIO = 2;
+const PAGE_ASTRO = 3;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '♏', color: ACCENT },
   { label: 'Report', icon: '◈', color: '#c084fc' },
   { label: 'Studio', icon: '☽', color: '#f472b6' },
+  { label: 'Astro', icon: '✶', color: '#38bdf8' },
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
 type PreviewSeat = StudioSeat | null;
+
+interface AstroCalcBody {
+  lon: number;
+  lat: number;
+  speedLon: number;
+}
+
+interface AstroCalcResponse {
+  status: 'ok';
+  computedAt: string;
+  meta: {
+    engine: string;
+    engineVersion: string;
+    computedAt?: string;
+    unknownTime?: boolean;
+  };
+  bodies: {
+    sun: AstroCalcBody;
+    pluto: AstroCalcBody;
+  };
+}
+
+interface AstroCalcErrorPayload {
+  error?: { message?: string };
+}
+
+function isAstroCalcResponse(data: unknown): data is AstroCalcResponse {
+  return Boolean(data)
+    && typeof data === 'object'
+    && 'status' in data
+    && (data as { status?: string }).status === 'ok';
+}
 
 function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,10 +107,20 @@ function HomePage() {
   const [, setExpandedCard] = useState<string | null>(null);
   const [tourTarget, setTourTarget] = useState<string | null>(null);
   const [tourText, setTourText] = useState('');
+  const [astroDate, setAstroDate] = useState('1990-01-01');
+  const [astroLoading, setAstroLoading] = useState(false);
+  const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
+  const [astroError, setAstroError] = useState<string | null>(null);
 
   useEffect(() => {
     setProfile(loadProfile());
   }, []);
+
+  useEffect(() => {
+    if (profile?.birthDate) {
+      setAstroDate(profile.birthDate);
+    }
+  }, [profile?.birthDate]);
 
   const hasProfile = hasValidProfile(profile);
   const allProfiles = listProfiles();
@@ -103,7 +150,7 @@ function HomePage() {
     try {
       const result = await computeScore({ profileId: profile.id });
       setScoreResult(result);
-      setActivePage(1);
+      setActivePage(PAGE_REPORT);
       // Auto-create timeline entry
       timelineService.addEntry('score', `Score: ${result.scoreOverall}`, `Numerologie ${result.breakdown.numerology}% · Astrologie ${result.breakdown.astrology}% · Fusion ${result.breakdown.fusion}%`, { score: result.scoreOverall });
     } catch (err) {
@@ -136,17 +183,53 @@ function HomePage() {
     return result;
   }
 
+  async function handleAstroCalc() {
+    setAstroLoading(true);
+    setAstroError(null);
+
+    try {
+      const response = await fetch('/api/astro/calc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          birthDate: astroDate,
+          birthTime: null,
+          birthPlace: null,
+          timezone: null,
+          unknownTime: true,
+        }),
+      });
+
+      const data = await response.json().catch(() => null) as AstroCalcResponse | AstroCalcErrorPayload | null;
+      const isSuccess = isAstroCalcResponse(data);
+
+      if (!response.ok || !isSuccess) {
+        const message = data && 'error' in data ? data.error?.message : undefined;
+        throw new Error(message || `Astro API Fehler (HTTP ${response.status})`);
+      }
+
+      setAstroResult(data);
+    } catch (error) {
+      setAstroResult(null);
+      setAstroError(error instanceof Error ? error.message : 'Unbekannter Fehler');
+    } finally {
+      setAstroLoading(false);
+    }
+  }
+
   const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
 
   // ── Sidebar Callbacks ──
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
-    onNavigateScore: () => setActivePage(1),
+    onNavigateScore: () => setActivePage(PAGE_REPORT),
     onNavigateChat: (personaId: string) => {
       setSoloTrigger(personaId as StudioSeat);
-      setActivePage(2);
+      setActivePage(PAGE_STUDIO);
     },
-    onNavigateInsight: () => setActivePage(1),
+    onNavigateInsight: () => setActivePage(PAGE_REPORT),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
   }), []);
@@ -154,7 +237,7 @@ function HomePage() {
   // ── Maya Command Callbacks ──
   const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
     onNavigate(target: string) {
-      const pageMap: Record<string, number> = { profil: 0, report: 1, studio: 2 };
+      const pageMap: Record<string, number> = { profil: PAGE_PROFILE, report: PAGE_REPORT, studio: PAGE_STUDIO, astro: PAGE_ASTRO };
       const idx = pageMap[target];
       if (idx !== undefined) setActivePage(idx);
     },
@@ -280,7 +363,7 @@ function HomePage() {
   // At this point overlay is null and hasProfile is true, so profile is guaranteed non-null
   if (!profile) return null;
 
-  /* ── Main 3-page cosmic shell ── */
+  /* ── Main cosmic shell ── */
   return (
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
@@ -361,7 +444,7 @@ function HomePage() {
         <EnergyDivider color={APP_PAGES[activePage]?.color ?? ACCENT} speed={3} />
 
         {/* ═══ PAGE 0: PROFIL ═══ */}
-        {activePage === 0 && (
+        {activePage === PAGE_PROFILE && (
           <div key="profil" className="portal-enter">
             <div id="profil-avatar" style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 28px' }}>
               <AuraAvatar sign="♏" size={88} colors={[ACCENT, '#9333ea', '#dc2626']} label={`${profile.name}`} />
@@ -396,7 +479,7 @@ function HomePage() {
                   {computing ? 'Berechne…' : 'Score berechnen'}
                 </CosmicButton>
                 {studioEnabled && (
-                  <CosmicButton variant="outline" onClick={() => setActivePage(2)}>
+                  <CosmicButton variant="outline" onClick={() => setActivePage(PAGE_STUDIO)}>
                     Studio öffnen
                   </CosmicButton>
                 )}
@@ -421,7 +504,7 @@ function HomePage() {
         )}
 
         {/* ═══ PAGE 1: REPORT ═══ */}
-        {activePage === 1 && (
+        {activePage === PAGE_REPORT && (
           <div key="report" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
@@ -489,9 +572,9 @@ function HomePage() {
                         tourTarget={tourTarget}
                         onAskMaya={() => {
                           setSoloTrigger('maya');
-                          setActivePage(2);
+                          setActivePage(PAGE_STUDIO);
                         }}
-                        onNavigateStudio={() => setActivePage(2)}
+                        onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
                       />
                     </SoulmatchCard>
                   )}
@@ -528,7 +611,7 @@ function HomePage() {
         )}
 
         {/* ═══ PAGE 2: STUDIO ═══ */}
-        {activePage === 2 && (
+        {activePage === PAGE_STUDIO && (
           <div key="studio" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 8px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
@@ -561,7 +644,7 @@ function HomePage() {
             <div style={{ maxWidth: 500, margin: '0 auto' }}>
               <StudioPage
                 profileId={profile.id}
-                onBack={() => setActivePage(0)}
+                onBack={() => setActivePage(PAGE_PROFILE)}
                 lilithUnlocked={hasProfile}
                 embedded
                 allProfiles={allProfiles}
@@ -583,6 +666,130 @@ function HomePage() {
                 onClose={() => setPreviewSeat(null)}
               />
             )}
+          </div>
+        )}
+
+        {/* ═══ PAGE 3: ASTRO TEST ═══ */}
+        {activePage === PAGE_ASTRO && (
+          <div key="astro" className="portal-enter">
+            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
+              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                Astro Calc MVP
+              </div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
+                Swiss Ephemeris Test
+              </div>
+            </div>
+
+            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+              <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtsdatum</span>
+                    <input
+                      type="date"
+                      value={astroDate}
+                      onChange={(e) => setAstroDate(e.target.value)}
+                      style={{
+                        width: '100%',
+                        borderRadius: 8,
+                        border: `1px solid ${ACCENT}2e`,
+                        background: 'rgba(255,255,255,0.03)',
+                        color: '#f0eadc',
+                        padding: '10px 12px',
+                        fontSize: 13,
+                        fontFamily: "'Outfit', sans-serif",
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.65 }}>
+                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtszeit (coming soon)</span>
+                    <input
+                      type="time"
+                      disabled
+                      value="12:00"
+                      style={{
+                        width: '100%',
+                        borderRadius: 8,
+                        border: `1px solid ${ACCENT}18`,
+                        background: 'rgba(255,255,255,0.02)',
+                        color: '#a09a8e',
+                        padding: '10px 12px',
+                        fontSize: 13,
+                        fontFamily: "'Outfit', sans-serif",
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.65 }}>
+                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtsort (coming soon)</span>
+                    <input
+                      type="text"
+                      disabled
+                      value="Wird in PR3 erweitert"
+                      style={{
+                        width: '100%',
+                        borderRadius: 8,
+                        border: `1px solid ${ACCENT}18`,
+                        background: 'rgba(255,255,255,0.02)',
+                        color: '#a09a8e',
+                        padding: '10px 12px',
+                        fontSize: 13,
+                        fontFamily: "'Outfit', sans-serif",
+                      }}
+                    />
+                  </label>
+
+                  <CosmicButton variant="gold" onClick={handleAstroCalc} disabled={astroLoading || !astroDate}>
+                    {astroLoading ? 'Berechne…' : 'Berechnen'}
+                  </CosmicButton>
+                </div>
+              </SoulmatchCard>
+
+              {astroError && (
+                <div style={{
+                  marginTop: 14,
+                  borderRadius: 10,
+                  border: '1px solid rgba(239,68,68,0.35)',
+                  background: 'rgba(127,29,29,0.2)',
+                  padding: '10px 12px',
+                  fontSize: 12,
+                  color: '#fecaca',
+                }}>
+                  Fehler: {astroError}
+                </div>
+              )}
+
+              {astroResult && (
+                <div style={{ marginTop: 14 }}>
+                  <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Engine</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.meta.engine}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Version</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.meta.engineVersion}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun.lon</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.bodies.sun.lon.toFixed(6)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Pluto.lon</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.bodies.pluto.lon.toFixed(6)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Computed</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{new Date(astroResult.computedAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </SoulmatchCard>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
