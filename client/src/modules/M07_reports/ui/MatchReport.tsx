@@ -16,8 +16,23 @@ export function MatchReport({ match }: MatchReportProps) {
             {match.matchOverall}
           </span>
           <span className="text-sm text-[color:var(--muted-fg)]">von 100</span>
+          {match.connectionType && (
+            <span className="text-xs uppercase tracking-wide text-[color:var(--muted-fg)]">
+              Verbindungstyp: {match.connectionType}
+            </span>
+          )}
         </div>
       </Section>
+
+      {Array.isArray(match.keyReasons) && match.keyReasons.length > 0 && (
+        <Section title="Key Reasons" subtitle="Top 3 Gründe">
+          <ul className="list-disc pl-5 text-sm text-[color:var(--fg)] space-y-1">
+            {match.keyReasons.slice(0, 3).map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <Section title="Aufschlüsselung" subtitle="Numerologie · Astrologie · Fusion">
         <div className="flex flex-col gap-3">

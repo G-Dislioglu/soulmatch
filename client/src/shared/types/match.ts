@@ -6,7 +6,7 @@ export interface MatchRequest {
 }
 
 export interface MatchMeta {
-  engine: 'local';
+  engine: 'local' | 'unified_match';
   engineVersion: string;
   computedAt: string;
   warnings?: string[];
@@ -23,6 +23,10 @@ export interface MatchScoreResult {
   bProfileId: string;
   meta: MatchMeta;
   matchOverall: number;
+  scoreOverall?: number;
   breakdown: MatchBreakdown;
+  connectionType?: string;
+  anchorsProvided?: string[];
+  keyReasons?: string[];
   claims: ExplainClaim[];
 }

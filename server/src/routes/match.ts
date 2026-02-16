@@ -1,5 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { devLogger } from '../devLogger.js';
+import {
+  calculateUnifiedScore,
+  type NumerologyNumbers,
+  type RelationshipType,
+} from '../shared/scoring.js';
 
 // Types from shared contract (copied from client/src/shared/types/match.ts)
 interface ExplainClaim {
@@ -39,6 +44,106 @@ interface MatchScoreResult {
   matchOverall: number;
   breakdown: MatchBreakdown;
   claims: ExplainClaim[];
+}
+
+interface MatchSingleProfile {
+  id?: string;
+  name?: string;
+  birthDate: string;
+  birthTime?: string;
+  birthLocation?: {
+    label?: string;
+    lat?: number;
+    lon?: number;
+    countryCode?: string;
+    timezone?: string;
+  };
+}
+
+interface MatchSingleRequest {
+  profileA: MatchSingleProfile;
+  profileB: MatchSingleProfile;
+  relationshipType?: RelationshipType;
+}
+
+interface MatchSingleResponse {
+  profileA: { id: string; name: string };
+  profileB: { id: string; name: string };
+  engine: 'unified_match';
+  engineVersion: 'v1';
+  computedAt: string;
+  scoreOverall: number;
+  matchOverall: number;
+  breakdown: MatchBreakdown;
+  connectionType: string;
+  anchorsProvided: string[];
+  keyReasons: string[];
+  claims: ExplainClaim[];
+  warnings: string[];
+}
+
+function reduceToDigit(value: number): number {
+  let n = Math.abs(value);
+  while (n > 9 && n !== 11 && n !== 22 && n !== 33) {
+    n = String(n)
+      .split('')
+      .reduce((sum, d) => sum + Number(d), 0);
+  }
+  return n;
+}
+
+function deriveNumerologyFromBirthDate(birthDate: string): NumerologyNumbers {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+  if (!match) {
+    throw new Error('birthDate must be YYYY-MM-DD');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const digits = birthDate.replace(/\D/g, '').split('').map(Number);
+  const lifePathRaw = digits.reduce((sum, d) => sum + d, 0);
+  const lifePath = reduceToDigit(lifePathRaw);
+
+  const karmicDebts: string[] = [];
+  if (day === 13) karmicDebts.push('13/4');
+  if (day === 14) karmicDebts.push('14/5');
+  if (day === 16) karmicDebts.push('16/7');
+  if (day === 19) karmicDebts.push('19/1');
+
+  return {
+    lifePath,
+    expression: reduceToDigit(year),
+    soulUrge: reduceToDigit(month),
+    personality: reduceToDigit(day + month),
+    birthday: day,
+    lifePathIsMaster: lifePath === 11 || lifePath === 22 || lifePath === 33,
+    karmicDebts,
+    personalYear: reduceToDigit(year + month + day),
+  };
+}
+
+function extractConnectionType(claims: ExplainClaim[]): string {
+  const fusionClaim = claims.find((claim) => claim.id === 'fusion-connection-v31');
+  const ref = fusionClaim?.evidence.refs.find((entry) => entry.startsWith('connectionType:'));
+  return ref ? ref.replace('connectionType:', '') : 'unbekannt';
+}
+
+function buildAnchorsProvided(response: ReturnType<typeof calculateUnifiedScore>): string[] {
+  const anchors = new Set<string>();
+  anchors.add(`scoreOverall:${response.scoreOverall}`);
+  anchors.add(`breakdown:numerology:${response.breakdown.numerology}`);
+  anchors.add(`breakdown:astrology:${response.breakdown.astrology}`);
+  anchors.add(`breakdown:fusion:${response.breakdown.fusion}`);
+
+  for (const claim of response.claims) {
+    for (const ref of claim.evidence.refs) {
+      anchors.add(ref);
+    }
+  }
+
+  return Array.from(anchors).slice(0, 12);
 }
 
 // Additional types for match calculation
@@ -297,6 +402,60 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
     res.json(result);
   } catch (error) {
     devLogger.error('api', 'Failed to calculate match', { error: String(error) });
+    res.status(500).json({ error: 'internal_server_error' });
+  }
+});
+
+// POST /api/match/single
+matchRouter.post('/single', (req: Request, res: Response) => {
+  try {
+    const request = req.body as MatchSingleRequest;
+    if (!request?.profileA?.birthDate || !request?.profileB?.birthDate) {
+      return res.status(400).json({ error: 'profileA.birthDate and profileB.birthDate are required' });
+    }
+
+    const numerologyA = deriveNumerologyFromBirthDate(request.profileA.birthDate);
+    const numerologyB = deriveNumerologyFromBirthDate(request.profileB.birthDate);
+
+    const unified = calculateUnifiedScore({
+      profileId: [request.profileA.id ?? request.profileA.name ?? 'A', request.profileB.id ?? request.profileB.name ?? 'B'].join('::'),
+      relationshipType: request.relationshipType,
+      numerologyA: { numbers: numerologyA },
+      numerologyB: { numbers: numerologyB },
+    });
+
+    const result: MatchSingleResponse = {
+      profileA: {
+        id: request.profileA.id ?? 'profile-a',
+        name: request.profileA.name ?? 'Profil A',
+      },
+      profileB: {
+        id: request.profileB.id ?? 'profile-b',
+        name: request.profileB.name ?? 'Profil B',
+      },
+      engine: 'unified_match',
+      engineVersion: 'v1',
+      computedAt: unified.computedAt,
+      scoreOverall: unified.scoreOverall,
+      matchOverall: unified.scoreOverall,
+      breakdown: unified.breakdown,
+      connectionType: extractConnectionType(unified.claims),
+      anchorsProvided: buildAnchorsProvided(unified),
+      keyReasons: unified.claims.slice(0, 3).map((claim) => claim.title),
+      claims: unified.claims,
+      warnings: unified.warnings,
+    };
+
+    devLogger.info('api', 'Match single calculated', {
+      profileA: result.profileA.id,
+      profileB: result.profileB.id,
+      scoreOverall: result.scoreOverall,
+      connectionType: result.connectionType,
+    });
+
+    res.json(result);
+  } catch (error) {
+    devLogger.error('api', 'Failed to calculate match single', { error: String(error) });
     res.status(500).json({ error: 'internal_server_error' });
   }
 });
