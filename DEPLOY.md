@@ -59,3 +59,22 @@ Render baut automatisch bei jedem Push. Nach dem Deploy:
 3. Einstellungen → Provider=OpenAI, LLM=true
 4. Studio → Frage eingeben → LLM-Antworten (meta.engine = "llm")
 5. Falls API-Key fehlt: Stub fallback mit Warning
+
+## Astro Calc MVP (PR2) Verifizierung
+
+```bash
+curl -X POST https://<host>/api/astro/calc \
+  -H "Content-Type: application/json" \
+  -d '{"birthDate":"1990-01-01","birthTime":null,"birthPlace":null,"timezone":null,"unknownTime":true}'
+```
+
+Erwartung:
+- `status = "ok"`
+- `meta.engine = "swiss_ephemeris"`
+- `planets.sun.lon` ist eine Zahl
+
+Optionaler Probe-Check:
+
+```bash
+curl "https://<host>/api/astro/probe?date=1990-01-01"
+```
