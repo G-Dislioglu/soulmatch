@@ -4,8 +4,26 @@ import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
 import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
 import type { LilithIntensity } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
+import { applyNarrativeGate } from '../lib/studioQuality.js';
+import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 
 export const studioRouter = Router();
+
+studioRouter.post('/narrative/probe', (req: Request, res: Response) => {
+  const scenario = req.body?.scenario === 'fail' ? 'fail' : 'pass';
+  const fixture = scenario === 'fail' ? NARRATIVE_FAIL_FIXTURE : NARRATIVE_PASS_FIXTURE;
+  const gated = applyNarrativeGate(fixture, {
+    mode: 'profile',
+    seats: fixture.turns.map((t) => t.seat),
+  });
+
+  res.json({
+    status: 'ok',
+    scenario,
+    qualityDebug: gated.qualityDebug,
+    output: gated.output,
+  });
+});
 
 type ProviderName = 'openai' | 'deepseek' | 'xai';
 
@@ -351,11 +369,34 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     // Ensure nextSteps is string array
     parsed.nextSteps = parsed.nextSteps.map((s: unknown) => String(s));
 
+    // Narrative quality gate: evaluate user-visible fields and apply fallback when needed.
+    const gated = applyNarrativeGate(
+      {
+        turns: parsed.turns,
+        nextSteps: parsed.nextSteps,
+        watchOut: String(parsed.watchOut ?? ''),
+      },
+      {
+        mode: studioRequest.mode,
+        seats: studioRequest.seats,
+      },
+    );
+
+    parsed.turns = gated.output.turns;
+    parsed.nextSteps = gated.output.nextSteps;
+    parsed.watchOut = gated.output.watchOut;
+    parsed.qualityDebug = gated.qualityDebug;
+
+    const warnings: string[] = [];
+    if (gated.qualityDebug.fallbackUsed) {
+      warnings.push('narrative_gate_fallback_applied');
+    }
+
     parsed.meta = {
       engine: 'llm',
       engineVersion: config.engineVersion,
       computedAt: new Date().toISOString(),
-      warnings: [],
+      warnings,
     };
 
     devLogger.trackLLMCall(providerName, Date.now() - startTime, true);

@@ -26,4 +26,10 @@ export interface StudioResult {
   turns: StudioTurn[];
   nextSteps: string[];
   watchOut: string;
+  qualityDebug?: {
+    pass: boolean;
+    reasons: string[];
+    fallbackUsed: boolean;
+    version: string;
+  };
 }
