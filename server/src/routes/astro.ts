@@ -62,6 +62,8 @@ interface SwephLike {
   [key: string]: unknown;
 }
 
+type SwephFn = (...args: unknown[]) => unknown;
+
 const ENGINE_VERSION = '2.10.3-b-1';
 
 const PLANETS: PlanetDef[] = [
@@ -129,7 +131,51 @@ function normalizeLongitude(value: number): number {
 }
 
 function getSweph(): SwephLike {
-  return require('sweph') as SwephLike;
+  const sweph = require('sweph') as SwephLike;
+
+  // Some builds expose the binding under `default`.
+  if (sweph.default && typeof sweph.default === 'object') {
+    return sweph.default as SwephLike;
+  }
+
+  return sweph;
+}
+
+function resolveSwephFunction(sweph: SwephLike, candidates: string[]): SwephFn | null {
+  for (const candidate of candidates) {
+    const value = sweph[candidate];
+    if (typeof value === 'function') {
+      return value as SwephFn;
+    }
+  }
+
+  if (sweph.constants && typeof sweph.constants === 'object') {
+    const constantsObj = sweph.constants as Record<string, unknown>;
+    for (const candidate of candidates) {
+      const value = constantsObj[candidate];
+      if (typeof value === 'function') {
+        return value as SwephFn;
+      }
+    }
+  }
+
+  return null;
+}
+
+function resolveSwephNumber(sweph: SwephLike, key: string, fallback: number): number {
+  const direct = sweph[key];
+  if (typeof direct === 'number') {
+    return direct;
+  }
+
+  if (sweph.constants && typeof sweph.constants === 'object') {
+    const nested = (sweph.constants as Record<string, unknown>)[key];
+    if (typeof nested === 'number') {
+      return nested;
+    }
+  }
+
+  return fallback;
 }
 
 function callSweFunction<T>(fn: (...args: unknown[]) => unknown, ...args: unknown[]): Promise<T> {
@@ -203,18 +249,19 @@ function extractLongitude(result: unknown): number {
 async function calculatePlanetLongitudes(request: AstroCalcRequest): Promise<Record<PlanetKey, { lon: number }>> {
   const sweph = getSweph();
 
-  const juldayFn = sweph.swe_julday as ((...args: unknown[]) => unknown) | undefined;
-  const calcUtFn = sweph.swe_calc_ut as ((...args: unknown[]) => unknown) | undefined;
-  if (typeof juldayFn !== 'function' || typeof calcUtFn !== 'function') {
-    throw new Error('Swiss Ephemeris API missing required functions');
+  const juldayFn = resolveSwephFunction(sweph, ['swe_julday', 'julday']);
+  const calcUtFn = resolveSwephFunction(sweph, ['swe_calc_ut', 'calc_ut', 'swe_calc']);
+  if (!juldayFn || !calcUtFn) {
+    const availableKeys = Object.keys(sweph).sort().join(', ');
+    throw new Error(`Swiss Ephemeris API missing required functions (expected swe_julday/julday and swe_calc_ut/calc_ut). Available keys: ${availableKeys}`);
   }
 
   const { year, month, day } = parseBirthDate(request.birthDate);
   const hourDecimal = parseBirthHourDecimal(request.birthTime ?? null, request.unknownTime);
 
-  const gregCalendarFlag = typeof sweph.SE_GREG_CAL === 'number' ? sweph.SE_GREG_CAL : 1;
-  const calcFlags = (typeof sweph.SEFLG_SWIEPH === 'number' ? sweph.SEFLG_SWIEPH : 0)
-    | (typeof sweph.SEFLG_SPEED === 'number' ? sweph.SEFLG_SPEED : 0);
+  const gregCalendarFlag = resolveSwephNumber(sweph, 'SE_GREG_CAL', 1);
+  const calcFlags = resolveSwephNumber(sweph, 'SEFLG_SWIEPH', 0)
+    | resolveSwephNumber(sweph, 'SEFLG_SPEED', 0);
 
   const julianDay = await callSweFunction<number>(
     juldayFn,
@@ -232,9 +279,7 @@ async function calculatePlanetLongitudes(request: AstroCalcRequest): Promise<Rec
   const planets = {} as Record<PlanetKey, { lon: number }>;
 
   for (const planet of PLANETS) {
-    const planetId = typeof sweph[planet.constantName] === 'number'
-      ? (sweph[planet.constantName] as number)
-      : planet.fallbackId;
+    const planetId = resolveSwephNumber(sweph, planet.constantName, planet.fallbackId);
 
     const rawResult = await callSweFunction<unknown>(
       calcUtFn,
