@@ -4,13 +4,22 @@ export interface StudioAnchor {
   value: string;
 }
 
+function sanitizeAnchorValue(raw: string): string {
+  return raw
+    .replace(/[^\w\säöüÄÖÜß.,:/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
 function pushAnchor(list: StudioAnchor[], label: string, value: string): void {
-  if (!value.trim()) return;
+  const cleaned = sanitizeAnchorValue(value);
+  if (!cleaned) return;
   const nextIndex = list.length + 1;
   list.push({
     id: `A${nextIndex}`,
     label,
-    value: value.trim(),
+    value: cleaned,
   });
 }
 
@@ -65,11 +74,12 @@ export function buildStudioAnchors(input: {
 export function renderAnchorInstructionBlock(anchors: StudioAnchor[]): string {
   if (anchors.length === 0) return '';
 
-  const lines = anchors.map((anchor) => `- [${anchor.id}] ${anchor.label}: ${anchor.value}`);
+  const lines = anchors.map((anchor) => `${anchor.id}: ${anchor.label}=${anchor.value}`);
 
   return [
     'DATA ANCHORS (nutze diese als Faktenbasis):',
     ...lines,
-    'Wenn du faktenbasierte Aussagen machst, referenziere mindestens zwei Anchors mit Markern im Text, z.B. [[A1]] und [[A2]].',
+    'Gib im JSON ein Feld "anchorsUsed" als Array zurück (z.B. ["A1", "A2"]).',
+    'Regel: anchorsUsed muss mindestens zwei IDs enthalten und nur IDs aus der obigen Liste verwenden.',
   ].join('\n');
 }

@@ -52,16 +52,11 @@ const APP_PAGES: PageDef[] = [
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
 type PreviewSeat = StudioSeat | null;
 
-interface AstroCalcBody {
-  lon: number;
-  lat: number;
-  speedLon: number;
-}
-
 interface AstroPlanet {
   key: string;
   lon: number;
-  sign: string;
+  signKey: string;
+  signDe?: string;
   degreeInSign: number;
 }
 
@@ -85,10 +80,9 @@ interface AstroCalcResponse {
     air: number;
     water: number;
   };
-  bodies: {
-    sun: AstroCalcBody;
-    pluto: AstroCalcBody;
-  };
+  houses: null;
+  ascendant: null;
+  mc: null;
 }
 
 interface AstroCalcErrorPayload {
@@ -482,6 +476,12 @@ function HomePage() {
                   ['Geburtsdatum', profile.birthDate],
                   ...(profile.birthTime ? [['Geburtszeit', profile.birthTime]] : []),
                   ...(profile.birthPlace ? [['Geburtsort', profile.birthPlace]] : []),
+                  ...(profile.birthLocation
+                    ? [[
+                        'Koordinaten',
+                        `${profile.birthLocation.lat.toFixed(4)}, ${profile.birthLocation.lon.toFixed(4)}`,
+                      ]]
+                    : []),
                 ].map(([label, value], i, arr) => (
                   <div key={label} style={{
                     display: 'flex', justifyContent: 'space-between', padding: '10px 0',
@@ -784,6 +784,16 @@ function HomePage() {
                 <div style={{ marginTop: 14 }}>
                   <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {(() => {
+                        const sun = astroResult.planets?.find((planet) => planet.key === 'sun');
+                        const pluto = astroResult.planets?.find((planet) => planet.key === 'pluto');
+                        const sunLon = typeof sun?.lon === 'number' ? sun.lon.toFixed(6) : 'n/a';
+                        const plutoLon = typeof pluto?.lon === 'number' ? pluto.lon.toFixed(6) : 'n/a';
+                        const sunSign = sun?.signDe ?? sun?.signKey ?? 'n/a';
+                        const plutoSign = pluto?.signDe ?? pluto?.signKey ?? 'n/a';
+
+                        return (
+                          <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Engine</span>
                         <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.engine ?? astroResult.meta.engine}</span>
@@ -806,16 +816,27 @@ function HomePage() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun.lon</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.bodies.sun.lon.toFixed(6)}</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{sunLon}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Pluto.lon</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.bodies.pluto.lon.toFixed(6)}</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{plutoLon}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun Sign</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{sunSign}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Pluto Sign</span>
+                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{plutoSign}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 12, color: '#8ecce7' }}>Computed</span>
                         <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{new Date(astroResult.computedAt).toLocaleString()}</span>
                       </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </SoulmatchCard>
                 </div>

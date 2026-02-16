@@ -21,6 +21,10 @@ export const STUDIO_RESULT_SCHEMA = {
         items: { type: 'string' },
       },
       watchOut: { type: 'string' },
+      anchorsUsed: {
+        type: 'array',
+        items: { type: 'string' },
+      },
     },
     required: ['turns', 'nextSteps', 'watchOut'],
     additionalProperties: false,

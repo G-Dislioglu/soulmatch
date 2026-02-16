@@ -60,21 +60,74 @@ if (!Array.isArray(data?.planets) || data.planets.length < 10) {
   process.exit(1);
 }
 
+if (data?.unknownTime === true) {
+  if (data?.houses !== null || data?.ascendant !== null || data?.mc !== null) {
+    console.error('astro-contract-probe-check: unknownTime=true requires houses/ascendant/mc to be null');
+    console.error(JSON.stringify(data));
+    process.exit(1);
+  }
+}
+
+for (const planet of data.planets) {
+  if (typeof planet?.lon !== 'number' || Number.isNaN(planet.lon) || planet.lon < 0 || planet.lon >= 360) {
+    console.error('astro-contract-probe-check: each planet.lon must be in [0, 360)');
+    console.error(JSON.stringify(data));
+    process.exit(1);
+  }
+
+  if (
+    typeof planet?.degreeInSign !== 'number'
+    || Number.isNaN(planet.degreeInSign)
+    || planet.degreeInSign < 0
+    || planet.degreeInSign >= 30
+  ) {
+    console.error('astro-contract-probe-check: each planet.degreeInSign must be in [0, 30)');
+    console.error(JSON.stringify(data));
+    process.exit(1);
+  }
+
+  if (typeof planet?.signKey !== 'string' || planet.signKey.length < 3) {
+    console.error('astro-contract-probe-check: each planet.signKey must be slug string');
+    console.error(JSON.stringify(data));
+    process.exit(1);
+  }
+}
+
+const elements = data?.elements;
+if (
+  !elements
+  || typeof elements.fire !== 'number'
+  || typeof elements.earth !== 'number'
+  || typeof elements.air !== 'number'
+  || typeof elements.water !== 'number'
+) {
+  console.error('astro-contract-probe-check: elements must contain fire/earth/air/water numbers');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
+const elementsTotal = elements.fire + elements.earth + elements.air + elements.water;
+if (elementsTotal !== data.planets.length) {
+  console.error('astro-contract-probe-check: elements sum must equal planets.length');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
 const sun = data.planets.find((planet) => planet?.key === 'sun');
 const pluto = data.planets.find((planet) => planet?.key === 'pluto');
 
-if (!sun || typeof sun.lon !== 'number' || typeof sun.sign !== 'string') {
+if (!sun || typeof sun.lon !== 'number' || typeof sun.signKey !== 'string') {
   console.error('astro-contract-probe-check: sun planet entry missing contract fields');
   console.error(JSON.stringify(data));
   process.exit(1);
 }
 
-if (!pluto || typeof pluto.lon !== 'number' || typeof pluto.sign !== 'string') {
+if (!pluto || typeof pluto.lon !== 'number' || typeof pluto.signKey !== 'string') {
   console.error('astro-contract-probe-check: pluto planet entry missing contract fields');
   console.error(JSON.stringify(data));
   process.exit(1);
 }
 
 console.log(
-  `astro-contract-probe-check: ok (${url}) chartVersion=${data.chartVersion} planets=${data.planets.length} sun=${sun.sign}@${sun.lon} pluto=${pluto.sign}@${pluto.lon}`,
+  `astro-contract-probe-check: ok (${url}) chartVersion=${data.chartVersion} planets=${data.planets.length} sun=${sun.signKey}@${sun.lon} pluto=${pluto.signKey}@${pluto.lon}`,
 );

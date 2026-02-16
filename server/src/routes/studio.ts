@@ -377,6 +377,11 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     // Ensure nextSteps is string array
     parsed.nextSteps = parsed.nextSteps.map((s: unknown) => String(s));
 
+    const anchorsProvided = anchors.map((anchor) => anchor.id);
+    const anchorsUsed = Array.isArray(parsed.anchorsUsed)
+      ? parsed.anchorsUsed.map((id: unknown) => String(id).trim()).filter((id: string) => id.length > 0)
+      : [];
+
     // Narrative quality gate: evaluate user-visible fields and apply fallback when needed.
     const gated = applyNarrativeGate(
       {
@@ -388,7 +393,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
         mode: studioRequest.mode,
         seats: studioRequest.seats,
         anchorsExpected: anchors.length > 0,
-        requiredAnchorIds: anchors.slice(0, 2).map((anchor) => anchor.id),
+        providedAnchorIds: anchorsProvided,
+        reportedAnchorIds: anchorsUsed,
       },
     );
 
@@ -397,6 +403,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     parsed.watchOut = gated.output.watchOut;
     parsed.qualityDebug = gated.qualityDebug;
     parsed.anchors = anchors;
+    parsed.anchorsProvided = anchorsProvided;
+    parsed.anchorsUsed = anchorsUsed;
 
     const warnings: string[] = [];
     if (gated.qualityDebug.fallbackUsed) {

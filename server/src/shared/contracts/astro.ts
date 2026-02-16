@@ -6,7 +6,8 @@
  * - engineVersion: Swiss ephemeris binding version
  * - chartVersion: 'chart-v1'
  * - unknownTime: boolean
- * - planets: [{ key, lon, sign, degreeInSign, ... }]
+ * - planets: [{ key, lon, signKey, signDe, degreeInSign, ... }]
+ * - houses|ascendant|mc: always null in chart-v1 unknown-time flow
  */
 
 export interface AstroCalcContractRequest {
@@ -29,13 +30,19 @@ export interface AstroCalcContractResponse {
   planets: Array<{
     key: string;
     lon: number;
-    sign: string;
+    signKey: string;
+    signDe: string;
     degreeInSign: number;
   }>;
-  bodies: {
-    sun: { lon: number };
-    pluto: { lon: number };
+  elements: {
+    fire: number;
+    earth: number;
+    air: number;
+    water: number;
   };
+  houses: null;
+  ascendant: null;
+  mc: null;
 }
 
 export const ASTRO_CALC_RESPONSE_EXAMPLE: AstroCalcContractResponse = {
@@ -47,11 +54,16 @@ export const ASTRO_CALC_RESPONSE_EXAMPLE: AstroCalcContractResponse = {
   computedAt: '2026-02-16T21:20:00.000Z',
   unknownTime: true,
   planets: [
-    { key: 'sun', lon: 280.12345678, sign: 'Capricorn', degreeInSign: 10.1234 },
-    { key: 'pluto', lon: 230.87654321, sign: 'Scorpio', degreeInSign: 20.8765 },
+    { key: 'sun', lon: 280.12345678, signKey: 'capricorn', signDe: 'Steinbock', degreeInSign: 10.1234 },
+    { key: 'pluto', lon: 230.87654321, signKey: 'scorpio', signDe: 'Skorpion', degreeInSign: 20.8765 },
   ],
-  bodies: {
-    sun: { lon: 280.12345678 },
-    pluto: { lon: 230.87654321 },
+  elements: {
+    fire: 1,
+    earth: 5,
+    air: 1,
+    water: 3,
   },
+  houses: null,
+  ascendant: null,
+  mc: null,
 };

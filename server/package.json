@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
+    "geo:probe": "node scripts/geo-probe-check.mjs",
     "scoring:probe": "node scripts/scoring-probe-check.mjs",
     "narrative:probe": "node scripts/narrative-probe-check.mjs",
     "db:generate": "drizzle-kit generate",

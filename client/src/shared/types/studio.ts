@@ -40,4 +40,6 @@ export interface StudioResult {
     label: string;
     value: string;
   }>;
+  anchorsProvided?: string[];
+  anchorsUsed?: string[];
 }

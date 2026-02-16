@@ -11,6 +11,13 @@ interface UserProfile {
   birthDate: string;
   birthTime?: string;
   birthPlace?: string;
+  birthLocation?: {
+    label: string;
+    lat: number;
+    lon: number;
+    countryCode: string;
+    timezone?: string;
+  };
   timezone?: string;
   createdAt: string;
   updatedAt: string;
@@ -22,6 +29,13 @@ interface CreateProfileRequest {
   birthDate: string;
   birthTime?: string;
   birthPlace?: string;
+  birthLocation?: {
+    label: string;
+    lat: number;
+    lon: number;
+    countryCode: string;
+    timezone?: string;
+  };
   timezone?: string;
 }
 
@@ -30,6 +44,13 @@ interface UpdateProfileRequest {
   birthDate?: string;
   birthTime?: string;
   birthPlace?: string;
+  birthLocation?: {
+    label: string;
+    lat: number;
+    lon: number;
+    countryCode: string;
+    timezone?: string;
+  };
   timezone?: string;
 }
 
@@ -53,6 +74,7 @@ profileRouter.post('/', async (req: Request, res: Response) => {
       birthDate: body.birthDate,
       birthTime: body.birthTime,
       birthPlace: body.birthPlace,
+      birthLocation: body.birthLocation,
       timezone: body.timezone,
       createdAt: now,
       updatedAt: now,

@@ -56,7 +56,8 @@ interface BodyState {
 
 interface PlanetState extends BodyState {
   key: BodyKey;
-  sign: string;
+  signKey: string;
+  signDe: string;
   degreeInSign: number;
 }
 
@@ -86,8 +87,10 @@ interface AstroCalcSuccess {
   unknownTime: boolean;
   meta: AstroMeta & { engine: 'swiss_ephemeris' };
   planets: PlanetState[];
-  elements?: ElementSummary;
-  bodies: Record<BodyKey, BodyState>;
+  elements: ElementSummary;
+  houses: null;
+  ascendant: null;
+  mc: null;
 }
 
 interface AstroCalcError {
@@ -116,33 +119,33 @@ const ENGINE_VERSION = '2.10.3-b-1';
 const CHART_VERSION = 'chart-v1';
 
 const ZODIAC_SIGNS = [
-  'Aries',
-  'Taurus',
-  'Gemini',
-  'Cancer',
-  'Leo',
-  'Virgo',
-  'Libra',
-  'Scorpio',
-  'Sagittarius',
-  'Capricorn',
-  'Aquarius',
-  'Pisces',
+  { key: 'aries', de: 'Widder' },
+  { key: 'taurus', de: 'Stier' },
+  { key: 'gemini', de: 'Zwillinge' },
+  { key: 'cancer', de: 'Krebs' },
+  { key: 'leo', de: 'Löwe' },
+  { key: 'virgo', de: 'Jungfrau' },
+  { key: 'libra', de: 'Waage' },
+  { key: 'scorpio', de: 'Skorpion' },
+  { key: 'sagittarius', de: 'Schütze' },
+  { key: 'capricorn', de: 'Steinbock' },
+  { key: 'aquarius', de: 'Wassermann' },
+  { key: 'pisces', de: 'Fische' },
 ] as const;
 
 const SIGN_TO_ELEMENT: Record<string, keyof ElementSummary> = {
-  Aries: 'fire',
-  Leo: 'fire',
-  Sagittarius: 'fire',
-  Taurus: 'earth',
-  Virgo: 'earth',
-  Capricorn: 'earth',
-  Gemini: 'air',
-  Libra: 'air',
-  Aquarius: 'air',
-  Cancer: 'water',
-  Scorpio: 'water',
-  Pisces: 'water',
+  aries: 'fire',
+  leo: 'fire',
+  sagittarius: 'fire',
+  taurus: 'earth',
+  virgo: 'earth',
+  capricorn: 'earth',
+  gemini: 'air',
+  libra: 'air',
+  aquarius: 'air',
+  cancer: 'water',
+  scorpio: 'water',
+  pisces: 'water',
 };
 
 const PLANETS: PlanetDef[] = [
@@ -254,7 +257,7 @@ function formatDegreeInSign(lon: number): number {
   return Number((lon % 30).toFixed(4));
 }
 
-function signFromLongitude(lon: number): string {
+function signFromLongitude(lon: number): { key: string; de: string } {
   const normalized = normalizeLongitude(lon);
   const signIndex = Math.floor(normalized / 30) % 12;
   return ZODIAC_SIGNS[signIndex];
@@ -270,7 +273,8 @@ function toPlanets(bodies: Record<BodyKey, BodyState>): PlanetState[] {
       lon: state.lon,
       lat: state.lat,
       speedLon: state.speedLon,
-      sign,
+      signKey: sign.key,
+      signDe: sign.de,
       degreeInSign: formatDegreeInSign(state.lon),
     };
   });
@@ -280,7 +284,7 @@ function summarizeElements(planets: PlanetState[]): ElementSummary {
   const counts: ElementSummary = { fire: 0, earth: 0, air: 0, water: 0 };
 
   for (const planet of planets) {
-    const element = SIGN_TO_ELEMENT[planet.sign];
+    const element = SIGN_TO_ELEMENT[planet.signKey];
     if (element) counts[element] += 1;
   }
 
@@ -522,7 +526,9 @@ async function calculateAstrology(request: AstrologyRequest & { unknownTime: boo
     meta,
     planets,
     elements,
-    bodies,
+    houses: null,
+    ascendant: null,
+    mc: null,
   };
 }
 
@@ -598,7 +604,10 @@ astrologyRouter.get('/probe', async (req: Request, res: Response) => {
       chartVersion: result.chartVersion,
       unknownTime: result.unknownTime,
       planets: result.planets,
-      bodies: result.bodies,
+      elements: result.elements,
+      houses: result.houses,
+      ascendant: result.ascendant,
+      mc: result.mc,
       engine: result.meta.engine,
       engineVersion: result.meta.engineVersion,
     });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Input } from '../../M02_ui-kit';
 import type { UserProfile } from '../../../shared/types/profile';
 import {
@@ -15,6 +15,14 @@ interface ProfileFormProps {
   onDelete?: () => void;
 }
 
+interface GeoAutocompleteItem {
+  label: string;
+  lat: number;
+  lon: number;
+  countryCode: string;
+  timezone?: string;
+}
+
 function draftFromProfile(p: UserProfile | null | undefined): ProfileDraft {
   return {
     name: p?.name ?? '',
@@ -27,16 +35,62 @@ function draftFromProfile(p: UserProfile | null | undefined): ProfileDraft {
 export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormProps) {
   const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(initialProfile));
   const [errors, setErrors] = useState<ProfileErrors>({});
+  const [selectedLocation, setSelectedLocation] = useState<GeoAutocompleteItem | null>(
+    initialProfile?.birthLocation ?? null,
+  );
+  const [suggestions, setSuggestions] = useState<GeoAutocompleteItem[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const requestSeqRef = useRef(0);
 
   const isRequiredEmpty = draft.name.trim().length === 0 || draft.birthDate.length === 0;
 
   function handleChange(field: keyof ProfileDraft, value: string) {
     setDraft((prev) => ({ ...prev, [field]: value }));
+    if (field === 'birthPlace') {
+      setSelectedLocation(null);
+    }
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
       return next;
     });
+  }
+
+  useEffect(() => {
+    const q = draft.birthPlace.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setLookupLoading(false);
+      return;
+    }
+
+    const requestId = ++requestSeqRef.current;
+    setLookupLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/geo/autocomplete?q=${encodeURIComponent(q)}`);
+        const data = await response.json().catch(() => ({ items: [] })) as { items?: GeoAutocompleteItem[] };
+        if (requestSeqRef.current !== requestId) return;
+        if (!response.ok || !Array.isArray(data.items)) {
+          setSuggestions([]);
+          return;
+        }
+        setSuggestions(data.items);
+      } catch {
+        if (requestSeqRef.current === requestId) setSuggestions([]);
+      } finally {
+        if (requestSeqRef.current === requestId) setLookupLoading(false);
+      }
+    }, 240);
+
+    return () => window.clearTimeout(timer);
+  }, [draft.birthPlace]);
+
+  function handleSelectLocation(item: GeoAutocompleteItem) {
+    setSelectedLocation(item);
+    setDraft((prev) => ({ ...prev, birthPlace: item.label }));
+    setSuggestions([]);
+    setLookupLoading(false);
   }
 
   function handleSubmit() {
@@ -53,6 +107,8 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
       birthDate: draft.birthDate,
       birthTime: draft.birthTime || undefined,
       birthPlace: draft.birthPlace || undefined,
+      birthLocation: selectedLocation ?? undefined,
+      timezone: selectedLocation?.timezone ?? initialProfile?.timezone,
       createdAt: initialProfile?.createdAt ?? now,
       updatedAt: now,
     };
@@ -63,6 +119,9 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
 
   function handleReset() {
     setDraft(draftFromProfile(initialProfile));
+    setSelectedLocation(initialProfile?.birthLocation ?? null);
+    setSuggestions([]);
+    setLookupLoading(false);
     setErrors({});
   }
 
@@ -108,7 +167,29 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
           value={draft.birthPlace}
           onChange={(e) => handleChange('birthPlace', e.target.value)}
         />
-        <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Aktiv in PR3 (Häuser/Angles) – aktuell nur Profil-Daten.</p>
+        {lookupLoading && <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Suche Orte…</p>}
+        {!lookupLoading && suggestions.length > 0 && (
+          <div className="mt-2 rounded-md border border-white/10 bg-black/20 p-1">
+            {suggestions.map((item) => (
+              <button
+                type="button"
+                key={`${item.label}-${item.lat}-${item.lon}`}
+                onClick={() => handleSelectLocation(item)}
+                className="w-full text-left rounded px-2 py-1 text-sm text-[color:var(--fg)] hover:bg-white/10"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {selectedLocation && (
+          <p className="mt-1 text-xs text-[color:var(--muted-fg)]">
+            Ausgewählt: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lon.toFixed(4)}
+          </p>
+        )}
+        {!selectedLocation && (
+          <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Ort wählen für Koordinaten (Geo Autocomplete).</p>
+        )}
         {errors.birthPlace && <p className="mt-1 text-sm text-red-400">{errors.birthPlace}</p>}
       </div>
 

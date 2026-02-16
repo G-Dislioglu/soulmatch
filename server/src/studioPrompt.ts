@@ -41,13 +41,15 @@ Das JSON muss EXAKT dieses Format haben:
     "Konkrete Handlungsempfehlung 2",
     "Konkrete Handlungsempfehlung 3"
   ],
-  "watchOut": "Ein warnender Satz mit mindestens 10 Zeichen."
+  "watchOut": "Ein warnender Satz mit mindestens 10 Zeichen.",
+  "anchorsUsed": ["A1", "A2"]
 }
 
 Regeln:
 - "turns": Array mit genau 4-8 Einträgen. Jeder hat "seat" (maya/luna/orion/lilith) und "text".
 - "nextSteps": Array mit genau 3 Strings.
 - "watchOut": Ein einzelner String, mindestens 10 Zeichen.
+- "anchorsUsed": optionales Array von Anchor-IDs (z. B. A1, A2), wenn DATA ANCHORS im User-Prompt vorhanden sind.
 - KEIN "meta" Feld — das wird serverseitig hinzugefügt.
 - Sprache: Deutsch.`;
 }
@@ -105,13 +107,15 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
     "Optionaler Vorschlag 2",
     "Optionaler Vorschlag 3"
   ],
-  "watchOut": "Ein optionaler Hinweis oder leerer String."
+  "watchOut": "Ein optionaler Hinweis oder leerer String.",
+  "anchorsUsed": ["A1", "A2"]
 }
 
 Regeln:
 - "turns": Array mit genau 1 Eintrag. seat MUSS "${seat}" sein.
 - "nextSteps": Array mit genau 3 Strings.
 - "watchOut": Ein String.
+- "anchorsUsed": optionales Array von Anchor-IDs (z. B. A1, A2), wenn DATA ANCHORS im User-Prompt vorhanden sind.
 - KEIN "meta" Feld.
 - Sprache: Deutsch.
 

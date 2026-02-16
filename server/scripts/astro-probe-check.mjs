@@ -44,24 +44,25 @@ if (!Array.isArray(data?.planets) || data.planets.length < 10) {
   process.exit(1);
 }
 
-if (typeof data?.bodies?.sun?.lon !== 'number' || Number.isNaN(data.bodies.sun.lon)) {
-  console.error('astro-probe-check: bodies.sun.lon must be a number');
+const sun = Array.isArray(data?.planets) ? data.planets.find((planet) => planet?.key === 'sun') : null;
+const pluto = Array.isArray(data?.planets) ? data.planets.find((planet) => planet?.key === 'pluto') : null;
+
+if (typeof sun?.lon !== 'number' || Number.isNaN(sun.lon)) {
+  console.error('astro-probe-check: planets.sun.lon must be a number');
   console.error(JSON.stringify(data));
   process.exit(1);
 }
 
-if (typeof data?.bodies?.pluto?.lon !== 'number' || Number.isNaN(data.bodies.pluto.lon)) {
-  console.error('astro-probe-check: bodies.pluto.lon must be a number');
+if (typeof pluto?.lon !== 'number' || Number.isNaN(pluto.lon)) {
+  console.error('astro-probe-check: planets.pluto.lon must be a number');
   console.error(JSON.stringify(data));
   process.exit(1);
 }
 
-const bodyCount = data?.bodies && typeof data.bodies === 'object'
-  ? Object.keys(data.bodies).length
-  : 0;
+const planetCount = Array.isArray(data?.planets) ? data.planets.length : 0;
 
-if (bodyCount < 10 && !(data?.bodies?.sun && data?.bodies?.pluto)) {
-  console.error('astro-probe-check: expected 10 bodies (sun..pluto) or at least sun+pluto');
+if (planetCount < 10) {
+  console.error('astro-probe-check: expected at least 10 planets (sun..pluto)');
   console.error(JSON.stringify(data));
   process.exit(1);
 }
@@ -72,4 +73,4 @@ if (data?.engine !== 'swiss_ephemeris') {
   process.exit(1);
 }
 
-console.log(`astro-probe-check: ok (${url}) engine=${data.engine} bodies=${bodyCount} sun.lon=${data.bodies.sun.lon} pluto.lon=${data.bodies.pluto.lon}`);
+console.log(`astro-probe-check: ok (${url}) engine=${data.engine} planets=${planetCount} sun.lon=${sun.lon} pluto.lon=${pluto.lon}`);
