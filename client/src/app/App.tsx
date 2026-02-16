@@ -78,10 +78,11 @@ interface AstroCalcErrorPayload {
 }
 
 function isAstroCalcResponse(data: unknown): data is AstroCalcResponse {
-  return Boolean(data)
-    && typeof data === 'object'
-    && 'status' in data
-    && (data as { status?: string }).status === 'ok';
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  return (data as { status?: string }).status === 'ok';
 }
 
 function HomePage() {
