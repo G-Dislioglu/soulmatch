@@ -78,3 +78,10 @@ Optionaler Probe-Check:
 ```bash
 curl "https://<host>/api/astro/probe?date=1990-01-01"
 ```
+
+Regression-Gate (lokal/CI gegen Ziel-URL):
+
+```bash
+cd server
+ASTRO_BASE_URL=https://<host> pnpm astro:probe
+```
