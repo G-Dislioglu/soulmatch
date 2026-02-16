@@ -355,7 +355,7 @@ function HomePage() {
   if (overlayContent) {
     return (
       <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-        {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
+        {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} intensity={cardSettings.cursorAuraIntensity} />}
         {overlayContent}
       </div>
     );
@@ -367,7 +367,7 @@ function HomePage() {
   /* ── Main cosmic shell ── */
   return (
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} />}
+      {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} intensity={cardSettings.cursorAuraIntensity} />}
 
       {/* Soul Card Detail Modal */}
       {activeSoulCard && (

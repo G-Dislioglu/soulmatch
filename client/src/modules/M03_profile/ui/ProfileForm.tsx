@@ -96,6 +96,7 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
           value={draft.birthTime}
           onChange={(e) => handleChange('birthTime', e.target.value)}
         />
+        <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Aktiv in PR3 (Häuser/Angles) – aktuell nur Profil-Daten.</p>
         {errors.birthTime && <p className="mt-1 text-sm text-red-400">{errors.birthTime}</p>}
       </div>
 
@@ -107,6 +108,7 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
           value={draft.birthPlace}
           onChange={(e) => handleChange('birthPlace', e.target.value)}
         />
+        <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Aktiv in PR3 (Häuser/Angles) – aktuell nur Profil-Daten.</p>
         {errors.birthPlace && <p className="mt-1 text-sm text-red-400">{errors.birthPlace}</p>}
       </div>
 

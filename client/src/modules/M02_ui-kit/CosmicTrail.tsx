@@ -4,6 +4,7 @@ const ACCENT = '#d4af37';
 
 interface CosmicTrailProps {
   containerRef?: React.RefObject<HTMLDivElement | null>;
+  intensity?: number;
 }
 
 interface TrailPoint {
@@ -12,7 +13,7 @@ interface TrailPoint {
   time: number;
 }
 
-export function CosmicTrail(_props: CosmicTrailProps) {
+export function CosmicTrail({ intensity = 70 }: CosmicTrailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const points = useRef<TrailPoint[]>([]);
   const smoothPos = useRef({ x: 0, y: 0 });
@@ -64,6 +65,7 @@ export function CosmicTrail(_props: CosmicTrailProps) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const now = Date.now();
       const maxAge = moving.current ? 600 : 250;
+      const auraFactor = Math.max(0, Math.min(1, intensity / 100));
 
       points.current = points.current.filter((p) => now - p.time < maxAge);
       const pts = points.current;
@@ -77,8 +79,8 @@ export function CosmicTrail(_props: CosmicTrailProps) {
           const cur = pts[i]!; const prev = pts[i - 1]!;
           const age = (now - cur.time) / maxAge;
           const progress = i / pts.length;
-          const alpha = (1 - age) * progress * 0.12;
-          const width = progress * 14;
+          const alpha = (1 - age) * progress * 0.12 * auraFactor;
+          const width = progress * (6 + 8 * auraFactor);
           if (alpha <= 0) continue;
           ctx.globalAlpha = alpha;
           ctx.strokeStyle = ACCENT;
@@ -101,8 +103,8 @@ export function CosmicTrail(_props: CosmicTrailProps) {
           const cur = pts[i]!; const prev = pts[i - 1]!;
           const age = (now - cur.time) / maxAge;
           const progress = i / pts.length;
-          const alpha = (1 - age) * progress * 0.55;
-          const width = progress * 4;
+          const alpha = (1 - age) * progress * (0.25 + 0.3 * auraFactor);
+          const width = progress * (1.5 + 2.5 * auraFactor);
           if (alpha <= 0) continue;
           ctx.globalAlpha = alpha;
           ctx.strokeStyle = '#f5e6a3';
@@ -124,10 +126,10 @@ export function CosmicTrail(_props: CosmicTrailProps) {
           const cur = pts[i]!;
           const progress = i / pts.length;
           const age = (now - cur.time) / maxAge;
-          const alpha = (1 - age) * progress * 0.14;
+          const alpha = (1 - age) * progress * 0.14 * auraFactor;
           if (alpha <= 0) continue;
           ctx.globalAlpha = alpha;
-          const g = ctx.createRadialGradient(cur.x, cur.y, 0, cur.x, cur.y, 22 * progress);
+          const g = ctx.createRadialGradient(cur.x, cur.y, 0, cur.x, cur.y, (8 + 14 * auraFactor) * progress);
           g.addColorStop(0, '#f5e6a3');
           g.addColorStop(0.4, ACCENT);
           g.addColorStop(1, 'transparent');
@@ -139,15 +141,15 @@ export function CosmicTrail(_props: CosmicTrailProps) {
         const head = pts[pts.length - 1];
         if (head && moving.current) {
           const headAge = (now - head.time) / maxAge;
-          ctx.globalAlpha = (1 - headAge) * 0.35;
-          const hg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 16);
+          ctx.globalAlpha = (1 - headAge) * 0.35 * auraFactor;
+          const hg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 8 + 8 * auraFactor);
           hg.addColorStop(0, '#fffbe6');
           hg.addColorStop(0.3, '#f5e6a3');
           hg.addColorStop(0.6, ACCENT);
           hg.addColorStop(1, 'transparent');
           ctx.fillStyle = hg;
           ctx.beginPath();
-          ctx.arc(head.x, head.y, 16, 0, Math.PI * 2);
+          ctx.arc(head.x, head.y, 8 + 8 * auraFactor, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -165,7 +167,7 @@ export function CosmicTrail(_props: CosmicTrailProps) {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(frame.current);
     };
-  }, []);
+  }, [intensity]);
 
   if (isTouch.current) return null;
 

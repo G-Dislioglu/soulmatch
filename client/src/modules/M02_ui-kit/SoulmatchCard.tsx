@@ -8,6 +8,7 @@ export interface CardSettings {
   pulseIntensity: number;
   tiltIntensity: number;
   saturation: number;
+  cursorAuraIntensity: number;
   cosmicTrail: boolean;
 }
 
@@ -17,6 +18,7 @@ export const DEFAULT_CARD_SETTINGS: CardSettings = {
   pulseIntensity: 65,
   tiltIntensity: 45,
   saturation: 150,
+  cursorAuraIntensity: 70,
   cosmicTrail: true,
 };
 

@@ -38,10 +38,10 @@ function Slider({ label, value, onChange, icon, color }: SliderProps) {
 }
 
 const PRESETS: Record<string, CardSettings> = {
-  Dezent: { glowIntensity: 55, plasmaIntensity: 20, pulseIntensity: 35, tiltIntensity: 25, saturation: 110, cosmicTrail: false },
-  Balanced: { glowIntensity: 80, plasmaIntensity: 40, pulseIntensity: 55, tiltIntensity: 45, saturation: 135, cosmicTrail: true },
-  Lebendig: { glowIntensity: 95, plasmaIntensity: 55, pulseIntensity: 70, tiltIntensity: 55, saturation: 155, cosmicTrail: true },
-  Intensiv: { glowIntensity: 100, plasmaIntensity: 80, pulseIntensity: 90, tiltIntensity: 70, saturation: 175, cosmicTrail: true },
+  Dezent: { glowIntensity: 55, plasmaIntensity: 20, pulseIntensity: 35, tiltIntensity: 25, saturation: 110, cursorAuraIntensity: 35, cosmicTrail: false },
+  Balanced: { glowIntensity: 80, plasmaIntensity: 40, pulseIntensity: 55, tiltIntensity: 45, saturation: 135, cursorAuraIntensity: 70, cosmicTrail: true },
+  Lebendig: { glowIntensity: 95, plasmaIntensity: 55, pulseIntensity: 70, tiltIntensity: 55, saturation: 155, cursorAuraIntensity: 85, cosmicTrail: true },
+  Intensiv: { glowIntensity: 100, plasmaIntensity: 80, pulseIntensity: 90, tiltIntensity: 70, saturation: 175, cursorAuraIntensity: 100, cosmicTrail: true },
 };
 
 interface ControlsDropdownProps {
@@ -98,6 +98,7 @@ export function ControlsDropdown({ settings, setSettings }: ControlsDropdownProp
             ))}
           </div>
           <Slider label="Reading Light" value={settings.glowIntensity} onChange={update('glowIntensity')} icon="🔦" color="#d4af37" />
+          <Slider label="Cursor Aura" value={settings.cursorAuraIntensity} onChange={update('cursorAuraIntensity')} icon="🖱️" color="#fde68a" />
           <Slider label="Plasma Border" value={settings.plasmaIntensity} onChange={update('plasmaIntensity')} icon="🌊" color="#c084fc" />
           <Slider label="Pulse Rings" value={settings.pulseIntensity} onChange={update('pulseIntensity')} icon="💫" color="#38bdf8" />
           <Slider label="3D Tilt" value={settings.tiltIntensity} onChange={update('tiltIntensity')} icon="📐" color="#f472b6" />
@@ -129,7 +130,7 @@ export function ControlsDropdown({ settings, setSettings }: ControlsDropdownProp
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
           }}>
             <code style={{ fontSize: 10, color: '#6b6560', lineHeight: 1.6, fontFamily: "'SF Mono','Fira Code',monospace" }}>
-              {`{ glow: ${settings.glowIntensity}, plasma: ${settings.plasmaIntensity}, pulse: ${settings.pulseIntensity}, tilt: ${settings.tiltIntensity}, sat: ${settings.saturation}, trail: ${settings.cosmicTrail ? 'on' : 'off'} }`}
+              {`{ glow: ${settings.glowIntensity}, cursorAura: ${settings.cursorAuraIntensity}, plasma: ${settings.plasmaIntensity}, pulse: ${settings.pulseIntensity}, tilt: ${settings.tiltIntensity}, sat: ${settings.saturation}, trail: ${settings.cosmicTrail ? 'on' : 'off'} }`}
             </code>
           </div>
         </div>

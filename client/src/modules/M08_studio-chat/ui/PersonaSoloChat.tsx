@@ -4,7 +4,7 @@ import { Button } from '../../M02_ui-kit';
 import { getStudioProvider } from '../../M09_settings';
 import { MayaPortrait } from './MayaPortrait';
 import { LilithPortrait } from './LilithPortrait';
-import { getLilithIntensity, setLilithIntensity } from '../lib/lilithGate';
+import { getPersonaIntensity, setPersonaIntensity } from '../lib/lilithGate';
 import type { LilithIntensity } from '../lib/lilithGate';
 import { loadChatHistory, appendMessage, clearChatHistory } from '../lib/chatHistory';
 import type { ChatMessage } from '../lib/chatHistory';
@@ -109,7 +109,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [freeMode, setFreeMode] = useState(false);
-  const [intensity, setIntensity] = useState<LilithIntensity>(getLilithIntensity);
+  const [intensity, setIntensity] = useState<LilithIntensity>(() => getPersonaIntensity(seat));
   const [blocked, setBlocked] = useState(() => isBlocked() || getBanStatus(profileId).banned);
   const [banMessage, setBanMessage] = useState<string | null>(null);
   const [sensitivityScore, setSensitivityScore] = useState(() => getSensitivityState().score);
@@ -258,6 +258,11 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    setIntensity(getPersonaIntensity(seat));
+    setAutoNotice(null);
+  }, [seat]);
+
   // Aura-snap flash on mount
   useEffect(() => {
     const t = setTimeout(() => setShowAuraSnap(false), 600);
@@ -265,7 +270,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   }, []);
 
   function handleIntensityChange(level: LilithIntensity) {
-    if (level === 'brutal') {
+    if (isLilith && level === 'brutal') {
       const dismissed = localStorage.getItem(SHADOW_DIVE_DISMISS_KEY) === '1';
       if (!dismissed) {
         setShadowDiveConfirm(true);
@@ -273,14 +278,14 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
       }
     }
     setIntensity(level);
-    setLilithIntensity(level);
+    setPersonaIntensity(seat, level);
     setAutoNotice(null);
   }
 
   function confirmShadowDive(dontShowAgain: boolean) {
     if (dontShowAgain) localStorage.setItem(SHADOW_DIVE_DISMISS_KEY, '1');
     setIntensity('brutal');
-    setLilithIntensity('brutal');
+    setPersonaIntensity(seat, 'brutal');
     setAutoNotice(null);
     setShadowDiveConfirm(false);
   }
@@ -370,7 +375,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
       if (downgrade) {
         effectiveIntensity = downgrade;
         setIntensity(downgrade);
-        setLilithIntensity(downgrade);
+        setPersonaIntensity(seat, downgrade);
         setAutoNotice(`Intensität automatisch auf "${INTENSITY_LABELS[downgrade]}" reduziert.`);
       }
 
@@ -568,11 +573,11 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
           </div>
         )}
 
-        {/* Intensity Control + Sensitivity (Lilith only) */}
-        {isLilith && !blocked && (
-          <div className="px-4 py-2 border-b border-orange-900/20 flex flex-col gap-1.5">
+        {/* Intensity Control (all personas); sensitivity remains Lilith-specific */}
+        {!blocked && (
+          <div className={`px-4 py-2 border-b flex flex-col gap-1.5 ${isLilith ? 'border-orange-900/20' : 'border-zinc-800/70'}`}>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-orange-500/50 uppercase tracking-wider font-semibold shrink-0">Intensity</span>
+              <span className={`text-[10px] uppercase tracking-wider font-semibold shrink-0 ${isLilith ? 'text-orange-500/50' : 'text-zinc-500'}`}>Intensity</span>
               <div className="flex gap-1 flex-1 min-w-0">
                 {(['mild', 'ehrlich', 'brutal'] as LilithIntensity[]).map((level) => {
                   const ui = INTENSITY_UI[level];
@@ -595,18 +600,20 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                   );
                 })}
               </div>
-              <div className="ml-auto flex items-center gap-1.5">
-                <div className="w-12 h-1 rounded-full bg-zinc-800 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${sensitivityScore}%`,
-                      backgroundColor: sensitivityScore > 50 ? '#22c55e' : sensitivityScore > 25 ? '#eab308' : '#ef4444',
-                    }}
-                  />
+              {isLilith && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <div className="w-12 h-1 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${sensitivityScore}%`,
+                        backgroundColor: sensitivityScore > 50 ? '#22c55e' : sensitivityScore > 25 ? '#eab308' : '#ef4444',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-zinc-600">{sensitivityScore}</span>
                 </div>
-                <span className="text-[9px] text-zinc-600">{sensitivityScore}</span>
-              </div>
+              )}
             </div>
             {autoNotice && (
               <p className="text-[10px] text-amber-500/80 animate-pulse">{autoNotice}</p>
