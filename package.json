@@ -7,5 +7,11 @@
     "start": "node server/dist/index.js",
     "dev:client": "cd client && pnpm dev",
     "dev:server": "cd server && pnpm dev"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sweph",
+      "esbuild"
+    ]
   }
 }
