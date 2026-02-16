@@ -29,8 +29,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts=false
 
 # Rebuild sweph and FAIL the build if the native binary is missing
 RUN pnpm rebuild sweph
-RUN ls -lah node_modules/.pnpm/sweph@*/node_modules/sweph/build/Release/ || true
-RUN test -f node_modules/.pnpm/sweph@*/node_modules/sweph/build/Release/sweph.node
+RUN ls -lah node_modules/sweph/build/Release/ || true
+RUN test -f node_modules/sweph/build/Release/sweph.node
 
 # Optional: hard runtime require test during build (also fails fast)
 RUN node -e "require('sweph'); console.log('sweph require ok')"
