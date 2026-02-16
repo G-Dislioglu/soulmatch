@@ -4,7 +4,39 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
-type PlanetKey =
+// Request types from shared contract (copied from client/src/shared/types/astrology.ts)
+type AstrologySystem = 'tropical' | 'sidereal';
+type HouseSystem = 'placidus' | 'koch' | 'whole_sign' | 'equal';
+
+interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+interface AstrologyRequest {
+  profileId: string;
+  name?: string;
+  birthDate: string;
+  birthTime?: string;
+  birthPlace?: string;
+  location?: GeoPoint;
+  timezone?: string;
+  system: AstrologySystem;
+  houseSystem: HouseSystem;
+  include: {
+    planets: boolean;
+    houses: boolean;
+    aspects: boolean;
+    angles: boolean;
+    points: boolean;
+  };
+}
+
+interface AstroCalcRequest extends Partial<AstrologyRequest> {
+  unknownTime?: boolean;
+}
+
+type BodyKey =
   | 'sun'
   | 'moon'
   | 'mercury'
@@ -16,36 +48,33 @@ type PlanetKey =
   | 'neptune'
   | 'pluto';
 
-interface AstroCalcRequest {
-  birthDate: string;
-  birthTime?: string | null;
-  birthPlace?: {
-    lat: number;
-    lon: number;
-  } | null;
-  timezone?: string | null;
-  unknownTime: boolean;
+interface BodyState {
+  lon: number;
+  lat: number;
+  speedLon: number;
+}
+
+interface AstroMeta {
+  engine: 'swiss_ephemeris' | 'unavailable';
+  engineVersion: string;
+  system: AstrologySystem;
+  houseSystem: HouseSystem;
+  computedAt: string;
+  warnings?: string[];
 }
 
 interface AstroCalcSuccess {
   status: 'ok';
+  profileId: string;
   computedAt: string;
-  meta: {
-    engine: 'swiss_ephemeris';
-    engineVersion: string;
-    unknownTime: boolean;
-    input: {
-      birthDate: string;
-      birthTime: string | null;
-      timezone: string | null;
-    };
-  };
-  planets: Record<PlanetKey, { lon: number }>;
+  meta: AstroMeta & { engine: 'swiss_ephemeris' };
+  bodies: Record<BodyKey, BodyState>;
 }
 
 interface AstroCalcError {
   status: 'error';
   computedAt: string;
+  meta?: AstroMeta;
   error: {
     message: string;
     code: string;
@@ -53,7 +82,7 @@ interface AstroCalcError {
 }
 
 interface PlanetDef {
-  key: PlanetKey;
+  key: BodyKey;
   constantName: string;
   fallbackId: number;
 }
@@ -78,6 +107,39 @@ const PLANETS: PlanetDef[] = [
   { key: 'neptune', constantName: 'SE_NEPTUNE', fallbackId: 8 },
   { key: 'pluto', constantName: 'SE_PLUTO', fallbackId: 9 },
 ];
+
+const DEFAULT_INCLUDE: AstrologyRequest['include'] = {
+  planets: true,
+  houses: false,
+  aspects: false,
+  angles: false,
+  points: false,
+};
+
+class SwephUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SwephUnavailableError';
+  }
+}
+
+function normalizeRequest(body: AstroCalcRequest): AstrologyRequest & { unknownTime: boolean } {
+  const include = body.include ?? DEFAULT_INCLUDE;
+
+  return {
+    profileId: body.profileId ?? 'unknown-profile',
+    name: body.name,
+    birthDate: body.birthDate ?? '',
+    birthTime: body.birthTime,
+    birthPlace: body.birthPlace,
+    location: body.location,
+    timezone: body.timezone,
+    system: body.system ?? 'tropical',
+    houseSystem: body.houseSystem ?? 'placidus',
+    include,
+    unknownTime: Boolean(body.unknownTime) || !body.birthTime,
+  };
+}
 
 function errorResponse(code: string, message: string): AstroCalcError {
   return {
@@ -130,8 +192,22 @@ function normalizeLongitude(value: number): number {
   return Number(normalized.toFixed(8));
 }
 
+function normalizeLatitude(value: number): number {
+  return Number(value.toFixed(8));
+}
+
+function normalizeSpeed(value: number): number {
+  return Number(value.toFixed(8));
+}
+
 function getSweph(): SwephLike {
-  const sweph = require('sweph') as SwephLike;
+  let sweph: SwephLike;
+
+  try {
+    sweph = require('sweph') as SwephLike;
+  } catch (error) {
+    throw new SwephUnavailableError(`Failed to load sweph: ${String(error)}`);
+  }
 
   // Some builds expose the binding under `default`.
   if (sweph.default && typeof sweph.default === 'object') {
@@ -214,46 +290,69 @@ function callSweFunction<T>(fn: (...args: unknown[]) => unknown, ...args: unknow
   });
 }
 
-function extractLongitude(result: unknown): number {
-  if (typeof result === 'number') {
-    return normalizeLongitude(result);
+function extractBodyState(result: unknown): BodyState {
+  if (Array.isArray(result) && typeof result[0] === 'number') {
+    return {
+      lon: normalizeLongitude(result[0]),
+      lat: normalizeLatitude(typeof result[1] === 'number' ? result[1] : 0),
+      speedLon: normalizeSpeed(typeof result[3] === 'number' ? result[3] : 0),
+    };
   }
 
-  if (Array.isArray(result) && typeof result[0] === 'number') {
-    return normalizeLongitude(result[0]);
+  if (typeof result === 'number') {
+    return {
+      lon: normalizeLongitude(result),
+      lat: 0,
+      speedLon: 0,
+    };
   }
 
   if (result && typeof result === 'object') {
     const asObj = result as Record<string, unknown>;
 
-    if (typeof asObj.longitude === 'number') {
-      return normalizeLongitude(asObj.longitude);
-    }
-
-    if (typeof asObj.lon === 'number') {
-      return normalizeLongitude(asObj.lon);
+    if (Array.isArray(asObj.xx) && typeof asObj.xx[0] === 'number') {
+      return {
+        lon: normalizeLongitude(asObj.xx[0]),
+        lat: normalizeLatitude(typeof asObj.xx[1] === 'number' ? asObj.xx[1] : 0),
+        speedLon: normalizeSpeed(typeof asObj.xx[3] === 'number' ? asObj.xx[3] : 0),
+      };
     }
 
     if (Array.isArray(asObj.data) && typeof asObj.data[0] === 'number') {
-      return normalizeLongitude(asObj.data[0]);
+      return {
+        lon: normalizeLongitude(asObj.data[0]),
+        lat: normalizeLatitude(typeof asObj.data[1] === 'number' ? asObj.data[1] : 0),
+        speedLon: normalizeSpeed(typeof asObj.data[3] === 'number' ? asObj.data[3] : 0),
+      };
     }
 
-    if (Array.isArray(asObj.xx) && typeof asObj.xx[0] === 'number') {
-      return normalizeLongitude(asObj.xx[0]);
+    if (typeof asObj.lon === 'number') {
+      return {
+        lon: normalizeLongitude(asObj.lon),
+        lat: normalizeLatitude(typeof asObj.lat === 'number' ? asObj.lat : 0),
+        speedLon: normalizeSpeed(typeof asObj.speedLon === 'number' ? asObj.speedLon : 0),
+      };
+    }
+
+    if (typeof asObj.longitude === 'number') {
+      return {
+        lon: normalizeLongitude(asObj.longitude),
+        lat: normalizeLatitude(typeof asObj.latitude === 'number' ? asObj.latitude : 0),
+        speedLon: normalizeSpeed(typeof asObj.speedLongitude === 'number' ? asObj.speedLongitude : 0),
+      };
     }
   }
 
-  throw new Error(`Could not extract longitude from Swiss Ephemeris result: ${JSON.stringify(result)}`);
+  throw new Error(`Could not extract body state from Swiss Ephemeris result: ${JSON.stringify(result)}`);
 }
 
-async function calculatePlanetLongitudes(request: AstroCalcRequest): Promise<Record<PlanetKey, { lon: number }>> {
+async function calculateBodies(request: AstrologyRequest & { unknownTime: boolean }): Promise<Record<BodyKey, BodyState>> {
   const sweph = getSweph();
 
   const juldayFn = resolveSwephFunction(sweph, ['swe_julday', 'julday']);
   const calcUtFn = resolveSwephFunction(sweph, ['swe_calc_ut', 'calc_ut', 'swe_calc']);
   if (!juldayFn || !calcUtFn) {
-    const availableKeys = Object.keys(sweph).sort().join(', ');
-    throw new Error(`Swiss Ephemeris API missing required functions (expected swe_julday/julday and swe_calc_ut/calc_ut). Available keys: ${availableKeys}`);
+    throw new SwephUnavailableError('Swiss Ephemeris API missing required functions');
   }
 
   const { year, month, day } = parseBirthDate(request.birthDate);
@@ -276,7 +375,7 @@ async function calculatePlanetLongitudes(request: AstroCalcRequest): Promise<Rec
     throw new Error('Failed to compute julian day');
   }
 
-  const planets = {} as Record<PlanetKey, { lon: number }>;
+  const bodies = {} as Record<BodyKey, BodyState>;
 
   for (const planet of PLANETS) {
     const planetId = resolveSwephNumber(sweph, planet.constantName, planet.fallbackId);
@@ -288,31 +387,47 @@ async function calculatePlanetLongitudes(request: AstroCalcRequest): Promise<Rec
       calcFlags,
     );
 
-    planets[planet.key] = {
-      lon: extractLongitude(rawResult),
-    };
+    bodies[planet.key] = extractBodyState(rawResult);
   }
 
-  return planets;
+  return bodies;
 }
 
-async function calculateAstrology(request: AstroCalcRequest): Promise<AstroCalcSuccess> {
-  const planets = await calculatePlanetLongitudes(request);
+async function calculateAstrology(request: AstrologyRequest & { unknownTime: boolean }): Promise<AstroCalcSuccess> {
+  const computedAt = new Date().toISOString();
+  const warnings: string[] = [];
+
+  const wantsHousesOrAngles = request.include.houses || request.include.angles;
+  const hasLocation = Boolean(request.location);
+  const canComputeHousesOrAngles = !request.unknownTime && Boolean(request.birthTime) && hasLocation;
+
+  if (wantsHousesOrAngles && !hasLocation) {
+    warnings.push('location_missing_no_houses');
+  }
+  if (wantsHousesOrAngles && !canComputeHousesOrAngles) {
+    warnings.push('time_or_location_missing_no_houses');
+  }
+
+  const bodies = await calculateBodies(request);
+
+  const meta: AstroCalcSuccess['meta'] = {
+    engine: 'swiss_ephemeris',
+    engineVersion: ENGINE_VERSION,
+    system: request.system,
+    houseSystem: request.houseSystem,
+    computedAt,
+  };
+
+  if (warnings.length > 0) {
+    meta.warnings = warnings;
+  }
 
   return {
     status: 'ok',
-    computedAt: new Date().toISOString(),
-    meta: {
-      engine: 'swiss_ephemeris',
-      engineVersion: ENGINE_VERSION,
-      unknownTime: request.unknownTime || !request.birthTime,
-      input: {
-        birthDate: request.birthDate,
-        birthTime: request.birthTime ?? null,
-        timezone: request.timezone ?? null,
-      },
-    },
-    planets,
+    profileId: request.profileId,
+    computedAt,
+    meta,
+    bodies,
   };
 }
 
@@ -320,28 +435,49 @@ export const astrologyRouter = Router();
 
 // POST /api/astro/calc
 astrologyRouter.post('/calc', async (req: Request, res: Response) => {
+  const rawBody = (req.body ?? {}) as AstroCalcRequest;
+  const request = normalizeRequest(rawBody);
+
+  if (!request.birthDate || typeof request.birthDate !== 'string') {
+    return res.status(400).json(errorResponse('invalid_birth_date', 'birthDate is required (YYYY-MM-DD)'));
+  }
+
   try {
-    const request = req.body as AstroCalcRequest;
-
-    if (!request || typeof request.birthDate !== 'string' || typeof request.unknownTime !== 'boolean') {
-      return res.status(400).json(errorResponse('invalid_request', 'birthDate and unknownTime are required'));
-    }
-
     const result = await calculateAstrology(request);
     devLogger.info('api', 'Astrology calculated', {
+      profileId: result.profileId,
       birthDate: request.birthDate,
-      unknownTime: result.meta.unknownTime,
+      unknownTime: request.unknownTime,
       engine: result.meta.engine,
     });
 
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
+    if (error instanceof SwephUnavailableError) {
+      const computedAt = new Date().toISOString();
+      return res.status(500).json({
+        status: 'error',
+        computedAt,
+        meta: {
+          engine: 'unavailable',
+          engineVersion: ENGINE_VERSION,
+          system: request.system,
+          houseSystem: request.houseSystem,
+          computedAt,
+          warnings: ['sweph_load_failed'],
+        },
+        error: {
+          code: 'sweph_load_failed',
+          message,
+        },
+      } satisfies AstroCalcError);
+    }
+
     const code = message.includes('birthDate') || message.includes('birthTime')
       ? 'invalid_request'
-      : message.includes('Swiss Ephemeris') || message.includes('sweph')
-        ? 'sweph_error'
-        : 'calculation_failed';
+      : 'calculation_failed';
 
     devLogger.error('api', 'Failed to calculate astrology', { error: message });
     res.status(code === 'invalid_request' ? 400 : 500).json(errorResponse(code, message));
@@ -352,18 +488,19 @@ astrologyRouter.post('/calc', async (req: Request, res: Response) => {
 astrologyRouter.get('/probe', async (req: Request, res: Response) => {
   try {
     const queryDate = typeof req.query.date === 'string' ? req.query.date : '1990-01-01';
-    const result = await calculateAstrology({
+    const result = await calculateAstrology(normalizeRequest({
+      profileId: 'probe',
       birthDate: queryDate,
-      birthTime: null,
-      birthPlace: null,
-      timezone: null,
+      birthTime: undefined,
+      timezone: 'UTC',
+      include: DEFAULT_INCLUDE,
       unknownTime: true,
-    });
+    }));
 
     res.json({
       status: 'ok',
       computedAt: result.computedAt,
-      sun: result.planets.sun,
+      bodies: result.bodies,
       engine: result.meta.engine,
       engineVersion: result.meta.engineVersion,
     });

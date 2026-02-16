@@ -71,7 +71,7 @@ curl -X POST https://<host>/api/astro/calc \
 Erwartung:
 - `status = "ok"`
 - `meta.engine = "swiss_ephemeris"`
-- `planets.sun.lon` ist eine Zahl
+- `bodies.sun.lon` ist eine Zahl
 
 Optionaler Probe-Check:
 
