@@ -40,8 +40,8 @@ class LocalMatchEngine implements MatchEngine {
       profileB?: { id?: string };
       engine?: string;
       engineVersion?: string;
+      scoringEngineVersion?: string;
       computedAt?: string;
-      scoreOverall?: number;
       matchOverall?: number;
       breakdown?: MatchScoreResult['breakdown'];
       connectionType?: string;
@@ -51,7 +51,13 @@ class LocalMatchEngine implements MatchEngine {
       warnings?: string[];
     } | null;
 
-    if (!response.ok || !payload || !payload.breakdown || !Array.isArray(payload.claims)) {
+    if (
+      !response.ok
+      || !payload
+      || !payload.breakdown
+      || !Array.isArray(payload.claims)
+      || typeof payload.matchOverall !== 'number'
+    ) {
       throw new Error(payload?.error ?? 'Match API request failed');
     }
 
@@ -61,11 +67,11 @@ class LocalMatchEngine implements MatchEngine {
       meta: {
         engine: payload.engine === 'unified_match' ? 'unified_match' : 'local',
         engineVersion: payload.engineVersion ?? 'v1',
+        scoringEngineVersion: payload.scoringEngineVersion,
         computedAt: payload.computedAt ?? new Date().toISOString(),
         warnings: payload.warnings,
       },
-      matchOverall: payload.matchOverall ?? payload.scoreOverall ?? 0,
-      scoreOverall: payload.scoreOverall,
+      matchOverall: payload.matchOverall,
       breakdown: payload.breakdown,
       connectionType: payload.connectionType,
       anchorsProvided: payload.anchorsProvided,

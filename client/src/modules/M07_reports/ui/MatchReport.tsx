@@ -3,6 +3,13 @@ import { Section } from './Section';
 import { ScoreBar } from './ScoreBar';
 import { ClaimsList } from './ClaimsList';
 
+function formatWarning(warning: string): string {
+  const map: Record<string, string> = {
+    astro_unavailable_using_numerology_only: 'Astrologie derzeit nicht verfügbar - Bewertung basiert auf Numerologie.',
+  };
+  return map[warning] ?? `Hinweis: ${warning}`;
+}
+
 interface MatchReportProps {
   match: MatchScoreResult;
 }
@@ -29,6 +36,16 @@ export function MatchReport({ match }: MatchReportProps) {
           <ul className="list-disc pl-5 text-sm text-[color:var(--fg)] space-y-1">
             {match.keyReasons.slice(0, 3).map((reason) => (
               <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {Array.isArray(match.meta.warnings) && match.meta.warnings.length > 0 && (
+        <Section title="Hinweise" subtitle="Datenqualität & Verfügbarkeit">
+          <ul className="list-disc pl-5 text-sm text-[color:var(--muted-fg)] space-y-1">
+            {match.meta.warnings.map((warning) => (
+              <li key={warning}>{formatWarning(warning)}</li>
             ))}
           </ul>
         </Section>

@@ -33,13 +33,15 @@ const payload = {
   relationshipType: 'romantic',
 };
 
+const CONNECTION_TYPES = new Set(['spiegel', 'katalysator', 'heiler', 'anker', 'lehrer', 'gefaehrte']);
+
 function normalizeForDeterminism(data) {
   return {
     profileA: data?.profileA,
     profileB: data?.profileB,
     engine: data?.engine,
     engineVersion: data?.engineVersion,
-    scoreOverall: data?.scoreOverall,
+    scoringEngineVersion: data?.scoringEngineVersion,
     matchOverall: data?.matchOverall,
     breakdown: data?.breakdown,
     connectionType: data?.connectionType,
@@ -93,8 +95,14 @@ if (first?.engineVersion !== 'v1') {
   process.exit(1);
 }
 
-if (!isScore(first?.scoreOverall) || !isScore(first?.matchOverall)) {
-  console.error('match-probe-check: scoreOverall and matchOverall must be scores in [0,100]');
+if (first?.scoringEngineVersion !== 'v3.1') {
+  console.error('match-probe-check: scoringEngineVersion must be "v3.1"');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!isScore(first?.matchOverall)) {
+  console.error('match-probe-check: matchOverall must be a score in [0,100]');
   console.error(JSON.stringify(first));
   process.exit(1);
 }
@@ -105,8 +113,8 @@ if (!isScore(first?.breakdown?.numerology) || !isScore(first?.breakdown?.astrolo
   process.exit(1);
 }
 
-if (typeof first?.connectionType !== 'string' || first.connectionType.length < 3) {
-  console.error('match-probe-check: connectionType must be non-empty string');
+if (!CONNECTION_TYPES.has(first?.connectionType)) {
+  console.error('match-probe-check: connectionType must be one of spiegel|katalysator|heiler|anker|lehrer|gefaehrte');
   console.error(JSON.stringify(first));
   process.exit(1);
 }
@@ -117,8 +125,33 @@ if (!Array.isArray(first?.anchorsProvided) || first.anchorsProvided.length < 3) 
   process.exit(1);
 }
 
-if (!Array.isArray(first?.keyReasons) || first.keyReasons.length < 1) {
-  console.error('match-probe-check: keyReasons must be non-empty array');
+if (!first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('numA:lifePath:'))
+  || !first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('numB:lifePath:'))) {
+  console.error('match-probe-check: anchorsProvided must contain numA/numB lifePath anchors');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!Array.isArray(first?.keyReasons) || first.keyReasons.length !== 3) {
+  console.error('match-probe-check: keyReasons must contain exactly 3 items');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!first.keyReasons.every((reason) => typeof reason === 'string' && reason.trim().length > 0)) {
+  console.error('match-probe-check: keyReasons must contain non-empty strings');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!first.keyReasons.every((reason) => !/nicht verf(ue|ü)gbar|unavailable/i.test(reason))) {
+  console.error('match-probe-check: keyReasons must not contain warnings/unavailability text');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (Math.abs(first.breakdown.fusion - first.matchOverall) > 0.01) {
+  console.error('match-probe-check: breakdown.fusion must equal matchOverall (plausibility invariant)');
   console.error(JSON.stringify(first));
   process.exit(1);
 }
@@ -138,5 +171,5 @@ if (n1 !== n2) {
 }
 
 console.log(
-  `match-probe-check: ok (${url}) scoreOverall=${first.scoreOverall} connectionType=${first.connectionType} reasons=${first.keyReasons.length}`,
+  `match-probe-check: ok (${url}) matchOverall=${first.matchOverall} connectionType=${first.connectionType} reasons=${first.keyReasons.length}`,
 );

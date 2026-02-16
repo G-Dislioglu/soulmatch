@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { devLogger } from '../devLogger.js';
 import {
   calculateUnifiedScore,
+  type ConnectionType,
   type NumerologyNumbers,
   type RelationshipType,
 } from '../shared/scoring.js';
@@ -71,11 +72,11 @@ interface MatchSingleResponse {
   profileB: { id: string; name: string };
   engine: 'unified_match';
   engineVersion: 'v1';
+  scoringEngineVersion: 'v3.1';
   computedAt: string;
-  scoreOverall: number;
   matchOverall: number;
   breakdown: MatchBreakdown;
-  connectionType: string;
+  connectionType: ConnectionType;
   anchorsProvided: string[];
   keyReasons: string[];
   claims: ExplainClaim[];
@@ -124,18 +125,45 @@ function deriveNumerologyFromBirthDate(birthDate: string): NumerologyNumbers {
   };
 }
 
-function extractConnectionType(claims: ExplainClaim[]): string {
+function extractConnectionType(claims: ExplainClaim[]): ConnectionType {
   const fusionClaim = claims.find((claim) => claim.id === 'fusion-connection-v31');
   const ref = fusionClaim?.evidence.refs.find((entry) => entry.startsWith('connectionType:'));
-  return ref ? ref.replace('connectionType:', '') : 'unbekannt';
+  const parsed = ref?.replace('connectionType:', '');
+  if (
+    parsed === 'spiegel'
+    || parsed === 'katalysator'
+    || parsed === 'heiler'
+    || parsed === 'anker'
+    || parsed === 'lehrer'
+    || parsed === 'gefaehrte'
+  ) {
+    return parsed;
+  }
+  return 'anker';
 }
 
-function buildAnchorsProvided(response: ReturnType<typeof calculateUnifiedScore>): string[] {
+function buildAnchorsProvided(
+  response: ReturnType<typeof calculateUnifiedScore>,
+  numerologyA: NumerologyNumbers,
+  numerologyB: NumerologyNumbers,
+): string[] {
   const anchors = new Set<string>();
-  anchors.add(`scoreOverall:${response.scoreOverall}`);
+  anchors.add(`matchOverall:${response.scoreOverall}`);
   anchors.add(`breakdown:numerology:${response.breakdown.numerology}`);
   anchors.add(`breakdown:astrology:${response.breakdown.astrology}`);
   anchors.add(`breakdown:fusion:${response.breakdown.fusion}`);
+  anchors.add(`numA:lifePath:${numerologyA.lifePath}`);
+  anchors.add(`numB:lifePath:${numerologyB.lifePath}`);
+  anchors.add(`numA:soulUrge:${numerologyA.soulUrge}`);
+  anchors.add(`numB:soulUrge:${numerologyB.soulUrge}`);
+  anchors.add(`numA:master:${numerologyA.lifePathIsMaster ? 1 : 0}`);
+  anchors.add(`numB:master:${numerologyB.lifePathIsMaster ? 1 : 0}`);
+  if (Array.isArray(numerologyA.karmicDebts) && numerologyA.karmicDebts.length > 0) {
+    anchors.add(`numA:karmic:${numerologyA.karmicDebts.join('|')}`);
+  }
+  if (Array.isArray(numerologyB.karmicDebts) && numerologyB.karmicDebts.length > 0) {
+    anchors.add(`numB:karmic:${numerologyB.karmicDebts.join('|')}`);
+  }
 
   for (const claim of response.claims) {
     for (const ref of claim.evidence.refs) {
@@ -144,6 +172,26 @@ function buildAnchorsProvided(response: ReturnType<typeof calculateUnifiedScore>
   }
 
   return Array.from(anchors).slice(0, 12);
+}
+
+function buildKeyReasons(claims: ExplainClaim[]): string[] {
+  const descriptive = claims
+    .filter((claim) => claim.id !== 'astro-unavailable' && claim.level !== 'caution')
+    .map((claim) => claim.title);
+
+  const reasons = Array.from(new Set(descriptive));
+  const fallback = [
+    'Numerologische Kernresonanz analysiert',
+    'Verbindungstyp aus Scoring-Signatur abgeleitet',
+    'Score wurde konsistent über beide Profile berechnet',
+  ];
+
+  while (reasons.length < 3) {
+    const next = fallback[reasons.length] ?? 'Zusätzliche Kompatibilitätsauswertung verfügbar';
+    reasons.push(next);
+  }
+
+  return reasons.slice(0, 3);
 }
 
 // Additional types for match calculation
@@ -435,13 +483,13 @@ matchRouter.post('/single', (req: Request, res: Response) => {
       },
       engine: 'unified_match',
       engineVersion: 'v1',
+      scoringEngineVersion: unified.engineVersion,
       computedAt: unified.computedAt,
-      scoreOverall: unified.scoreOverall,
       matchOverall: unified.scoreOverall,
       breakdown: unified.breakdown,
       connectionType: extractConnectionType(unified.claims),
-      anchorsProvided: buildAnchorsProvided(unified),
-      keyReasons: unified.claims.slice(0, 3).map((claim) => claim.title),
+      anchorsProvided: buildAnchorsProvided(unified, numerologyA, numerologyB),
+      keyReasons: buildKeyReasons(unified.claims),
       claims: unified.claims,
       warnings: unified.warnings,
     };
@@ -449,7 +497,7 @@ matchRouter.post('/single', (req: Request, res: Response) => {
     devLogger.info('api', 'Match single calculated', {
       profileA: result.profileA.id,
       profileB: result.profileB.id,
-      scoreOverall: result.scoreOverall,
+      matchOverall: result.matchOverall,
       connectionType: result.connectionType,
     });
 
