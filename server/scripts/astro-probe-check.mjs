@@ -32,4 +32,10 @@ if (typeof data?.sun?.lon !== 'number' || Number.isNaN(data.sun.lon)) {
   process.exit(1);
 }
 
-console.log(`astro-probe-check: ok (${url}) sun.lon=${data.sun.lon}`);
+if (data?.engine !== 'swiss_ephemeris') {
+  console.error('astro-probe-check: engine must be "swiss_ephemeris"');
+  console.error(JSON.stringify(data));
+  process.exit(1);
+}
+
+console.log(`astro-probe-check: ok (${url}) engine=${data.engine} sun.lon=${data.sun.lon}`);
