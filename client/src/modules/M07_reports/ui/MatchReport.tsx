@@ -6,6 +6,9 @@ import { ClaimsList } from './ClaimsList';
 function formatWarning(warning: string): string {
   const map: Record<string, string> = {
     astro_unavailable_using_numerology_only: 'Astrologie derzeit nicht verfügbar - Bewertung basiert auf Numerologie.',
+    astro_timezone_missing_using_numerology_only: 'Astrologie inaktiv: Zeitzone in den Geburtsdaten fehlt.',
+    astro_calc_failed_using_numerology_only: 'Astrologie konnte nicht berechnet werden - Bewertung basiert auf Numerologie.',
+    astro_unknown_time_no_houses: 'Astrologie aktiv ohne Häuser (Geburtszeit fehlt bei mindestens einem Profil).',
     narrative_gate_fallback_applied: 'Narrative Qualitäts-Gate aktiv: sichere Fallback-Analyse wurde verwendet.',
     anchors_used_outside_provided: 'Ankerverweise lagen außerhalb der bereitgestellten Faktenbasis.',
   };
@@ -27,6 +30,10 @@ interface MatchReportProps {
 }
 
 export function MatchReport({ match }: MatchReportProps) {
+  const warnings = Array.isArray(match.meta.warnings) ? match.meta.warnings : [];
+  const astrologyActive = match.breakdown.astrology > 0;
+  const astroUnknownTime = warnings.includes('astro_unknown_time_no_houses');
+
   return (
     <>
       <Section title="Match Score">
@@ -65,6 +72,12 @@ export function MatchReport({ match }: MatchReportProps) {
 
       <Section title="Aufschlüsselung" subtitle="Numerologie · Astrologie · Fusion">
         <div className="flex flex-col gap-3">
+          <p className="text-xs text-[color:var(--muted-fg)]">
+            Astrologie aktiv: <span className="font-semibold text-[color:var(--fg)]">{astrologyActive ? 'Ja' : 'Nein'}</span>
+            {astrologyActive && astroUnknownTime && (
+              <span> · ohne Häuser (Geburtszeit fehlt)</span>
+            )}
+          </p>
           <ScoreBar label="Numerologie" value={match.breakdown.numerology} />
           <ScoreBar label="Astrologie" value={match.breakdown.astrology} />
           <ScoreBar label="Fusion" value={match.breakdown.fusion} />

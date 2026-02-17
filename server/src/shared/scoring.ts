@@ -102,6 +102,9 @@ const SPECIAL_LP_PAIRS: Record<string, number> = {
   '1-7': 78, '2-8': 78, '4-6': 76, '3-5': 75,
 };
 
+const FUSION_WEIGHT_NUMEROLOGY = 0.5;
+const FUSION_WEIGHT_ASTROLOGY = 0.5;
+
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
@@ -257,7 +260,7 @@ export function calculateUnifiedScore(request: UnifiedScoringRequest): UnifiedSc
     : 0;
 
   let overallRaw = astroAvailable
-    ? astrologyScore * 0.6 + numerologyScore * 0.4
+    ? astrologyScore * FUSION_WEIGHT_ASTROLOGY + numerologyScore * FUSION_WEIGHT_NUMEROLOGY
     : numerologyScore;
 
   if (karmic.adjustment <= -8) overallRaw = Math.min(overallRaw, 65);

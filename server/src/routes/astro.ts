@@ -32,6 +32,17 @@ interface AstrologyRequest {
   };
 }
 
+export interface MatchAstroComputationInput {
+  profileId: string;
+  birthDate: string;
+  birthTime?: string | null;
+  timezone: string;
+  location?: {
+    lat?: number;
+    lon?: number;
+  };
+}
+
 interface AstroCalcRequest extends Partial<AstrologyRequest> {
   unknownTime?: boolean;
 }
@@ -530,6 +541,26 @@ async function calculateAstrology(request: AstrologyRequest & { unknownTime: boo
     ascendant: null,
     mc: null,
   };
+}
+
+export async function calculateAstrologyForMatch(input: MatchAstroComputationInput): Promise<AstroCalcSuccess> {
+  const location = typeof input.location?.lat === 'number' && typeof input.location?.lon === 'number'
+    ? { latitude: input.location.lat, longitude: input.location.lon }
+    : undefined;
+
+  const request = normalizeRequest({
+    profileId: input.profileId,
+    birthDate: input.birthDate,
+    birthTime: input.birthTime ?? undefined,
+    timezone: input.timezone,
+    location,
+    system: 'tropical',
+    houseSystem: 'placidus',
+    include: DEFAULT_INCLUDE,
+    unknownTime: !input.birthTime,
+  });
+
+  return calculateAstrology(request);
 }
 
 export const astrologyRouter = Router();

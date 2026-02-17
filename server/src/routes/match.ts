@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { devLogger } from '../devLogger.js';
 import {
+  type AstroSnapshot,
   calculateUnifiedScore,
   type ConnectionType,
   type NumerologyNumbers,
@@ -8,6 +9,7 @@ import {
 } from '../shared/scoring.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
 import type { NarrativeQualityDebug, StudioNarrativePayload } from '../shared/narrative/types.js';
+import { calculateAstrologyForMatch } from './astro.js';
 
 // Types from shared contract (copied from client/src/shared/types/match.ts)
 interface ExplainClaim {
@@ -175,8 +177,12 @@ function buildAnchorsProvided(
   response: ReturnType<typeof calculateUnifiedScore>,
   numerologyA: NumerologyNumbers,
   numerologyB: NumerologyNumbers,
+  astroAnchors: string[] = [],
 ): string[] {
   const anchors = new Set<string>();
+  for (const anchor of astroAnchors) {
+    anchors.add(anchor);
+  }
   anchors.add(`matchOverall:${response.scoreOverall}`);
   anchors.add(`breakdown:numerology:${response.breakdown.numerology}`);
   anchors.add(`breakdown:astrology:${response.breakdown.astrology}`);
@@ -200,7 +206,60 @@ function buildAnchorsProvided(
     }
   }
 
-  return Array.from(anchors).slice(0, 12);
+  return Array.from(anchors).slice(0, 16);
+}
+
+type MatchAstroResult = Awaited<ReturnType<typeof calculateAstrologyForMatch>>;
+
+function toAstroSnapshot(result: MatchAstroResult): AstroSnapshot {
+  const sun = result.planets.find((planet) => planet.key === 'sun');
+  const moon = result.planets.find((planet) => planet.key === 'moon');
+
+  return {
+    sunSign: sun?.signDe,
+    moonSign: moon?.signDe,
+    elements: result.elements,
+    meta: {
+      engine: result.meta.engine,
+      engineVersion: result.meta.engineVersion,
+    },
+  };
+}
+
+function getDominantElement(elements: MatchAstroResult['elements']): { key: string; count: number } {
+  const pairs: Array<{ key: string; count: number }> = [
+    { key: 'earth', count: elements.earth },
+    { key: 'water', count: elements.water },
+    { key: 'fire', count: elements.fire },
+    { key: 'air', count: elements.air },
+  ];
+
+  pairs.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.key.localeCompare(b.key);
+  });
+
+  return pairs[0];
+}
+
+function buildAstroAnchors(astroA: MatchAstroResult, astroB: MatchAstroResult): string[] {
+  const anchors = new Set<string>();
+  const sunA = astroA.planets.find((planet) => planet.key === 'sun');
+  const sunB = astroB.planets.find((planet) => planet.key === 'sun');
+  const dominantA = getDominantElement(astroA.elements);
+  const dominantB = getDominantElement(astroB.elements);
+
+  if (sunA) {
+    anchors.add(`astroA:sun:${sunA.signKey}(${sunA.degreeInSign.toFixed(2)}°)`);
+  }
+
+  if (sunB) {
+    anchors.add(`astroB:sun:${sunB.signKey}(${sunB.degreeInSign.toFixed(2)}°)`);
+  }
+
+  anchors.add(`astro:elements:A(${dominantA.key}:${dominantA.count})|B(${dominantB.key}:${dominantB.count})`);
+
+  return Array.from(anchors).slice(0, 4);
 }
 
 function buildKeyReasons(claims: ExplainClaim[]): string[] {
@@ -568,7 +627,7 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
 });
 
 // POST /api/match/single
-matchRouter.post('/single', (req: Request, res: Response) => {
+matchRouter.post('/single', async (req: Request, res: Response) => {
   try {
     const request = req.body as MatchSingleRequest;
     if (!request?.profileA?.birthDate || !request?.profileB?.birthDate) {
@@ -578,12 +637,63 @@ matchRouter.post('/single', (req: Request, res: Response) => {
     const numerologyA = deriveNumerologyFromBirthDate(request.profileA.birthDate);
     const numerologyB = deriveNumerologyFromBirthDate(request.profileB.birthDate);
 
+    const requestWarnings: string[] = [];
+    const timezoneA = request.profileA.birthLocation?.timezone?.trim();
+    const timezoneB = request.profileB.birthLocation?.timezone?.trim();
+    const hasRequiredAstroInput = Boolean(timezoneA && timezoneB);
+
+    let astroA: AstroSnapshot | undefined;
+    let astroB: AstroSnapshot | undefined;
+    let astroAnchors: string[] = [];
+
+    if (hasRequiredAstroInput) {
+      try {
+        const [astroResultA, astroResultB] = await Promise.all([
+          calculateAstrologyForMatch({
+            profileId: request.profileA.id ?? 'profile-a',
+            birthDate: request.profileA.birthDate,
+            birthTime: request.profileA.birthTime,
+            timezone: timezoneA!,
+            location: request.profileA.birthLocation,
+          }),
+          calculateAstrologyForMatch({
+            profileId: request.profileB.id ?? 'profile-b',
+            birthDate: request.profileB.birthDate,
+            birthTime: request.profileB.birthTime,
+            timezone: timezoneB!,
+            location: request.profileB.birthLocation,
+          }),
+        ]);
+
+        astroA = toAstroSnapshot(astroResultA);
+        astroB = toAstroSnapshot(astroResultB);
+        astroAnchors = buildAstroAnchors(astroResultA, astroResultB);
+
+        if (astroResultA.unknownTime || astroResultB.unknownTime) {
+          requestWarnings.push('astro_unknown_time_no_houses');
+        }
+      } catch (error) {
+        requestWarnings.push('astro_calc_failed_using_numerology_only');
+        devLogger.warn('api', 'Astrology computation failed during /match/single', {
+          error: String(error),
+          profileA: request.profileA.id,
+          profileB: request.profileB.id,
+        });
+      }
+    } else {
+      requestWarnings.push('astro_timezone_missing_using_numerology_only');
+    }
+
     const unified = calculateUnifiedScore({
       profileId: [request.profileA.id ?? request.profileA.name ?? 'A', request.profileB.id ?? request.profileB.name ?? 'B'].join('::'),
       relationshipType: request.relationshipType,
       numerologyA: { numbers: numerologyA },
       numerologyB: { numbers: numerologyB },
+      astroA,
+      astroB,
     });
+
+    const warnings = Array.from(new Set([...(unified.warnings ?? []), ...requestWarnings]));
 
     const result: MatchSingleResponse = {
       profileA: {
@@ -601,10 +711,10 @@ matchRouter.post('/single', (req: Request, res: Response) => {
       matchOverall: unified.scoreOverall,
       breakdown: unified.breakdown,
       connectionType: extractConnectionType(unified.claims),
-      anchorsProvided: buildAnchorsProvided(unified, numerologyA, numerologyB),
+      anchorsProvided: buildAnchorsProvided(unified, numerologyA, numerologyB, astroAnchors),
       keyReasons: buildKeyReasons(unified.claims),
       claims: unified.claims,
-      warnings: unified.warnings,
+      warnings,
     };
 
     devLogger.info('api', 'Match single calculated', {

@@ -113,6 +113,12 @@ if (!isScore(first?.breakdown?.numerology) || !isScore(first?.breakdown?.astrolo
   process.exit(1);
 }
 
+if (!(first.breakdown.astrology > 0)) {
+  console.error('match-probe-check: astrology must be active (breakdown.astrology > 0) for probe fixture');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
 if (!CONNECTION_TYPES.has(first?.connectionType)) {
   console.error('match-probe-check: connectionType must be one of spiegel|katalysator|heiler|anker|lehrer|gefaehrte');
   console.error(JSON.stringify(first));
@@ -128,6 +134,14 @@ if (!Array.isArray(first?.anchorsProvided) || first.anchorsProvided.length < 3) 
 if (!first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('numA:lifePath:'))
   || !first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('numB:lifePath:'))) {
   console.error('match-probe-check: anchorsProvided must contain numA/numB lifePath anchors');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('astroA:sun:'))
+  || !first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('astroB:sun:'))
+  || !first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('astro:elements:'))) {
+  console.error('match-probe-check: anchorsProvided must include astro sun and dominant element anchors');
   console.error(JSON.stringify(first));
   process.exit(1);
 }
@@ -158,6 +172,12 @@ if (Math.abs(first.breakdown.fusion - first.matchOverall) > 0.01) {
 
 if (!Array.isArray(first?.claims) || first.claims.length < 1) {
   console.error('match-probe-check: claims must be non-empty array');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!Array.isArray(first?.warnings) || !first.warnings.includes('astro_unknown_time_no_houses')) {
+  console.error('match-probe-check: warnings must include astro_unknown_time_no_houses for null birthTime fixture');
   console.error(JSON.stringify(first));
   process.exit(1);
 }
