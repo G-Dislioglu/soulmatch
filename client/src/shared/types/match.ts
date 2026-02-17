@@ -32,7 +32,8 @@ export interface MatchNarrativeResult {
     fallbackUsed: boolean;
     version: string;
     anchorsExpected?: boolean;
-    anchorsRequired?: string[];
+    anchorsMinRequired?: number;
+    anchorsUsedCount?: number;
     anchorsUsed?: string[];
   };
   anchorsProvided: string[];
@@ -40,6 +41,7 @@ export interface MatchNarrativeResult {
   meta: {
     engine: 'match_narrative';
     engineVersion: string;
+    scoringEngineVersion?: string;
     computedAt: string;
     warnings?: string[];
   };

@@ -92,6 +92,7 @@ export async function computeMatchNarrative(input: {
   profileB: { id: string; name: string };
   matchOverall: number;
   connectionType?: string;
+  scoringEngineVersion?: string;
   keyReasons?: string[];
   anchorsProvided?: string[];
   anchorsUsed?: string[];

@@ -99,6 +99,7 @@ function isAstroCalcResponse(data: unknown): data is AstroCalcResponse {
 
 function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const matchRequestIdRef = useRef(0);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activePage, setActivePage] = useState(0);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -174,46 +175,64 @@ function HomePage() {
   }
 
   async function handleComputeMatch(aId: string, bId: string) {
+    const requestId = ++matchRequestIdRef.current;
     setComputing(true);
+    setMatchResult(null);
+    setMatchProfiles(null);
     try {
       const result = await computeMatch({ aProfileId: aId, bProfileId: bId });
       const pA = getProfileById(aId);
       const pB = getProfileById(bId);
-      if (pA && pB) {
-        let narrative = result.narrative;
+      if (pA && pB && requestId === matchRequestIdRef.current) {
+        setMatchProfiles([pA, pB]);
+        setMatchResult({ ...result, narrative: undefined });
+        setOverlay('match');
+
         try {
-          narrative = await computeMatchNarrative({
+          const narrative = await computeMatchNarrative({
             profileA: { id: pA.id, name: pA.name },
             profileB: { id: pB.id, name: pB.name },
             matchOverall: result.matchOverall,
             connectionType: result.connectionType,
+            scoringEngineVersion: result.meta.scoringEngineVersion,
             keyReasons: result.keyReasons,
             anchorsProvided: result.anchorsProvided,
           });
+
+          if (requestId !== matchRequestIdRef.current) {
+            return;
+          }
+
+          const mergedWarnings = Array.from(new Set([
+            ...(result.meta.warnings ?? []),
+            ...(narrative.meta.warnings ?? []),
+          ]));
+
+          setMatchResult((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              narrative,
+              meta: {
+                ...prev.meta,
+                warnings: mergedWarnings.length > 0 ? mergedWarnings : undefined,
+              },
+            };
+          });
         } catch (narrativeError) {
-          console.error('Match narrative generation failed:', narrativeError);
+          if (requestId === matchRequestIdRef.current) {
+            console.error('Match narrative generation failed:', narrativeError);
+          }
         }
-
-        const mergedWarnings = Array.from(new Set([
-          ...(result.meta.warnings ?? []),
-          ...(narrative?.meta.warnings ?? []),
-        ]));
-
-        setMatchProfiles([pA, pB]);
-        setMatchResult({
-          ...result,
-          narrative,
-          meta: {
-            ...result.meta,
-            warnings: mergedWarnings.length > 0 ? mergedWarnings : undefined,
-          },
-        });
-        setOverlay('match');
       }
     } catch (err) {
-      console.error('Match computation failed:', err);
+      if (requestId === matchRequestIdRef.current) {
+        console.error('Match computation failed:', err);
+      }
     } finally {
-      setComputing(false);
+      if (requestId === matchRequestIdRef.current) {
+        setComputing(false);
+      }
     }
   }
 

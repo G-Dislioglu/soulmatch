@@ -100,8 +100,26 @@ if (!passResult.qualityDebug.pass) {
   process.exit(1);
 }
 
+if (passResult.qualityDebug.anchorsMinRequired !== 2) {
+  console.error('match-narrative-probe-check: pass scenario anchorsMinRequired must be 2');
+  console.error(JSON.stringify(passResult));
+  process.exit(1);
+}
+
+if ((passResult.qualityDebug.anchorsUsedCount ?? 0) < 2) {
+  console.error('match-narrative-probe-check: pass scenario anchorsUsedCount must be >= 2');
+  console.error(JSON.stringify(passResult));
+  process.exit(1);
+}
+
 if (!failResult.qualityDebug.fallbackUsed || failResult.qualityDebug.pass) {
   console.error('match-narrative-probe-check: fail scenario must use fallback and fail gate');
+  console.error(JSON.stringify(failResult));
+  process.exit(1);
+}
+
+if (typeof failResult.qualityDebug.anchorsUsedCount !== 'number') {
+  console.error('match-narrative-probe-check: fail scenario anchorsUsedCount must be numeric');
   console.error(JSON.stringify(failResult));
   process.exit(1);
 }
@@ -129,6 +147,14 @@ if (failResult.narrative.nextSteps.length !== 3) {
   console.error(JSON.stringify(failResult));
   process.exit(1);
 }
+
+console.log(
+  `PASS fixture: pass=${passResult.qualityDebug.pass} fallbackUsed=${passResult.qualityDebug.fallbackUsed} anchorsUsed>=2=${(passResult.qualityDebug.anchorsUsedCount ?? 0) >= 2}`,
+);
+
+console.log(
+  `FAIL fixture: pass=${failResult.qualityDebug.pass} fallbackUsed=${failResult.qualityDebug.fallbackUsed} reasons>=1=${failResult.qualityDebug.reasons.length >= 1}`,
+);
 
 console.log(
   `match-narrative-probe-check: ok (${url}) passReasons=${passResult.qualityDebug.reasons.length} failReasons=${failResult.qualityDebug.reasons.length}`,

@@ -32,7 +32,8 @@ export interface StudioResult {
     fallbackUsed: boolean;
     version: string;
     anchorsExpected?: boolean;
-    anchorsRequired?: string[];
+    anchorsMinRequired?: number;
+    anchorsUsedCount?: number;
     anchorsUsed?: string[];
   };
   anchors?: Array<{

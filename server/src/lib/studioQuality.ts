@@ -11,6 +11,9 @@ const FALLBACK_NEXT_STEPS = [
   'Prüfe am Ende des Tages, ob die Handlung dir Klarheit oder Entlastung gebracht hat.',
 ];
 
+const ALLOWED_SEATS = new Set(['maya', 'luna', 'orion', 'lilith']);
+const ANCHORS_MIN_REQUIRED = 2;
+
 function buildFallback(seats: string[], primarySeat?: string): StudioNarrativePayload {
   const seatOrder = seats.length > 0 ? seats : [primarySeat ?? 'maya'];
   const fallbackText =
@@ -42,6 +45,9 @@ export function applyNarrativeGate(
   const invalidUsedAnchors = anchorsUsed.filter((anchorId) => !providedAnchorIds.includes(anchorId));
 
   for (const turn of payload.turns) {
+    if (!ALLOWED_SEATS.has(turn.seat)) {
+      reasons.push(`turn:${turn.seat}:invalid_seat`);
+    }
     const r = evaluateNarrative(turn.text, {
       mode: opts?.mode,
       seat: turn.seat,
@@ -62,7 +68,7 @@ export function applyNarrativeGate(
     if (invalidUsedAnchors.length > 0) {
       reasons.push('anchors_used_outside_provided');
     }
-    if (anchorsUsed.length < 2) {
+    if (anchorsUsed.length < ANCHORS_MIN_REQUIRED) {
       reasons.push('anchors_below_required');
     }
   }
@@ -74,7 +80,8 @@ export function applyNarrativeGate(
     fallbackUsed: !pass,
     version: watch.version,
     anchorsExpected,
-    anchorsRequired: providedAnchorIds,
+    anchorsMinRequired: anchorsExpected ? ANCHORS_MIN_REQUIRED : undefined,
+    anchorsUsedCount: anchorsUsed.length,
     anchorsUsed,
   };
 

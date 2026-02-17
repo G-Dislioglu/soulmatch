@@ -90,6 +90,7 @@ interface MatchNarrativeRequest {
   profileB?: { id?: string; name?: string };
   matchOverall?: number;
   connectionType?: ConnectionType;
+  scoringEngineVersion?: string;
   keyReasons?: string[];
   anchorsProvided?: string[];
   anchorsUsed?: string[];
@@ -105,6 +106,7 @@ interface MatchNarrativeResponse {
   meta: {
     engine: 'match_narrative';
     engineVersion: 'v1';
+    scoringEngineVersion?: string;
     computedAt: string;
     warnings: string[];
   };
@@ -552,6 +554,7 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
       meta: {
         engine: 'match_narrative',
         engineVersion: 'v1',
+        scoringEngineVersion: request.scoringEngineVersion,
         computedAt: new Date().toISOString(),
         warnings,
       },
