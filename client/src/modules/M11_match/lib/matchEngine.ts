@@ -1,4 +1,4 @@
-import type { MatchRequest, MatchScoreResult } from '../../../shared/types/match';
+import type { MatchNarrativeResult, MatchRequest, MatchScoreResult } from '../../../shared/types/match';
 import { getProfileById } from '../../M03_profile';
 
 export interface MatchEngine {
@@ -85,4 +85,53 @@ const defaultEngine = new LocalMatchEngine();
 
 export function computeMatch(req: MatchRequest): Promise<MatchScoreResult> {
   return defaultEngine.compute(req);
+}
+
+export async function computeMatchNarrative(input: {
+  profileA: { id: string; name: string };
+  profileB: { id: string; name: string };
+  matchOverall: number;
+  connectionType?: string;
+  keyReasons?: string[];
+  anchorsProvided?: string[];
+  anchorsUsed?: string[];
+  forceFallback?: boolean;
+}): Promise<MatchNarrativeResult> {
+  const response = await fetch('/api/match/narrative', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  const payload = await response.json().catch(() => null) as {
+    error?: string;
+    status?: string;
+    narrative?: MatchNarrativeResult['narrative'];
+    qualityDebug?: MatchNarrativeResult['qualityDebug'];
+    anchorsProvided?: string[];
+    anchorsUsed?: string[];
+    meta?: MatchNarrativeResult['meta'];
+  } | null;
+
+  if (
+    !response.ok
+    || !payload
+    || payload.status !== 'ok'
+    || !payload.narrative
+    || !payload.qualityDebug
+    || !Array.isArray(payload.anchorsProvided)
+    || !Array.isArray(payload.anchorsUsed)
+    || !payload.meta
+  ) {
+    throw new Error(payload?.error ?? 'Match narrative API request failed');
+  }
+
+  return {
+    status: 'ok',
+    narrative: payload.narrative,
+    qualityDebug: payload.qualityDebug,
+    anchorsProvided: payload.anchorsProvided,
+    anchorsUsed: payload.anchorsUsed,
+    meta: payload.meta,
+  };
 }

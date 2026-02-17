@@ -6,6 +6,8 @@ import {
   type NumerologyNumbers,
   type RelationshipType,
 } from '../shared/scoring.js';
+import { applyNarrativeGate } from '../lib/studioQuality.js';
+import type { NarrativeQualityDebug, StudioNarrativePayload } from '../shared/narrative/types.js';
 
 // Types from shared contract (copied from client/src/shared/types/match.ts)
 interface ExplainClaim {
@@ -81,6 +83,31 @@ interface MatchSingleResponse {
   keyReasons: string[];
   claims: ExplainClaim[];
   warnings: string[];
+}
+
+interface MatchNarrativeRequest {
+  profileA?: { id?: string; name?: string };
+  profileB?: { id?: string; name?: string };
+  matchOverall?: number;
+  connectionType?: ConnectionType;
+  keyReasons?: string[];
+  anchorsProvided?: string[];
+  anchorsUsed?: string[];
+  forceFallback?: boolean;
+}
+
+interface MatchNarrativeResponse {
+  status: 'ok';
+  narrative: StudioNarrativePayload;
+  qualityDebug: NarrativeQualityDebug;
+  anchorsProvided: string[];
+  anchorsUsed: string[];
+  meta: {
+    engine: 'match_narrative';
+    engineVersion: 'v1';
+    computedAt: string;
+    warnings: string[];
+  };
 }
 
 function reduceToDigit(value: number): number {
@@ -192,6 +219,43 @@ function buildKeyReasons(claims: ExplainClaim[]): string[] {
   }
 
   return reasons.slice(0, 3);
+}
+
+function normalizeAnchorIds(ids: string[] | undefined): string[] {
+  if (!Array.isArray(ids)) return [];
+  return Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)));
+}
+
+function buildMatchNarrativePayload(request: MatchNarrativeRequest): StudioNarrativePayload {
+  if (request.forceFallback) {
+    return {
+      turns: [{ seat: 'maya', text: 'ok' }],
+      nextSteps: ['...', 'TODO', 'später'],
+      watchOut: 'kurz',
+    };
+  }
+
+  const nameA = request.profileA?.name ?? 'Profil A';
+  const nameB = request.profileB?.name ?? 'Profil B';
+  const score = typeof request.matchOverall === 'number' ? request.matchOverall : 0;
+  const connectionType = request.connectionType ?? 'anker';
+  const reasons = Array.isArray(request.keyReasons) ? request.keyReasons.slice(0, 2) : [];
+  const reasonText = reasons.length > 0 ? reasons.join(' und ') : 'die numerologische Grundresonanz';
+
+  return {
+    turns: [
+      {
+        seat: 'maya',
+        text: `${nameA} und ${nameB} zeigen aktuell einen Match-Score von ${score}. Der Verbindungstyp ${connectionType} deutet darauf hin, dass ${reasonText} eure Dynamik spürbar prägen.`,
+      },
+    ],
+    nextSteps: [
+      `Sprecht heute 20 Minuten über den wichtigsten gemeinsamen Fokus für diese Woche.`,
+      'Formuliert eine konkrete Vereinbarung, die für beide klar überprüfbar ist.',
+      'Reflektiert in drei Tagen kurz, was sich durch diese Vereinbarung verbessert hat.',
+    ],
+    watchOut: 'Vermeidet vage Erwartungen. Ohne klare Absprachen kippt selbst ein gutes Matching schnell in Missverständnisse.',
+  };
 }
 
 // Additional types for match calculation
@@ -450,6 +514,52 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
     res.json(result);
   } catch (error) {
     devLogger.error('api', 'Failed to calculate match', { error: String(error) });
+    res.status(500).json({ error: 'internal_server_error' });
+  }
+});
+
+// POST /api/match/narrative
+matchRouter.post('/narrative', (req: Request, res: Response) => {
+  try {
+    const request = req.body as MatchNarrativeRequest;
+    const anchorsProvided = normalizeAnchorIds(request.anchorsProvided);
+    const reportedAnchors = normalizeAnchorIds(request.anchorsUsed);
+    const anchorsUsed = reportedAnchors.length > 0 ? reportedAnchors : anchorsProvided.slice(0, 2);
+
+    const payload = buildMatchNarrativePayload(request);
+    const gated = applyNarrativeGate(payload, {
+      mode: 'match',
+      seats: payload.turns.map((turn) => turn.seat),
+      anchorsExpected: anchorsProvided.length > 0,
+      providedAnchorIds: anchorsProvided,
+      reportedAnchorIds: anchorsUsed,
+    });
+
+    const warnings: string[] = [];
+    if (gated.qualityDebug.fallbackUsed) {
+      warnings.push('narrative_gate_fallback_applied');
+    }
+    if (gated.qualityDebug.reasons.includes('anchors_used_outside_provided')) {
+      warnings.push('anchors_used_outside_provided');
+    }
+
+    const response: MatchNarrativeResponse = {
+      status: 'ok',
+      narrative: gated.output,
+      qualityDebug: gated.qualityDebug,
+      anchorsProvided,
+      anchorsUsed,
+      meta: {
+        engine: 'match_narrative',
+        engineVersion: 'v1',
+        computedAt: new Date().toISOString(),
+        warnings,
+      },
+    };
+
+    res.json(response);
+  } catch (error) {
+    devLogger.error('api', 'Failed to generate match narrative', { error: String(error) });
     res.status(500).json({ error: 'internal_server_error' });
   }
 });

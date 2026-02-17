@@ -12,6 +12,7 @@
     "geo:probe": "node scripts/geo-probe-check.mjs",
     "scoring:probe": "node scripts/scoring-probe-check.mjs",
     "match:probe": "node scripts/match-probe-check.mjs",
+    "match:narrative:probe": "node scripts/match-narrative-probe-check.mjs",
     "narrative:probe": "node scripts/narrative-probe-check.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

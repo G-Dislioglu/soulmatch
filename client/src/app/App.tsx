@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { computeMatch } from '../modules/M11_match';
+import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
@@ -180,8 +180,34 @@ function HomePage() {
       const pA = getProfileById(aId);
       const pB = getProfileById(bId);
       if (pA && pB) {
+        let narrative = result.narrative;
+        try {
+          narrative = await computeMatchNarrative({
+            profileA: { id: pA.id, name: pA.name },
+            profileB: { id: pB.id, name: pB.name },
+            matchOverall: result.matchOverall,
+            connectionType: result.connectionType,
+            keyReasons: result.keyReasons,
+            anchorsProvided: result.anchorsProvided,
+          });
+        } catch (narrativeError) {
+          console.error('Match narrative generation failed:', narrativeError);
+        }
+
+        const mergedWarnings = Array.from(new Set([
+          ...(result.meta.warnings ?? []),
+          ...(narrative?.meta.warnings ?? []),
+        ]));
+
         setMatchProfiles([pA, pB]);
-        setMatchResult(result);
+        setMatchResult({
+          ...result,
+          narrative,
+          meta: {
+            ...result.meta,
+            warnings: mergedWarnings.length > 0 ? mergedWarnings : undefined,
+          },
+        });
         setOverlay('match');
       }
     } catch (err) {

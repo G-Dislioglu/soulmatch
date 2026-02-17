@@ -6,8 +6,20 @@ import { ClaimsList } from './ClaimsList';
 function formatWarning(warning: string): string {
   const map: Record<string, string> = {
     astro_unavailable_using_numerology_only: 'Astrologie derzeit nicht verfügbar - Bewertung basiert auf Numerologie.',
+    narrative_gate_fallback_applied: 'Narrative Qualitäts-Gate aktiv: sichere Fallback-Analyse wurde verwendet.',
+    anchors_used_outside_provided: 'Ankerverweise lagen außerhalb der bereitgestellten Faktenbasis.',
   };
   return map[warning] ?? `Hinweis: ${warning}`;
+}
+
+function seatLabel(seat: string): string {
+  const labels: Record<string, string> = {
+    maya: 'Maya',
+    luna: 'Luna',
+    orion: 'Orion',
+    lilith: 'Lilith',
+  };
+  return labels[seat] ?? seat;
 }
 
 interface MatchReportProps {
@@ -59,8 +71,34 @@ export function MatchReport({ match }: MatchReportProps) {
         </div>
       </Section>
 
+      {match.narrative && (
+        <Section title="Analyse" subtitle="Narrative Match-Auswertung">
+          <div className="flex flex-col gap-3 text-sm text-[color:var(--fg)]">
+            {match.narrative.narrative.turns.map((turn, idx) => (
+              <p key={`${turn.seat}-${idx}`}>
+                <span className="font-semibold">{seatLabel(turn.seat)}:</span> {turn.text}
+              </p>
+            ))}
+            <div>
+              <p className="font-semibold mb-1">Nächste Schritte</p>
+              <ul className="list-disc pl-5 space-y-1">
+                {match.narrative.narrative.nextSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+            </div>
+            <p><span className="font-semibold">Watch out:</span> {match.narrative.narrative.watchOut}</p>
+            {!match.narrative.qualityDebug.pass && (
+              <p className="text-xs text-[color:var(--muted-fg)]">
+                Gate-Hinweis: {match.narrative.qualityDebug.reasons.join(', ')}
+              </p>
+            )}
+          </div>
+        </Section>
+      )}
+
       {match.claims.length > 0 && (
-        <Section title="Analyse" subtitle={`${match.claims.length} Erkenntnisse`}>
+        <Section title="Scoring Claims" subtitle={`${match.claims.length} Erkenntnisse`}>
           <ClaimsList claims={match.claims} />
         </Section>
       )}
