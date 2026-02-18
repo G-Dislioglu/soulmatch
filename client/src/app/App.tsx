@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard } from '../modules/M07_reports';
@@ -944,6 +944,12 @@ function HomePage() {
               <SoulmatchCard accent="#fbbf24" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planetenstunden</div>
                 <PlanetaryHours />
+              </SoulmatchCard>
+
+              {/* Mondkalender */}
+              <SoulmatchCard accent="#c084fc" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondkalender</div>
+                <MoonCalendar />
               </SoulmatchCard>
 
               {/* Missing data banners */}
