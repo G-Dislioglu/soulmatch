@@ -14,3 +14,4 @@ export function computeAstrology(req: AstrologyRequest): Promise<AstrologyResult
 }
 
 export { RadixWheel } from './ui/RadixWheel';
+export { CosmicDayCard } from './ui/CosmicDayCard';

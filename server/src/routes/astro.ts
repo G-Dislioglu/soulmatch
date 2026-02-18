@@ -616,6 +616,61 @@ astrologyRouter.post('/calc', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/astro/today — current planetary positions + moon phase (no profile needed)
+astrologyRouter.get('/today', async (_req: Request, res: Response) => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  try {
+    const result = await calculateAstrology(normalizeRequest({
+      profileId: 'today',
+      birthDate: todayStr,
+      birthTime: '12:00',
+      timezone: 'UTC',
+      include: DEFAULT_INCLUDE,
+      unknownTime: false,
+    }));
+
+    // Derive moon phase from sun/moon longitude difference
+    const sun = result.planets.find((p) => p.key === 'sun');
+    const moon = result.planets.find((p) => p.key === 'moon');
+    let moonPhase = 'Unbekannt';
+    let moonPhaseAngle = 0;
+    if (sun && moon) {
+      moonPhaseAngle = ((moon.lon - sun.lon) + 360) % 360;
+      if (moonPhaseAngle < 22.5 || moonPhaseAngle >= 337.5) moonPhase = 'Neumond';
+      else if (moonPhaseAngle < 67.5) moonPhase = 'Zunehmende Sichel';
+      else if (moonPhaseAngle < 112.5) moonPhase = 'Erstes Viertel';
+      else if (moonPhaseAngle < 157.5) moonPhase = 'Zunehmender Halbmond';
+      else if (moonPhaseAngle < 202.5) moonPhase = 'Vollmond';
+      else if (moonPhaseAngle < 247.5) moonPhase = 'Abnehmender Halbmond';
+      else if (moonPhaseAngle < 292.5) moonPhase = 'Letztes Viertel';
+      else moonPhase = 'Abnehmende Sichel';
+    }
+
+    // Dominant element for today
+    const elements = result.elements;
+    const dominant = (Object.entries(elements) as [string, number][]).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'fire';
+
+    res.json({
+      date: todayStr,
+      planets: result.planets,
+      elements: result.elements,
+      dominantElement: dominant,
+      moonPhase,
+      moonPhaseAngle: Math.round(moonPhaseAngle),
+      sunSign: sun?.signDe ?? '',
+      moonSign: moon?.signDe ?? '',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    res.status(500).json(errorResponse('today_failed', message));
+  }
+});
+
 // Optional quick probe endpoint
 astrologyRouter.get('/probe', async (req: Request, res: Response) => {
   try {
