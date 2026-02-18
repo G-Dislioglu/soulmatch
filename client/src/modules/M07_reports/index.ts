@@ -14,3 +14,4 @@ export { AffinityRadar } from './ui/AffinityRadar';
 export { ConnectionTypeCard } from './ui/ConnectionTypeCard';
 export { NumeroPairTable } from './ui/NumeroPairTable';
 export { CompatibilityStoryCard } from './ui/CompatibilityStoryCard';
+export { MatchActionPlan } from './ui/MatchActionPlan';
