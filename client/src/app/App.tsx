@@ -16,7 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
@@ -861,6 +861,13 @@ function HomePage() {
                 <TopMatchesCard />
               </SoulmatchCard>
             </div>
+            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+              <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenbotschaft · Orion</div>
+                <WeeklyInsightCard name={profile.name} birthDate={profile.birthDate} />
+              </SoulmatchCard>
+            </div>
+
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
                 {profile.name}

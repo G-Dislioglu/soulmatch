@@ -34,3 +34,4 @@ export type { SigilState } from './ui/LiveSigil';
 export { PersonaPreview } from './ui/PersonaPreview';
 export { OracleMode } from './ui/OracleMode';
 export { SoulPortraitCard } from './ui/SoulPortraitCard';
+export { WeeklyInsightCard } from './ui/WeeklyInsightCard';

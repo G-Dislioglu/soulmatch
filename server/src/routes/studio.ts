@@ -499,6 +499,65 @@ Schreibe ein tiefes, poetisches Porträt dieser Seele in 3 Absätzen.`;
   }
 });
 
+// POST /weekly-insight — Orion generates a weekly soul insight
+interface WeeklyInsightRequestBody {
+  name: string;
+  lifePath: number;
+  personalYear: number;
+  provider?: ProviderName;
+  clientApiKey?: string;
+  model?: string;
+}
+
+studioRouter.post('/weekly-insight', async (req: Request, res: Response) => {
+  const body = req.body as WeeklyInsightRequestBody;
+  if (!body.name || !body.lifePath) {
+    res.status(400).json({ error: 'name and lifePath required' });
+    return;
+  }
+
+  const providerName: ProviderName = body.provider ?? 'openai';
+  const config = PROVIDER_CONFIGS[providerName];
+  const apiKey = resolveApiKey(providerName, body.clientApiKey);
+  if (!apiKey) { res.status(500).json({ error: `No API key for ${providerName}.` }); return; }
+
+  const now = new Date();
+  const weekNum = Math.ceil(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+  const weekLabel = `KW ${weekNum}, ${now.getFullYear()}`;
+  const model = body.model || config.defaultModel;
+
+  const system = `Du bist Orion, der weise Seelenstratege und Navigator des inneren Kompasses.
+Du gibst ${body.name} eine prägnante Wochenbotschaft.
+Antworte NUR mit JSON: { "headline": "...", "insight": "...", "focus": "...", "shadow": "...", "affirmation": "..." }
+- headline: 5-7 Worte als Wochentitel
+- insight: 2-3 Sätze kosmischer Wochenausblick
+- focus: 1 Satz — worauf ${body.name} diese Woche fokussieren soll
+- shadow: 1 Satz — was zu beachten / zu transformieren ist
+- affirmation: eine kraftvolle Wochenaffirmation (max 12 Worte)
+Schreibe auf Deutsch, klar, weise, direkt. Keine leeren Phrasen.`;
+
+  const user = `Wochenbotschaft für ${body.name} (LP ${body.lifePath}, Pers. Jahr ${body.personalYear}) für ${weekLabel}.`;
+
+  try {
+    let parsed: Record<string, unknown>;
+    if (providerName === 'openai') {
+      parsed = await callOpenAI(apiKey, model, system, user) as Record<string, unknown>;
+    } else {
+      parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
+    }
+    res.json({
+      week: weekLabel,
+      headline: typeof parsed.headline === 'string' ? parsed.headline : '',
+      insight: typeof parsed.insight === 'string' ? parsed.insight : '',
+      focus: typeof parsed.focus === 'string' ? parsed.focus : '',
+      shadow: typeof parsed.shadow === 'string' ? parsed.shadow : '',
+      affirmation: typeof parsed.affirmation === 'string' ? parsed.affirmation : '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Wochenbotschaft fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
+  }
+});
+
 // POST /monthly-horoscope — Luna generates a monthly horoscope
 interface MonthlyHoroRequestBody {
   sunSign: string;
