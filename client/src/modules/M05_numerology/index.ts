@@ -8,3 +8,4 @@ export { TarotDayCard } from './ui/TarotDayCard';
 export { DailyAffirmations } from './ui/DailyAffirmations';
 export { YearForecast } from './ui/YearForecast';
 export { LifePathDetail } from './ui/LifePathDetail';
+export { LifePinnacles } from './ui/LifePinnacles';
