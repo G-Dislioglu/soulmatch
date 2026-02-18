@@ -13,6 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel } from '../modules/M04_astrology-adapter';
+import { NumerologyCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
@@ -644,6 +645,14 @@ function HomePage() {
                     Zum Match
                   </CosmicButton>
                 </div>
+              </div>
+
+              {/* Numerologie-Detailansicht */}
+              <div style={{ marginTop: 18 }}>
+                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie</div>
+                  <NumerologyCard name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
               </div>
             </div>
           </div>
