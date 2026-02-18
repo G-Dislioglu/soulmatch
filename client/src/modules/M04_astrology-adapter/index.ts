@@ -18,3 +18,4 @@ export { CosmicDayCard } from './ui/CosmicDayCard';
 export { PlanetaryHours } from './ui/PlanetaryHours';
 export { MoonCalendar } from './ui/MoonCalendar';
 export { SignInterpretation } from './ui/SignInterpretation';
+export { CosmicAlerts } from './ui/CosmicAlerts';
