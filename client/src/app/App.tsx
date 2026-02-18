@@ -43,11 +43,13 @@ const PAGE_PROFILE = 0;
 const PAGE_REPORT = 1;
 const PAGE_STUDIO = 2;
 const PAGE_ASTRO = 3;
+const PAGE_JOURNEY = 4;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '♏', color: ACCENT },
   { label: 'Report', icon: '◈', color: '#c084fc' },
   { label: 'Studio', icon: '☽', color: '#f472b6' },
   { label: 'Astro', icon: '✶', color: '#38bdf8' },
+  { label: 'Reise', icon: '✧', color: '#34d399' },
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
@@ -85,6 +87,22 @@ interface AstroCalcResponse {
   ascendant: null;
   mc: null;
 }
+
+type JourneyEventType = 'travel'|'new_project'|'job_change'|'relationship'|'move'|'health'|'financial'|'creative'|'learning'|'spiritual';
+interface JourneyOptimalDate { date: string; score: number; rating: 'excellent'|'good'|'moderate'|'challenging'; planetaryInfluences: { planet: string; aspect: string; influence: string; description: string }[]; summary: string; moonPhase: string; dayOfWeek: string; }
+interface JourneyResult { eventType: JourneyEventType; optimalDates: JourneyOptimalDate[]; generalAdvice: string; avoidDates: string[]; }
+const JOURNEY_EVENT_OPTIONS: { value: JourneyEventType; label: string; icon: string }[] = [
+  { value: 'travel', label: 'Reise', icon: '✈' },
+  { value: 'new_project', label: 'Neues Projekt', icon: '◈' },
+  { value: 'job_change', label: 'Jobwechsel', icon: '⟳' },
+  { value: 'relationship', label: 'Beziehung', icon: '♡' },
+  { value: 'move', label: 'Umzug', icon: '⌂' },
+  { value: 'health', label: 'Gesundheit', icon: '✦' },
+  { value: 'financial', label: 'Finanzen', icon: '◉' },
+  { value: 'creative', label: 'Kreativität', icon: '✶' },
+  { value: 'learning', label: 'Lernen', icon: '◆' },
+  { value: 'spiritual', label: 'Spiritualität', icon: '☽' },
+];
 
 interface AstroCalcErrorPayload {
   error?: { message?: string };
@@ -127,6 +145,14 @@ function HomePage() {
   const [astroLoading, setAstroLoading] = useState(false);
   const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
   const [astroError, setAstroError] = useState<string | null>(null);
+  const [journeyEventType, setJourneyEventType] = useState<JourneyEventType>('travel');
+  const today = new Date().toISOString().slice(0,10);
+  const inThreeMonths = new Date(Date.now()+90*86400000).toISOString().slice(0,10);
+  const [journeyStart, setJourneyStart] = useState(today);
+  const [journeyEnd, setJourneyEnd] = useState(inThreeMonths);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyResult, setJourneyResult] = useState<JourneyResult | null>(null);
+  const [journeyError, setJourneyError] = useState<string | null>(null);
   const [serverMeta, setServerMeta] = useState<{ serverVersion: string; scoringEngineVersion: string; buildSha: string } | null>(null);
 
   useEffect(() => {
@@ -299,6 +325,27 @@ function HomePage() {
       void handleAstroCalc();
     }
   }, [activePage, profile?.birthDate]);
+
+  async function handleJourneyCalc() {
+    if (!profile?.birthDate) return;
+    setJourneyLoading(true);
+    setJourneyError(null);
+    try {
+      const response = await fetch('/api/journey/optimal-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventType: journeyEventType, startDate: journeyStart, endDate: journeyEnd, birthDate: profile.birthDate, birthTime: profile.birthTime ?? undefined }),
+      });
+      const data = await response.json().catch(() => null) as JourneyResult | null;
+      if (!response.ok || !data) throw new Error(`Journey API Fehler (HTTP ${response.status})`);
+      setJourneyResult(data);
+    } catch (err) {
+      setJourneyResult(null);
+      setJourneyError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    } finally {
+      setJourneyLoading(false);
+    }
+  }
 
   const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
@@ -903,6 +950,121 @@ function HomePage() {
           </div>
         )}
       </div>
+
+        {/* ═══ PAGE 4: JOURNEY PLANNER ═══ */}
+        {activePage === PAGE_JOURNEY && (
+          <div key="journey" className="portal-enter">
+            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
+              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Astrologischer</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Lebensreise-Planer</div>
+              <div style={{ fontSize: 11, color: '#34d399', marginTop: 4 }}>Optimale Zeitpunkte für dein Vorhaben</div>
+            </div>
+
+            {!profile?.birthDate ? (
+              <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                <p style={{ fontSize: 13, color: '#7a7468', textAlign: 'center', margin: 0 }}>Kein Profil vorhanden. Erstelle zuerst ein Profil.</p>
+              </SoulmatchCard>
+            ) : (
+              <>
+                {/* Event type picker */}
+                <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Vorhaben</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {JOURNEY_EVENT_OPTIONS.map((opt) => (
+                      <button key={opt.value} type="button" onClick={() => { setJourneyEventType(opt.value); setJourneyResult(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, border: `1px solid ${journeyEventType === opt.value ? '#34d399' : 'rgba(255,255,255,0.08)'}`, background: journeyEventType === opt.value ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.03)', color: journeyEventType === opt.value ? '#34d399' : '#a09a8e', fontSize: 11, cursor: 'pointer', transition: 'all 0.2s' }}>
+                        <span>{opt.icon}</span><span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </SoulmatchCard>
+
+                {/* Date range */}
+                <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zeitraum</div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {[{ label: 'Von', val: journeyStart, set: setJourneyStart }, { label: 'Bis', val: journeyEnd, set: setJourneyEnd }].map(({ label, val, set }) => (
+                      <div key={label} style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: 10, color: '#7a7468', marginBottom: 4 }}>{label}</div>
+                        <input type="date" value={val} onChange={(e) => { set(e.target.value); setJourneyResult(null); }}
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 8, padding: '7px 10px', color: '#f0eadc', fontSize: 12, outline: 'none' }} />
+                      </div>
+                    ))}
+                  </div>
+                  <CosmicButton variant="gold" onClick={() => { void handleJourneyCalc(); }} disabled={journeyLoading} style={{ width: '100%', marginTop: 12 }}>
+                    {journeyLoading ? 'Berechne Planetenkonstellationen…' : '✧ Optimale Daten berechnen'}
+                  </CosmicButton>
+                </SoulmatchCard>
+
+                {/* Error */}
+                {journeyError && !journeyLoading && (
+                  <div style={{ borderRadius: 10, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.2)', padding: '10px 12px', fontSize: 12, color: '#fecaca', marginBottom: 12 }}>
+                    Fehler: {journeyError}
+                  </div>
+                )}
+
+                {/* Results */}
+                {journeyResult && !journeyLoading && (
+                  <>
+                    <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                      <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Allgemeine Empfehlung</div>
+                      <p style={{ fontSize: 12, color: '#a09a8e', margin: 0, lineHeight: 1.6 }}>{journeyResult.generalAdvice}</p>
+                    </SoulmatchCard>
+
+                    {journeyResult.optimalDates.length === 0 ? (
+                      <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                        <p style={{ fontSize: 12, color: '#7a7468', textAlign: 'center', margin: 0 }}>Keine optimalen Tage in diesem Zeitraum gefunden.</p>
+                      </SoulmatchCard>
+                    ) : (
+                      journeyResult.optimalDates.slice(0, 6).map((d) => {
+                        const ratingColor = d.rating === 'excellent' ? '#34d399' : d.rating === 'good' ? '#d4af37' : '#a09a8e';
+                        const ratingDE = d.rating === 'excellent' ? 'Ausgezeichnet' : d.rating === 'good' ? 'Gut' : 'Moderat';
+                        return (
+                          <SoulmatchCard key={d.date} accent={ratingColor} settings={cardSettings}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                              <div>
+                                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, color: '#f0eadc' }}>{d.dayOfWeek}, {new Date(d.date + 'T12:00:00Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                                <div style={{ fontSize: 11, color: '#7a7468', marginTop: 2 }}>{d.moonPhase}</div>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, border: `1px solid ${ratingColor}44`, background: `${ratingColor}18`, color: ratingColor }}>{ratingDE}</span>
+                                <span style={{ fontSize: 11, color: '#7a7468' }}>Score {d.score.toFixed(0)}</span>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: 12, color: '#a09a8e', margin: '0 0 8px', lineHeight: 1.5 }}>{d.summary}</p>
+                            {d.planetaryInfluences.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {d.planetaryInfluences.slice(0, 3).map((inf, i) => (
+                                  <span key={i} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 8, background: inf.influence === 'supportive' ? 'rgba(52,211,153,0.12)' : 'rgba(239,68,68,0.1)', color: inf.influence === 'supportive' ? '#34d399' : '#f87171', border: `1px solid ${inf.influence === 'supportive' ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                                    {inf.planet} {inf.aspect}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </SoulmatchCard>
+                        );
+                      })
+                    )}
+
+                    {journeyResult.avoidDates.length > 0 && (
+                      <SoulmatchCard accent="#ef4444" settings={cardSettings}>
+                        <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Möglichst meiden</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {journeyResult.avoidDates.map((d) => (
+                            <span key={d} style={{ fontSize: 11, color: '#f87171', padding: '3px 8px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                              {new Date(d + 'T12:00:00Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}
+                            </span>
+                          ))}
+                        </div>
+                      </SoulmatchCard>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
       {/* Version stamp */}
       <div style={{ textAlign: 'center', padding: '6px 0 10px', opacity: 0.35 }}>
         <span style={{ fontSize: 9, color: '#7a7468', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
