@@ -16,3 +16,4 @@ export { NumeroPairTable } from './ui/NumeroPairTable';
 export { CompatibilityStoryCard } from './ui/CompatibilityStoryCard';
 export { MatchActionPlan } from './ui/MatchActionPlan';
 export { PairAffirmation } from './ui/PairAffirmation';
+export { ProfileCompatMatrix } from './ui/ProfileCompatMatrix';
