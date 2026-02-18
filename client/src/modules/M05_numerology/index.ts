@@ -11,3 +11,4 @@ export { LifePathDetail } from './ui/LifePathDetail';
 export { LifePinnacles } from './ui/LifePinnacles';
 export { ChallengeNumbers } from './ui/ChallengeNumbers';
 export { NumerologyRadar } from './ui/NumerologyRadar';
+export { BirthstoneCard } from './ui/BirthstoneCard';

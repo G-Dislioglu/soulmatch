@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard } from '../modules/M08_studio-chat';
@@ -783,6 +783,14 @@ function HomePage() {
                 <SoulmatchCard accent="#818cf8" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Resonanz</div>
                   <ChakraBar name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Geburtsstein */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#a855f7" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtsstein</div>
+                  <BirthstoneCard birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
 
