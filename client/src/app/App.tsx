@@ -126,9 +126,17 @@ function HomePage() {
   const [astroLoading, setAstroLoading] = useState(false);
   const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
   const [astroError, setAstroError] = useState<string | null>(null);
+  const [serverMeta, setServerMeta] = useState<{ serverVersion: string; scoringEngineVersion: string; buildSha: string } | null>(null);
 
   useEffect(() => {
     setProfile(loadProfile());
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/meta')
+      .then((r) => r.json())
+      .then((d) => setServerMeta(d as { serverVersion: string; scoringEngineVersion: string; buildSha: string }))
+      .catch(() => null);
   }, []);
 
   const hasProfile = hasValidProfile(profile);
@@ -893,6 +901,19 @@ function HomePage() {
             </div>
           </div>
         )}
+      </div>
+      {/* Version stamp */}
+      <div style={{ textAlign: 'center', padding: '6px 0 10px', opacity: 0.35 }}>
+        <span style={{ fontSize: 9, color: '#7a7468', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
+          client&nbsp;{__CLIENT_VERSION__}
+          {serverMeta && (
+            <>
+              &nbsp;&middot;&nbsp;server&nbsp;{serverMeta.serverVersion}
+              &nbsp;&middot;&nbsp;engine&nbsp;{serverMeta.scoringEngineVersion}
+              &nbsp;&middot;&nbsp;{serverMeta.buildSha}
+            </>
+          )}
+        </span>
       </div>
     </div>
   );
