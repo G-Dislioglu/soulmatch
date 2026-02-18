@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
-import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt } from '../studioPrompt.js';
-import type { LilithIntensity } from '../studioPrompt.js';
+import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt } from '../studioPrompt.js';
+import type { LilithIntensity, OracleQuestionType } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
 import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioAnchors.js';
@@ -432,5 +432,46 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     res.status(500).json({
       error: `LLM-Aufruf an ${providerName} fehlgeschlagen: ${errMsg}`,
     });
+  }
+});
+
+// POST /oracle — Maya's 3 sacred questions
+interface OracleRequestBody {
+  question: OracleQuestionType;
+  profileExcerpt?: string;
+  provider?: ProviderName;
+  clientApiKey?: string;
+  model?: string;
+}
+
+studioRouter.post('/oracle', async (req: Request, res: Response) => {
+  const body = req.body as OracleRequestBody;
+  if (!body.question) {
+    res.status(400).json({ error: 'question required (purpose | soulperson | turning_point)' });
+    return;
+  }
+
+  const providerName: ProviderName = body.provider ?? 'openai';
+  const config = PROVIDER_CONFIGS[providerName];
+  const apiKey = resolveApiKey(providerName, body.clientApiKey);
+  if (!apiKey) {
+    res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} on server or provide key in Settings.` });
+    return;
+  }
+
+  const model = body.model || config.defaultModel;
+  const { system, user } = buildOraclePrompt(body.question, body.profileExcerpt ?? '');
+
+  try {
+    let parsed: Record<string, unknown>;
+    if (providerName === 'openai') {
+      parsed = await callOpenAI(apiKey, model, system, user) as Record<string, unknown>;
+    } else {
+      parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
+    }
+    const answer = typeof parsed.answer === 'string' ? parsed.answer : JSON.stringify(parsed);
+    res.json({ question: body.question, answer });
+  } catch (err) {
+    res.status(500).json({ error: `Oracle-Aufruf fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
   }
 });

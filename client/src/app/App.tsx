@@ -14,7 +14,7 @@ import {
 import { computeScore } from '../modules/M06_scoring';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
@@ -782,6 +782,11 @@ function HomePage() {
                 <div style={{ fontSize: 10, color: '#d49137', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
               </div>
             </div>
+
+            {/* Oracle Mode — Maya's 3 sacred questions */}
+            <SoulmatchCard accent="#c084fc" settings={cardSettings}>
+              <OracleMode profile={profile} />
+            </SoulmatchCard>
 
             {/* Studio integration */}
             <div style={{ maxWidth: 500, margin: '0 auto' }}>

@@ -32,3 +32,4 @@ export type { MayaCommandCallbacks } from './ui/PersonaSoloChat';
 export { LiveSigil } from './ui/LiveSigil';
 export type { SigilState } from './ui/LiveSigil';
 export { PersonaPreview } from './ui/PersonaPreview';
+export { OracleMode } from './ui/OracleMode';

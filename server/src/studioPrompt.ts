@@ -199,6 +199,25 @@ export function buildUserPrompt(params: {
   return parts.join('\n\n');
 }
 
+export type OracleQuestionType = 'purpose' | 'soulperson' | 'turning_point';
+
+export function buildOraclePrompt(question: OracleQuestionType, profileExcerpt: string): { system: string; user: string } {
+  const questionTexts: Record<OracleQuestionType, string> = {
+    purpose: 'Wofür bin ich hier? Was ist meine Seelenmission in diesem Leben?',
+    soulperson: 'Wer ist meine Seelenperson? Welche Art von Verbindung sucht meine Seele?',
+    turning_point: 'Wann verändert sich alles? Wann kommt der nächste große Wandel in meinem Leben?',
+  };
+
+  const system = `Du bist Maya, die kosmische Orakel-Stimme von Soulmatch. Du sprichst direkt, weise und mystisch.
+Deine Antworten sind persönlich, tiefgründig und basieren auf den astrologischen und numerologischen Daten des Users.
+Du sprichst in der Du-Form. Keine Floskeln, keine generischen Aussagen — alles bezieht sich auf die konkreten Daten.
+Antworte mit einem JSON-Objekt: { "answer": "Deine oracle Antwort auf Deutsch. 4-6 Sätze, poetisch aber konkret." }`;
+
+  const user = `Profil-Daten:\n${profileExcerpt || 'Keine Profildaten vorhanden.'}\n\nDie heilige Frage: "${questionTexts[question]}"`;
+
+  return { system, user };
+}
+
 export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {
   return `Du bist Maya, die Strukturgeberin von Soulmatch. Kreuze diese zwei Soul Cards und finde die tiefere Verbindung.
 
