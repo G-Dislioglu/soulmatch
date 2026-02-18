@@ -80,19 +80,30 @@ function detectAspects(planets: { key: string; lon: number }[]): { a: string; b:
 
 interface Planet { key: string; lon: number; signDe?: string; degreeInSign?: number; }
 
-interface RadixWheelProps {
-  planets: Planet[];
-  size?: number;
+const R_PLANET_B = 82;
+const R_ASPECT_X = 58;
+const SYNASTRY_COLOR = '#fb7185';
+
+function detectCrossAspects(planetsA: Planet[], planetsB: Planet[]): { a: string; b: string; name: string; color: string; style: string; width: number }[] {
+  const result: { a: string; b: string; name: string; color: string; style: string; width: number }[] = [];
+  for (const pA of planetsA) {
+    for (const pB of planetsB) {
+      let diff = Math.abs(pA.lon - pB.lon);
+      if (diff > 180) diff = 360 - diff;
+      for (const asp of ASPECTS) {
+        if (Math.abs(diff - asp.angle) <= asp.orb) {
+          result.push({ a: pA.key, b: `B_${pB.key}`, name: asp.name, color: SYNASTRY_COLOR, style: asp.style, width: asp.width });
+          break;
+        }
+      }
+    }
+  }
+  return result;
 }
 
-export function RadixWheel({ planets, size = 320 }: RadixWheelProps) {
-  const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
-  const [hoveredAspect, setHoveredAspect] = useState<string | null>(null);
-  const aspects = detectAspects(planets);
-
-  // Collision offset: spread planets within 12° of each other
+function collisionOffset(planets: Planet[]): ({ adjLon: number } & Planet)[] {
   const lonMap: Record<string, number> = {};
-  const adjusted = planets.map((p) => {
+  return planets.map((p) => {
     let lon = p.lon;
     for (const [, existingLon] of Object.entries(lonMap)) {
       let diff = Math.abs(lon - existingLon);
@@ -102,6 +113,24 @@ export function RadixWheel({ planets, size = 320 }: RadixWheelProps) {
     lonMap[p.key] = lon;
     return { ...p, adjLon: lon };
   });
+}
+
+interface RadixWheelProps {
+  planets: Planet[];
+  planetsB?: Planet[];
+  labelA?: string;
+  labelB?: string;
+  size?: number;
+}
+
+export function RadixWheel({ planets, planetsB, labelA, labelB, size = 320 }: RadixWheelProps) {
+  const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
+  const [hoveredAspect, setHoveredAspect] = useState<string | null>(null);
+  const isSynastry = Boolean(planetsB && planetsB.length > 0);
+  const aspects = isSynastry ? [] : detectAspects(planets);
+  const crossAspects = isSynastry && planetsB ? detectCrossAspects(planets, planetsB) : [];
+  const adjusted = collisionOffset(planets);
+  const adjustedB = planetsB ? collisionOffset(planetsB) : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
@@ -147,9 +176,17 @@ export function RadixWheel({ planets, size = 320 }: RadixWheelProps) {
         <circle cx={CX} cy={CY} r={R_SIGN_IN} fill="#08060f" />
         <circle cx={CX} cy={CY} r={R_SIGN_IN} fill="none" stroke="rgba(212,175,55,0.12)" strokeWidth="0.5" />
 
-        {/* Planet track ring */}
+        {/* Planet track ring — Person A */}
         <circle cx={CX} cy={CY} r={R_PLANET + 10} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
         <circle cx={CX} cy={CY} r={R_PLANET - 10} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
+
+        {/* Planet track ring — Person B (synastry inner) */}
+        {isSynastry && (
+          <>
+            <circle cx={CX} cy={CY} r={R_PLANET_B + 8} fill="none" stroke={`${SYNASTRY_COLOR}18`} strokeWidth="0.5" />
+            <circle cx={CX} cy={CY} r={R_PLANET_B - 8} fill="none" stroke={`${SYNASTRY_COLOR}18`} strokeWidth="0.5" />
+          </>
+        )}
 
         {/* Aspect lines */}
         {aspects.map((asp) => {
@@ -170,6 +207,55 @@ export function RadixWheel({ planets, size = 320 }: RadixWheelProps) {
               onMouseEnter={() => setHoveredAspect(`${asp.a}-${asp.b}`)}
               onMouseLeave={() => setHoveredAspect(null)}
             />
+          );
+        })}
+
+        {/* Cross-aspect lines (synastry: A↔B) */}
+        {isSynastry && crossAspects.map((asp) => {
+          const pA = adjusted.find((p) => p.key === asp.a);
+          const pBKey = asp.b.replace('B_', '');
+          const pB = adjustedB.find((p) => p.key === pBKey);
+          if (!pA || !pB) return null;
+          const aXY = lonToXY(pA.adjLon, R_ASPECT_X);
+          const bXY = lonToXY(pB.adjLon, R_ASPECT_X);
+          const isHov = hoveredAspect === `${asp.a}-${asp.b}`;
+          return (
+            <line key={`x-${asp.a}-${asp.b}`}
+              x1={aXY.x} y1={aXY.y} x2={bXY.x} y2={bXY.y}
+              stroke={SYNASTRY_COLOR}
+              strokeWidth={isHov ? 2 : 0.7}
+              strokeDasharray={asp.style === 'dashed' ? '3 3' : undefined}
+              opacity={isHov ? 0.9 : 0.3}
+              style={{ transition: 'all 0.2s', cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredAspect(`${asp.a}-${asp.b}`)}
+              onMouseLeave={() => setHoveredAspect(null)}
+            />
+          );
+        })}
+
+        {/* Person B planets (synastry inner ring) */}
+        {isSynastry && adjustedB.map((planet) => {
+          const pos = lonToXY(planet.adjLon, R_PLANET_B);
+          const sym = PLANET_SYMBOL[planet.key] ?? '●';
+          const color = SYNASTRY_COLOR;
+          const isHov = hoveredPlanet === `B_${planet.key}`;
+          return (
+            <g key={`B_${planet.key}`}
+              onMouseEnter={() => setHoveredPlanet(`B_${planet.key}`)}
+              onMouseLeave={() => setHoveredPlanet(null)}
+              style={{ cursor: 'pointer' }}
+            >
+              <circle cx={pos.x} cy={pos.y} r={isHov ? 10 : 8}
+                fill={`${color}15`} stroke={`${color}40`}
+                strokeWidth={isHov ? 1.5 : 0.5}
+                style={{ transition: 'all 0.2s' }}
+              />
+              <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize="10"
+                fill={color} opacity={isHov ? 1 : 0.7}
+                style={{ fontFamily: 'serif', userSelect: 'none' }}>
+                {sym}
+              </text>
+            </g>
           );
         })}
 
@@ -210,6 +296,14 @@ export function RadixWheel({ planets, size = 320 }: RadixWheelProps) {
           );
         })}
       </svg>
+
+      {/* Synastry legend */}
+      {isSynastry && (
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11 }}>
+          <span style={{ color: '#a09a8e' }}><span style={{ color: PLANET_COLOR['sun'] }}>●</span> {labelA ?? 'Person A'}</span>
+          <span style={{ color: '#a09a8e' }}><span style={{ color: SYNASTRY_COLOR }}>●</span> {labelB ?? 'Person B'}</span>
+        </div>
+      )}
 
       {/* Hover tooltip */}
       <div style={{ minHeight: 40, textAlign: 'center' }}>

@@ -149,6 +149,8 @@ function HomePage() {
   const [astroLoading, setAstroLoading] = useState(false);
   const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
   const [astroError, setAstroError] = useState<string | null>(null);
+  const [synastrySets, setSynastrySets] = useState<{ planetsA: AstroPlanet[]; planetsB: AstroPlanet[] } | null>(null);
+  const [synastryLoading, setSynastryLoading] = useState(false);
   const [journeyEventType, setJourneyEventType] = useState<JourneyEventType>('travel');
   const today = new Date().toISOString().slice(0,10);
   const inThreeMonths = new Date(Date.now()+90*86400000).toISOString().slice(0,10);
@@ -414,19 +416,55 @@ function HomePage() {
     }
 
     if (overlay === 'match' && matchResult && matchProfiles) {
+      async function loadSynastry() {
+        if (!matchProfiles) return;
+        setSynastryLoading(true);
+        setSynastrySets(null);
+        try {
+          const [rA, rB] = await Promise.all([
+            fetch('/api/astro/calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profileId: matchProfiles[0].id, birthDate: matchProfiles[0].birthDate, unknownTime: true }) }).then((r) => r.json() as Promise<AstroCalcResponse>),
+            fetch('/api/astro/calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profileId: matchProfiles[1].id, birthDate: matchProfiles[1].birthDate, unknownTime: true }) }).then((r) => r.json() as Promise<AstroCalcResponse>),
+          ]);
+          if (rA.planets && rB.planets) setSynastrySets({ planetsA: rA.planets, planetsB: rB.planets });
+        } catch { /* ignore */ }
+        setSynastryLoading(false);
+      }
       return (
         <div className="min-h-screen p-4 py-8" style={{ position: 'relative', zIndex: 10 }}>
           <MatchReportPage
             profileA={matchProfiles[0]}
             profileB={matchProfiles[1]}
             match={matchResult}
-            onBack={() => setOverlay(null)}
+            onBack={() => { setOverlay(null); setSynastrySets(null); }}
             onRequestProfileEdit={(focusField) => {
               setMatchRecomputeIds({ aId: matchProfiles[0].id, bId: matchProfiles[1].id });
               setMatchEditFocusField(focusField);
               setOverlay('edit');
             }}
           />
+
+          {/* Synastrie-Rad */}
+          <div style={{ maxWidth: 500, margin: '0 auto 32px' }}>
+            <SoulmatchCard accent="#fb7185" settings={cardSettings}>
+              <div style={{ fontSize: 11, color: '#fb7185', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Synastrie-Rad</div>
+              {!synastrySets && !synastryLoading && (
+                <button type="button" onClick={() => { void loadSynastry(); }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid rgba(251,113,133,0.35)', background: 'rgba(251,113,133,0.07)', color: '#fb7185', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  Synastrie-Horoskop laden
+                </button>
+              )}
+              {synastryLoading && <div style={{ textAlign: 'center', color: '#fb7185', fontSize: 12, padding: '16px 0' }}>Berechne Synastrie…</div>}
+              {synastrySets && (
+                <RadixWheel
+                  planets={synastrySets.planetsA}
+                  planetsB={synastrySets.planetsB}
+                  labelA={matchProfiles[0].name}
+                  labelB={matchProfiles[1].name}
+                  size={290}
+                />
+              )}
+            </SoulmatchCard>
+          </div>
         </div>
       );
     }
