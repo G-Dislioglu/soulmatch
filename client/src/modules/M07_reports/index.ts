@@ -10,3 +10,4 @@ export { MatchSelector } from './ui/MatchSelector';
 export { MatchReport } from './ui/MatchReport';
 export { MatchReportPage } from './ui/MatchReportPage';
 export { HallOfSouls } from './ui/HallOfSouls';
+export { AffinityRadar } from './ui/AffinityRadar';

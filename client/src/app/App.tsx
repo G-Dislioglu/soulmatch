@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -442,6 +442,25 @@ function HomePage() {
               setOverlay('edit');
             }}
           />
+
+          {/* Affinität-Radar */}
+          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <SoulmatchCard accent="#d4af37" settings={cardSettings}>
+              <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Affinität-Radar</div>
+              <AffinityRadar
+                overall={matchResult.matchOverall}
+                accentColor={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'}
+                axes={[
+                  { label: 'Numerologie', value: Math.round(matchResult.breakdown?.numerology ?? 0), color: '#d4af37' },
+                  { label: 'Astrologie', value: Math.round(matchResult.breakdown?.astrology ?? 0), color: '#38bdf8' },
+                  { label: 'Fusion', value: Math.round(matchResult.breakdown?.fusion ?? 0), color: '#c084fc' },
+                  { label: 'Resonanz', value: Math.round(Math.min(100, (matchResult.breakdown?.numerology ?? 0) * 0.4 + (matchResult.breakdown?.fusion ?? 0) * 0.6)), color: '#34d399' },
+                  { label: 'Potential', value: Math.round(Math.min(100, matchResult.matchOverall * 1.08)), color: '#f472b6' },
+                  { label: 'Harmonie', value: Math.round(matchResult.matchOverall), color: '#fbbf24' },
+                ]}
+              />
+            </SoulmatchCard>
+          </div>
 
           {/* Synastrie-Rad */}
           <div style={{ maxWidth: 500, margin: '0 auto 32px' }}>
