@@ -25,4 +25,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor-react';
+          if (id.includes('node_modules')) return 'vendor';
+          if (id.includes('/modules/M05_numerology/')) return 'mod-numerology';
+          if (id.includes('/modules/M04_astrology-adapter/')) return 'mod-astrology';
+          if (id.includes('/modules/M07_reports/') || id.includes('/modules/M11_match/')) return 'mod-reports';
+          if (id.includes('/modules/M08_studio-chat/') || id.includes('/modules/M13_timeline/') || id.includes('/modules/M14_guide/')) return 'mod-studio';
+        },
+      },
+    },
+  },
 });
