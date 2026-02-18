@@ -1,4 +1,4 @@
-import type { MatchScoreResult } from '../../../shared/types/match';
+import type { AstroAspect, AstroAspectType, MatchScoreResult } from '../../../shared/types/match';
 import { Section } from './Section';
 import { ScoreBar } from './ScoreBar';
 import { ClaimsList } from './ClaimsList';
@@ -11,6 +11,7 @@ function formatWarning(warning: string): string {
     astro_unknown_time_no_houses: 'Astrologie aktiv ohne Häuser (Geburtszeit fehlt bei mindestens einem Profil).',
     narrative_gate_fallback_applied: 'Narrative Qualitäts-Gate aktiv: sichere Fallback-Analyse wurde verwendet.',
     anchors_used_outside_provided: 'Ankerverweise lagen außerhalb der bereitgestellten Faktenbasis.',
+    astro_synastry_aspects_active: 'Synastrie-Aspekte aktiv: Planetenkonstellationen beider Profile einbezogen.',
   };
   return map[warning] ?? `Hinweis: ${warning}`;
 }
@@ -27,6 +28,50 @@ function seatLabel(seat: string): string {
 
 interface MatchReportProps {
   match: MatchScoreResult;
+}
+
+const ASPECT_BODY_DE: Record<string, string> = {
+  sun: 'Sonne',
+  moon: 'Mond',
+  venus: 'Venus',
+  mars: 'Mars',
+};
+
+const ASPECT_TYPE_DE: Record<string, string> = {
+  conjunction: 'Konjunktion',
+  opposition: 'Opposition',
+  trine: 'Trigon',
+  square: 'Quadrat',
+  sextile: 'Sextil',
+};
+
+const ASPECT_IS_HARMONIC: Record<AstroAspectType, boolean> = {
+  conjunction: true,
+  opposition: false,
+  trine: true,
+  square: false,
+  sextile: true,
+};
+
+function AspectRow({ aspect }: { aspect: AstroAspect }) {
+  const harmonic = ASPECT_IS_HARMONIC[aspect.aspect];
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-[color:var(--fg)]">
+        {ASPECT_BODY_DE[aspect.aBody] ?? aspect.aBody} (A)
+        {' · '}{ASPECT_TYPE_DE[aspect.aspect] ?? aspect.aspect}{' · '}
+        {ASPECT_BODY_DE[aspect.bBody] ?? aspect.bBody} (B)
+        {' · '}Orb {aspect.orbDeg.toFixed(1)}°
+      </span>
+      <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+        harmonic
+          ? 'bg-emerald-500/15 text-emerald-400'
+          : 'bg-amber-500/15 text-amber-400'
+      }`}>
+        {harmonic ? 'harmonisch' : 'herausfordernd'}
+      </span>
+    </div>
+  );
 }
 
 export function MatchReport({ match }: MatchReportProps) {
@@ -83,6 +128,16 @@ export function MatchReport({ match }: MatchReportProps) {
           <ScoreBar label="Fusion" value={match.breakdown.fusion} />
         </div>
       </Section>
+
+      {Array.isArray(match.astroAspects) && match.astroAspects.length > 0 && (
+        <Section title="Top-Aspekte" subtitle="Synastrie · Planetenkonstellationen">
+          <div className="flex flex-col gap-2">
+            {match.astroAspects.slice(0, 3).map((aspect, idx) => (
+              <AspectRow key={`${aspect.aBody}-${aspect.aspect}-${aspect.bBody}-${idx}`} aspect={aspect} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {match.narrative && (
         <Section title="Analyse" subtitle="Narrative Match-Auswertung">

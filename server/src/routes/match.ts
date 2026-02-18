@@ -81,11 +81,41 @@ interface MatchSingleResponse {
   matchOverall: number;
   breakdown: MatchBreakdown;
   connectionType: ConnectionType;
+  astroAspects?: AstroAspect[];
   anchorsProvided: string[];
   keyReasons: string[];
   claims: ExplainClaim[];
   warnings: string[];
 }
+
+type AstroBodyKey = 'sun' | 'moon' | 'venus' | 'mars';
+type AstroAspectType = 'conjunction' | 'opposition' | 'trine' | 'square' | 'sextile';
+
+interface AstroAspect {
+  aBody: AstroBodyKey;
+  bBody: AstroBodyKey;
+  aspect: AstroAspectType;
+  orbDeg: number;
+}
+
+interface AspectRule {
+  type: AstroAspectType;
+  angle: number;
+  maxOrb: number;
+  score: number;
+}
+
+const SYNASTRY_BODIES: AstroBodyKey[] = ['sun', 'moon', 'venus', 'mars'];
+const ASPECT_RULES: AspectRule[] = [
+  { type: 'conjunction', angle: 0, maxOrb: 8, score: 3 },
+  { type: 'opposition', angle: 180, maxOrb: 8, score: -2 },
+  { type: 'trine', angle: 120, maxOrb: 6, score: 4 },
+  { type: 'square', angle: 90, maxOrb: 6, score: -3 },
+  { type: 'sextile', angle: 60, maxOrb: 4, score: 2 },
+];
+
+const ASPECT_CAP = 8;
+const ASPECT_SCORE_CAP = 10;
 
 interface MatchNarrativeRequest {
   profileA?: { id?: string; name?: string };
@@ -178,15 +208,19 @@ function buildAnchorsProvided(
   numerologyA: NumerologyNumbers,
   numerologyB: NumerologyNumbers,
   astroAnchors: string[] = [],
+  breakdownOverride?: MatchBreakdown,
+  matchOverallOverride?: number,
 ): string[] {
+  const breakdown = breakdownOverride ?? response.breakdown;
+  const matchOverall = typeof matchOverallOverride === 'number' ? matchOverallOverride : response.scoreOverall;
   const anchors = new Set<string>();
   for (const anchor of astroAnchors) {
     anchors.add(anchor);
   }
-  anchors.add(`matchOverall:${response.scoreOverall}`);
-  anchors.add(`breakdown:numerology:${response.breakdown.numerology}`);
-  anchors.add(`breakdown:astrology:${response.breakdown.astrology}`);
-  anchors.add(`breakdown:fusion:${response.breakdown.fusion}`);
+  anchors.add(`matchOverall:${matchOverall}`);
+  anchors.add(`breakdown:numerology:${breakdown.numerology}`);
+  anchors.add(`breakdown:astrology:${breakdown.astrology}`);
+  anchors.add(`breakdown:fusion:${breakdown.fusion}`);
   anchors.add(`numA:lifePath:${numerologyA.lifePath}`);
   anchors.add(`numB:lifePath:${numerologyB.lifePath}`);
   anchors.add(`numA:soulUrge:${numerologyA.soulUrge}`);
@@ -260,6 +294,103 @@ function buildAstroAnchors(astroA: MatchAstroResult, astroB: MatchAstroResult): 
   anchors.add(`astro:elements:A(${dominantA.key}:${dominantA.count})|B(${dominantB.key}:${dominantB.count})`);
 
   return Array.from(anchors).slice(0, 4);
+}
+
+function normalizeAngleDiff(lonA: number, lonB: number): number {
+  let diff = Math.abs(lonA - lonB);
+  if (diff > 180) diff = 360 - diff;
+  return diff;
+}
+
+function collectSynastryAspects(astroA: MatchAstroResult, astroB: MatchAstroResult): AstroAspect[] {
+  const lonA = new Map<AstroBodyKey, number>();
+  const lonB = new Map<AstroBodyKey, number>();
+
+  for (const key of SYNASTRY_BODIES) {
+    const planetA = astroA.planets.find((planet) => planet.key === key);
+    const planetB = astroB.planets.find((planet) => planet.key === key);
+    if (planetA) lonA.set(key, planetA.lon);
+    if (planetB) lonB.set(key, planetB.lon);
+  }
+
+  const aspects: AstroAspect[] = [];
+  for (const aBody of SYNASTRY_BODIES) {
+    const aLon = lonA.get(aBody);
+    if (typeof aLon !== 'number') continue;
+    for (const bBody of SYNASTRY_BODIES) {
+      const bLon = lonB.get(bBody);
+      if (typeof bLon !== 'number') continue;
+
+      const diff = normalizeAngleDiff(aLon, bLon);
+      for (const rule of ASPECT_RULES) {
+        const orb = Math.abs(diff - rule.angle);
+        if (orb <= rule.maxOrb) {
+          aspects.push({
+            aBody,
+            bBody,
+            aspect: rule.type,
+            orbDeg: Number(orb.toFixed(1)),
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  aspects.sort((a, b) => a.orbDeg - b.orbDeg);
+  return aspects.slice(0, ASPECT_CAP);
+}
+
+function computeAspectAdjustment(aspects: AstroAspect[]): number {
+  let raw = 0;
+  for (const aspect of aspects) {
+    const rule = ASPECT_RULES.find((entry) => entry.type === aspect.aspect);
+    if (!rule) continue;
+    const closeness = Math.max(0, 1 - (aspect.orbDeg / rule.maxOrb));
+    raw += rule.score * (0.5 + closeness * 0.5);
+  }
+  return Math.max(-ASPECT_SCORE_CAP, Math.min(ASPECT_SCORE_CAP, Number(raw.toFixed(2))));
+}
+
+function buildAspectAnchors(aspects: AstroAspect[]): string[] {
+  return aspects
+    .slice(0, 4)
+    .map((aspect) => `astro:aspect:${aspect.aBody}-${aspect.aspect}-${aspect.bBody}(orb:${aspect.orbDeg.toFixed(1)})`);
+}
+
+const BODY_DE: Record<AstroBodyKey, string> = {
+  sun: 'Sonne',
+  moon: 'Mond',
+  venus: 'Venus',
+  mars: 'Mars',
+};
+
+const ASPECT_DE: Record<AstroAspectType, string> = {
+  conjunction: 'Konjunktion',
+  opposition: 'Opposition',
+  trine: 'Trigon',
+  square: 'Quadrat',
+  sextile: 'Sextil',
+};
+
+const ASPECT_HARMONIC: Record<AstroAspectType, boolean> = {
+  conjunction: true,
+  opposition: false,
+  trine: true,
+  square: false,
+  sextile: true,
+};
+
+function appendAspectReason(keyReasons: string[], aspects: AstroAspect[]): string[] {
+  if (aspects.length === 0) return keyReasons;
+  const lead = aspects[0];
+  const bodyA = BODY_DE[lead.aBody];
+  const bodyB = BODY_DE[lead.bBody];
+  const aspectDE = ASPECT_DE[lead.aspect];
+  const label = ASPECT_HARMONIC[lead.aspect] ? 'harmonischer Drive' : 'spannungsreicher Drive';
+  const reason = `${bodyA} (A) ${aspectDE} ${bodyB} (B), Orb ${lead.orbDeg.toFixed(1)}° → ${label}`;
+  const merged = Array.from(new Set([reason, ...keyReasons]));
+  return merged.slice(0, 3);
 }
 
 function buildKeyReasons(claims: ExplainClaim[]): string[] {
@@ -645,6 +776,7 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
     let astroA: AstroSnapshot | undefined;
     let astroB: AstroSnapshot | undefined;
     let astroAnchors: string[] = [];
+    let astroAspects: AstroAspect[] = [];
 
     if (hasRequiredAstroInput) {
       try {
@@ -667,7 +799,8 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
 
         astroA = toAstroSnapshot(astroResultA);
         astroB = toAstroSnapshot(astroResultB);
-        astroAnchors = buildAstroAnchors(astroResultA, astroResultB);
+        astroAspects = collectSynastryAspects(astroResultA, astroResultB);
+        astroAnchors = [...buildAstroAnchors(astroResultA, astroResultB), ...buildAspectAnchors(astroAspects)];
 
         if (astroResultA.unknownTime || astroResultB.unknownTime) {
           requestWarnings.push('astro_unknown_time_no_houses');
@@ -693,7 +826,24 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
       astroB,
     });
 
+    const aspectAdjustment = astroAspects.length > 0 ? computeAspectAdjustment(astroAspects) : 0;
+    const astrologyWithAspects = Math.max(0, Math.min(100, Number((unified.breakdown.astrology + aspectAdjustment).toFixed(2))));
+    const fusionWithAspects = astroA && astroB
+      ? Number(((unified.breakdown.numerology * 0.5) + (astrologyWithAspects * 0.5)).toFixed(2))
+      : unified.breakdown.fusion;
+    const matchOverall = fusionWithAspects;
+
+    if (astroAspects.length > 0) {
+      requestWarnings.push('astro_synastry_aspects_active');
+    }
+
     const warnings = Array.from(new Set([...(unified.warnings ?? []), ...requestWarnings]));
+    const keyReasons = appendAspectReason(buildKeyReasons(unified.claims), astroAspects);
+    const breakdown: MatchBreakdown = {
+      numerology: unified.breakdown.numerology,
+      astrology: astrologyWithAspects,
+      fusion: fusionWithAspects,
+    };
 
     const result: MatchSingleResponse = {
       profileA: {
@@ -708,11 +858,12 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
       engineVersion: 'v1',
       scoringEngineVersion: unified.engineVersion,
       computedAt: unified.computedAt,
-      matchOverall: unified.scoreOverall,
-      breakdown: unified.breakdown,
+      matchOverall,
+      breakdown,
       connectionType: extractConnectionType(unified.claims),
-      anchorsProvided: buildAnchorsProvided(unified, numerologyA, numerologyB, astroAnchors),
-      keyReasons: buildKeyReasons(unified.claims),
+      astroAspects: astroAspects.length > 0 ? astroAspects : undefined,
+      anchorsProvided: buildAnchorsProvided(unified, numerologyA, numerologyB, astroAnchors, breakdown, matchOverall),
+      keyReasons,
       claims: unified.claims,
       warnings,
     };

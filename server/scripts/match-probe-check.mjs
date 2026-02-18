@@ -146,6 +146,60 @@ if (!first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.st
   process.exit(1);
 }
 
+if (!Array.isArray(first?.astroAspects) || first.astroAspects.length < 1 || first.astroAspects.length > 8) {
+  console.error('match-probe-check: astroAspects must be array with 1..8 entries when astrology is active');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+const ASPECT_ANGLE = {
+  conjunction: 0,
+  opposition: 180,
+  trine: 120,
+  square: 90,
+  sextile: 60,
+};
+
+const ASPECT_MAX_ORB = {
+  conjunction: 8,
+  opposition: 8,
+  trine: 6,
+  square: 6,
+  sextile: 4,
+};
+
+for (const aspect of first.astroAspects) {
+  if (!aspect || typeof aspect !== 'object') {
+    console.error('match-probe-check: every astroAspects item must be an object');
+    console.error(JSON.stringify(first));
+    process.exit(1);
+  }
+
+  if (!['sun', 'moon', 'venus', 'mars'].includes(aspect.aBody) || !['sun', 'moon', 'venus', 'mars'].includes(aspect.bBody)) {
+    console.error('match-probe-check: aBody/bBody must be one of sun|moon|venus|mars');
+    console.error(JSON.stringify(first));
+    process.exit(1);
+  }
+
+  if (!(aspect.aspect in ASPECT_ANGLE)) {
+    console.error('match-probe-check: aspect type must be conjunction|opposition|trine|square|sextile');
+    console.error(JSON.stringify(first));
+    process.exit(1);
+  }
+
+  if (typeof aspect.orbDeg !== 'number' || Number.isNaN(aspect.orbDeg) || aspect.orbDeg < 0 || aspect.orbDeg > ASPECT_MAX_ORB[aspect.aspect]) {
+    console.error('match-probe-check: orbDeg must be within allowed range for aspect type');
+    console.error(JSON.stringify(first));
+    process.exit(1);
+  }
+}
+
+if (!first.anchorsProvided.some((entry) => typeof entry === 'string' && entry.startsWith('astro:aspect:'))) {
+  console.error('match-probe-check: anchorsProvided must include at least one astro aspect anchor');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
 if (!Array.isArray(first?.keyReasons) || first.keyReasons.length !== 3) {
   console.error('match-probe-check: keyReasons must contain exactly 3 items');
   console.error(JSON.stringify(first));

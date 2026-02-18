@@ -19,6 +19,16 @@ export interface MatchBreakdown {
   fusion: number;
 }
 
+export type AstroBodyKey = 'sun' | 'moon' | 'venus' | 'mars';
+export type AstroAspectType = 'conjunction' | 'opposition' | 'trine' | 'square' | 'sextile';
+
+export interface AstroAspect {
+  aBody: AstroBodyKey;
+  bBody: AstroBodyKey;
+  aspect: AstroAspectType;
+  orbDeg: number;
+}
+
 export interface MatchNarrativeResult {
   status: 'ok';
   narrative: {
@@ -54,6 +64,7 @@ export interface MatchScoreResult {
   matchOverall: number;
   breakdown: MatchBreakdown;
   connectionType?: string;
+  astroAspects?: AstroAspect[];
   anchorsProvided?: string[];
   keyReasons?: string[];
   narrative?: MatchNarrativeResult;

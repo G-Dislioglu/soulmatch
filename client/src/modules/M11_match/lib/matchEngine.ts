@@ -45,6 +45,7 @@ class LocalMatchEngine implements MatchEngine {
       matchOverall?: number;
       breakdown?: MatchScoreResult['breakdown'];
       connectionType?: string;
+      astroAspects?: MatchScoreResult['astroAspects'];
       anchorsProvided?: string[];
       keyReasons?: string[];
       claims?: MatchScoreResult['claims'];
@@ -74,6 +75,7 @@ class LocalMatchEngine implements MatchEngine {
       matchOverall: payload.matchOverall,
       breakdown: payload.breakdown,
       connectionType: payload.connectionType,
+      astroAspects: payload.astroAspects,
       anchorsProvided: payload.anchorsProvided,
       keyReasons: payload.keyReasons,
       claims: payload.claims,
