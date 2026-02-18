@@ -16,7 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours } from '../modules/M04_astrol
 import { NumerologyCard, ChakraBar, BiorhythmCurve } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
@@ -725,6 +725,14 @@ function HomePage() {
                 <SoulmatchCard accent="#ef4444" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Biorhythmus</div>
                   <BiorhythmCurve birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Seelenporträt */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#c084fc" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenporträt · Maya</div>
+                  <SoulPortraitCard name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
             </div>

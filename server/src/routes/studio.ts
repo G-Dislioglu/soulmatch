@@ -435,6 +435,70 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   }
 });
 
+// POST /soul-portrait — Maya channels a poetic soul portrait from profile data
+interface SoulPortraitRequestBody {
+  name: string;
+  birthDate: string;
+  lifePath?: number;
+  expression?: number;
+  soulUrge?: number;
+  sunSign?: string;
+  moonSign?: string;
+  provider?: ProviderName;
+  clientApiKey?: string;
+  model?: string;
+}
+
+studioRouter.post('/soul-portrait', async (req: Request, res: Response) => {
+  const body = req.body as SoulPortraitRequestBody;
+  if (!body.name || !body.birthDate) {
+    res.status(400).json({ error: 'name and birthDate required' });
+    return;
+  }
+
+  const providerName: ProviderName = body.provider ?? 'openai';
+  const config = PROVIDER_CONFIGS[providerName];
+  const apiKey = resolveApiKey(providerName, body.clientApiKey);
+  if (!apiKey) {
+    res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} or provide key in Settings.` });
+    return;
+  }
+
+  const model = body.model || config.defaultModel;
+
+  const system = `Du bist Maya, eine spirituelle Seelenführerin mit tiefer astrologischer und numerologischer Weisheit.
+Du schreibst poetische, einfühlsame Seelenporträts – immer in der Du-Form, immer auf Deutsch.
+Antworte NUR mit einem JSON-Objekt: { "portrait": "..." }
+Das Portrait besteht aus genau 3 kurzen Absätzen (je 2-3 Sätze), durch \\n\\n getrennt.
+Sei poetisch, tief und inspirierend – keine Klischees, keine Floskeln.`;
+
+  const numeroParts: string[] = [];
+  if (body.lifePath) numeroParts.push(`Lebenspfad ${body.lifePath}`);
+  if (body.expression) numeroParts.push(`Ausdruckszahl ${body.expression}`);
+  if (body.soulUrge) numeroParts.push(`Seelendrang ${body.soulUrge}`);
+  const astroParts: string[] = [];
+  if (body.sunSign) astroParts.push(`Sonne im ${body.sunSign}`);
+  if (body.moonSign) astroParts.push(`Mond im ${body.moonSign}`);
+
+  const user = `Channele ein Seelenporträt für ${body.name} (geboren ${body.birthDate}).
+${numeroParts.length > 0 ? `Numerologie: ${numeroParts.join(', ')}.` : ''}
+${astroParts.length > 0 ? `Astrologie: ${astroParts.join(', ')}.` : ''}
+Schreibe ein tiefes, poetisches Porträt dieser Seele in 3 Absätzen.`;
+
+  try {
+    let parsed: Record<string, unknown>;
+    if (providerName === 'openai') {
+      parsed = await callOpenAI(apiKey, model, system, user) as Record<string, unknown>;
+    } else {
+      parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
+    }
+    const portrait = typeof parsed.portrait === 'string' ? parsed.portrait : JSON.stringify(parsed);
+    res.json({ name: body.name, portrait });
+  } catch (err) {
+    res.status(500).json({ error: `Seelenporträt fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
+  }
+});
+
 // POST /oracle — Maya's 3 sacred questions
 interface OracleRequestBody {
   question: OracleQuestionType;
