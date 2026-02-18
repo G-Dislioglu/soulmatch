@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -44,12 +44,14 @@ const PAGE_REPORT = 1;
 const PAGE_STUDIO = 2;
 const PAGE_ASTRO = 3;
 const PAGE_JOURNEY = 4;
+const PAGE_SOULS = 5;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '♏', color: ACCENT },
   { label: 'Report', icon: '◈', color: '#c084fc' },
   { label: 'Studio', icon: '☽', color: '#f472b6' },
   { label: 'Astro', icon: '✶', color: '#38bdf8' },
   { label: 'Reise', icon: '✧', color: '#34d399' },
+  { label: 'Seelen', icon: '♥', color: '#f472b6' },
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
@@ -1067,6 +1069,20 @@ function HomePage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* ═══ PAGE 5: HALL OF SOULS ═══ */}
+        {activePage === PAGE_SOULS && (
+          <div key="souls" className="portal-enter">
+            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
+              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Kosmische Verbindungen</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Hall of Souls</div>
+              <div style={{ fontSize: 11, color: '#f472b6', marginTop: 4 }}>Entdecke deine Verbindung zu historischen Geistern</div>
+            </div>
+            <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+              <HallOfSouls profile={profile} />
+            </SoulmatchCard>
           </div>
         )}
 
