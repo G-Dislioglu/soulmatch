@@ -13,3 +13,4 @@ export { ChallengeNumbers } from './ui/ChallengeNumbers';
 export { NumerologyRadar } from './ui/NumerologyRadar';
 export { BirthstoneCard } from './ui/BirthstoneCard';
 export { KarmicDebts } from './ui/KarmicDebts';
+export { IdealPartnerHints } from './ui/IdealPartnerHints';
