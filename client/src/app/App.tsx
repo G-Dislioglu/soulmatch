@@ -123,7 +123,6 @@ function HomePage() {
   const [, setExpandedCard] = useState<string | null>(null);
   const [tourTarget, setTourTarget] = useState<string | null>(null);
   const [tourText, setTourText] = useState('');
-  const [astroDate, setAstroDate] = useState('1990-01-01');
   const [astroLoading, setAstroLoading] = useState(false);
   const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
   const [astroError, setAstroError] = useState<string | null>(null);
@@ -131,12 +130,6 @@ function HomePage() {
   useEffect(() => {
     setProfile(loadProfile());
   }, []);
-
-  useEffect(() => {
-    if (profile?.birthDate) {
-      setAstroDate(profile.birthDate);
-    }
-  }, [profile?.birthDate]);
 
   const hasProfile = hasValidProfile(profile);
   const allProfiles = listProfiles();
@@ -255,22 +248,23 @@ function HomePage() {
     return result;
   }
 
-  async function handleAstroCalc() {
+  async function handleAstroCalc(targetProfile?: typeof profile) {
+    const p = targetProfile ?? profile;
+    if (!p?.birthDate) return;
     setAstroLoading(true);
     setAstroError(null);
 
     try {
       const response = await fetch('/api/astro/calc', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          birthDate: astroDate,
-          birthTime: null,
-          birthPlace: null,
-          timezone: null,
-          unknownTime: true,
+          profileId: p.id,
+          birthDate: p.birthDate,
+          birthTime: p.birthTime ?? null,
+          birthPlace: p.birthLocation?.label ?? null,
+          timezone: p.birthLocation?.timezone ?? null,
+          unknownTime: !p.birthTime,
         }),
       });
 
@@ -290,6 +284,12 @@ function HomePage() {
       setAstroLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (activePage === PAGE_ASTRO && profile?.birthDate && !astroResult && !astroLoading) {
+      void handleAstroCalc();
+    }
+  }, [activePage, profile?.birthDate]);
 
   const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
@@ -756,157 +756,138 @@ function HomePage() {
           </div>
         )}
 
-        {/* ═══ PAGE 3: ASTRO TEST ═══ */}
+        {/* ═══ PAGE 3: GEBURTSHOROSKOP ═══ */}
         {activePage === PAGE_ASTRO && (
           <div key="astro" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                Astro Calc MVP
+                {profile?.name ?? 'Profil'}
               </div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
-                Swiss Ephemeris Test
+                Geburtshoroskop
               </div>
             </div>
 
             <div style={{ maxWidth: 500, margin: '0 auto' }}>
-              <SoulmatchCard accent={ACCENT} settings={cardSettings}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtsdatum</span>
-                    <input
-                      type="date"
-                      value={astroDate}
-                      onChange={(e) => setAstroDate(e.target.value)}
-                      style={{
-                        width: '100%',
-                        borderRadius: 8,
-                        border: `1px solid ${ACCENT}2e`,
-                        background: 'rgba(255,255,255,0.03)',
-                        color: '#f0eadc',
-                        padding: '10px 12px',
-                        fontSize: 13,
-                        fontFamily: "'Outfit', sans-serif",
-                      }}
-                    />
-                  </label>
+              {/* Missing data banners */}
+              {(() => {
+                const noTz = !profile?.birthLocation?.timezone;
+                const noTime = !profile?.birthTime;
+                if (!noTz && !noTime) return null;
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    {noTz && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 8, border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.05)', padding: '8px 12px' }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24' }}>Astrologie eingeschränkt</div>
+                          <div style={{ fontSize: 11, color: '#7a7468' }}>Geburtsort mit Zeitzone für vollständige Analyse ergänzen.</div>
+                        </div>
+                        <button type="button" onClick={() => { setMatchEditFocusField('birthLocation'); setOverlay('edit'); }} style={{ flexShrink: 0, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 500, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: 'none', cursor: 'pointer' }}>
+                          Ort ergänzen
+                        </button>
+                      </div>
+                    )}
+                    {noTime && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 8, border: '1px solid rgba(56,189,248,0.2)', background: 'rgba(56,189,248,0.05)', padding: '8px 12px' }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#38bdf8' }}>Genauigkeit: Mittel</div>
+                          <div style={{ fontSize: 11, color: '#7a7468' }}>Geburtszeit hinzufügen für Häuser & Aszendent.</div>
+                        </div>
+                        <button type="button" onClick={() => { setMatchEditFocusField('birthTime'); setOverlay('edit'); }} style={{ flexShrink: 0, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 500, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: 'none', cursor: 'pointer' }}>
+                          Zeit ergänzen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.65 }}>
-                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtszeit (coming soon)</span>
-                    <input
-                      type="time"
-                      disabled
-                      value="12:00"
-                      style={{
-                        width: '100%',
-                        borderRadius: 8,
-                        border: `1px solid ${ACCENT}18`,
-                        background: 'rgba(255,255,255,0.02)',
-                        color: '#a09a8e',
-                        padding: '10px 12px',
-                        fontSize: 13,
-                        fontFamily: "'Outfit', sans-serif",
-                      }}
-                    />
-                  </label>
+              {/* Loading */}
+              {astroLoading && (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: '#7a7468', fontSize: 13 }}>Berechne Horoskop…</div>
+              )}
 
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.65 }}>
-                    <span style={{ fontSize: 12, color: '#a09a8e' }}>Geburtsort (coming soon)</span>
-                    <input
-                      type="text"
-                      disabled
-                      value="Wird in PR3 erweitert"
-                      style={{
-                        width: '100%',
-                        borderRadius: 8,
-                        border: `1px solid ${ACCENT}18`,
-                        background: 'rgba(255,255,255,0.02)',
-                        color: '#a09a8e',
-                        padding: '10px 12px',
-                        fontSize: 13,
-                        fontFamily: "'Outfit', sans-serif",
-                      }}
-                    />
-                  </label>
-
-                  <CosmicButton variant="gold" onClick={handleAstroCalc} disabled={astroLoading || !astroDate}>
-                    {astroLoading ? 'Berechne…' : 'Berechnen'}
-                  </CosmicButton>
-                </div>
-              </SoulmatchCard>
-
-              {astroError && (
-                <div style={{
-                  marginTop: 14,
-                  borderRadius: 10,
-                  border: '1px solid rgba(239,68,68,0.35)',
-                  background: 'rgba(127,29,29,0.2)',
-                  padding: '10px 12px',
-                  fontSize: 12,
-                  color: '#fecaca',
-                }}>
+              {/* Error */}
+              {astroError && !astroLoading && (
+                <div style={{ borderRadius: 10, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.2)', padding: '10px 12px', fontSize: 12, color: '#fecaca', marginBottom: 12 }}>
                   Fehler: {astroError}
                 </div>
               )}
 
-              {astroResult && (
-                <div style={{ marginTop: 14 }}>
-                  <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {(() => {
-                        const sun = astroResult.planets?.find((planet) => planet.key === 'sun');
-                        const pluto = astroResult.planets?.find((planet) => planet.key === 'pluto');
-                        const sunLon = typeof sun?.lon === 'number' ? sun.lon.toFixed(6) : 'n/a';
-                        const plutoLon = typeof pluto?.lon === 'number' ? pluto.lon.toFixed(6) : 'n/a';
-                        const sunSign = sun?.signDe ?? sun?.signKey ?? 'n/a';
-                        const plutoSign = pluto?.signDe ?? pluto?.signKey ?? 'n/a';
+              {/* No profile */}
+              {!profile?.birthDate && !astroLoading && (
+                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                  <p style={{ fontSize: 13, color: '#7a7468', textAlign: 'center', margin: 0 }}>Kein Profil vorhanden. Erstelle zuerst ein Profil.</p>
+                </SoulmatchCard>
+              )}
 
-                        return (
-                          <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Engine</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.engine ?? astroResult.meta.engine}</span>
+              {/* Planet table + elements */}
+              {astroResult && !astroLoading && (() => {
+                const PLANET_DE: Record<string, string> = { sun: 'Sonne', moon: 'Mond', mercury: 'Merkur', venus: 'Venus', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptun', pluto: 'Pluto' };
+                const PLANET_SYM: Record<string, string> = { sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂', jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇' };
+                const SIGN_DE: Record<string, string> = { aries: 'Widder', taurus: 'Stier', gemini: 'Zwillinge', cancer: 'Krebs', leo: 'Löwe', virgo: 'Jungfrau', libra: 'Waage', scorpio: 'Skorpion', sagittarius: 'Schütze', capricorn: 'Steinbock', aquarius: 'Wassermann', pisces: 'Fische' };
+                const planets = astroResult.planets ?? [];
+                const elems = astroResult.elements;
+                return (
+                  <>
+                    <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr auto', gap: '0 8px', paddingBottom: 6, marginBottom: 2, borderBottom: '1px solid rgba(56,189,248,0.12)' }}>
+                          <span style={{ fontSize: 10, color: '#7a7468' }} />
+                          <span style={{ fontSize: 10, color: '#7a7468' }}>Planet</span>
+                          <span style={{ fontSize: 10, color: '#7a7468' }}>Zeichen</span>
+                          <span style={{ fontSize: 10, color: '#7a7468', textAlign: 'right' }}>Grad</span>
+                        </div>
+                        {planets.map((planet) => (
+                          <div key={planet.key} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr auto', gap: '0 8px', padding: '4px 0', borderBottom: '1px solid rgba(56,189,248,0.05)' }}>
+                            <span style={{ fontSize: 12, color: '#38bdf8' }}>{PLANET_SYM[planet.key] ?? '·'}</span>
+                            <span style={{ fontSize: 12, color: '#e0f7ff' }}>{PLANET_DE[planet.key] ?? planet.key}</span>
+                            <span style={{ fontSize: 12, color: '#a8d8ea' }}>{SIGN_DE[planet.signKey] ?? planet.signDe ?? planet.signKey}</span>
+                            <span style={{ fontSize: 12, color: '#7a9faa', textAlign: 'right' }}>{typeof planet.degreeInSign === 'number' ? `${planet.degreeInSign.toFixed(1)}°` : '—'}</span>
+                          </div>
+                        ))}
+                        {astroResult.unknownTime && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: '#7a7468', fontStyle: 'italic' }}>Häuser, Aszendent & MC nicht berechnet (keine Geburtszeit).</div>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Version</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.engineVersion ?? astroResult.meta.engineVersion}</span>
+                    </SoulmatchCard>
+                    {elems && (
+                      <div style={{ marginTop: 10 }}>
+                        <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Elemente</div>
+                            {([['Feuer', 'fire', '#f97316', '🔥'], ['Erde', 'earth', '#84cc16', '♁'], ['Luft', 'air', '#38bdf8', '♒'], ['Wasser', 'water', '#818cf8', '♓']] as const).map(([label, key, color, sym]) => {
+                              const count = (elems as Record<string, number>)[key] ?? 0;
+                              const total = (elems.fire + elems.earth + elems.air + elems.water) || 1;
+                              const pct = Math.round((count / total) * 100);
+                              return (
+                                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 11, width: 14 }}>{sym}</span>
+                                  <span style={{ fontSize: 11, color: '#a09a8e', width: 50 }}>{label}</span>
+                                  <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3 }} />
+                                  </div>
+                                  <span style={{ fontSize: 11, color: '#7a7468', width: 22, textAlign: 'right' }}>{count}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </SoulmatchCard>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Chart Version</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.chartVersion ?? 'n/a'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Unknown Time</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.unknownTime ? 'true' : 'false'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Planets</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{astroResult.planets?.length ?? 0}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun.lon</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{sunLon}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Pluto.lon</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{plutoLon}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Sun Sign</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{sunSign}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(56,189,248,0.15)', paddingBottom: 8 }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Pluto Sign</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{plutoSign}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 12, color: '#8ecce7' }}>Computed</span>
-                        <span style={{ fontSize: 12, color: '#e0f7ff', fontWeight: 600 }}>{new Date(astroResult.computedAt).toLocaleString()}</span>
-                      </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </SoulmatchCard>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Action buttons */}
+              {profile?.birthDate && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <CosmicButton variant="outline" onClick={() => { setAstroResult(null); void handleAstroCalc(); }} disabled={astroLoading} style={{ flex: 1 }}>
+                    {astroLoading ? 'Berechne…' : 'Neu berechnen'}
+                  </CosmicButton>
+                  <CosmicButton variant="ghost" onClick={() => setOverlay('edit')} style={{ flex: 1 }}>
+                    Im Profil bearbeiten
+                  </CosmicButton>
                 </div>
               )}
             </div>
