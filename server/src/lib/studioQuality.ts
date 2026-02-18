@@ -71,6 +71,13 @@ export function applyNarrativeGate(
     if (anchorsUsed.length < ANCHORS_MIN_REQUIRED) {
       reasons.push('anchors_below_required');
     }
+    const aspectAnchorsProvided = providedAnchorIds.filter((id) => id.startsWith('astro:aspect:'));
+    if (aspectAnchorsProvided.length > 0) {
+      const aspectAnchorsUsed = anchorsUsed.filter((id) => id.startsWith('astro:aspect:'));
+      if (aspectAnchorsUsed.length === 0) {
+        reasons.push('aspect_anchor_required_but_missing');
+      }
+    }
   }
 
   const pass = reasons.length === 0;

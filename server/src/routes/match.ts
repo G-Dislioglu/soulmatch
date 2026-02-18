@@ -425,12 +425,43 @@ function normalizeAnchorIds(ids: string[] | undefined): string[] {
   return Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)));
 }
 
-function buildMatchNarrativePayload(request: MatchNarrativeRequest): StudioNarrativePayload {
+interface AspectHighlight {
+  anchorId: string;
+  sentence: string;
+}
+
+function extractTopAspectHighlight(anchorsProvided: string[]): AspectHighlight | null {
+  const aspectAnchor = anchorsProvided.find((a) => a.startsWith('astro:aspect:'));
+  if (!aspectAnchor) return null;
+  const m = /astro:aspect:(\w+)-(\w+)-(\w+)\(orb:([\d.]+)\)/.exec(aspectAnchor);
+  if (!m) return null;
+  const [, aBodyRaw, aspectTypeRaw, bBodyRaw, orb] = m;
+  const bodyA = BODY_DE[aBodyRaw as AstroBodyKey] ?? aBodyRaw;
+  const bodyB = BODY_DE[bBodyRaw as AstroBodyKey] ?? bBodyRaw;
+  const aspectLabel = ASPECT_DE[aspectTypeRaw as AstroAspectType] ?? aspectTypeRaw;
+  return {
+    anchorId: aspectAnchor,
+    sentence: `Stärkster Synastrie-Aspekt: ${bodyA} (A) ${aspectLabel} ${bodyB} (B), Orb ${parseFloat(orb).toFixed(1)}°.`,
+  };
+}
+
+interface MatchNarrativeBuildResult {
+  payload: StudioNarrativePayload;
+  usedAnchorIds: string[];
+}
+
+function buildMatchNarrativePayload(request: MatchNarrativeRequest): MatchNarrativeBuildResult {
+  const anchorsProvided = Array.isArray(request.anchorsProvided) ? request.anchorsProvided : [];
+  const aspectHighlight = extractTopAspectHighlight(anchorsProvided);
+
   if (request.forceFallback) {
     return {
-      turns: [{ seat: 'maya', text: 'ok' }],
-      nextSteps: ['...', 'TODO', 'später'],
-      watchOut: 'kurz',
+      payload: {
+        turns: [{ seat: 'maya', text: 'ok' }],
+        nextSteps: ['...', 'TODO', 'später'],
+        watchOut: 'kurz',
+      },
+      usedAnchorIds: [],
     };
   }
 
@@ -440,20 +471,24 @@ function buildMatchNarrativePayload(request: MatchNarrativeRequest): StudioNarra
   const connectionType = request.connectionType ?? 'anker';
   const reasons = Array.isArray(request.keyReasons) ? request.keyReasons.slice(0, 2) : [];
   const reasonText = reasons.length > 0 ? reasons.join(' und ') : 'die numerologische Grundresonanz';
+  const aspectSuffix = aspectHighlight ? ` ${aspectHighlight.sentence}` : '';
 
   return {
-    turns: [
-      {
-        seat: 'maya',
-        text: `${nameA} und ${nameB} zeigen aktuell einen Match-Score von ${score}. Der Verbindungstyp ${connectionType} deutet darauf hin, dass ${reasonText} eure Dynamik spürbar prägen.`,
-      },
-    ],
-    nextSteps: [
-      `Sprecht heute 20 Minuten über den wichtigsten gemeinsamen Fokus für diese Woche.`,
-      'Formuliert eine konkrete Vereinbarung, die für beide klar überprüfbar ist.',
-      'Reflektiert in drei Tagen kurz, was sich durch diese Vereinbarung verbessert hat.',
-    ],
-    watchOut: 'Vermeidet vage Erwartungen. Ohne klare Absprachen kippt selbst ein gutes Matching schnell in Missverständnisse.',
+    payload: {
+      turns: [
+        {
+          seat: 'maya',
+          text: `${nameA} und ${nameB} zeigen aktuell einen Match-Score von ${score}. Der Verbindungstyp ${connectionType} deutet darauf hin, dass ${reasonText} eure Dynamik spürbar prägen.${aspectSuffix}`,
+        },
+      ],
+      nextSteps: [
+        `Sprecht heute 20 Minuten über den wichtigsten gemeinsamen Fokus für diese Woche.`,
+        'Formuliert eine konkrete Vereinbarung, die für beide klar überprüfbar ist.',
+        'Reflektiert in drei Tagen kurz, was sich durch diese Vereinbarung verbessert hat.',
+      ],
+      watchOut: 'Vermeidet vage Erwartungen. Ohne klare Absprachen kippt selbst ein gutes Matching schnell in Missverständnisse.',
+    },
+    usedAnchorIds: aspectHighlight ? [aspectHighlight.anchorId] : [],
   };
 }
 
@@ -725,7 +760,11 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
     const reportedAnchors = normalizeAnchorIds(request.anchorsUsed);
     const anchorsUsed = reportedAnchors.length > 0 ? reportedAnchors : anchorsProvided.slice(0, 2);
 
-    const payload = buildMatchNarrativePayload(request);
+    const { payload, usedAnchorIds } = buildMatchNarrativePayload(request);
+    for (const id of usedAnchorIds) {
+      if (!anchorsUsed.includes(id)) anchorsUsed.push(id);
+    }
+
     const gated = applyNarrativeGate(payload, {
       mode: 'match',
       seats: payload.turns.map((turn) => turn.seat),

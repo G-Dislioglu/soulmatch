@@ -88,8 +88,27 @@ const failScenario = {
   forceFallback: true,
 };
 
+const aspectScenario = {
+  profileA: { id: 'probe-a', name: 'Ayla' },
+  profileB: { id: 'probe-b', name: 'Mete' },
+  matchOverall: 72,
+  connectionType: 'spiegel',
+  keyReasons: ['Numerologie-Kernscore (v3.1)', 'Verbindungstyp'],
+  anchorsProvided: [
+    'astro:aspect:venus-sextile-moon(orb:0.3)',
+    'astro:aspect:moon-trine-mars(orb:2.6)',
+    'matchOverall:72',
+    'breakdown:astrology:65',
+  ],
+  anchorsUsed: [
+    'astro:aspect:venus-sextile-moon(orb:0.3)',
+    'matchOverall:72',
+  ],
+};
+
 const passResult = await postScenario(passScenario);
 const failResult = await postScenario(failScenario);
+const aspectResult = await postScenario(aspectScenario);
 
 if (passResult.qualityDebug.fallbackUsed) {
   console.error('match-narrative-probe-check: pass scenario must not use fallback');
@@ -151,12 +170,36 @@ if (failResult.narrative.nextSteps.length !== 3) {
   process.exit(1);
 }
 
+if (!aspectResult.qualityDebug.pass || aspectResult.qualityDebug.fallbackUsed) {
+  console.error('match-narrative-probe-check: aspect scenario must pass quality gate without fallback');
+  console.error(JSON.stringify(aspectResult));
+  process.exit(1);
+}
+
+const aspectAnchorsUsed = (aspectResult.anchorsUsed ?? []).filter((id) => id.startsWith('astro:aspect:'));
+if (aspectAnchorsUsed.length === 0) {
+  console.error('match-narrative-probe-check: aspect scenario anchorsUsed must contain at least 1 astro:aspect: entry');
+  console.error(JSON.stringify(aspectResult));
+  process.exit(1);
+}
+
+const allTurnText = (aspectResult.narrative?.turns ?? []).map((t) => t.text ?? '').join(' ');
+if (!allTurnText.includes('Synastrie-Aspekt')) {
+  console.error('match-narrative-probe-check: aspect scenario turn text must mention Synastrie-Aspekt');
+  console.error(`turn text: ${allTurnText}`);
+  process.exit(1);
+}
+
 console.log(
   `PASS fixture: pass=${passResult.qualityDebug.pass} fallbackUsed=${passResult.qualityDebug.fallbackUsed} anchorsUsed>=2=${(passResult.qualityDebug.anchorsUsedCount ?? 0) >= 2}`,
 );
 
 console.log(
   `FAIL fixture: pass=${failResult.qualityDebug.pass} fallbackUsed=${failResult.qualityDebug.fallbackUsed} reasons>=1=${failResult.qualityDebug.reasons.length >= 1}`,
+);
+
+console.log(
+  `ASPECT fixture: pass=${aspectResult.qualityDebug.pass} aspectAnchorsUsed=${aspectAnchorsUsed.length} hasSynastrie=${allTurnText.includes('Synastrie-Aspekt')}`,
 );
 
 console.log(
