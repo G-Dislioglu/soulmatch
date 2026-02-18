@@ -5,3 +5,4 @@ export { NumerologyCard } from './ui/NumerologyCard';
 export { ChakraBar } from './ui/ChakraBar';
 export { BiorhythmCurve } from './ui/BiorhythmCurve';
 export { TarotDayCard } from './ui/TarotDayCard';
+export { DailyAffirmations } from './ui/DailyAffirmations';
