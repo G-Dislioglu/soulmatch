@@ -9,3 +9,4 @@ export { DailyAffirmations } from './ui/DailyAffirmations';
 export { YearForecast } from './ui/YearForecast';
 export { LifePathDetail } from './ui/LifePathDetail';
 export { LifePinnacles } from './ui/LifePinnacles';
+export { ChallengeNumbers } from './ui/ChallengeNumbers';
