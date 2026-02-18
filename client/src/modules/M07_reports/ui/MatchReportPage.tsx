@@ -10,9 +10,10 @@ interface MatchReportPageProps {
   profileB: UserProfile;
   match: MatchScoreResult;
   onBack: () => void;
+  onRequestProfileEdit?: (focusField: 'birthTime' | 'birthLocation') => void;
 }
 
-export function MatchReportPage({ profileA, profileB, match, onBack }: MatchReportPageProps) {
+export function MatchReportPage({ profileA, profileB, match, onBack, onRequestProfileEdit }: MatchReportPageProps) {
   return (
     <ReportLayout
       title="Soulmatch Match Report"
@@ -20,7 +21,7 @@ export function MatchReportPage({ profileA, profileB, match, onBack }: MatchRepo
     >
       <ProfileReport profile={profileA} />
       <ProfileReport profile={profileB} />
-      <MatchReport match={match} />
+      <MatchReport match={match} onRequestProfileEdit={onRequestProfileEdit} />
       <div className="flex justify-center pt-2">
         <Button variant="secondary" onClick={onBack}>
           Zurück

@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.ASTRO_BASE_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.ASTRO_BASE_URL ?? 'https://soulmatch-1.onrender.com';
 const date = process.env.ASTRO_PROBE_DATE ?? '1990-01-01';
 const url = `${baseUrl.replace(/\/$/, '')}/api/astro/probe?date=${encodeURIComponent(date)}`;
 
 const response = await fetch(url);
+const rawText = await response.text();
 let data;
 
 try {
-  data = await response.json();
+  data = JSON.parse(rawText);
 } catch {
   console.error(`astro-probe-check: non-JSON response from ${url}`);
+  console.error(`  status=${response.status} | content-type=${response.headers.get('content-type')}`);
+  console.error(`  body: ${rawText.slice(0, 200)}`);
   process.exit(1);
 }
 

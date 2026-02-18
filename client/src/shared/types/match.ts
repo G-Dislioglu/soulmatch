@@ -29,6 +29,12 @@ export interface AstroAspect {
   orbDeg: number;
 }
 
+export interface MatchAccuracy {
+  astrologyActive: boolean;
+  missing: string[];
+  unknownTime: boolean;
+}
+
 export interface MatchNarrativeResult {
   status: 'ok';
   narrative: {
@@ -66,6 +72,7 @@ export interface MatchScoreResult {
   connectionType?: string;
   astroAspects?: AstroAspect[];
   anchorsProvided?: string[];
+  accuracy?: MatchAccuracy;
   keyReasons?: string[];
   narrative?: MatchNarrativeResult;
   claims: ExplainClaim[];

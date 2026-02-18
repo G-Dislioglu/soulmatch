@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.GEO_BASE_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.GEO_BASE_URL ?? 'https://soulmatch-1.onrender.com';
 const url = `${baseUrl.replace(/\/$/, '')}/api/geo/autocomplete`;
 
 const queries = [
@@ -24,7 +24,13 @@ function validateItem(item) {
 
 async function probeQuery(q) {
   const response = await fetch(`${url}?q=${encodeURIComponent(q)}`);
-  const data = await response.json().catch(() => null);
+  const rawText = await response.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`non-JSON from ${url}?q=${q} | status=${response.status} | content-type=${response.headers.get('content-type')} | body: ${rawText.slice(0, 200)}`);
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for query=${q}: ${JSON.stringify(data)}`);

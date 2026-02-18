@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.MATCH_BASE_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.MATCH_BASE_URL ?? 'https://soulmatch-1.onrender.com';
 const url = `${baseUrl.replace(/\/$/, '')}/api/match/single`;
 
 const payload = {
@@ -63,11 +63,14 @@ async function postOnce() {
     body: JSON.stringify(payload),
   });
 
+  const rawText = await response.text();
   let data;
   try {
-    data = await response.json();
+    data = JSON.parse(rawText);
   } catch {
     console.error(`match-probe-check: non-JSON response from ${url}`);
+    console.error(`  status=${response.status} | content-type=${response.headers.get('content-type')}`);
+    console.error(`  body: ${rawText.slice(0, 200)}`);
     process.exit(1);
   }
 
@@ -232,6 +235,54 @@ if (!Array.isArray(first?.claims) || first.claims.length < 1) {
 
 if (!Array.isArray(first?.warnings) || !first.warnings.includes('astro_unknown_time_no_houses')) {
   console.error('match-probe-check: warnings must include astro_unknown_time_no_houses for null birthTime fixture');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!first.accuracy || typeof first.accuracy !== 'object') {
+  console.error('match-probe-check: accuracy must be an object');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (typeof first.accuracy.astrologyActive !== 'boolean') {
+  console.error('match-probe-check: accuracy.astrologyActive must be boolean');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!Array.isArray(first.accuracy.missing)) {
+  console.error('match-probe-check: accuracy.missing must be an array');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (typeof first.accuracy.unknownTime !== 'boolean') {
+  console.error('match-probe-check: accuracy.unknownTime must be boolean');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (first.accuracy.astrologyActive && first.breakdown.astrology === 0) {
+  console.error('match-probe-check: accuracy.astrologyActive=true but breakdown.astrology=0 — inconsistent');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (!first.accuracy.astrologyActive && !first.accuracy.missing.includes('birthLocation.timezone')) {
+  console.error('match-probe-check: astrologyActive=false but missing does not include birthLocation.timezone');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (first.accuracy.unknownTime && !first.accuracy.missing.includes('birthTime')) {
+  console.error('match-probe-check: unknownTime=true but missing does not include birthTime');
+  console.error(JSON.stringify(first));
+  process.exit(1);
+}
+
+if (Array.isArray(first.warnings) && first.warnings.includes('astro_unknown_time_no_houses') && !first.accuracy.unknownTime) {
+  console.error('match-probe-check: warnings includes astro_unknown_time_no_houses but accuracy.unknownTime=false');
   console.error(JSON.stringify(first));
   process.exit(1);
 }

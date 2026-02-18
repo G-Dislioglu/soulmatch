@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.MATCH_BASE_URL ?? 'http://localhost:3001';
+const baseUrl = process.env.MATCH_BASE_URL ?? 'https://soulmatch-1.onrender.com';
 const url = `${baseUrl.replace(/\/$/, '')}/api/match/narrative`;
 
 function ensureArray(value, label) {
@@ -17,11 +17,14 @@ async function postScenario(body) {
     body: JSON.stringify(body),
   });
 
+  const rawText = await response.text();
   let data;
   try {
-    data = await response.json();
+    data = JSON.parse(rawText);
   } catch {
     console.error(`match-narrative-probe-check: non-JSON response from ${url}`);
+    console.error(`  status=${response.status} | content-type=${response.headers.get('content-type')}`);
+    console.error(`  body: ${rawText.slice(0, 200)}`);
     process.exit(1);
   }
 

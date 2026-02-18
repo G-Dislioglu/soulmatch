@@ -13,6 +13,7 @@ interface ProfileFormProps {
   initialProfile?: UserProfile | null;
   onSaved: (profile: UserProfile) => void;
   onDelete?: () => void;
+  focusField?: 'birthTime' | 'birthLocation';
 }
 
 interface GeoAutocompleteItem {
@@ -32,7 +33,7 @@ function draftFromProfile(p: UserProfile | null | undefined): ProfileDraft {
   };
 }
 
-export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormProps) {
+export function ProfileForm({ initialProfile, onSaved, onDelete, focusField }: ProfileFormProps) {
   const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(initialProfile));
   const [errors, setErrors] = useState<ProfileErrors>({});
   const [selectedLocation, setSelectedLocation] = useState<GeoAutocompleteItem | null>(
@@ -41,6 +42,18 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
   const [suggestions, setSuggestions] = useState<GeoAutocompleteItem[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const requestSeqRef = useRef(0);
+  const birthTimeRef = useRef<HTMLInputElement>(null);
+  const birthPlaceRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusField === 'birthTime') {
+      birthTimeRef.current?.focus();
+      birthTimeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (focusField === 'birthLocation') {
+      birthPlaceRef.current?.focus();
+      birthPlaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focusField]);
 
   const isRequiredEmpty = draft.name.trim().length === 0 || draft.birthDate.length === 0;
 
@@ -154,6 +167,7 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
           type="time"
           value={draft.birthTime}
           onChange={(e) => handleChange('birthTime', e.target.value)}
+          ref={birthTimeRef}
         />
         <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Aktiv in PR3 (Häuser/Angles) – aktuell nur Profil-Daten.</p>
         {errors.birthTime && <p className="mt-1 text-sm text-red-400">{errors.birthTime}</p>}
@@ -166,6 +180,7 @@ export function ProfileForm({ initialProfile, onSaved, onDelete }: ProfileFormPr
           placeholder="z.B. Berlin"
           value={draft.birthPlace}
           onChange={(e) => handleChange('birthPlace', e.target.value)}
+          ref={birthPlaceRef}
         />
         {lookupLoading && <p className="mt-1 text-xs text-[color:var(--muted-fg)]">Suche Orte…</p>}
         {!lookupLoading && suggestions.length > 0 && (

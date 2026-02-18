@@ -115,6 +115,8 @@ function HomePage() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
   const [showCrossing, setShowCrossing] = useState(false);
+  const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
+  const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
@@ -144,6 +146,18 @@ function HomePage() {
     setProfile(p);
     setScoreResult(null);
     setOverlay(null);
+  }
+
+  function handleSavedFromMatchCTA(p: UserProfile) {
+    setProfile(p);
+    setScoreResult(null);
+    const ids = matchRecomputeIds;
+    setMatchRecomputeIds(null);
+    setMatchEditFocusField(undefined);
+    setOverlay(null);
+    if (ids) {
+      void handleComputeMatch(ids.aId, ids.bId);
+    }
   }
 
   function handleNewProfileSaved(p: UserProfile) {
@@ -347,6 +361,11 @@ function HomePage() {
             profileB={matchProfiles[1]}
             match={matchResult}
             onBack={() => setOverlay(null)}
+            onRequestProfileEdit={(focusField) => {
+              setMatchRecomputeIds({ aId: matchProfiles[0].id, bId: matchProfiles[1].id });
+              setMatchEditFocusField(focusField);
+              setOverlay('edit');
+            }}
           />
         </div>
       );
@@ -382,6 +401,9 @@ function HomePage() {
     }
 
     if (overlay === 'edit' || !hasProfile) {
+      const editSubtitle = matchRecomputeIds
+        ? 'Daten ergänzen · Match wird danach neu berechnet'
+        : hasProfile ? 'Deine Basisdaten anpassen' : 'Erstelle dein Profil für kosmische Einblicke';
       return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 10 }}>
           <div style={{ width: '100%', maxWidth: 420 }}>
@@ -390,14 +412,15 @@ function HomePage() {
                 {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
               </h1>
               <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-                {hasProfile ? 'Deine Basisdaten anpassen' : 'Erstelle dein Profil für kosmische Einblicke'}
+                {editSubtitle}
               </p>
             </div>
             <SoulmatchCard accent={ACCENT} settings={cardSettings}>
               <ProfileForm
                 initialProfile={profile}
-                onSaved={handleSaved}
+                onSaved={matchRecomputeIds ? handleSavedFromMatchCTA : handleSaved}
                 onDelete={profile ? handleDelete : undefined}
+                focusField={matchEditFocusField}
               />
             </SoulmatchCard>
           </div>

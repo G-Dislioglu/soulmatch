@@ -1,4 +1,4 @@
-import type { AstroAspect, AstroAspectType, MatchScoreResult } from '../../../shared/types/match';
+import type { AstroAspect, AstroAspectType, MatchAccuracy, MatchScoreResult } from '../../../shared/types/match';
 import { Section } from './Section';
 import { ScoreBar } from './ScoreBar';
 import { ClaimsList } from './ClaimsList';
@@ -28,6 +28,7 @@ function seatLabel(seat: string): string {
 
 interface MatchReportProps {
   match: MatchScoreResult;
+  onRequestProfileEdit?: (focusField: 'birthTime' | 'birthLocation') => void;
 }
 
 const ASPECT_BODY_DE: Record<string, string> = {
@@ -53,6 +54,53 @@ const ASPECT_IS_HARMONIC: Record<AstroAspectType, boolean> = {
   sextile: true,
 };
 
+function AccuracyCTA({ accuracy, onRequestProfileEdit }: { accuracy: MatchAccuracy; onRequestProfileEdit?: (focusField: 'birthTime' | 'birthLocation') => void }) {
+  const showTimezone = !accuracy.astrologyActive && accuracy.missing.includes('birthLocation.timezone');
+  const showBirthTime = accuracy.missing.includes('birthTime');
+  if (!showTimezone && !showBirthTime) return null;
+
+  return (
+    <Section title="Genauigkeit verbessern" subtitle="Mehr Daten = präzisere Analyse">
+      <div className="flex flex-col gap-3">
+        {showTimezone && (
+          <div className="flex items-start justify-between gap-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-amber-400">Astrologie inaktiv</span>
+              <span className="text-xs text-[color:var(--muted-fg)]">Geburtsort mit Zeitzone hinzufügen für vollständige Astro-Analyse.</span>
+            </div>
+            {onRequestProfileEdit && (
+              <button
+                type="button"
+                onClick={() => onRequestProfileEdit('birthLocation')}
+                className="shrink-0 rounded px-2.5 py-1 text-[11px] font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors"
+              >
+                Geburtsort (Zeitzone) ergänzen
+              </button>
+            )}
+          </div>
+        )}
+        {showBirthTime && (
+          <div className="flex items-start justify-between gap-3 rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-sky-400">Genauigkeit: Mittel</span>
+              <span className="text-xs text-[color:var(--muted-fg)]">Geburtszeit hinzufügen für Häuser, Aszendent & höhere Präzision.</span>
+            </div>
+            {onRequestProfileEdit && (
+              <button
+                type="button"
+                onClick={() => onRequestProfileEdit('birthTime')}
+                className="shrink-0 rounded px-2.5 py-1 text-[11px] font-medium bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 transition-colors"
+              >
+                Zeit ergänzen
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function AspectRow({ aspect }: { aspect: AstroAspect }) {
   const harmonic = ASPECT_IS_HARMONIC[aspect.aspect];
   return (
@@ -74,7 +122,7 @@ function AspectRow({ aspect }: { aspect: AstroAspect }) {
   );
 }
 
-export function MatchReport({ match }: MatchReportProps) {
+export function MatchReport({ match, onRequestProfileEdit }: MatchReportProps) {
   const warnings = Array.isArray(match.meta.warnings) ? match.meta.warnings : [];
   const astrologyActive = match.breakdown.astrology > 0;
   const astroUnknownTime = warnings.includes('astro_unknown_time_no_houses');
@@ -128,6 +176,10 @@ export function MatchReport({ match }: MatchReportProps) {
           <ScoreBar label="Fusion" value={match.breakdown.fusion} />
         </div>
       </Section>
+
+      {match.accuracy && (
+        <AccuracyCTA accuracy={match.accuracy} onRequestProfileEdit={onRequestProfileEdit} />
+      )}
 
       {Array.isArray(match.astroAspects) && match.astroAspects.length > 0 && (
         <Section title="Top-Aspekte" subtitle="Synastrie · Planetenkonstellationen">

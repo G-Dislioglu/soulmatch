@@ -71,6 +71,12 @@ interface MatchSingleRequest {
   relationshipType?: RelationshipType;
 }
 
+interface MatchAccuracy {
+  astrologyActive: boolean;
+  missing: string[];
+  unknownTime: boolean;
+}
+
 interface MatchSingleResponse {
   profileA: { id: string; name: string };
   profileB: { id: string; name: string };
@@ -86,6 +92,7 @@ interface MatchSingleResponse {
   keyReasons: string[];
   claims: ExplainClaim[];
   warnings: string[];
+  accuracy: MatchAccuracy;
 }
 
 type AstroBodyKey = 'sun' | 'moon' | 'venus' | 'mars';
@@ -845,6 +852,15 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
       fusion: fusionWithAspects,
     };
 
+    const missingFields: string[] = [];
+    if (!timezoneA || !timezoneB) missingFields.push('birthLocation.timezone');
+    if (!request.profileA.birthTime || !request.profileB.birthTime) missingFields.push('birthTime');
+    const accuracy: MatchAccuracy = {
+      astrologyActive: breakdown.astrology > 0,
+      missing: missingFields,
+      unknownTime: warnings.includes('astro_unknown_time_no_houses'),
+    };
+
     const result: MatchSingleResponse = {
       profileA: {
         id: request.profileA.id ?? 'profile-a',
@@ -866,6 +882,7 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
       keyReasons,
       claims: unified.claims,
       warnings,
+      accuracy,
     };
 
     devLogger.info('api', 'Match single calculated', {
