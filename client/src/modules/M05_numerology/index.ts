@@ -16,3 +16,4 @@ export { KarmicDebts } from './ui/KarmicDebts';
 export { IdealPartnerHints } from './ui/IdealPartnerHints';
 export { SoulTypeCard } from './ui/SoulTypeCard';
 export { SoulSigil } from './ui/SoulSigil';
+export { BirthMoonPhase } from './ui/BirthMoonPhase';
