@@ -12,3 +12,5 @@ const defaultEngine = new RealAstrologyEngine();
 export function computeAstrology(req: AstrologyRequest): Promise<AstrologyResult> {
   return defaultEngine.compute(req);
 }
+
+export { RadixWheel } from './ui/RadixWheel';

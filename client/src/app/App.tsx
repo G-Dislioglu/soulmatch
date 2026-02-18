@@ -12,6 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
+import { RadixWheel } from '../modules/M04_astrology-adapter';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
@@ -881,6 +882,14 @@ function HomePage() {
               {!profile?.birthDate && !astroLoading && (
                 <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                   <p style={{ fontSize: 13, color: '#7a7468', textAlign: 'center', margin: 0 }}>Kein Profil vorhanden. Erstelle zuerst ein Profil.</p>
+                </SoulmatchCard>
+              )}
+
+              {/* Radix Wheel */}
+              {astroResult?.planets && astroResult.planets.length > 0 && !astroLoading && (
+                <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtshoroskop</div>
+                  <RadixWheel planets={astroResult.planets} size={290} />
                 </SoulmatchCard>
               )}
 
