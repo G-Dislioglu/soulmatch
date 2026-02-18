@@ -27,3 +27,4 @@ export type { SoulCardDetailProps } from './ui/SoulCardDetail';
 export { CrossingModal } from './ui/CrossingModal';
 export type { CrossingModalProps } from './ui/CrossingModal';
 export { ScoreHistoryChart } from './ui/ScoreHistoryChart';
+export { TopMatchesCard } from './ui/TopMatchesCard';

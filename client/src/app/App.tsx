@@ -35,7 +35,7 @@ import {
   DiscoveryFlow,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
-import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart } from '../modules/M13_timeline';
+import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
 import { DisclaimerModal } from '../modules/M01_app-shell';
@@ -845,6 +845,12 @@ function HomePage() {
               <SoulmatchCard accent="#d4af37" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score-Verlauf</div>
                 <ScoreHistoryChart />
+              </SoulmatchCard>
+            </div>
+            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+              <SoulmatchCard accent="#22c55e" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Match-Bestenliste</div>
+                <TopMatchesCard />
               </SoulmatchCard>
             </div>
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
