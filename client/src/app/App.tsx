@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard } from '../modules/M07_reports';
@@ -1067,6 +1067,22 @@ function HomePage() {
                   <RadixWheel planets={astroResult.planets} size={290} />
                 </SoulmatchCard>
               )}
+
+              {/* Zeichen-Interpretation */}
+              {astroResult?.planets && !astroLoading && (() => {
+                const SIGN_DE_37: Record<string, string> = { aries: 'Widder', taurus: 'Stier', gemini: 'Zwillinge', cancer: 'Krebs', leo: 'Löwe', virgo: 'Jungfrau', libra: 'Waage', scorpio: 'Skorpion', sagittarius: 'Schütze', capricorn: 'Steinbock', aquarius: 'Wassermann', pisces: 'Fische' };
+                const sunP = astroResult.planets.find((p) => p.key === 'sun');
+                const moonP = astroResult.planets.find((p) => p.key === 'moon');
+                const sunSign = SIGN_DE_37[sunP?.signKey ?? ''] ?? sunP?.signKey;
+                const moonSign = SIGN_DE_37[moonP?.signKey ?? ''] ?? moonP?.signKey;
+                if (!sunSign && !moonSign) return null;
+                return (
+                  <SoulmatchCard accent="#d4af37" settings={cardSettings}>
+                    <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zeichen-Deutung</div>
+                    <SignInterpretation sunSign={sunSign} moonSign={moonSign} />
+                  </SoulmatchCard>
+                );
+              })()}
 
               {/* Planet table + elements */}
               {astroResult && !astroLoading && (() => {
