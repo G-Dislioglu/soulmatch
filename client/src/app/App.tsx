@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -442,6 +442,17 @@ function HomePage() {
               setOverlay('edit');
             }}
           />
+
+          {/* Verbindungstyp-Karte */}
+          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <SoulmatchCard accent={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'} settings={cardSettings}>
+              <ConnectionTypeCard
+                connectionType={matchResult.connectionType ?? 'harmonisch'}
+                nameA={matchProfiles[0].name}
+                nameB={matchProfiles[1].name}
+              />
+            </SoulmatchCard>
+          </div>
 
           {/* Affinität-Radar */}
           <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
