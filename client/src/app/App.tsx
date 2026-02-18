@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan } from '../modules/M07_reports';
@@ -1049,6 +1049,12 @@ function HomePage() {
             </div>
 
             <div style={{ maxWidth: 500, margin: '0 auto' }}>
+              {/* Heutiger Himmel */}
+              <SoulmatchCard accent="#818cf8" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Heutiger Himmel</div>
+                <CurrentSkyCard />
+              </SoulmatchCard>
+
               {/* Kosmischer Tagesblick */}
               <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmischer Tagesblick</div>
