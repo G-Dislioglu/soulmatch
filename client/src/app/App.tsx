@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix } from '../modules/M07_reports';
@@ -87,6 +87,7 @@ interface AstroCalcResponse {
     air: number;
     water: number;
   };
+  aspects?: import('../shared/types/astrology').Aspect[];
   houses: null;
   ascendant: null;
   mc: null;
@@ -1075,6 +1076,14 @@ function HomePage() {
             </div>
 
             <div style={{ maxWidth: 500, margin: '0 auto' }}>
+              {/* Aspekte-Kurztext */}
+              {(astroResult?.aspects?.length ?? 0) > 0 && (
+                <SoulmatchCard accent="#22c55e" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aspekte-Übersicht</div>
+                  <AspectsOverview aspects={astroResult?.aspects ?? []} />
+                </SoulmatchCard>
+              )}
+
               {/* Heutiger Himmel */}
               <SoulmatchCard accent="#818cf8" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Heutiger Himmel</div>
