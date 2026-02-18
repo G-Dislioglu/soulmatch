@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
@@ -817,6 +817,14 @@ function HomePage() {
                 <SoulmatchCard accent="#a855f7" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtsstein</div>
                   <BirthstoneCard birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Seelen-Sigil */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Sigil</div>
+                  <SoulSigil name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
 
