@@ -12,3 +12,4 @@ export { MatchReportPage } from './ui/MatchReportPage';
 export { HallOfSouls } from './ui/HallOfSouls';
 export { AffinityRadar } from './ui/AffinityRadar';
 export { ConnectionTypeCard } from './ui/ConnectionTypeCard';
+export { NumeroPairTable } from './ui/NumeroPairTable';

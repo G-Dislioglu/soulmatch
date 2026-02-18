@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -470,6 +470,14 @@ function HomePage() {
                   { label: 'Harmonie', value: Math.round(matchResult.matchOverall), color: '#fbbf24' },
                 ]}
               />
+            </SoulmatchCard>
+          </div>
+
+          {/* Numerologie-Paar-Tabelle */}
+          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+              <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie-Vergleich</div>
+              <NumeroPairTable profileA={matchProfiles[0]} profileB={matchProfiles[1]} />
             </SoulmatchCard>
           </div>
 
