@@ -499,6 +499,64 @@ Schreibe ein tiefes, poetisches Porträt dieser Seele in 3 Absätzen.`;
   }
 });
 
+// POST /compatibility-story — Luna + Orion co-narrate the soul connection
+interface CompatStoryRequestBody {
+  nameA: string;
+  nameB: string;
+  connectionType: string;
+  score: number;
+  lifepathA?: number;
+  lifepathB?: number;
+  provider?: ProviderName;
+  clientApiKey?: string;
+  model?: string;
+}
+
+studioRouter.post('/compatibility-story', async (req: Request, res: Response) => {
+  const body = req.body as CompatStoryRequestBody;
+  if (!body.nameA || !body.nameB) {
+    res.status(400).json({ error: 'nameA and nameB required' });
+    return;
+  }
+
+  const providerName: ProviderName = body.provider ?? 'openai';
+  const config = PROVIDER_CONFIGS[providerName];
+  const apiKey = resolveApiKey(providerName, body.clientApiKey);
+  if (!apiKey) {
+    res.status(500).json({ error: `No API key for ${providerName}.` });
+    return;
+  }
+
+  const model = body.model || config.defaultModel;
+
+  const system = `Du bist Luna, die romantische Traumführerin, und Orion, der Seelen-Abenteurer.
+Ihr schreibt gemeinsam eine kurze poetische Geschichte über zwei Seelen.
+Antworte NUR mit einem JSON-Objekt: { "story": "...", "luna": "...", "orion": "..." }
+- "story": 2-3 Sätze poetische Prosa über die Verbindung dieser zwei Seelen (neutral, schön)
+- "luna": Luna's romantische Perspektive auf diese Verbindung (1-2 Sätze)
+- "orion": Orion's abenteuerliche Perspektive auf diese Verbindung (1-2 Sätze)
+Schreibe auf Deutsch, poetisch, herzwarm. Keine Klischees.`;
+
+  const lpInfo = body.lifepathA && body.lifepathB ? ` Lebenspfad ${body.nameA}: ${body.lifepathA}, ${body.nameB}: ${body.lifepathB}.` : '';
+  const user = `Erzählt die Geschichte von ${body.nameA} und ${body.nameB} — ${body.connectionType}-Verbindung, Harmonie-Score ${body.score}%.${lpInfo}`;
+
+  try {
+    let parsed: Record<string, unknown>;
+    if (providerName === 'openai') {
+      parsed = await callOpenAI(apiKey, model, system, user) as Record<string, unknown>;
+    } else {
+      parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
+    }
+    res.json({
+      story: typeof parsed.story === 'string' ? parsed.story : '',
+      luna: typeof parsed.luna === 'string' ? parsed.luna : '',
+      orion: typeof parsed.orion === 'string' ? parsed.orion : '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Geschichte fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
+  }
+});
+
 // POST /oracle — Maya's 3 sacred questions
 interface OracleRequestBody {
   question: OracleQuestionType;
