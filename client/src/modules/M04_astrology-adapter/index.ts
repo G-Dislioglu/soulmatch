@@ -22,3 +22,4 @@ export { CosmicAlerts } from './ui/CosmicAlerts';
 export { DayEnergyScore } from './ui/DayEnergyScore';
 export { MonthlyHoroscope } from './ui/MonthlyHoroscope';
 export { CurrentSkyCard } from './ui/CurrentSkyCard';
+export { RetrogradeAlert } from './ui/RetrogradeAlert';
