@@ -499,6 +499,64 @@ Schreibe ein tiefes, poetisches Porträt dieser Seele in 3 Absätzen.`;
   }
 });
 
+// POST /monthly-horoscope — Luna generates a monthly horoscope
+interface MonthlyHoroRequestBody {
+  sunSign: string;
+  personalYear: number;
+  name: string;
+  month?: number;
+  provider?: ProviderName;
+  clientApiKey?: string;
+  model?: string;
+}
+
+studioRouter.post('/monthly-horoscope', async (req: Request, res: Response) => {
+  const body = req.body as MonthlyHoroRequestBody;
+  if (!body.sunSign || !body.name) {
+    res.status(400).json({ error: 'sunSign and name required' });
+    return;
+  }
+
+  const providerName: ProviderName = body.provider ?? 'openai';
+  const config = PROVIDER_CONFIGS[providerName];
+  const apiKey = resolveApiKey(providerName, body.clientApiKey);
+  if (!apiKey) { res.status(500).json({ error: `No API key for ${providerName}.` }); return; }
+
+  const now = new Date();
+  const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const model = body.model || config.defaultModel;
+
+  const system = `Du bist Luna, die romantische Traumführerin und Mondgöttin des Herzens.
+Du gibst ein kurzes, poetisches Monatshoroskop für ${body.name}.
+Antworte NUR mit JSON: { "opening": "...", "love": "...", "growth": "...", "mantra": "..." }
+- opening: 1-2 Sätze kosmische Eröffnung für diesen Monat
+- love: 1-2 Sätze Liebes/Beziehungsenergie
+- growth: 1-2 Sätze persönliches Wachstum & Chance
+- mantra: ein kurzes Monats-Mantra (max 10 Worte)
+Schreibe auf Deutsch, poetisch, liebevoll. Keine Plattitüden.`;
+
+  const lpInfo = body.personalYear ? ` Persönliches Jahr: ${body.personalYear}.` : '';
+  const user = `Monatshoroskop für ${body.name} (${body.sunSign}) für ${monthName}.${lpInfo}`;
+
+  try {
+    let parsed: Record<string, unknown>;
+    if (providerName === 'openai') {
+      parsed = await callOpenAI(apiKey, model, system, user) as Record<string, unknown>;
+    } else {
+      parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
+    }
+    res.json({
+      month: monthName,
+      opening: typeof parsed.opening === 'string' ? parsed.opening : '',
+      love: typeof parsed.love === 'string' ? parsed.love : '',
+      growth: typeof parsed.growth === 'string' ? parsed.growth : '',
+      mantra: typeof parsed.mantra === 'string' ? parsed.mantra : '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Horoskop fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
+  }
+});
+
 // POST /compatibility-story — Luna + Orion co-narrate the soul connection
 interface CompatStoryRequestBody {
   nameA: string;

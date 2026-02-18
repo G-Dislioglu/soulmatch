@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan } from '../modules/M07_reports';
@@ -1047,6 +1047,16 @@ function HomePage() {
               <SoulmatchCard accent="#c084fc" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondkalender</div>
                 <MoonCalendar />
+              </SoulmatchCard>
+
+              {/* Monatshoroskop Luna */}
+              <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Monatshoroskop · Luna</div>
+                <MonthlyHoroscope
+                  name={profile.name}
+                  birthDate={profile.birthDate}
+                  sunSign={astroResult?.planets?.find((p) => p.key === 'sun') ? (() => { const SIGN_DE_H: Record<string, string> = { aries: 'Widder', taurus: 'Stier', gemini: 'Zwillinge', cancer: 'Krebs', leo: 'Löwe', virgo: 'Jungfrau', libra: 'Waage', scorpio: 'Skorpion', sagittarius: 'Schütze', capricorn: 'Steinbock', aquarius: 'Wassermann', pisces: 'Fische' }; return SIGN_DE_H[astroResult?.planets?.find((p) => p.key === 'sun')?.signKey ?? ''] ?? undefined; })() : undefined}
+                />
               </SoulmatchCard>
 
               {/* Kosmische Alerts */}
