@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode } from '../modules/M08_studio-chat';
@@ -698,6 +698,14 @@ function HomePage() {
                 <SoulmatchCard accent="#818cf8" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Resonanz</div>
                   <ChakraBar name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Biorhythmus */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#ef4444" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Biorhythmus</div>
+                  <BiorhythmCurve birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
             </div>
