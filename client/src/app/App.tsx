@@ -36,6 +36,7 @@ import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
+import { DisclaimerModal } from '../modules/M01_app-shell';
 
 const ACCENT = '#d4af37';
 const PAGE_PROFILE = 0;
@@ -932,11 +933,14 @@ function NotFound() {
 
 export function App() {
   return (
+    <>
+    <DisclaimerModal />
     <GuideProvider>
       <Switch>
         <Route path="/" component={HomePage} />
         <Route component={NotFound} />
       </Switch>
     </GuideProvider>
+    </>
   );
 }
