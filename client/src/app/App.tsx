@@ -35,7 +35,7 @@ import {
   DiscoveryFlow,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
-import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService } from '../modules/M13_timeline';
+import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
 import { DisclaimerModal } from '../modules/M01_app-shell';
@@ -781,6 +781,15 @@ function HomePage() {
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 Soulmatch Report
               </div>
+            </div>
+            {/* Score-Verlauf */}
+            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+              <SoulmatchCard accent="#d4af37" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score-Verlauf</div>
+                <ScoreHistoryChart />
+              </SoulmatchCard>
+            </div>
+            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
                 {profile.name}
               </div>
