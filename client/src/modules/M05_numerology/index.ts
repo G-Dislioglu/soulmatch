@@ -2,3 +2,4 @@
 export type { NumerologyEngine } from './lib/numerologyEngine';
 export { buildNumerologyRequestFromProfile, computeNumerology } from './lib/numerologyEngine';
 export { NumerologyCard } from './ui/NumerologyCard';
+export { ChakraBar } from './ui/ChakraBar';
