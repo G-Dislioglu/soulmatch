@@ -40,3 +40,4 @@ export { SharedYearForecast } from './ui/SharedYearForecast';
 export { EnergyForecast } from './ui/EnergyForecast';
 export { SoulGeometry } from './ui/SoulGeometry';
 export { KarmicResolution } from './ui/KarmicResolution';
+export { MoonPhaseCompat } from './ui/MoonPhaseCompat';
