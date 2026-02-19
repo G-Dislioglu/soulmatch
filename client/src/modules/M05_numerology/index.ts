@@ -29,3 +29,4 @@ export { TimeCapsulle } from './ui/TimeCapsulle';
 export { SoulMantra } from './ui/SoulMantra';
 export { ShadowSide } from './ui/ShadowSide';
 export { LifeMission } from './ui/LifeMission';
+export { YearClock } from './ui/YearClock';
