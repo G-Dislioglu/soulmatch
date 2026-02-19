@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -533,13 +533,24 @@ function HomePage() {
               )}
               {synastryLoading && <div style={{ textAlign: 'center', color: '#fb7185', fontSize: 12, padding: '16px 0' }}>Berechne Synastrie…</div>}
               {synastrySets && (
-                <RadixWheel
-                  planets={synastrySets.planetsA}
-                  planetsB={synastrySets.planetsB}
-                  labelA={matchProfiles[0].name}
-                  labelB={matchProfiles[1].name}
-                  size={290}
-                />
+                <>
+                  <RadixWheel
+                    planets={synastrySets.planetsA}
+                    planetsB={synastrySets.planetsB}
+                    labelA={matchProfiles[0].name}
+                    labelB={matchProfiles[1].name}
+                    size={290}
+                  />
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(251,113,133,0.12)' }}>
+                    <div style={{ fontSize: 9, color: '#fb7185', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Synastrie-Aspekte</div>
+                    <SynastryAspects
+                      planetsA={synastrySets.planetsA}
+                      planetsB={synastrySets.planetsB}
+                      nameA={matchProfiles[0].name}
+                      nameB={matchProfiles[1].name}
+                    />
+                  </div>
+                </>
               )}
             </SoulmatchCard>
           </div>

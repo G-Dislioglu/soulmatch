@@ -17,3 +17,4 @@ export { CompatibilityStoryCard } from './ui/CompatibilityStoryCard';
 export { MatchActionPlan } from './ui/MatchActionPlan';
 export { PairAffirmation } from './ui/PairAffirmation';
 export { ProfileCompatMatrix } from './ui/ProfileCompatMatrix';
+export { SynastryAspects } from './ui/SynastryAspects';
