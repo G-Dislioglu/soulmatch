@@ -21,3 +21,4 @@ export { SynastryAspects } from './ui/SynastryAspects';
 export { KarmicPairCard } from './ui/KarmicPairCard';
 export { LifePathComparison } from './ui/LifePathComparison';
 export { CommunicationGuide } from './ui/CommunicationGuide';
+export { PartnerTips } from './ui/PartnerTips';
