@@ -48,3 +48,4 @@ export { KarmicRelease } from './ui/KarmicRelease';
 export { NodalCompat } from './ui/NodalCompat';
 export { AuraFusion2 } from './ui/AuraFusion2';
 export { SharedLifePath } from './ui/SharedLifePath';
+export { SoulColorMatch } from './ui/SoulColorMatch';

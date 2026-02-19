@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal, LunarCalendar, BirthRuler, YearAstro, ChakraMap, TransitsToday, LunarAdvice, PlanetRhythm, StarGate, MonthlyEnergy, AspectMeaning, RetrogradeGuide, HouseMeanings, ZodiacGuide, PlanetMeanings, ChironWounds, NorthNodeGuide, VenusCycle, SaturnReturn, JupiterGifts } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -470,6 +470,19 @@ function HomePage() {
                   { label: 'Potential', value: Math.round(Math.min(100, matchResult.matchOverall * 1.08)), color: '#f472b6' },
                   { label: 'Harmonie', value: Math.round(matchResult.matchOverall), color: '#fbbf24' },
                 ]}
+              />
+            </SoulmatchCard>
+          </div>
+
+          {/* Seelenfarben-Fusion */}
+          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+              <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben-Fusion</div>
+              <SoulColorMatch
+                nameA={matchProfiles[0].name}
+                birthDateA={matchProfiles[0].birthDate}
+                nameB={matchProfiles[1].name}
+                birthDateB={matchProfiles[1].birthDate}
               />
             </SoulmatchCard>
           </div>
