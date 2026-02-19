@@ -26,3 +26,4 @@ export { RetrogradeAlert } from './ui/RetrogradeAlert';
 export { AspectsOverview } from './ui/AspectsOverview';
 export { WeeklyAstroView } from './ui/WeeklyAstroView';
 export { DayRhythm } from './ui/DayRhythm';
+export { PlanetJournal } from './ui/PlanetJournal';
