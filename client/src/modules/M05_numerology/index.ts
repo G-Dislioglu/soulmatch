@@ -43,3 +43,4 @@ export { LifeWheel } from './ui/LifeWheel';
 export { GiftsCard } from './ui/GiftsCard';
 export { LifeMissionCard } from './ui/LifeMissionCard';
 export { ChakraNumbers } from './ui/ChakraNumbers';
+export { YearOracle } from './ui/YearOracle';
