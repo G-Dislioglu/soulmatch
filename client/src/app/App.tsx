@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
@@ -901,6 +901,14 @@ function HomePage() {
                 <SoulmatchCard accent="#22c55e" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Stärken & Herausforderungen</div>
                   <StrengthsAnalysis name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Schattenseiten */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#7c3aed" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Schattenseiten</div>
+                  <ShadowSide name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
 

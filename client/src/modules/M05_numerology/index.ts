@@ -27,3 +27,4 @@ export { SoulColors } from './ui/SoulColors';
 export { SoulJourney } from './ui/SoulJourney';
 export { TimeCapsulle } from './ui/TimeCapsulle';
 export { SoulMantra } from './ui/SoulMantra';
+export { ShadowSide } from './ui/ShadowSide';
