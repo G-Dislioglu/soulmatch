@@ -24,3 +24,4 @@ export { CommunicationGuide } from './ui/CommunicationGuide';
 export { PartnerTips } from './ui/PartnerTips';
 export { SoulPairNarrative } from './ui/SoulPairNarrative';
 export { DailyEnergyMatch } from './ui/DailyEnergyMatch';
+export { FutureVision } from './ui/FutureVision';
