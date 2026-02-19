@@ -46,3 +46,4 @@ export { ElementalBalance } from './ui/ElementalBalance';
 export { FutureVisionCard } from './ui/FutureVisionCard';
 export { KarmicRelease } from './ui/KarmicRelease';
 export { NodalCompat } from './ui/NodalCompat';
+export { AuraFusion2 } from './ui/AuraFusion2';
