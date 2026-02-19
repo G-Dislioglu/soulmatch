@@ -102,8 +102,9 @@ export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick
   const pf = plasmaIntensity / 100;
   const puf = pulseIntensity / 100;
   const tf = tiltIntensity / 100;
-  const tiltX = (active && !noTilt) ? -(pos.y - 50) / (22 - tf * 8) : 0;
-  const tiltY = (active && !noTilt) ? (pos.x - 50) / (22 - tf * 8) : 0;
+  const maxTilt = tf * 4;
+  const tiltX = (active && !noTilt && maxTilt > 0) ? -(pos.y - 50) / 50 * maxTilt : 0;
+  const tiltY = (active && !noTilt && maxTilt > 0) ? (pos.x - 50) / 50 * maxTilt : 0;
 
   return (
     <div style={{ position: 'relative', borderRadius: 20, padding: 2, filter: `saturate(${saturation}%)` }}>

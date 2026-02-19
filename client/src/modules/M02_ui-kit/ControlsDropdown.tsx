@@ -80,7 +80,7 @@ export function ControlsDropdown({ settings, setSettings }: ControlsDropdownProp
         borderRadius: 18, background: 'rgba(12,10,20,0.97)', backdropFilter: 'blur(24px)',
         border: '1px solid rgba(212,175,55,0.12)',
         boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(212,175,55,0.05)',
-        overflow: 'hidden', maxHeight: open ? 520 : 0, opacity: open ? 1 : 0,
+        overflow: open ? 'auto' : 'hidden', maxHeight: open ? 520 : 0, opacity: open ? 1 : 0,
         transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease',
         pointerEvents: open ? 'auto' : 'none',
       }}>
