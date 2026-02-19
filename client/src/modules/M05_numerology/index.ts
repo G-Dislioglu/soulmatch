@@ -35,3 +35,4 @@ export { DreamArchive } from './ui/DreamArchive';
 export { TreeOfLife } from './ui/TreeOfLife';
 export { SoulPathWheel } from './ui/SoulPathWheel';
 export { YearCycleMandala } from './ui/YearCycleMandala';
+export { QuantumLeap } from './ui/QuantumLeap';
