@@ -33,3 +33,4 @@ export { YearClock } from './ui/YearClock';
 export { SoulContract } from './ui/SoulContract';
 export { DreamArchive } from './ui/DreamArchive';
 export { TreeOfLife } from './ui/TreeOfLife';
+export { SoulPathWheel } from './ui/SoulPathWheel';
