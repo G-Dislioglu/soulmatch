@@ -41,3 +41,4 @@ export { EnergyForecast } from './ui/EnergyForecast';
 export { SoulGeometry } from './ui/SoulGeometry';
 export { KarmicResolution } from './ui/KarmicResolution';
 export { MoonPhaseCompat } from './ui/MoonPhaseCompat';
+export { SoulContract2 } from './ui/SoulContract2';
