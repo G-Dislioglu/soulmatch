@@ -37,3 +37,4 @@ export { SoulPathWheel } from './ui/SoulPathWheel';
 export { YearCycleMandala } from './ui/YearCycleMandala';
 export { QuantumLeap } from './ui/QuantumLeap';
 export { ShadowWork } from './ui/ShadowWork';
+export { SoulVow } from './ui/SoulVow';
