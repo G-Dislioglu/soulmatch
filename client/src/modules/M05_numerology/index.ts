@@ -38,3 +38,4 @@ export { YearCycleMandala } from './ui/YearCycleMandala';
 export { QuantumLeap } from './ui/QuantumLeap';
 export { ShadowWork } from './ui/ShadowWork';
 export { SoulVow } from './ui/SoulVow';
+export { NumberMeditation } from './ui/NumberMeditation';
