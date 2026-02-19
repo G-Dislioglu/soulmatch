@@ -35,3 +35,4 @@ export { TransitsToday } from './ui/TransitsToday';
 export { LunarAdvice } from './ui/LunarAdvice';
 export { PlanetRhythm } from './ui/PlanetRhythm';
 export { StarGate } from './ui/StarGate';
+export { MonthlyEnergy } from './ui/MonthlyEnergy';
