@@ -38,3 +38,4 @@ export { StarGate } from './ui/StarGate';
 export { MonthlyEnergy } from './ui/MonthlyEnergy';
 export { AspectMeaning } from './ui/AspectMeaning';
 export { RetrogradeGuide } from './ui/RetrogradeGuide';
+export { HouseMeanings } from './ui/HouseMeanings';
