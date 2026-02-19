@@ -19,3 +19,4 @@ export { SoulSigil } from './ui/SoulSigil';
 export { BirthMoonPhase } from './ui/BirthMoonPhase';
 export { PersonalityCard } from './ui/PersonalityCard';
 export { SoulIntention } from './ui/SoulIntention';
+export { YearCalendar } from './ui/YearCalendar';
