@@ -22,8 +22,8 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 * { box-sizing: border-box; }
@@ -369,24 +369,22 @@ body {
   box-shadow: 0 0 24px rgba(212,175,55,0.15);
 }
 
-/* ── Global font-size floor: nothing below 11px ── */
-/* Targets all inline-styled small text inside cards */
+/* ── Global font-size floor: nothing below 12px ── */
 .app-content-main div[style*='font-size: 7'],
 .app-content-main div[style*='font-size: 8'],
 .app-content-main div[style*='font-size: 9'],
+.app-content-main div[style*='font-size: 10'],
+.app-content-main div[style*='font-size: 11'],
 .app-content-main p[style*='font-size: 7'],
 .app-content-main p[style*='font-size: 8'],
 .app-content-main p[style*='font-size: 9'],
+.app-content-main p[style*='font-size: 10'],
+.app-content-main p[style*='font-size: 11'],
 .app-content-main span[style*='font-size: 7'],
 .app-content-main span[style*='font-size: 8'],
-.app-content-main span[style*='font-size: 9'] {
-  font-size: 11px !important;
-}
-
-/* Boost body text in cards */
-.app-content-main div[style*='font-size: 10'],
-.app-content-main p[style*='font-size: 10'],
-.app-content-main span[style*='font-size: 10'] {
+.app-content-main span[style*='font-size: 9'],
+.app-content-main span[style*='font-size: 10'],
+.app-content-main span[style*='font-size: 11'] {
   font-size: 12px !important;
 }
 

@@ -13,12 +13,12 @@ export interface CardSettings {
 }
 
 export const DEFAULT_CARD_SETTINGS: CardSettings = {
-  glowIntensity: 90,
-  plasmaIntensity: 45,
-  pulseIntensity: 65,
-  tiltIntensity: 45,
-  saturation: 150,
-  cursorAuraIntensity: 70,
+  glowIntensity: 75,
+  plasmaIntensity: 20,
+  pulseIntensity: 25,
+  tiltIntensity: 15,
+  saturation: 130,
+  cursorAuraIntensity: 55,
   cosmicTrail: true,
 };
 
