@@ -42,3 +42,4 @@ export { SoulGeometry } from './ui/SoulGeometry';
 export { KarmicResolution } from './ui/KarmicResolution';
 export { MoonPhaseCompat } from './ui/MoonPhaseCompat';
 export { SoulContract2 } from './ui/SoulContract2';
+export { ElementalBalance } from './ui/ElementalBalance';
