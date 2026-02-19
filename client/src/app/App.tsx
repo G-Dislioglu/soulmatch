@@ -2239,13 +2239,13 @@ function HomePage() {
         {/* ═══ PAGE 5: HALL OF SOULS ═══ */}
         {activePage === PAGE_SOULS && (
           <div key="souls" className="portal-enter">
-            <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ maxWidth: 650, margin: '0 auto' }}>
               <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
                 <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Kosmische Verbindungen</div>
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Hall of Souls</div>
                 <div style={{ fontSize: 11, color: '#f472b6', marginTop: 4 }}>Entdecke deine Verbindung zu historischen Geistern</div>
               </div>
-              <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+              <SoulmatchCard accent="#f472b6" settings={cardSettings} noTilt>
                 <HallOfSouls profile={profile} />
               </SoulmatchCard>
             </div>

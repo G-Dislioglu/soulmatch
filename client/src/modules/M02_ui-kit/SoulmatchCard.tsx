@@ -34,13 +34,14 @@ interface SoulmatchCardProps {
   settings?: CardSettings;
   onCardClick?: () => void;
   cardTitle?: string;
+  noTilt?: boolean;
 }
 
 function gh(v: number): string {
   return Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0');
 }
 
-export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick, cardTitle }: SoulmatchCardProps) {
+export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick, cardTitle, noTilt }: SoulmatchCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 50, y: 50 });
   const [active, setActive] = useState(false);
@@ -101,8 +102,8 @@ export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick
   const pf = plasmaIntensity / 100;
   const puf = pulseIntensity / 100;
   const tf = tiltIntensity / 100;
-  const tiltX = active ? -(pos.y - 50) / (14 - tf * 8) : 0;
-  const tiltY = active ? (pos.x - 50) / (14 - tf * 8) : 0;
+  const tiltX = (active && !noTilt) ? -(pos.y - 50) / (22 - tf * 8) : 0;
+  const tiltY = (active && !noTilt) ? (pos.x - 50) / (22 - tf * 8) : 0;
 
   return (
     <div style={{ position: 'relative', borderRadius: 20, padding: 2, filter: `saturate(${saturation}%)` }}>
