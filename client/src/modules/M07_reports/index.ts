@@ -19,3 +19,4 @@ export { PairAffirmation } from './ui/PairAffirmation';
 export { ProfileCompatMatrix } from './ui/ProfileCompatMatrix';
 export { SynastryAspects } from './ui/SynastryAspects';
 export { KarmicPairCard } from './ui/KarmicPairCard';
+export { LifePathComparison } from './ui/LifePathComparison';
