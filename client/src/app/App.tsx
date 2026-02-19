@@ -12,7 +12,7 @@ import {
   getProfileById,
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
-import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal, LunarCalendar, BirthRuler, YearAstro, ChakraMap, TransitsToday, LunarAdvice, PlanetRhythm, StarGate, MonthlyEnergy, AspectMeaning, RetrogradeGuide, HouseMeanings, ZodiacGuide, PlanetMeanings, ChironWounds } from '../modules/M04_astrology-adapter';
+import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal, LunarCalendar, BirthRuler, YearAstro, ChakraMap, TransitsToday, LunarAdvice, PlanetRhythm, StarGate, MonthlyEnergy, AspectMeaning, RetrogradeGuide, HouseMeanings, ZodiacGuide, PlanetMeanings, ChironWounds, NorthNodeGuide } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance } from '../modules/M07_reports';
@@ -1728,6 +1728,12 @@ function HomePage() {
               <SoulmatchCard accent="#c026d3" settings={cardSettings}>
                 <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chiron – Deine Wunde & Heilung</div>
                 <ChironWounds birthDate={profile.birthDate} />
+              </SoulmatchCard>
+
+              {/* Nordknoten-Guide */}
+              <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Nordknoten – Seelenrichtung</div>
+                <NorthNodeGuide birthDate={profile.birthDate} />
               </SoulmatchCard>
 
               {/* Aspekte-Kurztext */}

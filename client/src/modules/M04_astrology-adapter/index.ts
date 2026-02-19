@@ -42,3 +42,4 @@ export { HouseMeanings } from './ui/HouseMeanings';
 export { ZodiacGuide } from './ui/ZodiacGuide';
 export { PlanetMeanings } from './ui/PlanetMeanings';
 export { ChironWounds } from './ui/ChironWounds';
+export { NorthNodeGuide } from './ui/NorthNodeGuide';
