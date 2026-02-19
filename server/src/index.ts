@@ -18,12 +18,6 @@ import { devLogger } from './devLogger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Fail-fast: Check database connection
-if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL environment variable is required');
-  console.error('Please set DATABASE_URL in Render Environment Variables');
-  process.exit(1);
-}
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);

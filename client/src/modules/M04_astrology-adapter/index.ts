@@ -43,3 +43,4 @@ export { ZodiacGuide } from './ui/ZodiacGuide';
 export { PlanetMeanings } from './ui/PlanetMeanings';
 export { ChironWounds } from './ui/ChironWounds';
 export { NorthNodeGuide } from './ui/NorthNodeGuide';
+export { VenusCycle } from './ui/VenusCycle';
