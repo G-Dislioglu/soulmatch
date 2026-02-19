@@ -45,3 +45,4 @@ export { ChironWounds } from './ui/ChironWounds';
 export { NorthNodeGuide } from './ui/NorthNodeGuide';
 export { VenusCycle } from './ui/VenusCycle';
 export { SaturnReturn } from './ui/SaturnReturn';
+export { JupiterGifts } from './ui/JupiterGifts';
