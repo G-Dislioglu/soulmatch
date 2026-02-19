@@ -31,3 +31,4 @@ export { ShadowSide } from './ui/ShadowSide';
 export { LifeMission } from './ui/LifeMission';
 export { YearClock } from './ui/YearClock';
 export { SoulContract } from './ui/SoulContract';
+export { DreamArchive } from './ui/DreamArchive';
