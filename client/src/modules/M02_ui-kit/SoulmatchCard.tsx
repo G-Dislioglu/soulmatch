@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
 
 const ACCENT = '#d4af37';
 
@@ -32,13 +32,15 @@ interface SoulmatchCardProps {
   children: ReactNode;
   accent?: string;
   settings?: CardSettings;
+  onCardClick?: () => void;
+  cardTitle?: string;
 }
 
 function gh(v: number): string {
   return Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0');
 }
 
-export function SoulmatchCard({ children, accent = ACCENT, settings }: SoulmatchCardProps) {
+export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick, cardTitle }: SoulmatchCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 50, y: 50 });
   const [active, setActive] = useState(false);
@@ -78,6 +80,13 @@ export function SoulmatchCard({ children, accent = ACCENT, settings }: Soulmatch
     setActive(false);
     setPos({ x: 50, y: 50 });
     setEdgeGlows([]);
+  };
+
+  const handleClick = (e: ReactMouseEvent) => {
+    if (onCardClick) {
+      e.stopPropagation();
+      onCardClick();
+    }
   };
 
   const {
@@ -130,14 +139,18 @@ export function SoulmatchCard({ children, accent = ACCENT, settings }: Soulmatch
         onMouseMove={handleMove}
         onMouseEnter={() => setActive(true)}
         onMouseLeave={handleLeave}
+        onClick={handleClick}
+        title={onCardClick && cardTitle ? `Frage Maya zu: ${cardTitle}` : undefined}
         style={{
           position: 'relative', borderRadius: 18,
           background: 'rgba(10,8,18,0.95)', padding: '24px 26px',
-          overflow: 'hidden', cursor: 'default',
-          transform: `perspective(900px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`,
+          overflow: 'hidden', cursor: onCardClick ? 'pointer' : 'default',
+          transform: active
+            ? `perspective(900px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.025)`
+            : 'perspective(900px) rotateX(0deg) rotateY(0deg) scale(1)',
           transition: active
-            ? 'transform 0.1s ease-out, box-shadow 0.3s'
-            : 'transform 0.5s ease-out, box-shadow 0.5s',
+            ? 'transform 0.15s ease-out, box-shadow 0.3s'
+            : 'transform 0.4s ease-out, box-shadow 0.5s',
           boxShadow: active
             ? `0 16px 48px rgba(0,0,0,0.35), 0 0 ${20 + gf * 35}px ${accent}${gh(gf * 22)}`
             : '0 6px 20px rgba(0,0,0,0.25)',
@@ -199,7 +212,11 @@ export function SoulmatchCard({ children, accent = ACCENT, settings }: Soulmatch
         }} />
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 2 }}>{children}</div>
+        <div
+          style={{ position: 'relative', zIndex: 2 }}
+          {...(cardTitle ? { 'data-card-title': cardTitle } : {})}
+          className={cardTitle ? 'soulmatch-card-clickable' : undefined}
+        >{children}</div>
       </div>
     </div>
   );

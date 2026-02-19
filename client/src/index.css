@@ -22,6 +22,8 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 * { box-sizing: border-box; }
@@ -365,4 +367,62 @@ body {
 .persona-card-hover:hover {
   transform: scale(1.04);
   box-shadow: 0 0 24px rgba(212,175,55,0.15);
+}
+
+/* ── Global font-size floor: nothing below 11px ── */
+/* Targets all inline-styled small text inside cards */
+.app-content-main div[style*='font-size: 7'],
+.app-content-main div[style*='font-size: 8'],
+.app-content-main div[style*='font-size: 9'],
+.app-content-main p[style*='font-size: 7'],
+.app-content-main p[style*='font-size: 8'],
+.app-content-main p[style*='font-size: 9'],
+.app-content-main span[style*='font-size: 7'],
+.app-content-main span[style*='font-size: 8'],
+.app-content-main span[style*='font-size: 9'] {
+  font-size: 11px !important;
+}
+
+/* Boost body text in cards */
+.app-content-main div[style*='font-size: 10'],
+.app-content-main p[style*='font-size: 10'],
+.app-content-main span[style*='font-size: 10'] {
+  font-size: 12px !important;
+}
+
+/* ── Prevent wide cards from overflowing under sidebar ── */
+.app-content-main {
+  min-width: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* ── Card hover zoom wrapper ── */
+.soulmatch-card-zoomable {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  will-change: transform;
+}
+.soulmatch-card-zoomable:hover {
+  transform: scale(1.018);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  z-index: 10;
+  position: relative;
+}
+
+/* ── Maya card chat click hint ── */
+.soulmatch-card-clickable::after {
+  content: '✦ Maya fragen';
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-size: 10px;
+  color: rgba(212,175,55,0.45);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.06em;
+}
+.soulmatch-card-clickable:hover::after {
+  opacity: 1;
 }

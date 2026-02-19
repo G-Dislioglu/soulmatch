@@ -14,3 +14,4 @@ export { CosmicButton } from './CosmicButton';
 export { ScoreSkeleton } from './ScoreSkeleton';
 export { ResponsiveArtwork } from './ResponsiveArtwork';
 export { DiscoveryFlow } from './DiscoveryFlow';
+export { CardMayaChat } from './CardMayaChat';
