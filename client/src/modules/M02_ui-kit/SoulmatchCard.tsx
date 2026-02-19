@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
+import { CardMayaChat } from './CardMayaChat';
 
 const ACCENT = '#d4af37';
 
@@ -35,17 +36,20 @@ interface SoulmatchCardProps {
   onCardClick?: () => void;
   cardTitle?: string;
   noTilt?: boolean;
+  disableChat?: boolean;
 }
 
 function gh(v: number): string {
   return Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0');
 }
 
-export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick, cardTitle, noTilt }: SoulmatchCardProps) {
+export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick, cardTitle, noTilt, disableChat }: SoulmatchCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 50, y: 50 });
   const [active, setActive] = useState(false);
   const [edgeGlows, setEdgeGlows] = useState<EdgeGlow[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleMove = useCallback((e: React.MouseEvent) => {
     const el = ref.current;
@@ -87,6 +91,11 @@ export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick
     if (onCardClick) {
       e.stopPropagation();
       onCardClick();
+      return;
+    }
+    if (cardTitle && !disableChat) {
+      e.stopPropagation();
+      setChatOpen((prev) => !prev);
     }
   };
 
@@ -215,10 +224,37 @@ export function SoulmatchCard({ children, accent = ACCENT, settings, onCardClick
 
         {/* Content */}
         <div
+          ref={contentRef}
           style={{ position: 'relative', zIndex: 2 }}
           {...(cardTitle ? { 'data-card-title': cardTitle } : {})}
           className={cardTitle ? 'soulmatch-card-clickable' : undefined}
-        >{children}</div>
+        >
+          {children}
+          {cardTitle && !disableChat && (
+            <div style={{ marginTop: 10, textAlign: 'right' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setChatOpen((p) => !p); }}
+                style={{
+                  background: chatOpen ? `${accent}22` : 'transparent',
+                  border: `1px solid ${accent}30`,
+                  borderRadius: 8, padding: '4px 10px',
+                  color: accent, fontSize: 11, cursor: 'pointer',
+                  fontWeight: 500, letterSpacing: '0.04em',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {chatOpen ? '✕ Maya schließen' : '☽ Maya fragen'}
+              </button>
+            </div>
+          )}
+          {chatOpen && cardTitle && (
+            <CardMayaChat
+              cardTitle={cardTitle}
+              cardContext={contentRef.current?.textContent?.slice(0, 500) ?? ''}
+              onClose={() => setChatOpen(false)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

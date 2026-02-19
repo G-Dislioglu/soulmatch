@@ -33,7 +33,6 @@ import {
   ScoreSkeleton,
   DEFAULT_CARD_SETTINGS,
   DiscoveryFlow,
-  CardMayaChat,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
@@ -142,7 +141,6 @@ function HomePage() {
   const [showCrossing, setShowCrossing] = useState(false);
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
-  const [mayaCardChat, setMayaCardChat] = useState<{ title: string; context: string } | null>(null);
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
@@ -1039,15 +1037,6 @@ function HomePage() {
   return (
     <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} intensity={cardSettings.cursorAuraIntensity} />}
-
-      {/* Maya Card Chat Modal */}
-      {mayaCardChat && (
-        <CardMayaChat
-          cardTitle={mayaCardChat.title}
-          cardContext={mayaCardChat.context}
-          onClose={() => setMayaCardChat(null)}
-        />
-      )}
 
       {/* Soul Card Detail Modal */}
       {activeSoulCard && (
