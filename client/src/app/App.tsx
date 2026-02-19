@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal, LunarCalendar, BirthRuler, YearAstro, ChakraMap, TransitsToday, LunarAdvice, PlanetRhythm, StarGate, MonthlyEnergy, AspectMeaning, RetrogradeGuide, HouseMeanings } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
@@ -1179,6 +1179,14 @@ function HomePage() {
                 <SoulmatchCard accent="#c026d3" settings={cardSettings}>
                   <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zahlen-Meditation</div>
                   <NumberMeditation name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Lebens-Rad */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebens-Rad</div>
+                  <LifeWheel name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
 

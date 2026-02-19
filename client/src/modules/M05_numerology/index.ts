@@ -39,3 +39,4 @@ export { QuantumLeap } from './ui/QuantumLeap';
 export { ShadowWork } from './ui/ShadowWork';
 export { SoulVow } from './ui/SoulVow';
 export { NumberMeditation } from './ui/NumberMeditation';
+export { LifeWheel } from './ui/LifeWheel';
