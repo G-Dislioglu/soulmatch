@@ -42,3 +42,4 @@ export { NumberMeditation } from './ui/NumberMeditation';
 export { LifeWheel } from './ui/LifeWheel';
 export { GiftsCard } from './ui/GiftsCard';
 export { LifeMissionCard } from './ui/LifeMissionCard';
+export { ChakraNumbers } from './ui/ChakraNumbers';
