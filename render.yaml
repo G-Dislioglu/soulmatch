@@ -4,9 +4,9 @@ services:
     runtime: node
     plan: free
     buildCommand: >
-      npm install -g pnpm &&
-      cd client && pnpm install && pnpm build &&
-      cd ../server && pnpm install && pnpm build
+      npm install -g pnpm@9 &&
+      cd client && pnpm install --frozen-lockfile && pnpm build &&
+      cd ../server && pnpm install --frozen-lockfile && pnpm build
     startCommand: node server/dist/index.js
     envVars:
       - key: OPENAI_API_KEY
