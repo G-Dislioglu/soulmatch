@@ -31,3 +31,4 @@ export { LunarCalendar } from './ui/LunarCalendar';
 export { BirthRuler } from './ui/BirthRuler';
 export { YearAstro } from './ui/YearAstro';
 export { ChakraMap } from './ui/ChakraMap';
+export { TransitsToday } from './ui/TransitsToday';
