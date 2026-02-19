@@ -28,3 +28,4 @@ export { WeeklyAstroView } from './ui/WeeklyAstroView';
 export { DayRhythm } from './ui/DayRhythm';
 export { PlanetJournal } from './ui/PlanetJournal';
 export { LunarCalendar } from './ui/LunarCalendar';
+export { BirthRuler } from './ui/BirthRuler';
