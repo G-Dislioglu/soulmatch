@@ -26,3 +26,4 @@ export { SoulPairNarrative } from './ui/SoulPairNarrative';
 export { DailyEnergyMatch } from './ui/DailyEnergyMatch';
 export { FutureVision } from './ui/FutureVision';
 export { PrayerWheel } from './ui/PrayerWheel';
+export { GrowthPath } from './ui/GrowthPath';
