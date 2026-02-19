@@ -30,7 +30,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id: string) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor-react';
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/scheduler') ||
+            id.includes('node_modules/wouter') ||
+            id.includes('node_modules/use-sync-external-store') ||
+            id.includes('node_modules/regexparam')
+          ) return 'vendor-react';
           if (id.includes('node_modules')) return 'vendor';
           if (id.includes('/modules/M05_numerology/')) return 'mod-numerology';
           if (id.includes('/modules/M04_astrology-adapter/')) return 'mod-astrology';
