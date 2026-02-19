@@ -44,3 +44,4 @@ export { MoonPhaseCompat } from './ui/MoonPhaseCompat';
 export { SoulContract2 } from './ui/SoulContract2';
 export { ElementalBalance } from './ui/ElementalBalance';
 export { FutureVisionCard } from './ui/FutureVisionCard';
+export { KarmicRelease } from './ui/KarmicRelease';
