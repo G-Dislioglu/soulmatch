@@ -47,3 +47,4 @@ export { YearOracle } from './ui/YearOracle';
 export { DailyEnergy } from './ui/DailyEnergy';
 export { DestinyCard } from './ui/DestinyCard';
 export { SoulUrgeCard } from './ui/SoulUrgeCard';
+export { PersonalityDeep } from './ui/PersonalityDeep';
