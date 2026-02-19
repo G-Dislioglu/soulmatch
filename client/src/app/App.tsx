@@ -15,7 +15,7 @@ import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView, DayRhythm, PlanetJournal, LunarCalendar, BirthRuler, YearAstro } from '../modules/M04_astrology-adapter';
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
-import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy } from '../modules/M07_reports';
+import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
@@ -604,6 +604,19 @@ function HomePage() {
             <SoulmatchCard accent="#22d3ee" settings={cardSettings}>
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Energie</div>
               <DailyEnergyMatch
+                nameA={matchProfiles[0].name}
+                birthDateA={matchProfiles[0].birthDate}
+                nameB={matchProfiles[1].name}
+                birthDateB={matchProfiles[1].birthDate}
+              />
+            </SoulmatchCard>
+          </div>
+
+          {/* Kompatibilitäts-Orakel */}
+          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <SoulmatchCard accent="#d4af37" settings={cardSettings}>
+              <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Orakel</div>
+              <CompatOracle
                 nameA={matchProfiles[0].name}
                 birthDateA={matchProfiles[0].birthDate}
                 nameB={matchProfiles[1].name}
