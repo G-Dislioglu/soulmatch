@@ -40,3 +40,4 @@ export { AspectMeaning } from './ui/AspectMeaning';
 export { RetrogradeGuide } from './ui/RetrogradeGuide';
 export { HouseMeanings } from './ui/HouseMeanings';
 export { ZodiacGuide } from './ui/ZodiacGuide';
+export { PlanetMeanings } from './ui/PlanetMeanings';
