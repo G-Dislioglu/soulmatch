@@ -36,3 +36,4 @@ export { DailyRitual } from './ui/DailyRitual';
 export { SoulBridge } from './ui/SoulBridge';
 export { AuraResonance } from './ui/AuraResonance';
 export { TwinFlameCheck } from './ui/TwinFlameCheck';
+export { SharedYearForecast } from './ui/SharedYearForecast';
