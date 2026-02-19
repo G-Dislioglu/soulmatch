@@ -25,3 +25,4 @@ export { StrengthsAnalysis } from './ui/StrengthsAnalysis';
 export { LuckyNumbers } from './ui/LuckyNumbers';
 export { SoulColors } from './ui/SoulColors';
 export { SoulJourney } from './ui/SoulJourney';
+export { TimeCapsulle } from './ui/TimeCapsulle';
