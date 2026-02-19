@@ -46,3 +46,4 @@ export { NorthNodeGuide } from './ui/NorthNodeGuide';
 export { VenusCycle } from './ui/VenusCycle';
 export { SaturnReturn } from './ui/SaturnReturn';
 export { JupiterGifts } from './ui/JupiterGifts';
+export { MoonPhaseDeep } from './ui/MoonPhaseDeep';
