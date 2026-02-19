@@ -30,3 +30,4 @@ export { GrowthPath } from './ui/GrowthPath';
 export { ElementBalance } from './ui/ElementBalance';
 export { MoonSynergy } from './ui/MoonSynergy';
 export { CompatOracle } from './ui/CompatOracle';
+export { KarmicArc } from './ui/KarmicArc';
