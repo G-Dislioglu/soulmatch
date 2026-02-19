@@ -40,3 +40,4 @@ export { ShadowWork } from './ui/ShadowWork';
 export { SoulVow } from './ui/SoulVow';
 export { NumberMeditation } from './ui/NumberMeditation';
 export { LifeWheel } from './ui/LifeWheel';
+export { GiftsCard } from './ui/GiftsCard';
