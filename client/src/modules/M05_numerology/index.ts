@@ -46,3 +46,4 @@ export { ChakraNumbers } from './ui/ChakraNumbers';
 export { YearOracle } from './ui/YearOracle';
 export { DailyEnergy } from './ui/DailyEnergy';
 export { DestinyCard } from './ui/DestinyCard';
+export { SoulUrgeCard } from './ui/SoulUrgeCard';
