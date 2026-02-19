@@ -27,3 +27,4 @@ export { DailyEnergyMatch } from './ui/DailyEnergyMatch';
 export { FutureVision } from './ui/FutureVision';
 export { PrayerWheel } from './ui/PrayerWheel';
 export { GrowthPath } from './ui/GrowthPath';
+export { ElementBalance } from './ui/ElementBalance';
