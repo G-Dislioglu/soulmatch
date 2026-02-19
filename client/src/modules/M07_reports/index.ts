@@ -31,3 +31,4 @@ export { ElementBalance } from './ui/ElementBalance';
 export { MoonSynergy } from './ui/MoonSynergy';
 export { CompatOracle } from './ui/CompatOracle';
 export { KarmicArc } from './ui/KarmicArc';
+export { SoulColorFusion } from './ui/SoulColorFusion';
