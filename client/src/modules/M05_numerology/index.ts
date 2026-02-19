@@ -22,3 +22,4 @@ export { SoulIntention } from './ui/SoulIntention';
 export { YearCalendar } from './ui/YearCalendar';
 export { SoulDossier } from './ui/SoulDossier';
 export { StrengthsAnalysis } from './ui/StrengthsAnalysis';
+export { LuckyNumbers } from './ui/LuckyNumbers';
