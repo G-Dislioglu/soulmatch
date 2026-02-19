@@ -13,7 +13,7 @@ import {
 } from '../modules/M03_profile';
 import { computeScore } from '../modules/M06_scoring';
 import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpretation, CosmicAlerts, DayEnergyScore, MonthlyHoroscope, CurrentSkyCard, RetrogradeAlert, AspectsOverview, WeeklyAstroView } from '../modules/M04_astrology-adapter';
-import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers } from '../modules/M05_numerology';
+import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison } from '../modules/M07_reports';
 import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
@@ -889,6 +889,14 @@ function HomePage() {
                 <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                   <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Sigil</div>
                   <SoulSigil name={profile.name} birthDate={profile.birthDate} />
+                </SoulmatchCard>
+              </div>
+
+              {/* Seelenfarben */}
+              <div style={{ marginTop: 12 }}>
+                <SoulmatchCard accent="#c084fc" settings={cardSettings}>
+                  <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben</div>
+                  <SoulColors name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
               </div>
 
