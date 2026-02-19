@@ -447,7 +447,7 @@ function HomePage() {
           />
 
           {/* Verbindungstyp-Karte */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'} settings={cardSettings}>
               <ConnectionTypeCard
                 connectionType={matchResult.connectionType ?? 'harmonisch'}
@@ -458,7 +458,7 @@ function HomePage() {
           </div>
 
           {/* Affinität-Radar */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Affinität-Radar">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Affinität-Radar</div>
               <AffinityRadar
@@ -477,7 +477,7 @@ function HomePage() {
           </div>
 
           {/* Seelenfarben-Fusion */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Seelenfarben-Fusion">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben-Fusion</div>
               <SoulColorMatch
@@ -490,7 +490,7 @@ function HomePage() {
           </div>
 
           {/* Gemeinsamer Lebensweg */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Gemeinsamer Lebensweg">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Lebensweg</div>
               <SharedLifePath
@@ -503,7 +503,7 @@ function HomePage() {
           </div>
 
           {/* Aura-Fusion */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Aura-Fusion">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aura-Fusion</div>
               <AuraFusion2
@@ -516,7 +516,7 @@ function HomePage() {
           </div>
 
           {/* Mondknoten-Kompatibilität */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#a78bfa" settings={cardSettings} cardTitle="Mondknoten-Kompatibilität">
               <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondknoten-Kompatibilität</div>
               <NodalCompat
@@ -529,7 +529,7 @@ function HomePage() {
           </div>
 
           {/* Karma-Auflösung */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Karma-Auflösung">
               <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Auflösung</div>
               <KarmicRelease
@@ -542,7 +542,7 @@ function HomePage() {
           </div>
 
           {/* Zukunfts-Vision */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Gemeinsame Zukunfts-Vision">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Zukunfts-Vision</div>
               <FutureVisionCard
@@ -555,7 +555,7 @@ function HomePage() {
           </div>
 
           {/* Elementar-Balance */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#a16207" settings={cardSettings} cardTitle="Elementar-Balance">
               <div style={{ fontSize: 11, color: '#a16207', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Elementar-Balance</div>
               <ElementalBalance
@@ -568,7 +568,7 @@ function HomePage() {
           </div>
 
           {/* Seelen-Vertrag */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelen-Vertrag">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Vertrag</div>
               <SoulContract2
@@ -581,7 +581,7 @@ function HomePage() {
           </div>
 
           {/* Mondphasen-Kompatibilität */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Mondphasen-Kompatibilität">
               <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondphasen-Kompatibilität</div>
               <MoonPhaseCompat
@@ -594,7 +594,7 @@ function HomePage() {
           </div>
 
           {/* Karma-Auflösung */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Karma-Auflösung">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Auflösung</div>
               <KarmicResolution
@@ -607,7 +607,7 @@ function HomePage() {
           </div>
 
           {/* Seelen-Geometrie */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Heilige Seelen-Geometrie">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Heilige Seelen-Geometrie</div>
               <SoulGeometry
@@ -620,7 +620,7 @@ function HomePage() {
           </div>
 
           {/* Energie-Prognose */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="30-Tage Energie-Prognose">
               <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>30-Tage Energie-Prognose</div>
               <EnergyForecast
@@ -633,7 +633,7 @@ function HomePage() {
           </div>
 
           {/* Gemeinsamer Jahresausblick */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Gemeinsamer Jahresausblick">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Jahresausblick</div>
               <SharedYearForecast
@@ -646,7 +646,7 @@ function HomePage() {
           </div>
 
           {/* Zwillingsflammen-Check */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Zwillingsflammen-Check">
               <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zwillingsflammen-Check</div>
               <TwinFlameCheck
@@ -659,7 +659,7 @@ function HomePage() {
           </div>
 
           {/* Aura-Resonanz */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#a78bfa" settings={cardSettings} cardTitle="Aura-Resonanz">
               <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aura-Resonanz</div>
               <AuraResonance
@@ -672,7 +672,7 @@ function HomePage() {
           </div>
 
           {/* Seelen-Brücke */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelen-Brücke">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Brücke</div>
               <SoulBridge
@@ -685,7 +685,7 @@ function HomePage() {
           </div>
 
           {/* Seelenfarben-Fusion */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelenfarben-Fusion">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben-Fusion</div>
               <SoulColorFusion
@@ -698,7 +698,7 @@ function HomePage() {
           </div>
 
           {/* Karma-Bogen */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Karmischer Bogen">
               <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karmischer Bogen</div>
               <KarmicArc
@@ -711,7 +711,7 @@ function HomePage() {
           </div>
 
           {/* Mondphasen-Synergie */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#94a3b8" settings={cardSettings} cardTitle="Geburts-Mondphasen">
               <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburts-Mondphasen</div>
               <MoonSynergy
@@ -724,7 +724,7 @@ function HomePage() {
           </div>
 
           {/* Elementares Gleichgewicht */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Elementares Gleichgewicht">
               <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Elementares Gleichgewicht</div>
               <ElementBalance
@@ -737,7 +737,7 @@ function HomePage() {
           </div>
 
           {/* Wachstumspfad */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Gemeinsamer Wachstumspfad">
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Wachstumspfad</div>
               <GrowthPath
@@ -750,7 +750,7 @@ function HomePage() {
           </div>
 
           {/* Zukunftsvision */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Gemeinsame Zukunftsvision">
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Zukunftsvision</div>
               <FutureVision
@@ -763,7 +763,7 @@ function HomePage() {
           </div>
 
           {/* Seelenpaar-Prosa */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelenpaar-Portrait">
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenpaar-Portrait</div>
               <SoulPairNarrative
@@ -776,7 +776,7 @@ function HomePage() {
           </div>
 
           {/* Numerologie-Paar-Tabelle */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent={ACCENT} settings={cardSettings}>
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie-Vergleich</div>
               <NumeroPairTable profileA={matchProfiles[0]} profileB={matchProfiles[1]} />
@@ -784,7 +784,7 @@ function HomePage() {
           </div>
 
           {/* Seelenweg-Vergleich */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelenweg-Vergleich">
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenweg-Vergleich</div>
               <LifePathComparison
@@ -797,7 +797,7 @@ function HomePage() {
           </div>
 
           {/* Kommunikationsstil */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Kommunikationsstil">
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kommunikationsstil</div>
               <CommunicationGuide
@@ -810,7 +810,7 @@ function HomePage() {
           </div>
 
           {/* Partner-Tipps */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Partner-Tipps">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Partner-Tipps</div>
               <PartnerTips
@@ -823,7 +823,7 @@ function HomePage() {
           </div>
 
           {/* Karma-Schulden */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Karma-Schulden">
               <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Schulden</div>
               <KarmicPairCard
@@ -836,7 +836,7 @@ function HomePage() {
           </div>
 
           {/* Tages-Energie-Match */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Tages-Energie">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Energie</div>
               <DailyEnergyMatch
@@ -849,7 +849,7 @@ function HomePage() {
           </div>
 
           {/* Tages-Ritual */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Gemeinsames Tages-Ritual">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsames Tages-Ritual</div>
               <DailyRitual
@@ -862,7 +862,7 @@ function HomePage() {
           </div>
 
           {/* Kompatibilitäts-Orakel */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Tages-Orakel">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Orakel</div>
               <CompatOracle
@@ -875,7 +875,7 @@ function HomePage() {
           </div>
 
           {/* Gebetsrad */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Gemeinsame Affirmationen">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Affirmationen</div>
               <PrayerWheel
@@ -887,7 +887,7 @@ function HomePage() {
             </SoulmatchCard>
           </div>
 
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Tages-Affirmation">
               <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Affirmation</div>
               <PairAffirmation
@@ -899,7 +899,7 @@ function HomePage() {
           </div>
 
           {/* Match-Aktionsplan */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Aktionsplan · Empfehlungen">
               <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aktionsplan · Empfehlungen</div>
               <MatchActionPlan
@@ -911,7 +911,7 @@ function HomePage() {
           </div>
 
           {/* Luna & Orion Liebesgeschichte */}
-          <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
             <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Seelengeschichte · Luna & Orion">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelengeschichte · Luna & Orion</div>
               <CompatibilityStoryCard
@@ -926,7 +926,7 @@ function HomePage() {
           </div>
 
           {/* Synastrie-Rad */}
-          <div style={{ maxWidth: 500, margin: '0 auto 32px' }}>
+          <div style={{ maxWidth: 600, margin: '0 auto 32px' }}>
             <SoulmatchCard accent="#fb7185" settings={cardSettings} cardTitle="Synastrie-Rad">
               <div style={{ fontSize: 11, color: '#fb7185', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Synastrie-Rad</div>
               {!synastrySets && !synastryLoading && (
@@ -1151,7 +1151,7 @@ function HomePage() {
               <div style={{ fontSize: 11, color: '#8a8578', marginTop: 4 }}>Dein Soulmatch Profil</div>
             </div>
 
-            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
               <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                 {[
                   ['Geburtsdatum', profile.birthDate],
@@ -1561,7 +1561,7 @@ function HomePage() {
               </div>
             </div>
             {/* Seelen-Dossier */}
-            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Dossier">
                 <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Dossier</div>
                 <SoulDossier name={profile.name} birthDate={profile.birthDate} />
@@ -1569,25 +1569,25 @@ function HomePage() {
             </div>
 
             {/* Score-Verlauf */}
-            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Score-Verlauf">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score-Verlauf</div>
                 <ScoreHistoryChart />
               </SoulmatchCard>
             </div>
-            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Match-Bestenliste">
                 <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Match-Bestenliste</div>
                 <TopMatchesCard />
               </SoulmatchCard>
             </div>
-            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="LP-Kompatibilitäts-Matrix">
                 <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>LP-Kompatibilitäts-Matrix</div>
                 <ProfileCompatMatrix />
               </SoulmatchCard>
             </div>
-            <div style={{ maxWidth: 500, margin: '0 auto 16px' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Wochenbotschaft · Orion">
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenbotschaft · Orion</div>
                 <WeeklyInsightCard name={profile.name} birthDate={profile.birthDate} />
@@ -1600,7 +1600,7 @@ function HomePage() {
               </div>
             </div>
 
-            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {computing ? (
                 <SoulmatchCard accent={ACCENT} settings={cardSettings}>
                   <ScoreSkeleton />
@@ -1731,7 +1731,7 @@ function HomePage() {
             </SoulmatchCard>
 
             {/* Studio integration */}
-            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
               <StudioPage
                 profileId={profile.id}
                 onBack={() => setActivePage(PAGE_PROFILE)}
@@ -1771,7 +1771,7 @@ function HomePage() {
               </div>
             </div>
 
-            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {/* Wochenschnellblick */}
               <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Wochenschnellblick">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenschnellblick</div>
@@ -2123,7 +2123,7 @@ function HomePage() {
         {/* ═══ PAGE 4: JOURNEY PLANNER ═══ */}
         {activePage === PAGE_JOURNEY && (
           <div key="journey" className="portal-enter">
-            <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Astrologischer</div>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Lebensreise-Planer</div>
