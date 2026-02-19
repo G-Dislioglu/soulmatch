@@ -37,3 +37,4 @@ export { SoulBridge } from './ui/SoulBridge';
 export { AuraResonance } from './ui/AuraResonance';
 export { TwinFlameCheck } from './ui/TwinFlameCheck';
 export { SharedYearForecast } from './ui/SharedYearForecast';
+export { EnergyForecast } from './ui/EnergyForecast';
