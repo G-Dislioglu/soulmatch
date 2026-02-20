@@ -446,7 +446,7 @@ function HomePage() {
 
           {/* Verbindungstyp-Karte */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'} settings={cardSettings}>
+            <SoulmatchCard accent={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'} settings={cardSettings} cardTitle="Verbindungstyp">
               <ConnectionTypeCard
                 connectionType={matchResult.connectionType ?? 'harmonisch'}
                 nameA={matchProfiles[0].name}
@@ -775,7 +775,7 @@ function HomePage() {
 
           {/* Numerologie-Paar-Tabelle */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+            <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Numerologie-Vergleich">
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie-Vergleich</div>
               <NumeroPairTable profileA={matchProfiles[0]} profileB={matchProfiles[1]} />
             </SoulmatchCard>
@@ -1397,7 +1397,7 @@ function HomePage() {
 
               {/* Numerologie-Detailansicht */}
               <div style={{ marginTop: 18 }}>
-                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Numerologie">
                   <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie</div>
                   <SoulTypeCard birthDate={profile.birthDate} />
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(212,175,55,0.1)' }}>
@@ -1450,7 +1450,7 @@ function HomePage() {
 
               {/* Chakra-Resonanz */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#818cf8" settings={cardSettings}>
+                <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Chakra-Resonanz">
                   <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Resonanz</div>
                   <ChakraBar name={profile.name} birthDate={profile.birthDate} />
                 </SoulmatchCard>
@@ -1586,7 +1586,7 @@ function HomePage() {
                 </SoulmatchCard>
               ) : scoreResult ? (
                 <>
-                  <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                  <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Score">
                     {/* Score overview */}
                     <div id="card-score-card" style={{ textAlign: 'center', marginBottom: 20 }}>
                       <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 10, color: '#a09a8e', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>
@@ -1629,7 +1629,7 @@ function HomePage() {
 
                   {/* Discovery Flow — Expandable Insights */}
                   {scoreResult.claims && scoreResult.claims.length > 0 && (
-                    <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                    <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Erkenntnisse & Einblicke">
                       <DiscoveryFlow
                         claims={scoreResult.claims}
                         highlightedCard={highlightedCard}
@@ -1705,7 +1705,7 @@ function HomePage() {
             </div>
 
             {/* Oracle Mode — Maya's 3 sacred questions */}
-            <SoulmatchCard accent="#c084fc" settings={cardSettings}>
+            <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Orakel-Modus · Maya">
               <OracleMode profile={profile} />
             </SoulmatchCard>
 
