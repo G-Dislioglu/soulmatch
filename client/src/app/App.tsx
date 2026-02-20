@@ -1076,16 +1076,6 @@ function HomePage() {
           marginRight: 'auto',
           transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          // Find the nearest SoulmatchCard inner body (has data-card-title)
-          const cardBody = target.closest('[data-card-title]') as HTMLElement | null;
-          if (cardBody) {
-            const title = cardBody.getAttribute('data-card-title') ?? '';
-            const context = cardBody.textContent?.slice(0, 400) ?? '';
-            setMayaCardChat({ title, context });
-          }
-        }}
       >
         {/* Header */}
         <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
