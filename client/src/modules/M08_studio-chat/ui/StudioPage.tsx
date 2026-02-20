@@ -224,7 +224,7 @@ export function StudioPage({
         </div>
       )}
 
-      <StudioPanel profileId={profileId} mode={studioMode} matchKey={matchKey} lilithUnlocked={lilithUnlocked} />
+      <StudioPanel profileId={profileId} mode={studioMode} matchKey={matchKey} matchResult={matchResult} lilithUnlocked={lilithUnlocked} />
 
       {soloSeat && (
         <PersonaSoloChat

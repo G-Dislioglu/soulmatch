@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { StudioResult, StudioSeat } from '../../../shared/types/studio';
+import type { MatchScoreResult } from '../../../shared/types/match';
 import { Button, Card, CardContent } from '../../M02_ui-kit';
 import { TurnsView } from './TurnsView';
 import { getStudioProvider } from '../../M09_settings';
@@ -14,10 +15,27 @@ interface StudioPanelProps {
   profileId: string;
   mode: 'profile' | 'match';
   matchKey?: string;
+  matchResult?: MatchScoreResult | null;
   lilithUnlocked?: boolean;
 }
 
-export function StudioPanel({ profileId, mode, matchKey, lilithUnlocked = false }: StudioPanelProps) {
+function buildMatchExcerpt(r: MatchScoreResult): string {
+  const lines: string[] = [
+    `Match-Score: ${r.matchOverall}/100`,
+    `Verbindungstyp: ${r.connectionType ?? 'unbekannt'}`,
+    `Numerologie: ${r.breakdown.numerology} | Astrologie: ${r.breakdown.astrology} | Fusion: ${r.breakdown.fusion}`,
+  ];
+  if (r.claims?.length) {
+    lines.push('Erkenntnisse:');
+    r.claims.slice(0, 5).forEach((c) => lines.push(`- [${c.level}] ${c.title}: ${c.detail}`));
+  }
+  if (r.keyReasons?.length) {
+    lines.push(`Hauptgründe: ${r.keyReasons.slice(0, 3).join(', ')}`);
+  }
+  return lines.join('\n');
+}
+
+export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlocked = false }: StudioPanelProps) {
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<StudioResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +68,10 @@ export function StudioPanel({ profileId, mode, matchKey, lilithUnlocked = false 
         userMessage: message.trim(),
         seats: activeSeats,
         maxTurns: activeSeats.length,
-      }, { lilithIntensity: intensity });
+      }, {
+        lilithIntensity: intensity,
+        matchExcerpt: matchResult ? buildMatchExcerpt(matchResult) : undefined,
+      });
       setResult(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

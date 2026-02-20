@@ -63,6 +63,7 @@ export interface StudioCallOptions {
   freeMode?: boolean;
   chatExcerpt?: string;
   userMemory?: string;
+  matchExcerpt?: string;
 }
 
 export interface StudioProvider {
@@ -103,6 +104,7 @@ class LLMProvider implements StudioProvider {
         freeMode: opts?.freeMode ?? false,
         chatExcerpt: opts?.chatExcerpt,
         userMemory: opts?.userMemory,
+        matchExcerpt: opts?.matchExcerpt,
       }),
     });
 
