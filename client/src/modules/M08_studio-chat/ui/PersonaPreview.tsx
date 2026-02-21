@@ -113,17 +113,19 @@ export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewPro
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-2xl"
         style={{
           background: `linear-gradient(160deg, ${info.glow} 0%, rgba(8,6,15,0.98) 40%, rgba(8,6,15,0.95) 100%)`,
           border: `1px solid ${info.accent}20`,
           boxShadow: `0 0 60px ${info.glow}, inset 0 1px 0 ${info.accent}15`,
+          maxHeight: '90vh',
+          overflowY: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Portrait area */}
         <div style={{
-          width: '100%', aspectRatio: '3 / 3.5', position: 'relative',
+          width: '100%', maxHeight: '55vh', position: 'relative',
           overflow: 'hidden',
         }}>
           <PortraitWithFallback seat={seat} info={info} />
