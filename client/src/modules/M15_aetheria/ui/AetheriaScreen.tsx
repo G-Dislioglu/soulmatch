@@ -42,8 +42,7 @@ export function AetheriaScreen({ onAction }: AetheriaScreenProps) {
     <div style={{
       position: "relative",
       width: "100%",
-      height: "100%",
-      minHeight: "calc(100vh - 130px)",
+      height: "calc(100vh - 130px)",
       overflow: "hidden",
       background: TOKENS.bg,
     }}>

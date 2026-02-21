@@ -1161,7 +1161,6 @@ function HomePage() {
           position: 'relative',
           zIndex: 10,
           marginLeft: sidebarCollapsed ? 56 : 280,
-          marginRight: 'auto',
           transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
@@ -1794,7 +1793,7 @@ function HomePage() {
 
         {/* ═══ PAGE 3: EXPLORE (Aetheria) ═══ */}
         {activePage === PAGE_EXPLORE && (
-          <div key="explore" className="portal-enter" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div key="explore" className="portal-enter" style={{ width: '100%', height: '100%' }}>
             <AetheriaScreen
               onAction={(action: string, _loc: AetheriaLocation) => {
                 // Rat der Meister → Studio

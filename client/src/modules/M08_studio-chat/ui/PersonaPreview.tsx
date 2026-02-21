@@ -109,11 +109,11 @@ export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewPro
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
         style={{
           background: `linear-gradient(160deg, ${info.glow} 0%, rgba(8,6,15,0.98) 40%, rgba(8,6,15,0.95) 100%)`,
           border: `1px solid ${info.accent}20`,
