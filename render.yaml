@@ -17,5 +17,7 @@ services:
         sync: false
       - key: DEV_TOKEN
         sync: false
+      - key: FAL_KEY
+        sync: false
       - key: NODE_VERSION
         value: 20.11.0

@@ -13,6 +13,7 @@ import { matchRouter } from './routes/match.js';
 import { healthRouter } from './routes/health.js';
 import { metaRouter } from './routes/meta.js';
 import { journeyRouter } from './routes/journey.js';
+import { zimageRouter } from './routes/zimage.js';
 import { devLogger } from './devLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -43,6 +44,7 @@ app.use('/api/match', matchRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/journey', journeyRouter);
+app.use('/api', zimageRouter);
 
 devLogger.info('system', 'Server starting', { port: PORT });
 

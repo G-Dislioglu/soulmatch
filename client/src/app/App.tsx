@@ -38,7 +38,7 @@ import { SCard } from '../design';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
-import { AetheriaScreen } from '../modules/M15_aetheria';
+import { AetheriaScreen, AetheriaImageGen } from '../modules/M15_aetheria';
 import type { AetheriaLocation } from '../modules/M15_aetheria';
 import { DisclaimerModal } from '../modules/M01_app-shell';
 
@@ -131,6 +131,7 @@ function HomePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activePage, setActivePage] = useState(0);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [showImageGen, setShowImageGen] = useState(false);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [matchResult, setMatchResult] = useState<MatchScoreResult | null>(null);
   const [matchProfiles, setMatchProfiles] = useState<[UserProfile, UserProfile] | null>(null);
@@ -416,6 +417,21 @@ function HomePage() {
             onBack={() => setOverlay(null)}
             onSettingsChanged={(next) => setSettings(next)}
           />
+          {/* Z-Image Generator Button */}
+          <div style={{ maxWidth: 480, margin: '16px auto 0', padding: '0 4px' }}>
+            <button
+              onClick={() => setShowImageGen(true)}
+              style={{
+                width: '100%', padding: '12px 0', borderRadius: 12,
+                background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)',
+                color: '#d4af37', fontFamily: "'Outfit', sans-serif", fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', letterSpacing: '0.04em',
+                transition: 'all 0.2s',
+              }}
+            >
+              ✦ Aetheria-Bilder generieren (Z-Image Turbo)
+            </button>
+          </div>
         </div>
       );
     }
@@ -2261,6 +2277,9 @@ function HomePage() {
           )}
         </span>
       </div>
+
+      {/* Z-Image Generator Modal */}
+      {showImageGen && <AetheriaImageGen onClose={() => setShowImageGen(false)} />}
     </div>
   );
 }
