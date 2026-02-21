@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import { ResponsiveArtwork } from '../../M02_ui-kit';
+import { useAssetImage } from '../../M15_aetheria/lib/useAssetImage';
 
 interface PersonaPreviewProps {
   seat: StudioSeat;
@@ -41,6 +43,7 @@ const PERSONA_INFO: Record<StudioSeat, {
     accent: '#c084fc',
     glow: 'rgba(192,132,252,0.15)',
     glyph: '☽',
+    baseName: 'luna',
   },
   orion: {
     name: 'Orion',
@@ -49,6 +52,7 @@ const PERSONA_INFO: Record<StudioSeat, {
     accent: '#38bdf8',
     glow: 'rgba(56,189,248,0.15)',
     glyph: '△',
+    baseName: 'orion',
   },
 };
 
@@ -56,6 +60,50 @@ const PERSONA_INFO: Record<StudioSeat, {
  * Click-to-Preview Lightbox — large portrait + traits + "Solo-Chat starten" button.
  * Pure CSS, no Canvas.
  */
+function PortraitWithFallback({ seat, info }: { seat: StudioSeat; info: typeof PERSONA_INFO[StudioSeat] }) {
+  const needsGenerated = seat === 'luna' || seat === 'orion';
+  const { url: generatedUrl, loading } = useAssetImage('persona', seat, needsGenerated);
+  const [imgError, setImgError] = useState(false);
+
+  if (needsGenerated) {
+    return generatedUrl && !imgError ? (
+      <img
+        src={generatedUrl}
+        alt={info.name}
+        onError={() => setImgError(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', animation: 'aetheriaFadeIn 1s ease' }}
+      />
+    ) : (
+      <div style={{
+        width: '100%', height: '100%',
+        background: `radial-gradient(ellipse at 50% 40%, ${info.accent}15 0%, transparent 60%)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
+        <div style={{ fontSize: 80, opacity: loading ? 0.2 : 0.3 }}>{info.glyph}</div>
+        {loading && <div style={{ fontSize: 11, color: info.accent, opacity: 0.5, letterSpacing: '0.1em' }}>Wird gemalt…</div>}
+      </div>
+    );
+  }
+
+  return info.baseName ? (
+    <ResponsiveArtwork
+      baseName={info.baseName}
+      alt={info.name}
+      sizes="(max-width: 480px) 90vw, 420px"
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  ) : (
+    <div style={{
+      width: '100%', height: '100%',
+      background: `radial-gradient(ellipse at 50% 40%, ${info.accent}15 0%, transparent 60%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 80, opacity: 0.3,
+    }}>
+      {info.glyph}
+    </div>
+  );
+}
+
 export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewProps) {
   const info = PERSONA_INFO[seat];
 
@@ -95,26 +143,7 @@ export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewPro
           width: '100%', aspectRatio: '3 / 3.5', position: 'relative',
           overflow: 'hidden',
         }}>
-          {info.baseName ? (
-            <ResponsiveArtwork
-              baseName={info.baseName}
-              alt={info.name}
-              sizes="(max-width: 480px) 90vw, 420px"
-              style={{
-                width: '100%', height: '100%', objectFit: 'cover',
-                display: 'block',
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '100%', height: '100%',
-              background: `radial-gradient(ellipse at 50% 40%, ${info.accent}15 0%, transparent 60%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 80, opacity: 0.3,
-            }}>
-              {info.glyph}
-            </div>
-          )}
+          <PortraitWithFallback seat={seat} info={info} />
 
           {/* Vignette overlay */}
           <div style={{

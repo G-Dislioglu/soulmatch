@@ -16,7 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, LunaPortrait, OrionPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
@@ -1713,11 +1713,13 @@ function HomePage() {
                 <MayaPortrait size={150} />
                 <div style={{ fontSize: 10, color: '#a855f7', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
               </div>
-              <div className="persona-card-hover" onClick={() => setPreviewSeat('luna')}>
-                <AuraAvatar sign="☽" size={56} colors={['#c084fc', '#7b8cff', '#f472b6']} label="Luna" />
+              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('luna')}>
+                <LunaPortrait size={150} />
+                <div style={{ fontSize: 10, color: '#c084fc', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Luna</div>
               </div>
-              <div className="persona-card-hover" onClick={() => setPreviewSeat('orion')}>
-                <AuraAvatar sign="△" size={56} colors={['#38bdf8', '#34d399', '#7b8cff']} label="Orion" />
+              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('orion')}>
+                <OrionPortrait size={150} />
+                <div style={{ fontSize: 10, color: '#38bdf8', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Orion</div>
               </div>
               <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('lilith')}>
                 <LilithPortrait size={150} />
