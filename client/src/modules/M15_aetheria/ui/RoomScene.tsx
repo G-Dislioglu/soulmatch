@@ -21,7 +21,7 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
       zIndex: 40,
       display: "flex",
       flexDirection: "column",
-      overflow: "hidden",
+      overflow: "auto",
     }}>
       {/* Hintergrund */}
       <div style={{
@@ -43,6 +43,7 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
               objectFit: "cover",
               opacity: 0.82,
               animation: "aetheriaFadeIn 1.2s ease",
+              pointerEvents: "none",
             }}
           />
         )}
