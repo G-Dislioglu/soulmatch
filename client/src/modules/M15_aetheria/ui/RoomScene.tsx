@@ -60,17 +60,20 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
         <div style={{ position: "absolute", inset: 0, background: bgUrl ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.45)" }} />
       </div>
 
-      {/* Header */}
+      {/* Header — sticky so image can never overlap it */}
       <div style={{
-        position: "relative",
-        zIndex: 2,
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         padding: "14px 18px",
-        background: "rgba(0,0,0,0.35)",
-        backdropFilter: "blur(12px)",
-        borderBottom: `1px solid ${loc.c}22`,
+        background: "rgba(4,2,12,0.72)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: `1px solid ${loc.c}30`,
+        boxShadow: `0 1px 20px rgba(0,0,0,0.5)`,
       }}>
         <BackButton onClick={onBack} variant="light" />
 
