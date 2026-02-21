@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LilithEyes } from './LilithEyes';
 import type { LilithEyeState, LilithEyeIntensity } from './LilithEyes';
 import { ResponsiveArtwork } from '../../M02_ui-kit';
+import { useAssetImage } from '../../M15_aetheria/lib/useAssetImage';
 
 interface LilithPortraitProps {
   state?: LilithEyeState;
@@ -21,6 +22,7 @@ export function LilithPortrait({ state = 'idle', intensity, size = 260, baseName
   const isTruth = state === 'truth';
   const isShadow = intensity === 'brutal';
   const [imgError, setImgError] = useState(false);
+  const { url: generatedUrl } = useAssetImage('persona', 'lilith', imgError);
 
   return (
     <div style={{ position: 'relative', width: size, maxWidth: '100%', aspectRatio: '3 / 4.5' }}>
@@ -32,18 +34,17 @@ export function LilithPortrait({ state = 'idle', intensity, size = 260, baseName
         transition: 'opacity 0.8s ease', pointerEvents: 'none',
       }} />
 
-      {imgError ? (
+      {imgError && generatedUrl ? (
+        <img src={generatedUrl} alt="Lilith" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, position: 'relative', zIndex: 1, animation: 'aetheriaFadeIn 1s ease' }} />
+      ) : imgError ? (
         <div style={{
           width: '100%', height: '100%', borderRadius: 12, position: 'relative', zIndex: 1,
           background: 'linear-gradient(160deg, rgba(154,52,18,0.12) 0%, rgba(120,40,10,0.18) 50%, rgba(15,10,10,0.95) 100%)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <div style={{ fontSize: size * 0.28, opacity: 0.6 }}>☾</div>
-          <div style={{
-            fontFamily: "'Cormorant Garamond', serif", fontSize: size * 0.1, fontWeight: 700,
-            color: '#d49137', letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7,
-          }}>Lilith</div>
-          <div style={{ fontSize: size * 0.04, color: '#6b5530', opacity: 0.5 }}>Die Schatten-Jägerin</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: size * 0.1, fontWeight: 700, color: '#d49137', letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7 }}>Lilith</div>
+          <div style={{ fontSize: size * 0.04, color: '#6b5530', opacity: 0.5 }}>Wird gemalt…</div>
         </div>
       ) : (
         <ResponsiveArtwork
@@ -51,10 +52,7 @@ export function LilithPortrait({ state = 'idle', intensity, size = 260, baseName
           alt={baseName.charAt(0).toUpperCase() + baseName.slice(1)}
           sizes={PORTRAIT_SIZES}
           onError={() => setImgError(true)}
-          style={{
-            width: '100%', height: '100%', objectFit: 'cover',
-            borderRadius: 12, display: 'block', position: 'relative', zIndex: 1,
-          }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, display: 'block', position: 'relative', zIndex: 1 }}
         />
       )}
 

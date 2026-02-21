@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AetheriaLocation } from "../lib/locations";
 import { TOKENS } from "../../../design/tokens";
+import { useAssetImage } from "../lib/useAssetImage";
 
 interface RoomSceneProps {
   loc: AetheriaLocation;
@@ -10,6 +11,7 @@ interface RoomSceneProps {
 
 export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
   const [hoveredObj, setHoveredObj] = useState<string | null>(null);
+  const { url: bgUrl, loading: bgLoading } = useAssetImage("room", loc.id, true);
 
   return (
     <div style={{
@@ -25,21 +27,34 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
         position: "absolute",
         inset: 0,
         background: loc.roomGrad,
+        transition: "background 0.5s ease",
       }}>
-        {/* Raum-Bild, wenn vorhanden */}
-        <img
-          src={`/assets/aetheria/room-${loc.id}.jpg`}
-          alt=""
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: 0.55,
-          }}
-        />
+        {/* Generiertes Bild (automatisch via fal.ai) */}
+        {bgUrl && (
+          <img
+            src={bgUrl}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: 0.55,
+              animation: "aetheriaFadeIn 1.2s ease",
+            }}
+          />
+        )}
+        {/* Lade-Indikator */}
+        {bgLoading && !bgUrl && (
+          <div style={{
+            position: "absolute", bottom: 60, left: "50%", transform: "translateX(-50%)",
+            fontSize: 10, color: `${loc.c}88`, letterSpacing: "0.12em",
+            animation: "aetheriaOrbPulse 2s ease infinite",
+          }}>
+            ✦ Raum wird gemalt…
+          </div>
+        )}
         {/* Dunkler Overlay für Lesbarkeit */}
         <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
       </div>
