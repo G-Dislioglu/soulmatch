@@ -121,29 +121,31 @@ export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewPro
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 12, right: 12, zIndex: 10,
-            color: '#a09a8e', fontSize: 20, background: 'rgba(0,0,0,0.4)',
-            borderRadius: '50%', width: 32, height: 32,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: 'none', cursor: 'pointer',
-            transition: 'color 0.2s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#f0eadc')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#a09a8e')}
-        >
-          ✕
-        </button>
-
         {/* Portrait area */}
         <div style={{
           width: '100%', aspectRatio: '3 / 3.5', position: 'relative',
           overflow: 'hidden',
         }}>
           <PortraitWithFallback seat={seat} info={info} />
+
+          {/* Close button — inside portrait but above everything via zIndex */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 50,
+              color: 'rgba(255,255,255,0.85)', fontSize: 16,
+              background: 'rgba(0,0,0,0.55)',
+              borderRadius: '50%', width: 34, height: 34,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+              backdropFilter: 'blur(6px)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.55)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; }}
+          >
+            ✕
+          </button>
 
           {/* Vignette overlay */}
           <div style={{
