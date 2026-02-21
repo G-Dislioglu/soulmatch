@@ -1681,6 +1681,7 @@ function HomePage() {
         {/* ═══ PAGE 2: STUDIO ═══ */}
         {activePage === PAGE_STUDIO && (
           <div key="studio" className="portal-enter">
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 8px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 Persona Studio
@@ -1714,7 +1715,7 @@ function HomePage() {
             </SCard>
 
             {/* Studio integration */}
-            <div style={{ maxWidth: 600, margin: '0 auto' }}>
+            <div>
               <StudioPage
                 profileId={profile.id}
                 onBack={() => setActivePage(PAGE_PROFILE)}
@@ -1739,6 +1740,7 @@ function HomePage() {
                 onClose={() => setPreviewSeat(null)}
               />
             )}
+            </div>{/* /maxWidth 600 */}
           </div>
         )}
 
