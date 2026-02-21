@@ -1,6 +1,6 @@
 import type { UserProfile } from '../../../shared/types/profile';
 import type { MatchScoreResult } from '../../../shared/types/match';
-import { Button } from '../../M02_ui-kit';
+import { BackButton } from '../../M02_ui-kit';
 import { ReportLayout } from './ReportLayout';
 import { ProfileReport } from './ProfileReport';
 import { MatchReport } from './MatchReport';
@@ -23,9 +23,7 @@ export function MatchReportPage({ profileA, profileB, match, onBack, onRequestPr
       <ProfileReport profile={profileB} />
       <MatchReport match={match} onRequestProfileEdit={onRequestProfileEdit} />
       <div className="flex justify-center pt-2">
-        <Button variant="secondary" onClick={onBack}>
-          Zurück
-        </Button>
+        <BackButton onClick={onBack} />
       </div>
     </ReportLayout>
   );

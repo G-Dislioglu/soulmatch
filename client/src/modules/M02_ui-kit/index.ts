@@ -15,3 +15,4 @@ export { ScoreSkeleton } from './ScoreSkeleton';
 export { ResponsiveArtwork } from './ResponsiveArtwork';
 export { DiscoveryFlow } from './DiscoveryFlow';
 export { CardMayaChat } from './CardMayaChat';
+export { BackButton } from './BackButton';

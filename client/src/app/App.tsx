@@ -32,6 +32,7 @@ import {
   ScoreSkeleton,
   DEFAULT_CARD_SETTINGS,
   DiscoveryFlow,
+  BackButton,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 import { SCard } from '../design';
@@ -997,9 +998,12 @@ function HomePage() {
       return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 10 }}>
           <div style={{ width: '100%', maxWidth: 420 }}>
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>Neues Profil</h1>
-              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <BackButton onClick={() => setOverlay(null)} />
+              <div>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: 0 }}>Neues Profil</h1>
+                <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
+              </div>
             </div>
             <SCard accentHex={ACCENT}>
               <ProfileForm onSaved={handleNewProfileSaved} />
@@ -1016,13 +1020,16 @@ function HomePage() {
       return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 10 }}>
           <div style={{ width: '100%', maxWidth: 420 }}>
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
-                {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
-              </h1>
-              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-                {editSubtitle}
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              {hasProfile && <BackButton onClick={() => setOverlay(null)} />}
+              <div style={{ flex: 1, textAlign: hasProfile ? 'left' : 'center' }}>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
+                  {hasProfile ? 'Profil bearbeiten' : 'Willkommen bei Soulmatch'}
+                </h1>
+                <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
+                  {editSubtitle}
+                </p>
+              </div>
             </div>
             <SCard accentHex={ACCENT}>
               <ProfileForm

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { AppSettings, AiProvider, ProviderKeyEntry } from '../../../shared/types/settings';
-import { Button, Card, CardHeader, CardContent } from '../../M02_ui-kit';
+import { Button, Card, CardHeader, CardContent, BackButton } from '../../M02_ui-kit';
 import { loadSettings, saveSettings, defaultModelForProvider, maskApiKey, MODEL_OPTIONS } from '../lib/settingsStorage';
 
 const PROVIDERS: { value: AiProvider; label: string }[] = [
@@ -97,7 +97,7 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
           <h1 className="text-2xl font-bold">Einstellungen</h1>
           <p className="text-sm text-[color:var(--muted-fg)]">Provider & Feature Flags</p>
         </div>
-        <Button variant="secondary" onClick={onBack}>Zurück</Button>
+        <BackButton onClick={onBack} />
       </div>
 
       <Card>

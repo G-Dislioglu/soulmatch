@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UserProfile } from '../../../shared/types/profile';
-import { Button, Card, CardHeader, CardContent } from '../../M02_ui-kit';
+import { Button, Card, CardHeader, CardContent, BackButton } from '../../M02_ui-kit';
 
 interface MatchSelectorProps {
   profiles: UserProfile[];
@@ -58,7 +58,7 @@ export function MatchSelector({ profiles, onMatch, computing, onBack }: MatchSel
           <Button variant="primary" disabled={!canMatch} onClick={() => onMatch(aId, bId)}>
             {computing ? 'Berechne…' : 'Match starten'}
           </Button>
-          <Button variant="secondary" onClick={onBack}>Zurück</Button>
+          <BackButton onClick={onBack} />
         </div>
       </CardContent>
     </Card>

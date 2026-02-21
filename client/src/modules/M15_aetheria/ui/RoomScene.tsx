@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AetheriaLocation } from "../lib/locations";
 import { TOKENS } from "../../../design/tokens";
 import { useAssetImage } from "../lib/useAssetImage";
+import { BackButton } from "../../M02_ui-kit";
 
 interface RoomSceneProps {
   loc: AetheriaLocation;
@@ -71,29 +72,7 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
         backdropFilter: "blur(12px)",
         borderBottom: `1px solid ${loc.c}22`,
       }}>
-        <button
-          onClick={onBack}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: "rgba(0,0,0,0.45)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            color: "rgba(255,255,255,0.9)",
-            fontFamily: TOKENS.font.body,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            padding: "6px 14px",
-            borderRadius: 20,
-            backdropFilter: "blur(8px)",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.45)"; }}
-        >
-          ← Zurück
-        </button>
+        <BackButton onClick={onBack} variant="light" />
 
         <div style={{ textAlign: "center" }}>
           <div style={{

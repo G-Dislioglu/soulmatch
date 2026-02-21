@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import type { UserProfile } from '../../../shared/types/profile';
 import type { MatchScoreResult } from '../../../shared/types/match';
-import { Button, CosmicButton } from '../../M02_ui-kit';
+import { CosmicButton, BackButton } from '../../M02_ui-kit';
 import { SCard } from '../../../design';
 import { StudioPanel } from './StudioPanel';
 import { SeatBadge } from './SeatBadge';
@@ -90,7 +90,7 @@ export function StudioPage({
                 <span className="text-[10px] text-zinc-500 ml-2">Klick = Solo-Chat</span>
               </p>
             </div>
-            <Button variant="secondary" onClick={onBack}>Zurück</Button>
+            <BackButton onClick={onBack} />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <SeatBadge seat="maya" onClick={() => openSoloChat('maya')} />
