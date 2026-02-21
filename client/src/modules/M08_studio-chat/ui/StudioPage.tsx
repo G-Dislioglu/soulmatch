@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import type { UserProfile } from '../../../shared/types/profile';
 import type { MatchScoreResult } from '../../../shared/types/match';
-import { Button, CosmicButton, SoulmatchCard, DEFAULT_CARD_SETTINGS } from '../../M02_ui-kit';
+import { Button, CosmicButton } from '../../M02_ui-kit';
+import { SCard } from '../../../design';
 import { StudioPanel } from './StudioPanel';
 import { SeatBadge } from './SeatBadge';
 import { PersonaSoloChat } from './PersonaSoloChat';
@@ -169,7 +170,7 @@ export function StudioPage({
           )}
 
           {matchResult && (
-            <SoulmatchCard accent={ACCENT} settings={DEFAULT_CARD_SETTINGS}>
+            <SCard accentHex={ACCENT}>
               <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
                 <div style={{ fontSize: 11, color: '#8a8578', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Match-Score</div>
                 <div style={{
@@ -219,7 +220,7 @@ export function StudioPage({
                   ))}
                 </div>
               )}
-            </SoulmatchCard>
+            </SCard>
           )}
         </div>
       )}

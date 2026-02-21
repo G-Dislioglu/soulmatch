@@ -203,8 +203,8 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(212,175,55,0); }
 }
 @keyframes portalExpand {
-  0% { clip-path: circle(0% at 50% 50%); opacity: 0.6; }
-  100% { clip-path: circle(100% at 50% 50%); opacity: 1; }
+  0% { opacity: 0; transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1); }
 }
 @keyframes portalParticle {
   0% { opacity: 0.9; transform: translate(0,0) scale(1); }
@@ -216,7 +216,7 @@ body {
 .maya-whisper-fade { animation: mayaWhisperFade 0.5s ease-out forwards; }
 .constellation-flare { animation: constellationFlare 0.4s ease-out; }
 .related-glow { animation: relatedGlow 2s ease-in-out; }
-.portal-enter { animation: portalExpand 0.6s ease-out; }
+.portal-enter { animation: portalExpand 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 
 /* ═══ Sidebar ═══ */
 

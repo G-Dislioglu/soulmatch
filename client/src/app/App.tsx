@@ -27,7 +27,6 @@ import {
   AuraAvatar,
   EnergyDivider,
   PageTransition,
-  SoulmatchCard,
   ControlsDropdown,
   CosmicButton,
   ScoreSkeleton,
@@ -35,6 +34,7 @@ import {
   DiscoveryFlow,
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
+import { SCard } from '../design';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
@@ -44,13 +44,15 @@ const ACCENT = '#d4af37';
 const PAGE_PROFILE = 0;
 const PAGE_REPORT = 1;
 const PAGE_STUDIO = 2;
-const PAGE_ASTRO = 3;
-const PAGE_JOURNEY = 4;
-const PAGE_SOULS = 5;
+const PAGE_EXPLORE = 3;
+const PAGE_ASTRO = 4;
+const PAGE_JOURNEY = 5;
+const PAGE_SOULS = 6;
 const APP_PAGES: PageDef[] = [
-  { label: 'Profil', icon: '♏', color: ACCENT },
-  { label: 'Report', icon: '◈', color: '#c084fc' },
-  { label: 'Studio', icon: '☽', color: '#f472b6' },
+  { label: 'Profil', icon: '👤', color: ACCENT },
+  { label: 'Match', icon: '🔥', color: '#c084fc' },
+  { label: 'Chat', icon: '💬', color: '#f472b6' },
+  { label: 'Explore', icon: '✨', color: '#7eb8da' },
   { label: 'Astro', icon: '✶', color: '#38bdf8' },
   { label: 'Reise', icon: '✧', color: '#34d399' },
   { label: 'Seelen', icon: '♥', color: '#f472b6' },
@@ -372,7 +374,7 @@ function HomePage() {
   // ── Maya Command Callbacks ──
   const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
     onNavigate(target: string) {
-      const pageMap: Record<string, number> = { profil: PAGE_PROFILE, report: PAGE_REPORT, studio: PAGE_STUDIO, astro: PAGE_ASTRO };
+      const pageMap: Record<string, number> = { profil: PAGE_PROFILE, report: PAGE_REPORT, match: PAGE_REPORT, studio: PAGE_STUDIO, chat: PAGE_STUDIO, explore: PAGE_EXPLORE, astro: PAGE_ASTRO };
       const idx = pageMap[target];
       if (idx !== undefined) setActivePage(idx);
     },
@@ -446,18 +448,18 @@ function HomePage() {
 
           {/* Verbindungstyp-Karte */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'} settings={cardSettings} cardTitle="Verbindungstyp">
+            <SCard accentHex={matchResult.connectionType === 'spiegel' ? '#a855f7' : matchResult.connectionType === 'katalysator' ? '#f59e0b' : matchResult.connectionType === 'heiler' ? '#10b981' : '#d4af37'}>
               <ConnectionTypeCard
                 connectionType={matchResult.connectionType ?? 'harmonisch'}
                 nameA={matchProfiles[0].name}
                 nameB={matchProfiles[1].name}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Affinität-Radar */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Affinität-Radar">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Affinität-Radar</div>
               <AffinityRadar
                 overall={matchResult.matchOverall}
@@ -471,12 +473,12 @@ function HomePage() {
                   { label: 'Harmonie', value: Math.round(matchResult.matchOverall), color: '#fbbf24' },
                 ]}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelenfarben-Fusion */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Seelenfarben-Fusion">
+            <SCard accentHex="#f472b6">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben-Fusion</div>
               <SoulColorMatch
                 nameA={matchProfiles[0].name}
@@ -484,12 +486,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Gemeinsamer Lebensweg */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Gemeinsamer Lebensweg">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Lebensweg</div>
               <SharedLifePath
                 nameA={matchProfiles[0].name}
@@ -497,12 +499,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Aura-Fusion */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Aura-Fusion">
+            <SCard accentHex="#c026d3">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aura-Fusion</div>
               <AuraFusion2
                 nameA={matchProfiles[0].name}
@@ -510,12 +512,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Mondknoten-Kompatibilität */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#a78bfa" settings={cardSettings} cardTitle="Mondknoten-Kompatibilität">
+            <SCard accentHex="#a78bfa">
               <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondknoten-Kompatibilität</div>
               <NodalCompat
                 nameA={matchProfiles[0].name}
@@ -523,12 +525,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Karma-Auflösung */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Karma-Auflösung">
+            <SCard accentHex="#818cf8">
               <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Auflösung</div>
               <KarmicRelease
                 nameA={matchProfiles[0].name}
@@ -536,12 +538,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Zukunfts-Vision */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Gemeinsame Zukunfts-Vision">
+            <SCard accentHex="#22d3ee">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Zukunfts-Vision</div>
               <FutureVisionCard
                 nameA={matchProfiles[0].name}
@@ -549,12 +551,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Elementar-Balance */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#a16207" settings={cardSettings} cardTitle="Elementar-Balance">
+            <SCard accentHex="#a16207">
               <div style={{ fontSize: 11, color: '#a16207', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Elementar-Balance</div>
               <ElementalBalance
                 nameA={matchProfiles[0].name}
@@ -562,12 +564,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelen-Vertrag */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelen-Vertrag">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Vertrag</div>
               <SoulContract2
                 nameA={matchProfiles[0].name}
@@ -575,12 +577,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Mondphasen-Kompatibilität */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Mondphasen-Kompatibilität">
+            <SCard accentHex="#818cf8">
               <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondphasen-Kompatibilität</div>
               <MoonPhaseCompat
                 nameA={matchProfiles[0].name}
@@ -588,12 +590,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Karma-Auflösung */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Karma-Auflösung">
+            <SCard accentHex="#c026d3">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Auflösung</div>
               <KarmicResolution
                 nameA={matchProfiles[0].name}
@@ -601,12 +603,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelen-Geometrie */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Heilige Seelen-Geometrie">
+            <SCard accentHex="#c026d3">
               <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Heilige Seelen-Geometrie</div>
               <SoulGeometry
                 nameA={matchProfiles[0].name}
@@ -614,12 +616,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Energie-Prognose */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="30-Tage Energie-Prognose">
+            <SCard accentHex="#22c55e">
               <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>30-Tage Energie-Prognose</div>
               <EnergyForecast
                 nameA={matchProfiles[0].name}
@@ -627,12 +629,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Gemeinsamer Jahresausblick */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Gemeinsamer Jahresausblick">
+            <SCard accentHex="#22d3ee">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Jahresausblick</div>
               <SharedYearForecast
                 nameA={matchProfiles[0].name}
@@ -640,12 +642,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Zwillingsflammen-Check */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Zwillingsflammen-Check">
+            <SCard accentHex="#fbbf24">
               <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zwillingsflammen-Check</div>
               <TwinFlameCheck
                 nameA={matchProfiles[0].name}
@@ -653,12 +655,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Aura-Resonanz */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#a78bfa" settings={cardSettings} cardTitle="Aura-Resonanz">
+            <SCard accentHex="#a78bfa">
               <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aura-Resonanz</div>
               <AuraResonance
                 nameA={matchProfiles[0].name}
@@ -666,12 +668,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelen-Brücke */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelen-Brücke">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Brücke</div>
               <SoulBridge
                 nameA={matchProfiles[0].name}
@@ -679,12 +681,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelenfarben-Fusion */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelenfarben-Fusion">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben-Fusion</div>
               <SoulColorFusion
                 nameA={matchProfiles[0].name}
@@ -692,12 +694,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Karma-Bogen */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Karmischer Bogen">
+            <SCard accentHex="#c084fc">
               <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karmischer Bogen</div>
               <KarmicArc
                 nameA={matchProfiles[0].name}
@@ -705,12 +707,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Mondphasen-Synergie */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#94a3b8" settings={cardSettings} cardTitle="Geburts-Mondphasen">
+            <SCard accentHex="#94a3b8">
               <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburts-Mondphasen</div>
               <MoonSynergy
                 nameA={matchProfiles[0].name}
@@ -718,12 +720,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Elementares Gleichgewicht */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Elementares Gleichgewicht">
+            <SCard accentHex="#ef4444">
               <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Elementares Gleichgewicht</div>
               <ElementBalance
                 nameA={matchProfiles[0].name}
@@ -731,12 +733,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Wachstumspfad */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Gemeinsamer Wachstumspfad">
+            <SCard accentHex="#38bdf8">
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsamer Wachstumspfad</div>
               <GrowthPath
                 nameA={matchProfiles[0].name}
@@ -744,12 +746,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Zukunftsvision */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Gemeinsame Zukunftsvision">
+            <SCard accentHex={ACCENT}>
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Zukunftsvision</div>
               <FutureVision
                 nameA={matchProfiles[0].name}
@@ -757,12 +759,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelenpaar-Prosa */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelenpaar-Portrait">
+            <SCard accentHex={ACCENT}>
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenpaar-Portrait</div>
               <SoulPairNarrative
                 nameA={matchProfiles[0].name}
@@ -770,20 +772,20 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Numerologie-Paar-Tabelle */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Numerologie-Vergleich">
+            <SCard accentHex={ACCENT}>
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie-Vergleich</div>
               <NumeroPairTable profileA={matchProfiles[0]} profileB={matchProfiles[1]} />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Seelenweg-Vergleich */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelenweg-Vergleich">
+            <SCard accentHex={ACCENT}>
               <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenweg-Vergleich</div>
               <LifePathComparison
                 nameA={matchProfiles[0].name}
@@ -791,12 +793,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Kommunikationsstil */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Kommunikationsstil">
+            <SCard accentHex="#38bdf8">
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kommunikationsstil</div>
               <CommunicationGuide
                 nameA={matchProfiles[0].name}
@@ -804,12 +806,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Partner-Tipps */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Partner-Tipps">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Partner-Tipps</div>
               <PartnerTips
                 nameA={matchProfiles[0].name}
@@ -817,12 +819,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Karma-Schulden */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Karma-Schulden">
+            <SCard accentHex="#ef4444">
               <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Karma-Schulden</div>
               <KarmicPairCard
                 nameA={matchProfiles[0].name}
@@ -830,12 +832,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Tages-Energie-Match */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Tages-Energie">
+            <SCard accentHex="#22d3ee">
               <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Energie</div>
               <DailyEnergyMatch
                 nameA={matchProfiles[0].name}
@@ -843,12 +845,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Tages-Ritual */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Gemeinsames Tages-Ritual">
+            <SCard accentHex="#f472b6">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsames Tages-Ritual</div>
               <DailyRitual
                 nameA={matchProfiles[0].name}
@@ -856,12 +858,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Kompatibilitäts-Orakel */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Tages-Orakel">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Orakel</div>
               <CompatOracle
                 nameA={matchProfiles[0].name}
@@ -869,12 +871,12 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Gebetsrad */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Gemeinsame Affirmationen">
+            <SCard accentHex="#d4af37">
               <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Gemeinsame Affirmationen</div>
               <PrayerWheel
                 nameA={matchProfiles[0].name}
@@ -882,35 +884,35 @@ function HomePage() {
                 nameB={matchProfiles[1].name}
                 birthDateB={matchProfiles[1].birthDate}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Tages-Affirmation">
+            <SCard accentHex="#c084fc">
               <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Affirmation</div>
               <PairAffirmation
                 connectionType={matchResult.connectionType ?? 'Harmonische Begleitung'}
                 nameA={matchProfiles[0].name}
                 nameB={matchProfiles[1].name}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Match-Aktionsplan */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Aktionsplan · Empfehlungen">
+            <SCard accentHex="#22c55e">
               <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aktionsplan · Empfehlungen</div>
               <MatchActionPlan
                 connectionType={matchResult.connectionType ?? 'Harmonische Begleitung'}
                 nameA={matchProfiles[0].name}
                 nameB={matchProfiles[1].name}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Luna & Orion Liebesgeschichte */}
           <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-            <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Seelengeschichte · Luna & Orion">
+            <SCard accentHex="#f472b6">
               <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelengeschichte · Luna & Orion</div>
               <CompatibilityStoryCard
                 nameA={matchProfiles[0].name}
@@ -920,12 +922,12 @@ function HomePage() {
                 connectionType={matchResult.connectionType ?? 'harmonisch'}
                 score={matchResult.matchOverall}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
 
           {/* Synastrie-Rad */}
           <div style={{ maxWidth: 600, margin: '0 auto 32px' }}>
-            <SoulmatchCard accent="#fb7185" settings={cardSettings} cardTitle="Synastrie-Rad">
+            <SCard accentHex="#fb7185">
               <div style={{ fontSize: 11, color: '#fb7185', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Synastrie-Rad</div>
               {!synastrySets && !synastryLoading && (
                 <button type="button" onClick={() => { void loadSynastry(); }}
@@ -954,7 +956,7 @@ function HomePage() {
                   </div>
                 </>
               )}
-            </SoulmatchCard>
+            </SCard>
           </div>
         </div>
       );
@@ -981,9 +983,9 @@ function HomePage() {
               <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>Neues Profil</h1>
               <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>Für den Soulmatch-Vergleich</p>
             </div>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+            <SCard accentHex={ACCENT}>
               <ProfileForm onSaved={handleNewProfileSaved} />
-            </SoulmatchCard>
+            </SCard>
           </div>
         </div>
       );
@@ -1004,14 +1006,14 @@ function HomePage() {
                 {editSubtitle}
               </p>
             </div>
-            <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+            <SCard accentHex={ACCENT}>
               <ProfileForm
                 initialProfile={profile}
                 onSaved={matchRecomputeIds ? handleSavedFromMatchCTA : handleSaved}
                 onDelete={profile ? handleDelete : undefined}
                 focusField={matchEditFocusField}
               />
-            </SoulmatchCard>
+            </SCard>
           </div>
         </div>
       );
@@ -1131,7 +1133,7 @@ function HomePage() {
             </div>
 
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
-              <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+              <SCard accentHex={ACCENT}>
                 {[
                   ['Geburtsdatum', profile.birthDate],
                   ...(profile.birthTime ? [['Geburtszeit', profile.birthTime]] : []),
@@ -1151,7 +1153,7 @@ function HomePage() {
                     <span style={{ fontSize: 13, color: '#f0eadc', fontWeight: 500 }}>{value}</span>
                   </div>
                 ))}
-              </SoulmatchCard>
+              </SCard>
 
               <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <CosmicButton id="btn-compute-score" variant="gold" onClick={handleComputeScore} disabled={computing}>
@@ -1181,223 +1183,223 @@ function HomePage() {
 
               {/* Seelen-Absicht */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Absicht">
+                <SCard accentHex={ACCENT}>
                   <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Absicht</div>
                   <SoulIntention name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelen-Mantra */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Seelen-Mantra">
+                <SCard accentHex="#c084fc">
                   <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Mantra</div>
                   <SoulMantra name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Zeitkapsel */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Kosmische Zeitkapsel">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmische Zeitkapsel</div>
                   <TimeCapsulle name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelenweg-Reise */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelenweg-Reise">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenweg-Reise</div>
                   <SoulJourney name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Stärken & Herausforderungen */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Stärken & Herausforderungen">
+                <SCard accentHex="#22c55e">
                   <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Stärken & Herausforderungen</div>
                   <StrengthsAnalysis name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Schattenseiten */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#7c3aed" settings={cardSettings} cardTitle="Schattenseiten">
+                <SCard accentHex="#7c3aed">
                   <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Schattenseiten</div>
                   <ShadowSide name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Lebensaufgabe */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Lebensaufgabe">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebensaufgabe</div>
                   <LifeMission name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Jahresuhr */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Persönliches Jahresthema">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Persönliches Jahresthema</div>
                   <YearClock name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelenvertrag */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelenvertrag">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenvertrag</div>
                   <SoulContract name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Traumarchiv */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Traumsymbole">
+                <SCard accentHex="#818cf8">
                   <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Traumsymbole</div>
                   <DreamArchive name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Lebensbaum */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Lebensbaum">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebensbaum</div>
                   <TreeOfLife name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelenpfad-Kreis */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Seelenpfad-Kreis">
+                <SCard accentHex="#c084fc">
                   <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenpfad-Kreis</div>
                   <SoulPathWheel name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Jahreszyklus-Mandala */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Jahreszyklus-Mandala">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Jahreszyklus-Mandala</div>
                   <YearCycleMandala name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Quantensprung */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Quantensprung">
+                <SCard accentHex="#ef4444">
                   <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Quantensprung</div>
                   <QuantumLeap name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Schattenarbeit */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#7c3aed" settings={cardSettings} cardTitle="Schattenarbeit-Karte">
+                <SCard accentHex="#7c3aed">
                   <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Schattenarbeit-Karte</div>
                   <ShadowWork name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelen-Versprechen */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Seelen-Versprechen">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Versprechen</div>
                   <SoulVow name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Zahlen-Meditation */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Zahlen-Meditation">
+                <SCard accentHex="#c026d3">
                   <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zahlen-Meditation</div>
                   <NumberMeditation name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Lebens-Rad */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Lebens-Rad">
+                <SCard accentHex="#f472b6">
                   <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebens-Rad</div>
                   <LifeWheel name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Gaben-Karte */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Deine Gaben & Talente">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Deine Gaben & Talente</div>
                   <GiftsCard name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Lebensaufgabe */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Lebensaufgabe">
+                <SCard accentHex="#c026d3">
                   <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebensaufgabe</div>
                   <LifeMissionCard name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Chakra-Zahlen */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#7c3aed" settings={cardSettings} cardTitle="Chakra-Zahlen-Karte">
+                <SCard accentHex="#7c3aed">
                   <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Zahlen-Karte</div>
                   <ChakraNumbers name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Jahres-Orakel */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Jahres-Orakel">
+                <SCard accentHex="#c026d3">
                   <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Jahres-Orakel</div>
                   <YearOracle birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Tages-Energie */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Tages-Energie">
+                <SCard accentHex="#22d3ee">
                   <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Energie</div>
                   <DailyEnergy birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Schicksalszahl */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Schicksalszahl">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Schicksalszahl</div>
                   <DestinyCard name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelendrang-Vertiefung */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Seelendrang-Vertiefung">
+                <SCard accentHex="#c026d3">
                   <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelendrang-Vertiefung</div>
                   <SoulUrgeCard name={profile.name} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Persönlichkeitszahl-Tiefe */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Persönlichkeitszahl-Tiefe">
+                <SCard accentHex="#f472b6">
                   <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Persönlichkeitszahl-Tiefe</div>
                   <PersonalityDeep name={profile.name} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Lebenszyklus */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#22d3ee" settings={cardSettings} cardTitle="Lebenszyklus">
+                <SCard accentHex="#22d3ee">
                   <div style={{ fontSize: 11, color: '#22d3ee', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Lebenszyklus</div>
                   <LifeCycleCard birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Numerologie-Detailansicht */}
               <div style={{ marginTop: 18 }}>
-                <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Numerologie">
+                <SCard accentHex={ACCENT}>
                   <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie</div>
                   <SoulTypeCard birthDate={profile.birthDate} />
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(212,175,55,0.1)' }}>
@@ -1421,111 +1423,111 @@ function HomePage() {
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(212,175,55,0.1)' }}>
                     <KarmicDebts name={profile.name} birthDate={profile.birthDate} />
                   </div>
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Jahres-Vorschau */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Jahres-Vorschau">
+                <SCard accentHex="#c084fc">
                   <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Jahres-Vorschau</div>
                   <YearForecast birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Jahreskalender */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Numerologie-Jahreskalender">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Numerologie-Jahreskalender</div>
                   <YearCalendar birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Idealpartner */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Idealpartner-Energie">
+                <SCard accentHex="#f472b6">
                   <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Idealpartner-Energie</div>
                   <IdealPartnerHints birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Chakra-Resonanz */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Chakra-Resonanz">
+                <SCard accentHex="#818cf8">
                   <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Resonanz</div>
                   <ChakraBar name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Geburtsstein */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#a855f7" settings={cardSettings} cardTitle="Geburtsstein">
+                <SCard accentHex="#a855f7">
                   <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtsstein</div>
                   <BirthstoneCard birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelen-Sigil */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Sigil">
+                <SCard accentHex={ACCENT}>
                   <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Sigil</div>
                   <SoulSigil name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelenfarben */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Seelenfarben">
+                <SCard accentHex="#c084fc">
                   <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenfarben</div>
                   <SoulColors name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Geburts-Mondphase */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#6366f1" settings={cardSettings} cardTitle="Geburts-Mondphase">
+                <SCard accentHex="#6366f1">
                   <div style={{ fontSize: 11, color: '#6366f1', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburts-Mondphase</div>
                   <BirthMoonPhase birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Glückszahlen */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Glückszahlen">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Glückszahlen</div>
                   <LuckyNumbers name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Biorhythmus */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Biorhythmus">
+                <SCard accentHex="#ef4444">
                   <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Biorhythmus</div>
                   <BiorhythmCurve birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Tarot Tages-Karte */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#eab308" settings={cardSettings} cardTitle="Tarot · Karte des Tages">
+                <SCard accentHex="#eab308">
                   <div style={{ fontSize: 11, color: '#eab308', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tarot · Karte des Tages</div>
                   <TarotDayCard birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Tages-Affirmationen */}
               <div style={{ marginTop: 12 }}>
-                <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Tages-Affirmationen">
+                <SCard accentHex="#d4af37">
                   <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Affirmationen</div>
                   <DailyAffirmations birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
 
               {/* Seelenporträt */}
               <div style={{ marginTop: 12, marginBottom: 32 }}>
-                <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Seelenporträt · Maya">
+                <SCard accentHex="#c084fc">
                   <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelenporträt · Maya</div>
                   <SoulPortraitCard name={profile.name} birthDate={profile.birthDate} />
-                </SoulmatchCard>
+                </SCard>
               </div>
             </div>
           </div>
@@ -1541,36 +1543,36 @@ function HomePage() {
             </div>
             {/* Seelen-Dossier */}
             <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-              <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Dossier">
+              <SCard accentHex={ACCENT}>
                 <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Dossier</div>
                 <SoulDossier name={profile.name} birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
             </div>
 
             {/* Score-Verlauf */}
             <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Score-Verlauf">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score-Verlauf</div>
                 <ScoreHistoryChart />
-              </SoulmatchCard>
+              </SCard>
             </div>
             <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-              <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Match-Bestenliste">
+              <SCard accentHex="#22c55e">
                 <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Match-Bestenliste</div>
                 <TopMatchesCard />
-              </SoulmatchCard>
+              </SCard>
             </div>
             <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-              <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="LP-Kompatibilitäts-Matrix">
+              <SCard accentHex="#c084fc">
                 <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>LP-Kompatibilitäts-Matrix</div>
                 <ProfileCompatMatrix />
-              </SoulmatchCard>
+              </SCard>
             </div>
             <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
-              <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Wochenbotschaft · Orion">
+              <SCard accentHex="#38bdf8">
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenbotschaft · Orion</div>
                 <WeeklyInsightCard name={profile.name} birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
             </div>
 
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
@@ -1581,12 +1583,12 @@ function HomePage() {
 
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {computing ? (
-                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                <SCard accentHex={ACCENT}>
                   <ScoreSkeleton />
-                </SoulmatchCard>
+                </SCard>
               ) : scoreResult ? (
                 <>
-                  <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Seelen-Score">
+                  <SCard accentHex={ACCENT}>
                     {/* Score overview */}
                     <div id="card-score-card" style={{ textAlign: 'center', marginBottom: 20 }}>
                       <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 10, color: '#a09a8e', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>
@@ -1623,13 +1625,13 @@ function HomePage() {
                         </div>
                       </div>
                     ))}
-                  </SoulmatchCard>
+                  </SCard>
 
                   <EnergyDivider color="#c084fc" speed={3.5} />
 
                   {/* Discovery Flow — Expandable Insights */}
                   {scoreResult.claims && scoreResult.claims.length > 0 && (
-                    <SoulmatchCard accent={ACCENT} settings={cardSettings} cardTitle="Erkenntnisse & Einblicke">
+                    <SCard accentHex={ACCENT}>
                       <DiscoveryFlow
                         claims={scoreResult.claims}
                         highlightedCard={highlightedCard}
@@ -1640,11 +1642,11 @@ function HomePage() {
                         }}
                         onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
                       />
-                    </SoulmatchCard>
+                    </SCard>
                   )}
                 </>
               ) : (
-                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                <SCard accentHex={ACCENT}>
                   <div style={{ textAlign: 'center', padding: '30px 0' }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>◈</div>
                     <p style={{ fontSize: 14, color: '#a09a8e', marginBottom: 20 }}>
@@ -1654,7 +1656,7 @@ function HomePage() {
                       {computing ? 'Berechne…' : 'Score berechnen'}
                     </CosmicButton>
                   </div>
-                </SoulmatchCard>
+                </SCard>
               )}
             </div>
 
@@ -1705,9 +1707,9 @@ function HomePage() {
             </div>
 
             {/* Oracle Mode — Maya's 3 sacred questions */}
-            <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Orakel-Modus · Maya">
+            <SCard accentHex="#c084fc">
               <OracleMode profile={profile} />
-            </SoulmatchCard>
+            </SCard>
 
             {/* Studio integration */}
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
@@ -1738,7 +1740,22 @@ function HomePage() {
           </div>
         )}
 
-        {/* ═══ PAGE 3: ASTRO ═══ */}
+        {/* ═══ PAGE 3: EXPLORE (Aetheria — kommt in Phase 2) ═══ */}
+        {activePage === PAGE_EXPLORE && (
+          <div key="explore" className="portal-enter">
+            <div style={{ textAlign: 'center', margin: '60px 0 24px' }}>
+              <div style={{ fontSize: 32, marginBottom: 16 }}>✨</div>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 600, color: '#7eb8da', marginBottom: 8 }}>
+                Aetheria
+              </div>
+              <div style={{ fontSize: 13, color: '#5a5a6a', maxWidth: 300, margin: '0 auto', lineHeight: 1.6 }}>
+                Die mystische Weltkarte wird in Phase 2 freigeschaltet.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ PAGE 4: ASTRO ═══ */}
         {activePage === PAGE_ASTRO && (
           <div key="astro" className="portal-enter">
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
@@ -1752,202 +1769,202 @@ function HomePage() {
 
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {/* Wochenschnellblick */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Wochenschnellblick">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenschnellblick</div>
                 <WeeklyAstroView />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Tagesrhythmus */}
-              <SoulmatchCard accent="#a78bfa" settings={cardSettings} cardTitle="Kosmischer Tagesrhythmus">
+              <SCard accentHex="#a78bfa">
                 <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmischer Tagesrhythmus</div>
                 <DayRhythm />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Planeten-Tagebuch */}
-              <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Planeten-Tagebuch">
+              <SCard accentHex="#f472b6">
                 <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planeten-Tagebuch</div>
                 <PlanetJournal />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Mondphasen-Kalender */}
-              <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Mondphasen-Kalender">
+              <SCard accentHex="#38bdf8">
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondphasen-Kalender</div>
                 <LunarCalendar />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Geburtsherrscher */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Geburtsherrscher">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtsherrscher</div>
                 <BirthRuler birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Jahres-Vorschau */}
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Kosmische Jahres-Übersicht">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmische Jahres-Übersicht</div>
                 <YearAstro />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Chakra-Karte */}
-              <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Chakra-Profil">
+              <SCard accentHex="#22c55e">
                 <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chakra-Profil</div>
                 <ChakraMap birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Transite Heute */}
-              <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Transite Heute">
+              <SCard accentHex="#818cf8">
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Transite Heute</div>
                 <TransitsToday />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Mondkalender-Empfehlung */}
-              <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Mondkalender-Empfehlung">
+              <SCard accentHex="#c084fc">
                 <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondkalender-Empfehlung</div>
                 <LunarAdvice />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Planeten-Rhythmus */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Planeten-Rhythmus">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planeten-Rhythmus</div>
                 <PlanetRhythm birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Sternentor */}
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Sternentor-Portal">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Sternentor-Portal</div>
                 <StarGate />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Monats-Energie */}
-              <SoulmatchCard accent="#f97316" settings={cardSettings} cardTitle="Monats-Energie">
+              <SCard accentHex="#f97316">
                 <div style={{ fontSize: 11, color: '#f97316', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Monats-Energie</div>
                 <MonthlyEnergy />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Aspekte-Bedeutungen */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Aspekte-Bedeutungen">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aspekte-Bedeutungen</div>
                 <AspectMeaning />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Rückläufer-Leitfaden */}
-              <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Rückläufer-Leitfaden">
+              <SCard accentHex="#818cf8">
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Rückläufer-Leitfaden</div>
                 <RetrogradeGuide />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Haus-Bedeutungen */}
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Die 12 Häuser">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Die 12 Häuser</div>
                 <HouseMeanings />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Tierkreis-Guide */}
-              <SoulmatchCard accent="#f97316" settings={cardSettings} cardTitle="Dein Sonnenzeichen">
+              <SCard accentHex="#f97316">
                 <div style={{ fontSize: 11, color: '#f97316', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Dein Sonnenzeichen</div>
                 <ZodiacGuide birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Planeten-Bedeutungen */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Planeten-Bedeutungen">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planeten-Bedeutungen</div>
                 <PlanetMeanings />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Chiron-Wunden */}
-              <SoulmatchCard accent="#c026d3" settings={cardSettings} cardTitle="Chiron – Deine Wunde & Heilung">
+              <SCard accentHex="#c026d3">
                 <div style={{ fontSize: 11, color: '#c026d3', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chiron – Deine Wunde & Heilung</div>
                 <ChironWounds birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Nordknoten-Guide */}
-              <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Nordknoten – Seelenrichtung">
+              <SCard accentHex="#38bdf8">
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Nordknoten – Seelenrichtung</div>
                 <NorthNodeGuide birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Venus-Zyklus */}
-              <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Venus-Geburts-Zyklus">
+              <SCard accentHex="#f472b6">
                 <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Venus-Geburts-Zyklus</div>
                 <VenusCycle birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Saturn-Rückkehr */}
-              <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Saturn-Rückkehr">
+              <SCard accentHex="#818cf8">
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Saturn-Rückkehr</div>
                 <SaturnReturn birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Jupiter-Geschenke */}
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Jupiter-Geschenke">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Jupiter-Geschenke</div>
                 <JupiterGifts birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Geburts-Mondphase */}
-              <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Geburts-Mondphase">
+              <SCard accentHex="#818cf8">
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburts-Mondphase</div>
                 <MoonPhaseDeep birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Aspekte-Kurztext */}
               {(astroResult?.aspects?.length ?? 0) > 0 && (
-                <SoulmatchCard accent="#22c55e" settings={cardSettings} cardTitle="Aspekte-Übersicht">
+                <SCard accentHex="#22c55e">
                   <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Aspekte-Übersicht</div>
                   <AspectsOverview aspects={astroResult?.aspects ?? []} />
-                </SoulmatchCard>
+                </SCard>
               )}
 
               {/* Heutiger Himmel */}
-              <SoulmatchCard accent="#818cf8" settings={cardSettings} cardTitle="Heutiger Himmel">
+              <SCard accentHex="#818cf8">
                 <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Heutiger Himmel</div>
                 <CurrentSkyCard />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Retrograde-Warnung */}
-              <SoulmatchCard accent="#f59e0b" settings={cardSettings} cardTitle="Rükläufige Planeten">
+              <SCard accentHex="#f59e0b">
                 <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Rükläufige Planeten</div>
                 <RetrogradeAlert />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Kosmischer Tagesblick */}
-              <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Kosmischer Tagesblick">
+              <SCard accentHex="#38bdf8">
                 <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmischer Tagesblick</div>
                 <CosmicDayCard />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Tages-Energie */}
-              <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Tages-Energie">
+              <SCard accentHex="#d4af37">
                 <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tages-Energie</div>
                 <DayEnergyScore birthDate={profile.birthDate} />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Planetenstunden */}
-              <SoulmatchCard accent="#fbbf24" settings={cardSettings} cardTitle="Planetenstunden">
+              <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Planetenstunden</div>
                 <PlanetaryHours />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Mondkalender */}
-              <SoulmatchCard accent="#c084fc" settings={cardSettings} cardTitle="Mondkalender">
+              <SCard accentHex="#c084fc">
                 <div style={{ fontSize: 11, color: '#c084fc', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mondkalender</div>
                 <MoonCalendar />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Monatshoroskop Luna */}
-              <SoulmatchCard accent="#f472b6" settings={cardSettings} cardTitle="Monatshoroskop · Luna">
+              <SCard accentHex="#f472b6">
                 <div style={{ fontSize: 11, color: '#f472b6', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Monatshoroskop · Luna</div>
                 <MonthlyHoroscope
                   name={profile.name}
                   birthDate={profile.birthDate}
                   sunSign={astroResult?.planets?.find((p) => p.key === 'sun') ? (() => { const SIGN_DE_H: Record<string, string> = { aries: 'Widder', taurus: 'Stier', gemini: 'Zwillinge', cancer: 'Krebs', leo: 'Löwe', virgo: 'Jungfrau', libra: 'Waage', scorpio: 'Skorpion', sagittarius: 'Schütze', capricorn: 'Steinbock', aquarius: 'Wassermann', pisces: 'Fische' }; return SIGN_DE_H[astroResult?.planets?.find((p) => p.key === 'sun')?.signKey ?? ''] ?? undefined; })() : undefined}
                 />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Kosmische Alerts */}
-              <SoulmatchCard accent="#ef4444" settings={cardSettings} cardTitle="Kosmische Ereignisse">
+              <SCard accentHex="#ef4444">
                 <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Kosmische Ereignisse</div>
                 <CosmicAlerts />
-              </SoulmatchCard>
+              </SCard>
 
               {/* Missing data banners */}
               {(() => {
@@ -1996,17 +2013,17 @@ function HomePage() {
 
               {/* No profile */}
               {!profile?.birthDate && !astroLoading && (
-                <SoulmatchCard accent={ACCENT} settings={cardSettings}>
+                <SCard accentHex={ACCENT}>
                   <p style={{ fontSize: 13, color: '#7a7468', textAlign: 'center', margin: 0 }}>Kein Profil vorhanden. Erstelle zuerst ein Profil.</p>
-                </SoulmatchCard>
+                </SCard>
               )}
 
               {/* Radix Wheel */}
               {astroResult?.planets && astroResult.planets.length > 0 && !astroLoading && (
-                <SoulmatchCard accent="#38bdf8" settings={cardSettings} cardTitle="Geburtshoroskop">
+                <SCard accentHex="#38bdf8">
                   <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geburtshoroskop</div>
                   <RadixWheel planets={astroResult.planets} size={290} />
-                </SoulmatchCard>
+                </SCard>
               )}
 
               {/* Zeichen-Interpretation */}
@@ -2018,10 +2035,10 @@ function HomePage() {
                 const moonSign = SIGN_DE_37[moonP?.signKey ?? ''] ?? moonP?.signKey;
                 if (!sunSign && !moonSign) return null;
                 return (
-                  <SoulmatchCard accent="#d4af37" settings={cardSettings} cardTitle="Zeichen-Deutung">
+                  <SCard accentHex="#d4af37">
                     <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zeichen-Deutung</div>
                     <SignInterpretation sunSign={sunSign} moonSign={moonSign} />
-                  </SoulmatchCard>
+                  </SCard>
                 );
               })()}
 
@@ -2034,7 +2051,7 @@ function HomePage() {
                 const elems = astroResult.elements;
                 return (
                   <>
-                    <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                    <SCard accentHex="#38bdf8">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr auto', gap: '0 8px', paddingBottom: 6, marginBottom: 2, borderBottom: '1px solid rgba(56,189,248,0.12)' }}>
                           <span style={{ fontSize: 10, color: '#7a7468' }} />
@@ -2054,10 +2071,10 @@ function HomePage() {
                           <div style={{ marginTop: 8, fontSize: 11, color: '#7a7468', fontStyle: 'italic' }}>Häuser, Aszendent & MC nicht berechnet (keine Geburtszeit).</div>
                         )}
                       </div>
-                    </SoulmatchCard>
+                    </SCard>
                     {elems && (
                       <div style={{ marginTop: 10 }}>
-                        <SoulmatchCard accent="#38bdf8" settings={cardSettings}>
+                        <SCard accentHex="#38bdf8">
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Elemente</div>
                             {([['Feuer', 'fire', '#f97316', '🔥'], ['Erde', 'earth', '#84cc16', '♁'], ['Luft', 'air', '#38bdf8', '♒'], ['Wasser', 'water', '#818cf8', '♓']] as const).map(([label, key, color, sym]) => {
@@ -2076,7 +2093,7 @@ function HomePage() {
                               );
                             })}
                           </div>
-                        </SoulmatchCard>
+                        </SCard>
                       </div>
                     )}
                   </>
@@ -2110,13 +2127,13 @@ function HomePage() {
             </div>
 
             {!profile?.birthDate ? (
-              <SoulmatchCard accent="#34d399" settings={cardSettings}>
+              <SCard accentHex="#34d399">
                 <p style={{ fontSize: 13, color: '#7a7468', textAlign: 'center', margin: 0 }}>Kein Profil vorhanden. Erstelle zuerst ein Profil.</p>
-              </SoulmatchCard>
+              </SCard>
             ) : (
               <>
                 {/* Event type picker */}
-                <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                <SCard accentHex="#34d399">
                   <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Vorhaben</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {JOURNEY_EVENT_OPTIONS.map((opt) => (
@@ -2126,10 +2143,10 @@ function HomePage() {
                       </button>
                     ))}
                   </div>
-                </SoulmatchCard>
+                </SCard>
 
                 {/* Date range */}
-                <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                <SCard accentHex="#34d399">
                   <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 12, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Zeitraum</div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {[{ label: 'Von', val: journeyStart, set: setJourneyStart }, { label: 'Bis', val: journeyEnd, set: setJourneyEnd }].map(({ label, val, set }) => (
@@ -2143,7 +2160,7 @@ function HomePage() {
                   <CosmicButton variant="gold" onClick={() => { void handleJourneyCalc(); }} disabled={journeyLoading} style={{ width: '100%', marginTop: 12 }}>
                     {journeyLoading ? 'Berechne Planetenkonstellationen…' : '✧ Optimale Daten berechnen'}
                   </CosmicButton>
-                </SoulmatchCard>
+                </SCard>
 
                 {/* Error */}
                 {journeyError && !journeyLoading && (
@@ -2155,21 +2172,21 @@ function HomePage() {
                 {/* Results */}
                 {journeyResult && !journeyLoading && (
                   <>
-                    <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                    <SCard accentHex="#34d399">
                       <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginBottom: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Allgemeine Empfehlung</div>
                       <p style={{ fontSize: 12, color: '#a09a8e', margin: 0, lineHeight: 1.6 }}>{journeyResult.generalAdvice}</p>
-                    </SoulmatchCard>
+                    </SCard>
 
                     {journeyResult.optimalDates.length === 0 ? (
-                      <SoulmatchCard accent="#34d399" settings={cardSettings}>
+                      <SCard accentHex="#34d399">
                         <p style={{ fontSize: 12, color: '#7a7468', textAlign: 'center', margin: 0 }}>Keine optimalen Tage in diesem Zeitraum gefunden.</p>
-                      </SoulmatchCard>
+                      </SCard>
                     ) : (
                       journeyResult.optimalDates.slice(0, 6).map((d) => {
                         const ratingColor = d.rating === 'excellent' ? '#34d399' : d.rating === 'good' ? '#d4af37' : '#a09a8e';
                         const ratingDE = d.rating === 'excellent' ? 'Ausgezeichnet' : d.rating === 'good' ? 'Gut' : 'Moderat';
                         return (
-                          <SoulmatchCard key={d.date} accent={ratingColor} settings={cardSettings}>
+                          <SCard key={d.date} accentHex={ratingColor}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                               <div>
                                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, color: '#f0eadc' }}>{d.dayOfWeek}, {new Date(d.date + 'T12:00:00Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
@@ -2190,13 +2207,13 @@ function HomePage() {
                                 ))}
                               </div>
                             )}
-                          </SoulmatchCard>
+                          </SCard>
                         );
                       })
                     )}
 
                     {journeyResult.avoidDates.length > 0 && (
-                      <SoulmatchCard accent="#ef4444" settings={cardSettings}>
+                      <SCard accentHex="#ef4444">
                         <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Möglichst meiden</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {journeyResult.avoidDates.map((d) => (
@@ -2205,7 +2222,7 @@ function HomePage() {
                             </span>
                           ))}
                         </div>
-                      </SoulmatchCard>
+                      </SCard>
                     )}
                   </>
                 )}
@@ -2224,9 +2241,9 @@ function HomePage() {
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Hall of Souls</div>
                 <div style={{ fontSize: 11, color: '#f472b6', marginTop: 4 }}>Entdecke deine Verbindung zu historischen Geistern</div>
               </div>
-              <SoulmatchCard accent="#f472b6" settings={cardSettings}>
+              <SCard accentHex="#f472b6">
                 <HallOfSouls profile={profile} />
-              </SoulmatchCard>
+              </SCard>
             </div>
           </div>
         )}
