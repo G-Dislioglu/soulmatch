@@ -1767,9 +1767,30 @@ function HomePage() {
           <div key="explore" className="portal-enter" style={{ margin: '-20px -16px' }}>
             <AetheriaScreen
               onAction={(action: string, _loc: AetheriaLocation) => {
-                if (action === 'roundtable' || action === 'solo-chat') setActivePage(PAGE_STUDIO);
-                else if (action === 'birth-chart' || action === 'transits' || action === 'aspects' || action === 'synastry') setActivePage(PAGE_ASTRO);
-                else if (action === 'soul-gallery' || action === 'crossing' || action === 'score-timeline') setActivePage(PAGE_SOULS);
+                // Rat der Meister → Studio
+                if (action === 'roundtable' || action === 'solo-chat' || action === 'match-mode' || action === 'soul-cards') {
+                  setActivePage(PAGE_STUDIO);
+                }
+                // Sternenwarte → Astro
+                else if (action === 'birth-chart' || action === 'transits' || action === 'aspects' || action === 'synastry') {
+                  setActivePage(PAGE_ASTRO);
+                }
+                // Hall of Souls → Seelen-Seite
+                else if (action === 'soul-gallery' || action === 'crossing' || action === 'score-timeline' || action === 'crossing-ritual') {
+                  setActivePage(PAGE_SOULS);
+                }
+                // Turm der Zahlen → Report (Numerologie)
+                else if (action === 'life-path' || action === 'soul-urge' || action === 'personality' || action === 'karmic-debt') {
+                  setActivePage(PAGE_REPORT);
+                }
+                // Mondlichtung → Report (Tarot)
+                else if (action === 'daily-card' || action === 'three-card' || action === 'celtic-cross' || action === 'love-spread') {
+                  setActivePage(PAGE_REPORT);
+                }
+                // Kristallgarten → Report (Chakra)
+                else if (action === 'chakra-scan' || action === 'energy-body' || action === 'blockages' || action === 'meditation') {
+                  setActivePage(PAGE_REPORT);
+                }
               }}
             />
           </div>

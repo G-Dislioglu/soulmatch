@@ -40,7 +40,7 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              opacity: 0.55,
+              opacity: 0.82,
               animation: "aetheriaFadeIn 1.2s ease",
             }}
           />
@@ -56,7 +56,7 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
           </div>
         )}
         {/* Dunkler Overlay für Lesbarkeit */}
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
+        <div style={{ position: "absolute", inset: 0, background: bgUrl ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.45)" }} />
       </div>
 
       {/* Header */}
@@ -77,17 +77,22 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
             display: "flex",
             alignItems: "center",
             gap: 6,
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.7)",
+            background: "rgba(0,0,0,0.45)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "rgba(255,255,255,0.9)",
             fontFamily: TOKENS.font.body,
             fontSize: 13,
+            fontWeight: 600,
             cursor: "pointer",
-            padding: "4px 8px",
-            borderRadius: 8,
+            padding: "6px 14px",
+            borderRadius: 20,
+            backdropFilter: "blur(8px)",
+            transition: "all 0.2s",
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.45)"; }}
         >
-          ← Aetheria
+          ← Zurück
         </button>
 
         <div style={{ textAlign: "center" }}>
