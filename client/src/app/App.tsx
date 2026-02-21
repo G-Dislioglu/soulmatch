@@ -38,6 +38,8 @@ import { SCard } from '../design';
 import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
 import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
+import { AetheriaScreen } from '../modules/M15_aetheria';
+import type { AetheriaLocation } from '../modules/M15_aetheria';
 import { DisclaimerModal } from '../modules/M01_app-shell';
 
 const ACCENT = '#d4af37';
@@ -1740,18 +1742,16 @@ function HomePage() {
           </div>
         )}
 
-        {/* ═══ PAGE 3: EXPLORE (Aetheria — kommt in Phase 2) ═══ */}
+        {/* ═══ PAGE 3: EXPLORE (Aetheria) ═══ */}
         {activePage === PAGE_EXPLORE && (
-          <div key="explore" className="portal-enter">
-            <div style={{ textAlign: 'center', margin: '60px 0 24px' }}>
-              <div style={{ fontSize: 32, marginBottom: 16 }}>✨</div>
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 600, color: '#7eb8da', marginBottom: 8 }}>
-                Aetheria
-              </div>
-              <div style={{ fontSize: 13, color: '#5a5a6a', maxWidth: 300, margin: '0 auto', lineHeight: 1.6 }}>
-                Die mystische Weltkarte wird in Phase 2 freigeschaltet.
-              </div>
-            </div>
+          <div key="explore" className="portal-enter" style={{ margin: '-20px -16px' }}>
+            <AetheriaScreen
+              onAction={(action: string, _loc: AetheriaLocation) => {
+                if (action === 'roundtable' || action === 'solo-chat') setActivePage(PAGE_STUDIO);
+                else if (action === 'birth-chart' || action === 'transits' || action === 'aspects' || action === 'synastry') setActivePage(PAGE_ASTRO);
+                else if (action === 'soul-gallery' || action === 'crossing' || action === 'score-timeline') setActivePage(PAGE_SOULS);
+              }}
+            />
           </div>
         )}
 

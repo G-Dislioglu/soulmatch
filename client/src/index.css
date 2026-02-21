@@ -211,6 +211,14 @@ body {
   100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes aetheriaOrbPulse {
+  0% { transform: translate(-50%, -60%) scale(1); opacity: 0.6; }
+  100% { transform: translate(-50%, -60%) scale(1.8); opacity: 0; }
+}
+@keyframes aetheriaFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .discovery-pulse { animation: discoveryPulse 2.5s ease-in-out infinite; }
 .maya-whisper-fade { animation: mayaWhisperFade 0.5s ease-out forwards; }
