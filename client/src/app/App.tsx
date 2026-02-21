@@ -2241,9 +2241,7 @@ function HomePage() {
                 <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Hall of Souls</div>
                 <div style={{ fontSize: 11, color: '#f472b6', marginTop: 4 }}>Entdecke deine Verbindung zu historischen Geistern</div>
               </div>
-              <SCard accentHex="#f472b6">
-                <HallOfSouls profile={profile} />
-              </SCard>
+              <HallOfSouls profile={profile} />
             </div>
           </div>
         )}

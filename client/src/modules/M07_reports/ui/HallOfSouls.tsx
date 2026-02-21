@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SCard } from '../../../design';
 import type { UserProfile } from '../../../shared/types/profile';
 
 // ── Soul Figure data ──────────────────────────────────────────────────────────
@@ -148,13 +149,7 @@ export function HallOfSouls({ profile }: HallOfSoulsProps) {
           const eraColor = ERA_COLOR[figure.era];
 
           return (
-            <div key={figure.id} style={{
-              borderRadius: 12,
-              border: `1px solid ${result ? (CONNECTION_COLORS[result.connectionType] ?? eraColor) + '44' : 'rgba(255,255,255,0.06)'}`,
-              background: result ? `rgba(${hexToRgb(CONNECTION_COLORS[result.connectionType] ?? eraColor)},0.05)` : 'rgba(255,255,255,0.02)',
-              padding: '12px 14px',
-              transition: 'all 0.3s',
-            }}>
+            <SCard key={figure.id} accentHex={result ? (CONNECTION_COLORS[result.connectionType] ?? eraColor) : eraColor} style={{ padding: '12px 14px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 {/* Emoji */}
                 <div style={{ fontSize: 22, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: `${eraColor}18`, flexShrink: 0, color: eraColor }}>
@@ -196,7 +191,7 @@ export function HallOfSouls({ profile }: HallOfSoulsProps) {
                   {result.reason}
                 </div>
               )}
-            </div>
+            </SCard>
           );
         })}
       </div>
@@ -204,9 +199,3 @@ export function HallOfSouls({ profile }: HallOfSoulsProps) {
   );
 }
 
-function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r},${g},${b}`;
-}
