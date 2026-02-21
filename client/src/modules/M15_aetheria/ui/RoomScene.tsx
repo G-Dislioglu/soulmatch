@@ -16,12 +16,12 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
 
   return (
     <div style={{
-      position: "fixed",
+      position: "absolute",
       inset: 0,
-      zIndex: 40,
+      zIndex: 10,
       display: "flex",
       flexDirection: "column",
-      overflow: "auto",
+      overflow: "hidden",
     }}>
       {/* Hintergrund */}
       <div style={{
@@ -61,11 +61,10 @@ export function RoomScene({ loc, onBack, onAction }: RoomSceneProps) {
         <div style={{ position: "absolute", inset: 0, background: bgUrl ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.45)" }} />
       </div>
 
-      {/* Header — sticky so image can never overlap it */}
+      {/* Header — always on top within RoomScene */}
       <div style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        position: "relative",
+        zIndex: 10,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",

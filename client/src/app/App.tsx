@@ -1062,7 +1062,7 @@ function HomePage() {
 
   /* ── Main cosmic shell ── */
   return (
-    <div ref={containerRef} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <div ref={containerRef} style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
       {cardSettings.cosmicTrail && <CosmicTrail containerRef={containerRef} intensity={cardSettings.cursorAuraIntensity} />}
 
       {/* Soul Card Detail Modal */}
@@ -1094,18 +1094,24 @@ function HomePage() {
         callbacks={sidebarCallbacks}
       />
 
+      {/* ── Sticky header shell (never scrolls away) ── */}
       <div
-        className="app-content-main"
         style={{
-          position: 'relative', zIndex: 10,
-          padding: '32px 28px 60px', maxWidth: 1100,
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          flexShrink: 0,
+          background: 'rgba(8,6,15,0.92)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(212,175,55,0.08)',
           marginLeft: sidebarCollapsed ? 56 : 280,
-          marginRight: 'auto',
           transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-        {/* Header */}
-        <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ padding: '16px 28px 0', maxWidth: 1100, marginRight: 'auto' }}>
+          {/* Header */}
+          <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {/* Mobile-only hamburger */}
             <button
@@ -1139,13 +1145,30 @@ function HomePage() {
           </div>
         </div>
 
-        {/* Page navigation */}
-        <PageTransition pages={APP_PAGES} activePage={activePage} onPageChange={setActivePage} />
+          {/* Page navigation */}
+          <PageTransition pages={APP_PAGES} activePage={activePage} onPageChange={setActivePage} />
+        </div>
         <EnergyDivider color={APP_PAGES[activePage]?.color ?? ACCENT} speed={3} />
+      </div>
+
+      {/* ── Scrollable content area ── */}
+      <div
+        className="app-content-main"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          position: 'relative',
+          zIndex: 10,
+          marginLeft: sidebarCollapsed ? 56 : 280,
+          marginRight: 'auto',
+          transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+      >
 
         {/* ═══ PAGE 0: PROFIL ═══ */}
         {activePage === PAGE_PROFILE && (
-          <div key="profil" className="portal-enter">
+          <div key="profil" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div id="profil-avatar" style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 28px' }}>
               <AuraAvatar sign="♏" size={88} colors={[ACCENT, '#9333ea', '#dc2626']} label={`${profile.name}`} />
             </div>
@@ -1560,7 +1583,7 @@ function HomePage() {
 
         {/* ═══ PAGE 1: REPORT ═══ */}
         {activePage === PAGE_REPORT && (
-          <div key="report" className="portal-enter">
+          <div key="report" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 Soulmatch Report
@@ -1703,7 +1726,7 @@ function HomePage() {
 
         {/* ═══ PAGE 2: STUDIO ═══ */}
         {activePage === PAGE_STUDIO && (
-          <div key="studio" className="portal-enter">
+          <div key="studio" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 8px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
@@ -1771,7 +1794,7 @@ function HomePage() {
 
         {/* ═══ PAGE 3: EXPLORE (Aetheria) ═══ */}
         {activePage === PAGE_EXPLORE && (
-          <div key="explore" className="portal-enter" style={{ margin: '-20px -16px' }}>
+          <div key="explore" className="portal-enter" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <AetheriaScreen
               onAction={(action: string, _loc: AetheriaLocation) => {
                 // Rat der Meister → Studio
@@ -1805,7 +1828,7 @@ function HomePage() {
 
         {/* ═══ PAGE 4: ASTRO ═══ */}
         {activePage === PAGE_ASTRO && (
-          <div key="astro" className="portal-enter">
+          <div key="astro" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 {profile?.name ?? 'Profil'}
@@ -2162,11 +2185,10 @@ function HomePage() {
             </div>
           </div>
         )}
-      </div>
 
         {/* ═══ PAGE 4: JOURNEY PLANNER ═══ */}
         {activePage === PAGE_JOURNEY && (
-          <div key="journey" className="portal-enter">
+          <div key="journey" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
             <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
               <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Astrologischer</div>
@@ -2282,7 +2304,7 @@ function HomePage() {
 
         {/* ═══ PAGE 5: HALL OF SOULS ═══ */}
         {activePage === PAGE_SOULS && (
-          <div key="souls" className="portal-enter">
+          <div key="souls" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
             <div style={{ maxWidth: 600, margin: '0 auto' }}>
               <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
                 <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Kosmische Verbindungen</div>
@@ -2294,19 +2316,20 @@ function HomePage() {
           </div>
         )}
 
-      {/* Version stamp */}
-      <div style={{ textAlign: 'center', padding: '6px 0 10px', opacity: 0.35 }}>
-        <span style={{ fontSize: 9, color: '#7a7468', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
-          client&nbsp;{__CLIENT_VERSION__}
-          {serverMeta && (
-            <>
-              &nbsp;&middot;&nbsp;server&nbsp;{serverMeta.serverVersion}
-              &nbsp;&middot;&nbsp;engine&nbsp;{serverMeta.scoringEngineVersion}
-              &nbsp;&middot;&nbsp;{serverMeta.buildSha}
-            </>
-          )}
-        </span>
-      </div>
+        {/* Version stamp */}
+        <div style={{ textAlign: 'center', padding: '6px 0 10px', opacity: 0.35 }}>
+          <span style={{ fontSize: 9, color: '#7a7468', letterSpacing: '0.08em', fontFamily: 'monospace' }}>
+            client&nbsp;{__CLIENT_VERSION__}
+            {serverMeta && (
+              <>
+                &nbsp;&middot;&nbsp;server&nbsp;{serverMeta.serverVersion}
+                &nbsp;&middot;&nbsp;engine&nbsp;{serverMeta.scoringEngineVersion}
+                &nbsp;&middot;&nbsp;{serverMeta.buildSha}
+              </>
+            )}
+          </span>
+        </div>
+      </div>{/* /app-content-main */}
 
       {/* Z-Image Generator Modal */}
       {showImageGen && <AetheriaImageGen onClose={() => setShowImageGen(false)} />}
