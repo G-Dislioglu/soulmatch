@@ -16,7 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, LunaPortrait, OrionPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
+import { StudioPage, MayaPortrait, LilithPortrait, LunaPortrait, OrionPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard, DiscussionChat, PersonaGrid } from '../modules/M08_studio-chat';
 import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
 import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
 import type { StudioSeat } from '../shared/types/studio';
@@ -147,6 +147,7 @@ function HomePage() {
   const [showCrossing, setShowCrossing] = useState(false);
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
+  const [chatPersonas, setChatPersonas] = useState<string[] | null>(null);
 
   // ── Maya Command System state ──
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
@@ -1723,58 +1724,81 @@ function HomePage() {
           </div>
         )}
 
-        {/* ═══ PAGE 2: STUDIO ═══ */}
+        {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_STUDIO && (
-          <div key="studio" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
-            <div style={{ maxWidth: 600, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', margin: '20px 0 8px' }}>
-              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                Persona Studio
-              </div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
-                Vier Perspektiven
-              </div>
-            </div>
-
-            {/* Persona Portraits + Auras */}
-            <div id="persona-row" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 20, margin: '24px 0 28px', flexWrap: 'wrap' }}>
-              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('maya')}>
-                <MayaPortrait size={150} />
-                <div style={{ fontSize: 10, color: '#a855f7', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
-              </div>
-              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('luna')}>
-                <LunaPortrait size={150} />
-                <div style={{ fontSize: 10, color: '#c084fc', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Luna</div>
-              </div>
-              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('orion')}>
-                <OrionPortrait size={150} />
-                <div style={{ fontSize: 10, color: '#38bdf8', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Orion</div>
-              </div>
-              <div className="persona-card-hover" style={{ textAlign: 'center' }} onClick={() => setPreviewSeat('lilith')}>
-                <LilithPortrait size={150} />
-                <div style={{ fontSize: 10, color: '#d49137', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
-              </div>
-            </div>
-
-            {/* Oracle Mode — Maya's 3 sacred questions */}
-            <SCard accentHex="#c084fc">
-              <OracleMode profile={profile} />
-            </SCard>
-
-            {/* Studio integration */}
-            <div>
-              <StudioPage
-                profileId={profile.id}
-                onBack={() => setActivePage(PAGE_PROFILE)}
-                lilithUnlocked={hasProfile}
-                embedded
-                allProfiles={allProfiles}
-                onComputeMatch={handleStudioMatch}
-                initialSoloSeat={soloTrigger}
-                onSoloChatOpened={() => setSoloTrigger(null)}
-                commandCallbacks={commandCallbacks}
+          <div key="studio" className="portal-enter" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: 'calc(100vh - 120px)',
+            minHeight: 0,
+            maxWidth: 700,
+            margin: '0 auto',
+            width: '100%',
+          }}>
+            {chatPersonas ? (
+              /* ── Inline Discussion Chat ── */
+              <DiscussionChat
+                initialPersonas={chatPersonas}
+                profileExcerpt={profile ? `Name: ${profile.name}, Geburtsdatum: ${profile.birthDate}${profile.birthTime ? `, Geburtszeit: ${profile.birthTime}` : ''}${profile.birthLocation?.label ? `, Geburtsort: ${profile.birthLocation.label}` : ''}` : ''}
+                onBack={() => setChatPersonas(null)}
               />
-            </div>
+            ) : (
+              /* ── Persona Grid ── */
+              <div style={{ overflowY: 'auto', flex: 1, padding: '0 16px 40px' }}>
+                <PersonaGrid onSelectPersona={(id) => setChatPersonas([id])} />
+
+                {/* Studio section — collapsible below grid */}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{
+                    fontSize: 10, color: '#6b6560', textTransform: 'uppercase',
+                    letterSpacing: '0.12em', fontWeight: 600, marginBottom: 14,
+                    paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)',
+                  }}>
+                    Studio · Roundtable
+                  </div>
+
+                  {/* Persona Portraits */}
+                  <div id="persona-row" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('maya')}>
+                      <MayaPortrait size={100} />
+                      <div style={{ fontSize: 9, color: '#a855f7', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
+                    </div>
+                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('luna')}>
+                      <LunaPortrait size={100} />
+                      <div style={{ fontSize: 9, color: '#c084fc', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Luna</div>
+                    </div>
+                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('orion')}>
+                      <OrionPortrait size={100} />
+                      <div style={{ fontSize: 9, color: '#38bdf8', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Orion</div>
+                    </div>
+                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('lilith')}>
+                      <LilithPortrait size={100} />
+                      <div style={{ fontSize: 9, color: '#d49137', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
+                    </div>
+                  </div>
+
+                  {/* Oracle Mode */}
+                  <SCard accentHex="#c084fc">
+                    <OracleMode profile={profile} />
+                  </SCard>
+
+                  {/* Studio integration */}
+                  {profile && (
+                    <StudioPage
+                      profileId={profile.id}
+                      onBack={() => setActivePage(PAGE_PROFILE)}
+                      lilithUnlocked={hasProfile}
+                      embedded
+                      allProfiles={allProfiles}
+                      onComputeMatch={handleStudioMatch}
+                      initialSoloSeat={soloTrigger}
+                      onSoloChatOpened={() => setSoloTrigger(null)}
+                      commandCallbacks={commandCallbacks}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Persona Preview Lightbox */}
             {previewSeat && (
@@ -1787,7 +1811,6 @@ function HomePage() {
                 onClose={() => setPreviewSeat(null)}
               />
             )}
-            </div>{/* /maxWidth 600 */}
           </div>
         )}
 

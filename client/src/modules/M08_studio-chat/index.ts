@@ -40,4 +40,5 @@ export { WeeklyInsightCard } from './ui/WeeklyInsightCard';
 export { DiscussionChat } from './ui/DiscussionChat';
 export { PersonaBar } from './ui/PersonaBar';
 export { PersonaPicker } from './ui/PersonaPicker';
+export { PersonaGrid } from './ui/PersonaGrid';
 export { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES, PERSONA_TITLES, PERSONA_TIERS } from './lib/personaColors';
