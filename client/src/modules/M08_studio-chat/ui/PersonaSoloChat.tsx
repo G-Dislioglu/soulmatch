@@ -465,7 +465,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 pt-6 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 backdrop-blur-sm" style={{ padding: '16px', paddingTop: '24px', overflowY: 'auto' }}>
       {/* Aura-snap flash on open */}
       {showAuraSnap && (
         <div style={{
@@ -477,7 +477,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
           animation: 'auraSnap 0.6s ease-out forwards',
         }} />
       )}
-      <div className={`w-full max-w-lg rounded-xl border border-white/[0.16] ${theme.bg} shadow-[0_0_24px_rgba(212,175,55,0.06),0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh]`}>
+      <div className={`w-full max-w-lg rounded-xl border border-white/[0.16] ${theme.bg} shadow-[0_0_24px_rgba(212,175,55,0.06),0_8px_32px_rgba(0,0,0,0.5)] flex flex-col`} style={{ maxHeight: 'calc(100vh - 48px)', overflow: 'hidden' }}>
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${theme.headerBg}`}>
           <div className="flex items-center gap-3">
