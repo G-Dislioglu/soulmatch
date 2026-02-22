@@ -143,7 +143,12 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
           className="flex-1 rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
         />
         {speech.isSupported && (
-          <Button variant={speech.isListening ? 'primary' : 'secondary'} onClick={handleMicClick}>
+          <Button
+            variant={speech.isListening ? 'primary' : 'secondary'}
+            onClick={handleMicClick}
+            className={speech.isListening ? 'mic-green-pulse' : ''}
+            title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+          >
             🎤
           </Button>
         )}

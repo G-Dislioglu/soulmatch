@@ -227,13 +227,14 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
           <button
             onClick={handleMicClick}
             disabled={loading}
+            className={speech.isListening ? 'mic-green-pulse' : undefined}
             style={{
-              background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
-              border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
+              background: speech.isListening ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+              border: speech.isListening ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: 10,
               padding: '8px 12px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              color: speech.isListening ? '#ef4444' : '#6b6560',
+              color: speech.isListening ? '#4ade80' : '#6b6560',
               fontSize: 16,
             }}
             title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}

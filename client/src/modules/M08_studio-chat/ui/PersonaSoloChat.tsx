@@ -864,7 +864,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
             <button
               onClick={handleMicClick}
               disabled={blocked}
-              className={`px-3 rounded-lg text-sm border transition-colors ${speech.isListening ? 'bg-red-600/20 border-red-500/40 text-red-300' : 'bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300'}`}
+              className={`px-3 rounded-lg text-sm border transition-colors ${speech.isListening ? 'mic-green-pulse bg-green-600/15 border-green-500/40 text-green-300' : 'bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300'}`}
               title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
             >
               🎤
