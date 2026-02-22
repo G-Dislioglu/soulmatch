@@ -241,6 +241,12 @@ export function buildDiscussPrompt(
   personaId: string,
   context: DiscussPromptContext,
 ): string {
+  const APP_CONTEXT_BLOCK = `Du bist Teil der Soulmatch-App. Soulmatch ist eine spirituelle
+Kompatibilitäts- und Selbstkenntnis-App die Astrologie, BaZi,
+Vedische Astrologie, Tarot, Chakren und Human Design kombiniert.
+Die App heißt Soulmatch (nicht SOL Match).
+Der User interagiert mit dir über die Soulmatch Chat-Funktion.`;
+
   const PERSONA_DISCUSS_DESCRIPTIONS: Record<string, string> = {
     maya:   'Du bist Maya, die Strukturgeberin. Ruhig, neutral, ordnend. Gibst klare Empfehlungen.',
     luna:   'Du bist Luna, die Traumführerin. Emotional, intuitiv, empathisch. Sprichst die Sprache des Herzens.',
@@ -294,7 +300,9 @@ export function buildDiscussPrompt(
     ? `\nLilith Intensity: ${context.lilithIntensity.toUpperCase()}\n`
     : '';
 
-  return `${personaDesc}${lilithBlock}
+  return `${APP_CONTEXT_BLOCK}
+
+${personaDesc}${lilithBlock}
 
 Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
 ${userProfileBlock}${memoryBlock}${previousBlock}

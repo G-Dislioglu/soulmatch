@@ -661,6 +661,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function detectAddressedPersonaId(messageRaw: string): string | undefined {
+  const message = messageRaw.toLowerCase();
+  const personaIds = ['maya', 'stella', 'kael', 'luna', 'orion', 'lian', 'sibyl', 'amara', 'lilith'] as const;
+
+  let best: { id: string; idx: number } | undefined;
+  for (const id of personaIds) {
+    const re = new RegExp(`(^|[^a-z0-9_])${id}([^a-z0-9_]|$)`, 'i');
+    const m = re.exec(message);
+    if (!m || typeof m.index !== 'number') continue;
+    if (!best || m.index < best.idx) {
+      best = { id, idx: m.index };
+    }
+  }
+
+  return best?.id;
+}
+
 studioRouter.get('/openai-test', async (_req: Request, res: Response) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set' }); return; }
@@ -772,7 +789,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     { role: 'user', content: body.message },
   ];
 
-  for (const personaId of body.personas) {
+  const addressedPersonaId = detectAddressedPersonaId(body.message);
+  const personasToCall = addressedPersonaId && body.personas.includes(addressedPersonaId)
+    ? [addressedPersonaId]
+    : body.personas;
+
+  for (const personaId of personasToCall) {
     if (responses.length > 0) {
       await sleep(1500);
     }
@@ -792,7 +814,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     }
 
     const systemPrompt = buildDiscussPrompt(personaId, {
-      otherPersonas: body.personas.filter((p) => p !== personaId),
+      otherPersonas: personasToCall.filter((p) => p !== personaId),
       previousResponses: accumulatedContext,
       userChart: body.userChart ?? '',
       isFirstSpeaker: responses.length === 0,
@@ -879,7 +901,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
   const result: DiscussResponse = {
     responses,
-    creditsUsed: body.personas.length * (body.audioMode ? 10 : 1),
+    creditsUsed: personasToCall.length * (body.audioMode ? 10 : 1),
   };
 
   devLogger.info('llm', `Discuss: completed ${body.personas.length} personas in ${Date.now() - startTime}ms`);
