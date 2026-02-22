@@ -4,33 +4,33 @@ const STORAGE_KEY = 'soulmatch.settings.v1';
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   none: '',
-  openai: 'gpt-4.1-nano',
+  openai: 'gpt-5-nano',
   deepseek: 'deepseek-chat',
-  xai: 'grok-4-1-fast-reasoning',
+  xai: 'grok-3-mini-fast',
 };
 
-export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string }[]> = {
+export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string; tier?: 'budget' | 'standard' | 'premium' | 'reasoning' }[]> = {
   none: [],
   openai: [
-    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (günstigste)' },
-    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-    { value: 'gpt-4.1', label: 'GPT-4.1' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-5-nano', label: 'GPT-5 Nano' },
-    { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
+    { value: 'gpt-5-nano', label: 'GPT-5 Nano — $0.05/1M ⭐ Standard', tier: 'budget' },
+    { value: 'gpt-5-mini', label: 'GPT-5 Mini — $0.25/1M', tier: 'standard' },
+    { value: 'gpt-5', label: 'GPT-5 — $1.25/1M 🔥 Premium', tier: 'premium' },
+    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano — $0.10/1M', tier: 'budget' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini — $0.40/1M', tier: 'standard' },
+    { value: 'gpt-4.1', label: 'GPT-4.1 — $2.00/1M', tier: 'premium' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini — $0.15/1M', tier: 'budget' },
+    { value: 'gpt-4o', label: 'GPT-4o — $2.50/1M', tier: 'premium' },
   ],
   deepseek: [
-    { value: 'deepseek-chat', label: 'DeepSeek Chat (V3.2)' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner (R1)' },
+    { value: 'deepseek-chat', label: 'DeepSeek V3 — $0.28/1M ⭐ Standard', tier: 'standard' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek R1 — Reasoning 🧠', tier: 'reasoning' },
   ],
   xai: [
-    { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Fast Reasoning' },
-    { value: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast Non-Reasoning' },
-    { value: 'grok-4-fast-reasoning', label: 'Grok 4 Fast Reasoning' },
-    { value: 'grok-4-fast-non-reasoning', label: 'Grok 4 Fast Non-Reasoning' },
-    { value: 'grok-4-0709', label: 'Grok 4' },
-    { value: 'grok-code-fast-1', label: 'Grok Code Fast 1' },
+    { value: 'grok-3-mini-fast', label: 'Grok 3 Mini Fast ⭐ Standard', tier: 'standard' },
+    { value: 'grok-3-mini', label: 'Grok 3 Mini', tier: 'standard' },
+    { value: 'grok-3-fast', label: 'Grok 3 Fast', tier: 'premium' },
+    { value: 'grok-3', label: 'Grok 3 — Premium', tier: 'premium' },
+    { value: 'grok-2-1212', label: 'Grok 2', tier: 'standard' },
   ],
 };
 

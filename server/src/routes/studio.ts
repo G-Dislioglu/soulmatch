@@ -40,7 +40,7 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   openai: {
     apiUrl: 'https://api.openai.com/v1/responses',
     envKey: 'OPENAI_API_KEY',
-    defaultModel: 'gpt-4.1-nano',
+    defaultModel: 'gpt-5-nano',
     engineVersion: 'studio-1.0-openai',
     supportsStructuredOutputs: true,
   },
@@ -54,7 +54,7 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   xai: {
     apiUrl: 'https://api.x.ai/v1/chat/completions',
     envKey: 'XAI_API_KEY',
-    defaultModel: 'grok-4-1-fast-reasoning',
+    defaultModel: 'grok-3-mini-fast',
     engineVersion: 'studio-1.0-xai',
     supportsStructuredOutputs: false,
   },

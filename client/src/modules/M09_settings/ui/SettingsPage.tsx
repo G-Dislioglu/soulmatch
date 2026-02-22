@@ -162,6 +162,29 @@ export function SettingsPage({ onBack, onSettingsChanged }: SettingsPageProps) {
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(['budget', 'standard', 'premium', 'reasoning'] as const).map((tier) => {
+                  const colors: Record<string, string> = {
+                    budget: 'bg-emerald-900/40 text-emerald-400',
+                    standard: 'bg-blue-900/40 text-blue-300',
+                    premium: 'bg-amber-900/40 text-amber-400',
+                    reasoning: 'bg-purple-900/40 text-purple-300',
+                  };
+                  const labels: Record<string, string> = {
+                    budget: '💚 Budget',
+                    standard: '🔵 Standard',
+                    premium: '🔥 Premium',
+                    reasoning: '🧠 Reasoning',
+                  };
+                  const hasTier = modelOptions.some((m) => m.tier === tier);
+                  if (!hasTier) return null;
+                  return (
+                    <span key={tier} className={`rounded px-1.5 py-0.5 text-[10px] ${colors[tier]}`}>
+                      {labels[tier]}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>
