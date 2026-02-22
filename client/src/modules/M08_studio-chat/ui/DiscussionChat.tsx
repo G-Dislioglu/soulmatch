@@ -51,14 +51,20 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
+  const loadingRef = useRef(false); // Ref for auto-send callback
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
 
   // Speech-to-text integration
   // TODO: Read language from central app settings when implemented
 
   // Auto-send callback for continuous mode
   const handleAutoSend = useCallback(async (text: string) => {
-    if (!text || loading) return;
+    console.log('[DiscussionChat] handleAutoSend called with:', text, 'loading:', loadingRef.current);
+    if (!text || loadingRef.current) {
+      console.log('[DiscussionChat] handleAutoSend early return - text empty or loading');
+      return;
+    }
 
     const userMsg: DiscussMessage = {
       id: `u-${Date.now()}`,
@@ -113,7 +119,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, profileExcerpt, audioMode]);
+  }, [messages, profileExcerpt, audioMode]);
 
   const speech = useSpeechToText('de', handleAutoSend);
   const [showConsent, setShowConsent] = useState(false);

@@ -147,29 +147,31 @@ export function PersonaBar({
       {isSpeechSupported && onToggleContinuous && (
         <button
           onClick={onToggleContinuous}
-          title={continuousMode ? 'Freisprechen beenden' : 'Freisprechen starten'}
           style={{
-            background: continuousMode ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
-            border: continuousMode ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.10)',
+            background: continuousMode ? 'rgba(239,68,68,0.20)' : 'rgba(255,255,255,0.04)',
+            border: continuousMode ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.10)',
             borderRadius: 8,
             color: continuousMode ? '#ef4444' : '#6b6560',
             cursor: 'pointer',
-            fontSize: 16,
-            padding: '5px 10px',
+            fontSize: 13,
+            padding: continuousMode ? '6px 12px' : '5px 10px',
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 6,
+            fontWeight: continuousMode ? 600 : 400,
+            animation: continuousMode ? 'pulse 1.5s infinite' : 'none',
           }}
         >
-          🎙
+          <span style={{ fontSize: 16 }}>🎙</span>
+          {continuousMode && <span>Freisprechen</span>}
           {continuousMode && (
             <span style={{
-              width: 6,
-              height: 6,
+              width: 8,
+              height: 8,
               borderRadius: '50%',
               background: '#ef4444',
-              animation: 'pulse 1.5s infinite',
+              animation: 'pulse 1s infinite',
             }} />
           )}
         </button>

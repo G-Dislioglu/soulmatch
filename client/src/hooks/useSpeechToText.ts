@@ -65,6 +65,7 @@ export function useSpeechToText(
     };
 
     recognition.onend = () => {
+      console.log('[speech] onend fired, continuousMode:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
       setIsListening(false);
 
       // CONTINUOUS MODE: Auto-send after speech pause, then restart
@@ -73,18 +74,22 @@ export function useSpeechToText(
 
         if (currentTranscript && currentTranscript.trim().length > 0) {
           // Auto-send the transcript
+          console.log('[speech] auto-sending:', currentTranscript.trim());
           onAutoSendRef.current?.(currentTranscript.trim());
           setTranscript('');
           transcriptRef.current = '';
         }
 
         // Restart listening after short pause (500ms)
+        console.log('[speech] restarting mic in 500ms');
         setTimeout(() => {
           if (isContinuousModeRef.current && recognitionRef.current) {
             try {
+              console.log('[speech] restarting mic now');
               recognitionRef.current.start();
               setIsListening(true);
-            } catch {
+            } catch (e) {
+              console.log('[speech] restart failed:', e);
               // Already started or aborted — ignore
             }
           }
@@ -163,6 +168,7 @@ export function useSpeechToText(
 
   const startContinuous = useCallback(() => {
     if (!recognitionRef.current) return;
+    console.log('[speech] startContinuous called');
     isContinuousModeRef.current = true;
     setIsContinuousMode(true);
     setTranscript('');
@@ -170,7 +176,8 @@ export function useSpeechToText(
     try {
       recognitionRef.current.start();
       setIsListening(true);
-    } catch { /* already started */ }
+      console.log('[speech] mic started, isContinuousMode=true');
+    } catch (e) { console.log('[speech] start failed:', e); /* already started */ }
   }, []);
 
   const stopContinuous = useCallback(() => {
