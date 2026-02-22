@@ -14,6 +14,7 @@ interface DiscussMessage {
   timestamp: string;
   provider?: string;
   model?: string;
+  audioUrl?: string;
 }
 
 interface PersonaResponseRaw {
@@ -54,9 +55,24 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   const loadingRef = useRef(false); // Ref for auto-send callback
   const messagesRef = useRef<DiscussMessage[]>(messages);
+  const playedAudioRef = useRef<Set<string>>(new Set());
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const playAudioOnce = useCallback((id: string, url: string, delayMs = 1500) => {
+    if (!url) return;
+    if (playedAudioRef.current.has(id)) return;
+    playedAudioRef.current.add(id);
+    setTimeout(() => {
+      try {
+        const a = new Audio(url);
+        void a.play();
+      } catch {
+        // ignore
+      }
+    }, delayMs);
+  }, []);
 
   // Speech-to-text integration
   // TODO: Read language from central app settings when implemented
@@ -120,7 +136,16 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           timestamp: new Date().toISOString(),
           provider: r.provider,
           model: r.model,
+          audioUrl: r.audio_url,
         }));
+
+        for (let i = 0; i < newMsgs.length; i++) {
+          const m = newMsgs[i];
+          if (!m) continue;
+          if (m.audioUrl) {
+            playAudioOnce(m.id, m.audioUrl, 1500 * (i + 1));
+          }
+        }
 
         setMessages((prev) => [...prev, ...newMsgs]);
         return;
@@ -162,15 +187,21 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
 
             if (evt?.type === 'persona' && evt?.response) {
               const r = evt.response as PersonaResponseRaw;
+              const id = `p-${Date.now()}-${Math.random().toString(16).slice(2)}`;
               const newMsg: DiscussMessage = {
-                id: `p-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                id,
                 role: 'persona',
                 persona: r.persona,
                 text: r.text,
                 timestamp: new Date().toISOString(),
                 provider: r.provider,
                 model: r.model,
+                audioUrl: r.audio_url,
               };
+
+              if (newMsg.audioUrl) {
+                playAudioOnce(newMsg.id, newMsg.audioUrl);
+              }
               setMessages((prev) => [...prev, newMsg]);
             }
           }
@@ -198,6 +229,14 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (last.role !== 'persona') return;
+    if (!last.audioUrl) return;
+    playAudioOnce(last.id, last.audioUrl);
+  }, [messages, playAudioOnce]);
 
   useEffect(() => {
     saveHistory(messages);
@@ -355,6 +394,11 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
               }}>
                 <span>{icon}</span>
                 <span>{name}</span>
+                {msg.audioUrl && (
+                  <span title="Audio verfügbar" style={{ fontSize: 12, color: '#6b6560', marginLeft: 4 }}>
+                    🔊
+                  </span>
+                )}
                 {msg.provider && (
                   <span style={{ color: '#3a3530', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
                     · {msg.provider}/{msg.model}

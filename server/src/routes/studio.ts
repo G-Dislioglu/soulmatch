@@ -661,6 +661,54 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getChatterboxVoiceForPersona(personaId: string): string {
+  const voices: Record<string, string> = {
+    maya: 'ruhig, weiblich',
+    lilith: 'dunkel, weiblich',
+    kael: 'sachlich, männlich',
+    stella: 'hell, weiblich',
+    luna: 'sanft, weiblich',
+    orion: 'tief, männlich',
+    lian: 'klar, weiblich',
+    sibyl: 'mystisch, weiblich',
+    amara: 'warm, weiblich',
+  };
+  return voices[personaId] ?? 'neutral';
+}
+
+async function generateChatterboxTts(args: { apiKey: string; text: string; voice: string }): Promise<string | undefined> {
+  try {
+    const r = await fetch('https://fal.run/fal-ai/chatterbox/text-to-speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${args.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: {
+          text: args.text,
+          voice: args.voice,
+        },
+      }),
+    });
+
+    const raw = await r.text();
+    if (!r.ok) {
+      devLogger.error('llm', 'fal.ai chatterbox TTS failed', { status: r.status, body: raw.slice(0, 500) });
+      return undefined;
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const audioUrl = typeof parsed.audio_url === 'string'
+      ? parsed.audio_url
+      : (typeof parsed.audioUrl === 'string' ? parsed.audioUrl : undefined);
+    return audioUrl;
+  } catch (e) {
+    devLogger.error('llm', 'fal.ai chatterbox TTS exception', { error: String(e) });
+    return undefined;
+  }
+}
+
 const discussRoundTokenByUserId = new Map<string, number>();
 
 function detectAddressedPersonaId(messageRaw: string): string | undefined {
@@ -881,12 +929,26 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         text = rawText;
       }
 
+      let audio_url: string | undefined;
+      if (body.audioMode) {
+        const falKey = process.env.FAL_API_KEY;
+        if (falKey) {
+          if (!isRoundCanceled()) {
+            const voice = getChatterboxVoiceForPersona(personaId);
+            audio_url = await generateChatterboxTts({ apiKey: falKey, text, voice });
+          }
+        } else {
+          devLogger.error('system', 'FAL_API_KEY not set (audioMode requested)', { personaId });
+        }
+      }
+
       const response: PersonaResponse = {
         persona: personaId,
         text,
         color: personaDef.color,
         provider: providerConfig.provider,
         model: providerConfig.model,
+        audio_url,
       };
 
       responses.push(response);
