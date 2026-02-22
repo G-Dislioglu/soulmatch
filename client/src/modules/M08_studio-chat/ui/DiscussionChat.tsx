@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { PersonaBar } from './PersonaBar';
 import { PersonaPicker } from './PersonaPicker';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES } from '../lib/personaColors';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { SpeechConsentDialog } from './SpeechConsentDialog';
 
 interface DiscussMessage {
   id: string;
@@ -51,6 +53,11 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
 
+  // Speech-to-text integration
+  // TODO: Read language from central app settings when implemented
+  const speech = useSpeechToText('de');
+  const [showConsent, setShowConsent] = useState(false);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
@@ -88,6 +95,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     setInput('');
     setLoading(true);
     setError(null);
+    speech.resetTranscript();
 
     try {
       const conversationHistory = updated.slice(-20).map((m) => ({
@@ -134,13 +142,42 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, messages, selectedPersonas, profileExcerpt, audioMode]);
+  }, [input, loading, messages, selectedPersonas, profileExcerpt, audioMode, speech]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void handleSend();
     }
+  }
+
+  // Live transcript update
+  useEffect(() => {
+    if (speech.transcript) {
+      setInput(speech.transcript);
+    }
+  }, [speech.transcript]);
+
+  function handleMicClick() {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening();
+    }
+  }
+
+  function handleConsentAccept() {
+    speech.grantConsent();
+    setShowConsent(false);
+    speech.startListening();
+  }
+
+  function handleConsentCancel() {
+    setShowConsent(false);
   }
 
   return (
@@ -283,12 +320,12 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Schreib eine Nachricht… (Enter zum Senden)"
+            placeholder={speech.isListening ? 'Höre zu…' : 'Schreib eine Nachricht… (Enter zum Senden)'}
             rows={2}
             style={{
               flex: 1,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: speech.isListening ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
+              border: speech.isListening ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.10)',
               borderRadius: 10,
               color: '#d4c9b0',
               fontSize: 13,
@@ -299,6 +336,28 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
               fontFamily: 'inherit',
             }}
           />
+          {speech.isSupported && (
+            <button
+              onClick={handleMicClick}
+              title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+              style={{
+                background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+                border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                color: speech.isListening ? '#ef4444' : '#6b6560',
+                cursor: 'pointer',
+                fontSize: 18,
+                padding: '10px 12px',
+                alignSelf: 'stretch',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
+              }}
+            >
+              🎤
+            </button>
+          )}
           <button
             onClick={() => void handleSend()}
             disabled={!input.trim() || loading}
@@ -333,6 +392,14 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           selectedPersonas={selectedPersonas}
           onSelect={handleAddPersona}
           onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {/* Speech Consent Dialog */}
+      {showConsent && (
+        <SpeechConsentDialog
+          onAccept={handleConsentAccept}
+          onCancel={handleConsentCancel}
         />
       )}
     </div>
