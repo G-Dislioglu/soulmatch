@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { StudioSeat, StudioResult } from '../../../shared/types/studio';
+import type { StudioSeat } from '../../../shared/types/studio';
 import { Button } from '../../M02_ui-kit';
 import { getStudioProvider } from '../../M09_settings';
 import { MayaPortrait } from './MayaPortrait';
@@ -117,8 +117,6 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   const [sigilState, setSigilState] = useState<SigilState>('idle');
   const [showAuraSnap, setShowAuraSnap] = useState(true);
   const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
-  const [showQualityDebug, setShowQualityDebug] = useState(false);
-  const [qualityDebug, setQualityDebug] = useState<StudioResult['qualityDebug']>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialMsgCount = useRef(messages.length);
 
@@ -263,7 +261,6 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   useEffect(() => {
     setIntensity(getPersonaIntensity(seat));
     setAutoNotice(null);
-    setQualityDebug(undefined);
   }, [seat]);
 
   // Aura-snap flash on mount
@@ -422,8 +419,6 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
         userMemory: userMemory || undefined,
       });
 
-      setQualityDebug(res.qualityDebug);
-
       const turn = res.turns[0];
       if (turn) {
         // Parse soul card proposal first (before command parsing strips it)
@@ -470,7 +465,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 pt-6 overflow-y-auto">
       {/* Aura-snap flash on open */}
       {showAuraSnap && (
         <div style={{
@@ -624,50 +619,6 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
               <p className="text-[10px] text-amber-500/80 animate-pulse">{autoNotice}</p>
             )}
 
-            {/* PR-02: Narrative Quality Debug */}
-            <div className="mt-1 border border-zinc-800/70 rounded-md bg-zinc-950/40">
-              <button
-                type="button"
-                onClick={() => setShowQualityDebug((v) => !v)}
-                className="w-full px-2 py-1 text-[10px] text-zinc-400 hover:text-zinc-200 flex items-center justify-between uppercase tracking-wider"
-              >
-                <span>Quality Debug</span>
-                <span>{showQualityDebug ? '▾' : '▸'}</span>
-              </button>
-
-              {showQualityDebug && (
-                <div className="px-2 pb-2 text-[10px] text-zinc-300 flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span>Gate</span>
-                    <span className={qualityDebug?.pass ? 'text-emerald-400' : qualityDebug?.pass === false ? 'text-red-400' : 'text-zinc-500'}>
-                      {qualityDebug?.pass ? 'PASS' : qualityDebug?.pass === false ? 'FAIL' : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Fallback</span>
-                    <span className="text-zinc-200">
-                      {qualityDebug ? (qualityDebug.fallbackUsed ? 'yes' : 'no') : 'n/a'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Version</span>
-                    <span className="text-zinc-200">{qualityDebug?.version ?? 'n/a'}</span>
-                  </div>
-                  <div>
-                    <div className="text-zinc-500 mb-0.5">Reasons</div>
-                    {qualityDebug?.reasons && qualityDebug.reasons.length > 0 ? (
-                      <ul className="list-disc pl-4 space-y-0.5 text-amber-300/90">
-                        {qualityDebug.reasons.map((reason, idx) => (
-                          <li key={`${reason}-${idx}`}>{reason}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="text-zinc-500">none</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         )}
 
