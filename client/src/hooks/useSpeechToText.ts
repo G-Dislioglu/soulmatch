@@ -33,6 +33,7 @@ export function useSpeechToText(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const isContinuousModeRef = useRef(false);
+  const shouldAutoSendOnEndRef = useRef(false);
   const transcriptRef = useRef('');
   const onAutoSendRef = useRef(onAutoSend);
   const silenceTimerRef = useRef<number | null>(null);
@@ -99,8 +100,8 @@ export function useSpeechToText(
       console.log('[speech] onend, continuous:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
       setIsListening(false);
 
-      // CONTINUOUS MODE: Auto-send after speech pause, then restart
-      if (isContinuousModeRef.current) {
+      // Auto-send (continuous or single-shot mic) if enabled
+      if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
         const text = transcriptRef.current?.trim();
 
         if (text && text.length > 0 && onAutoSendRef.current) {
@@ -116,17 +117,25 @@ export function useSpeechToText(
           silenceTimerRef.current = null;
         }
 
-        setTimeout(() => {
-          if (isContinuousModeRef.current && recognitionRef.current) {
-            try {
-              recognitionRef.current.start();
-              setIsListening(true);
-              console.log('[speech] mic restarted');
-            } catch (e) {
-              console.error('[speech] restart failed:', e);
+        // Continuous mode: restart mic after short pause
+        if (isContinuousModeRef.current) {
+          setTimeout(() => {
+            if (isContinuousModeRef.current && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                setIsListening(true);
+                console.log('[speech] mic restarted');
+              } catch (e) {
+                console.error('[speech] restart failed:', e);
+              }
             }
-          }
-        }, 800);
+          }, 800);
+        }
+
+        // Single-shot mic: disable auto-send for subsequent unrelated onend events
+        if (!isContinuousModeRef.current) {
+          shouldAutoSendOnEndRef.current = false;
+        }
       }
     };
 
@@ -195,6 +204,7 @@ export function useSpeechToText(
     if (recognitionRef.current && !isListening) {
       setTranscript('');
       transcriptRef.current = '';
+      shouldAutoSendOnEndRef.current = true;
       recognitionRef.current.start();
       setIsListening(true);
     }
@@ -202,6 +212,7 @@ export function useSpeechToText(
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
+      shouldAutoSendOnEndRef.current = false;
       recognitionRef.current.stop();
       setIsListening(false);
     }
@@ -216,6 +227,7 @@ export function useSpeechToText(
     if (!recognitionRef.current) return;
     console.log('[speech] startContinuous called');
     isContinuousModeRef.current = true;
+    shouldAutoSendOnEndRef.current = true;
     setIsContinuousMode(true);
     setTranscript('');
     transcriptRef.current = '';
@@ -228,6 +240,7 @@ export function useSpeechToText(
 
   const stopContinuous = useCallback(() => {
     isContinuousModeRef.current = false;
+    shouldAutoSendOnEndRef.current = false;
     setIsContinuousMode(false);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
