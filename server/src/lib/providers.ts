@@ -53,7 +53,9 @@ export async function callProvider(
       ],
       response_format: { type: 'json_object' },
       temperature: params.temperature ?? 0.85,
-      max_tokens: params.maxTokens ?? 500,
+      ...(provider === 'openai'
+        ? { max_completion_tokens: params.maxTokens ?? 500 }
+        : { max_tokens: params.maxTokens ?? 500 }),
     }),
   });
 
