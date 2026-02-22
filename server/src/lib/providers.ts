@@ -51,9 +51,9 @@ export async function callProvider(
         { role: 'system', content: params.system },
         ...params.messages,
       ],
-      // GPT-5 models do not support response_format: json_object — rely on prompt instruction instead
+      // GPT-5: no response_format, no temperature (only default=1 supported), use max_completion_tokens
       ...(provider !== 'openai' ? { response_format: { type: 'json_object' } } : {}),
-      temperature: params.temperature ?? 0.85,
+      ...(provider !== 'openai' ? { temperature: params.temperature ?? 0.85 } : {}),
       ...(provider === 'openai'
         ? { max_completion_tokens: params.maxTokens ?? 500 }
         : { max_tokens: params.maxTokens ?? 500 }),

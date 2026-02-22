@@ -75,8 +75,7 @@ guideRouter.post('/guide', async (req: Request, res: Response) => {
         ],
         ...(provider === 'openai'
           ? { max_completion_tokens: body.maxTokens ?? 100 }
-          : { max_tokens: body.maxTokens ?? 100 }),
-        temperature: body.temperature ?? 0.7,
+          : { max_tokens: body.maxTokens ?? 100, temperature: body.temperature ?? 0.7 }),
       }),
     });
 
