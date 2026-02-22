@@ -10,7 +10,7 @@ interface ProviderEndpoint {
 }
 
 const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
-  openai:   { apiUrl: 'https://api.openai.com/v1/chat/completions', envKey: 'OPENAI_API_KEY' },
+  openai:   { apiUrl: 'https://api.openai.com/v1/responses',        envKey: 'OPENAI_API_KEY' },
   xai:      { apiUrl: 'https://api.x.ai/v1/chat/completions',       envKey: 'XAI_API_KEY' },
   deepseek: { apiUrl: 'https://api.deepseek.com/chat/completions',   envKey: 'DEEPSEEK_API_KEY' },
 };
@@ -45,19 +45,29 @@ export async function callProvider(
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: params.system },
-        ...params.messages,
-      ],
-      // GPT-5: no response_format, no temperature (only default=1 supported), use max_completion_tokens
-      ...(provider !== 'openai' ? { response_format: { type: 'json_object' } } : {}),
-      ...(provider !== 'openai' ? { temperature: params.temperature ?? 0.85 } : {}),
-      ...(provider === 'openai'
-        ? { max_completion_tokens: params.maxTokens ?? 500 }
-        : { max_tokens: params.maxTokens ?? 500 }),
-    }),
+    body: JSON.stringify(
+      provider === 'openai'
+        ? {
+            // Responses API format (GPT-5 reasoning models)
+            model,
+            input: [
+              { role: 'system', content: params.system },
+              ...params.messages,
+            ],
+            max_output_tokens: params.maxTokens ?? 500,
+          }
+        : {
+            // Chat Completions format (xAI, DeepSeek)
+            model,
+            messages: [
+              { role: 'system', content: params.system },
+              ...params.messages,
+            ],
+            response_format: { type: 'json_object' },
+            temperature: params.temperature ?? 0.85,
+            max_tokens: params.maxTokens ?? 500,
+          },
+    ),
   });
 
   if (!resp.ok) {
@@ -71,20 +81,38 @@ export async function callProvider(
     console.log('[providers] OpenAI raw response:', JSON.stringify(data, null, 2));
   }
 
-  // Try all known response shapes:
-  // 1. Chat Completions: choices[0].message.content
-  // 2. Responses API: output[0].content[0].text
-  // 3. Responses API alt: output[0].text
+  // Responses API (OpenAI GPT-5): output_text convenience field, then output[] items
+  // Chat Completions (xAI, DeepSeek): choices[0].message.content
   type Choices = Array<{ message?: { content?: string } }>;
-  type Output = Array<{ content?: Array<{ text?: string }>; text?: string }>;
+  type Output = Array<{ type?: string; content?: Array<{ type?: string; text?: string }>; text?: string }>;
 
   const choices = data.choices as Choices | undefined;
   const output = data.output as Output | undefined;
+  const outputText = typeof data.output_text === 'string' ? data.output_text : undefined;
+
+  // Walk output[] items: find first message item with text content
+  let outputItemText: string | undefined;
+  if (output) {
+    for (const item of output) {
+      if (item.content) {
+        for (const part of item.content) {
+          if (part.type === 'output_text' || part.type === 'text') {
+            outputItemText = part.text;
+            break;
+          }
+        }
+      } else if (typeof item.text === 'string') {
+        outputItemText = item.text;
+        break;
+      }
+      if (outputItemText) break;
+    }
+  }
 
   let content: string | undefined =
+    outputText ||
+    outputItemText ||
     choices?.[0]?.message?.content ||
-    output?.[0]?.content?.[0]?.text ||
-    output?.[0]?.text ||
     undefined;
 
   if (!content) throw new Error(`No content in ${provider} response`);
