@@ -4,6 +4,7 @@ import { PersonaPicker } from './PersonaPicker';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES } from '../lib/personaColors';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from './SpeechConsentDialog';
+import { loadProfile } from '../../M03_profile';
 
 interface DiscussMessage {
   id: string;
@@ -84,6 +85,9 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         content: m.role === 'persona' ? `${PERSONA_NAMES[m.persona ?? ''] ?? m.persona}: ${m.text}` : m.text,
       }));
 
+      const profile = loadProfile();
+      const userId = profile?.id;
+
       const activePersonas = selectedPersonasRef.current;
       const res = await fetch('/api/discuss', {
         method: 'POST',
@@ -94,6 +98,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           conversationHistory,
           userChart: profileExcerpt,
           audioMode,
+          userId,
         }),
       });
 
