@@ -505,7 +505,7 @@ async function loadUserProfile(userId: string): Promise<undefined | { name?: str
       return undefined;
     }
   } catch (e) {
-    devLogger.error('db', 'loadUserProfile failed', { error: String(e), userId });
+    devLogger.error('system', 'loadUserProfile failed', { error: String(e), userId });
     return undefined;
   }
 }
@@ -740,7 +740,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     try {
       userProfile = await loadUserProfile(userId);
     } catch (e) {
-      devLogger.error('db', 'Failed to load user profile for discuss', { error: String(e), userId });
+      devLogger.error('system', 'Failed to load user profile for discuss', { error: String(e), userId });
       userProfile = undefined;
     }
   }
@@ -759,7 +759,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       try {
         memoryQuery = await loadMemories({ userId, personaId, message: body.message });
       } catch (e) {
-        devLogger.error('db', 'Failed to load persona memories for discuss', { error: String(e), userId, personaId });
+        devLogger.error('system', 'Failed to load persona memories for discuss', { error: String(e), userId, personaId });
         memoryQuery = { mode: 'standard', memories: [] };
       }
     } else {
