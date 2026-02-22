@@ -480,27 +480,32 @@ function wantsDeepMemory(textRaw: string): boolean {
 }
 
 async function loadUserProfile(userId: string): Promise<undefined | { name?: string; birthDate?: string; birthTime?: string; birthPlace?: string; preferences?: string }> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.id, userId))
-    .limit(1);
-
-  if (rows.length === 0) return undefined;
-  const raw = rows[0]?.profileJson;
-  if (!raw) return undefined;
-
   try {
-    const p = JSON.parse(raw) as Record<string, unknown>;
-    return {
-      name: typeof p.name === 'string' ? p.name : undefined,
-      birthDate: typeof p.birthDate === 'string' ? p.birthDate : undefined,
-      birthTime: typeof p.birthTime === 'string' ? p.birthTime : undefined,
-      birthPlace: typeof p.birthPlace === 'string' ? p.birthPlace : undefined,
-      preferences: typeof p.preferences === 'string' ? p.preferences : undefined,
-    };
-  } catch {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, userId))
+      .limit(1);
+
+    if (rows.length === 0) return undefined;
+    const raw = rows[0]?.profileJson;
+    if (!raw) return undefined;
+
+    try {
+      const p = JSON.parse(raw) as Record<string, unknown>;
+      return {
+        name: typeof p.name === 'string' ? p.name : undefined,
+        birthDate: typeof p.birthDate === 'string' ? p.birthDate : undefined,
+        birthTime: typeof p.birthTime === 'string' ? p.birthTime : undefined,
+        birthPlace: typeof p.birthPlace === 'string' ? p.birthPlace : undefined,
+        preferences: typeof p.preferences === 'string' ? p.preferences : undefined,
+      };
+    } catch {
+      return undefined;
+    }
+  } catch (e) {
+    devLogger.error('db', 'loadUserProfile failed', { error: String(e), userId });
     return undefined;
   }
 }
@@ -730,7 +735,15 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   const userId = typeof body.userId === 'string' && body.userId.trim().length > 0 ? body.userId.trim() : undefined;
   const sessionMsgCount = (body.conversationHistory?.length ?? 0) + 1;
   const shouldLearn = !!userId && (body.end_session === true || (sessionMsgCount % 5 === 0));
-  const userProfile = userId ? await loadUserProfile(userId) : undefined;
+  let userProfile: Awaited<ReturnType<typeof loadUserProfile>> = undefined;
+  if (userId) {
+    try {
+      userProfile = await loadUserProfile(userId);
+    } catch (e) {
+      devLogger.error('db', 'Failed to load user profile for discuss', { error: String(e), userId });
+      userProfile = undefined;
+    }
+  }
 
   const convoForMemoryExtraction: Array<{ role: string; content: string }> = [
     ...(body.conversationHistory ?? []),
@@ -741,9 +754,17 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
 
-    const memoryQuery = userId
-      ? await loadMemories({ userId, personaId, message: body.message })
-      : { mode: 'standard' as const, memories: [] as Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }> };
+    let memoryQuery: Awaited<ReturnType<typeof loadMemories>> | { mode: 'standard'; memories: Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }> };
+    if (userId) {
+      try {
+        memoryQuery = await loadMemories({ userId, personaId, message: body.message });
+      } catch (e) {
+        devLogger.error('db', 'Failed to load persona memories for discuss', { error: String(e), userId, personaId });
+        memoryQuery = { mode: 'standard', memories: [] };
+      }
+    } else {
+      memoryQuery = { mode: 'standard', memories: [] };
+    }
 
     const systemPrompt = buildDiscussPrompt(personaId, {
       otherPersonas: body.personas.filter((p) => p !== personaId),
