@@ -48,6 +48,8 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const selectedPersonasRef = useRef<string[]>(selectedPersonas);
+  useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -93,11 +95,14 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         content: m.role === 'persona' ? `${PERSONA_NAMES[m.persona ?? ''] ?? m.persona}: ${m.text}` : m.text,
       }));
 
+      const activePersonas = selectedPersonasRef.current;
+      console.log('[discuss] sending personas:', activePersonas);
+
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personas: selectedPersonas,
+          personas: activePersonas,
           message: text,
           conversationHistory,
           userChart: profileExcerpt,
