@@ -450,6 +450,7 @@ interface DiscussRequestBody {
   clientApiKey?: string;
   userId?: string;
   end_session?: boolean;
+  stream?: boolean;
 }
 
 type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
@@ -656,6 +657,10 @@ interface DiscussResponse {
   creditsUsed: number;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 studioRouter.get('/openai-test', async (_req: Request, res: Response) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set' }); return; }
@@ -742,7 +747,35 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     return [...history, { role: 'user', content: body.message }];
   })();
 
+  const wantsStream = body.stream === true;
+  if (wantsStream) {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    // nginx: disable buffering (best-effort)
+    res.setHeader('X-Accel-Buffering', 'no');
+  }
+
+  function sendSseEvent(event: Record<string, unknown>): void {
+    if (!wantsStream) return;
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  }
+
+  // This is the dynamic chat history used for persona calls.
+  // It grows as each persona answers so later personas see earlier persona answers.
+  const providerMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    ...(body.conversationHistory ?? []).map((m) => ({
+      role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.content,
+    })),
+    { role: 'user', content: body.message },
+  ];
+
   for (const personaId of body.personas) {
+    if (responses.length > 0) {
+      await sleep(1500);
+    }
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
 
@@ -769,14 +802,6 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       memoriesMode: memoryQuery.mode,
     });
 
-    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-      ...(body.conversationHistory ?? []).map((m) => ({
-        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user', content: body.message },
-    ];
-
     try {
       devLogger.info('llm', `Discuss: calling ${providerConfig.provider}/${providerConfig.model} for ${personaId}`, {
         provider: providerConfig.provider,
@@ -787,7 +812,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       const rawText = await callProvider(
         providerConfig.provider,
         providerConfig.model,
-        { system: systemPrompt, messages, temperature: 0.85 },
+        { system: systemPrompt, messages: providerMessages, temperature: 0.85 },
         body.clientApiKey,
       );
 
@@ -812,6 +837,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       responses.push(response);
       accumulatedContext += `\n${personaDef.name}: ${text}`;
 
+      // Make this answer available to later personas.
+      providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${text}` });
+
+      // Stream this persona response immediately to the client (if enabled).
+      sendSseEvent({ type: 'persona', response });
+
       if (shouldLearn && userId) {
         try {
           const apiKey = process.env.OPENAI_API_KEY;
@@ -832,13 +863,17 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         provider: providerConfig.provider,
         durationMs: Date.now() - startTime,
       });
-      responses.push({
+      const response: PersonaResponse = {
         persona: personaId,
         text: `[${personaDef.name} Fehler: ${errMsg.slice(0, 200)}]`,
         color: personaDef.color,
         provider: providerConfig.provider,
         model: providerConfig.model,
-      });
+      };
+      responses.push(response);
+      accumulatedContext += `\n${personaDef.name}: ${response.text}`;
+      providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${response.text}` });
+      sendSseEvent({ type: 'persona', response });
     }
   }
 
@@ -848,6 +883,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   };
 
   devLogger.info('llm', `Discuss: completed ${body.personas.length} personas in ${Date.now() - startTime}ms`);
+  if (wantsStream) {
+    sendSseEvent({ type: 'done', creditsUsed: result.creditsUsed });
+    res.end();
+    return;
+  }
+
   res.json(result);
 });
 

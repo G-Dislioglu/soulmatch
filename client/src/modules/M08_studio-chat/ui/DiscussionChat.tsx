@@ -99,6 +99,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           userChart: profileExcerpt,
           audioMode,
           userId,
+          stream: true,
         }),
       });
 
@@ -107,18 +108,74 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         throw new Error(err.error ?? `API ${res.status}`);
       }
 
-      const data = await res.json() as { responses: PersonaResponseRaw[]; creditsUsed: number };
-      const newMsgs: DiscussMessage[] = data.responses.map((r, i) => ({
-        id: `p-${Date.now()}-${i}`,
-        role: 'persona',
-        persona: r.persona,
-        text: r.text,
-        timestamp: new Date().toISOString(),
-        provider: r.provider,
-        model: r.model,
-      }));
+      const ct = res.headers.get('content-type') ?? '';
+      const isStream = ct.includes('text/event-stream');
+      if (!isStream) {
+        const data = await res.json() as { responses: PersonaResponseRaw[]; creditsUsed: number };
+        const newMsgs: DiscussMessage[] = data.responses.map((r, i) => ({
+          id: `p-${Date.now()}-${i}`,
+          role: 'persona',
+          persona: r.persona,
+          text: r.text,
+          timestamp: new Date().toISOString(),
+          provider: r.provider,
+          model: r.model,
+        }));
 
-      setMessages((prev) => [...prev, ...newMsgs]);
+        setMessages((prev) => [...prev, ...newMsgs]);
+        return;
+      }
+
+      if (!res.body) {
+        throw new Error('Stream response has no body');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      // SSE frames are separated by a blank line. We only use `data: ...` lines.
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        while (true) {
+          const frameEnd = buffer.indexOf('\n\n');
+          if (frameEnd === -1) break;
+          const frame = buffer.slice(0, frameEnd);
+          buffer = buffer.slice(frameEnd + 2);
+
+          const lines = frame.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const payload = trimmed.slice('data:'.length).trim();
+            if (!payload) continue;
+
+            let evt: any;
+            try {
+              evt = JSON.parse(payload);
+            } catch {
+              continue;
+            }
+
+            if (evt?.type === 'persona' && evt?.response) {
+              const r = evt.response as PersonaResponseRaw;
+              const newMsg: DiscussMessage = {
+                id: `p-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                role: 'persona',
+                persona: r.persona,
+                text: r.text,
+                timestamp: new Date().toISOString(),
+                provider: r.provider,
+                model: r.model,
+              };
+              setMessages((prev) => [...prev, newMsg]);
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
