@@ -20,6 +20,8 @@ import type { MayaCommand, TourStep, SoulCardProposal } from '../lib/commandPars
 import { soulCardService, timelineService } from '../../M13_timeline';
 import { createCommandBus, sleep } from '../lib/commandBus';
 import type { CommandBus } from '../lib/commandBus';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { SpeechConsentDialog } from './SpeechConsentDialog';
 
 const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string }> = {
   maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin' },
@@ -117,6 +119,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   const [sigilState, setSigilState] = useState<SigilState>('idle');
   const [showAuraSnap, setShowAuraSnap] = useState(true);
   const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialMsgCount = useRef(messages.length);
 
@@ -341,8 +344,8 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
     return lines.join('\n');
   }
 
-  async function handleSend() {
-    const text = input.trim();
+  const sendText = useCallback(async (textRaw: string) => {
+    const text = textRaw.trim();
     if (!text || loading) return;
 
     // Universal moderation — escalating ban system for ALL personas
@@ -462,6 +465,47 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
     } finally {
       setLoading(false);
     }
+  }, [blocked, banMessage, freeMode, intensity, isLilith, loading, profileId, seat]);
+
+  const handleAutoSend = useCallback((text: string) => {
+    if (!text.trim()) return;
+    setInput('');
+    void sendText(text);
+  }, [sendText]);
+
+  const speech = useSpeechToText('de', handleAutoSend);
+
+  useEffect(() => {
+    if (speech.transcript) {
+      setInput(speech.transcript);
+    }
+  }, [speech.transcript]);
+
+  const handleSend = useCallback(() => {
+    speech.resetTranscript();
+    void sendText(input);
+  }, [input, sendText, speech]);
+
+  const handleMicClick = useCallback(() => {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening();
+    }
+  }, [speech]);
+
+  function handleConsentAccept() {
+    speech.grantConsent();
+    setShowConsent(false);
+    speech.startListening();
+  }
+
+  function handleConsentCancel() {
+    setShowConsent(false);
   }
 
   return (
@@ -813,13 +857,33 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                 : isLilith
                   ? 'Frag Lilith…'
                   : `Frag ${seat.charAt(0).toUpperCase() + seat.slice(1)}…`
-            }
-            className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)] disabled:opacity-40 disabled:cursor-not-allowed"
+              }
+            className="flex-1 rounded-lg bg-zinc-900/60 border border-zinc-700/40 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-500/30"
           />
-          <Button variant="primary" onClick={handleSend} disabled={loading || !input.trim() || blocked}>
-            {loading ? '…' : 'Senden'}
+          {speech.isSupported && (
+            <button
+              onClick={handleMicClick}
+              disabled={blocked}
+              className={`px-3 rounded-lg text-sm border transition-colors ${speech.isListening ? 'bg-red-600/20 border-red-500/40 text-red-300' : 'bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300'}`}
+              title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+            >
+              🎤
+            </button>
+          )}
+          <Button
+            onClick={() => void handleSend()}
+            disabled={blocked || loading || !input.trim()}
+          >
+            Senden
           </Button>
         </div>
+
+        {showConsent && (
+          <SpeechConsentDialog
+            onAccept={handleConsentAccept}
+            onCancel={handleConsentCancel}
+          />
+        )}
       </div>
     </div>
   );

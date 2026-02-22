@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { StudioResult, StudioSeat } from '../../../shared/types/studio';
 import type { MatchScoreResult } from '../../../shared/types/match';
 import { Button, Card, CardContent } from '../../M02_ui-kit';
@@ -6,6 +6,8 @@ import { TurnsView } from './TurnsView';
 import { getStudioProvider } from '../../M09_settings';
 import { DevPanel } from '../../M12_dev-tools';
 import { getLilithIntensity } from '../lib/lilithGate';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { SpeechConsentDialog } from './SpeechConsentDialog';
 
 const DEV_TRIGGER = '!dev';
 
@@ -41,16 +43,18 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDev, setShowDev] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
 
   const activeSeats: StudioSeat[] = lilithUnlocked
     ? [...BASE_SEATS, 'lilith']
     : BASE_SEATS;
 
-  async function handleSend() {
-    if (!message.trim()) return;
+  const sendMessageText = useCallback(async (textRaw: string) => {
+    const text = textRaw.trim();
+    if (!text) return;
 
     // Secret dev panel trigger
-    if (message.trim().toLowerCase() === DEV_TRIGGER) {
+    if (text.toLowerCase() === DEV_TRIGGER) {
       setMessage('');
       setShowDev(true);
       return;
@@ -65,7 +69,7 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
         mode,
         profileId,
         matchKey,
-        userMessage: message.trim(),
+        userMessage: text,
         seats: activeSeats,
         maxTurns: activeSeats.length,
       }, {
@@ -80,7 +84,51 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeSeats, matchKey, matchResult, mode, profileId]);
+
+  const handleAutoSend = useCallback((text: string) => {
+    if (loading) return;
+    setMessage('');
+    void sendMessageText(text);
+  }, [loading, sendMessageText]);
+
+  const speech = useSpeechToText('de', handleAutoSend);
+
+  useEffect(() => {
+    if (speech.transcript) {
+      setMessage(speech.transcript);
+    }
+  }, [speech.transcript]);
+
+  const handleSend = useCallback(async () => {
+    if (loading) return;
+    const text = message;
+    setMessage('');
+    speech.resetTranscript();
+    await sendMessageText(text);
+  }, [loading, message, sendMessageText, speech]);
+
+  const handleMicClick = useCallback(() => {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening();
+    }
+  }, [speech]);
+
+  const handleConsentAccept = useCallback(() => {
+    speech.grantConsent();
+    setShowConsent(false);
+    speech.startListening();
+  }, [speech]);
+
+  const handleConsentCancel = useCallback(() => {
+    setShowConsent(false);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,6 +142,11 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
           placeholder="Frag das Studio…"
           className="flex-1 rounded-[var(--radius)] border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--fg)] placeholder:text-[color:var(--muted-fg)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)]"
         />
+        {speech.isSupported && (
+          <Button variant={speech.isListening ? 'primary' : 'secondary'} onClick={handleMicClick}>
+            🎤
+          </Button>
+        )}
         <Button variant="primary" onClick={handleSend} disabled={loading || !message.trim()}>
           {loading ? 'Denke…' : 'Senden'}
         </Button>
@@ -132,6 +185,13 @@ export function StudioPanel({ profileId, mode, matchKey, matchResult, lilithUnlo
             </CardContent>
           </Card>
         </>
+      )}
+
+      {showConsent && (
+        <SpeechConsentDialog
+          onAccept={handleConsentAccept}
+          onCancel={handleConsentCancel}
+        />
       )}
     </div>
   );

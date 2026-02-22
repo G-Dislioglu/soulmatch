@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
+import { SpeechConsentDialog } from '../M08_studio-chat/ui/SpeechConsentDialog';
 
 interface Message {
   role: 'user' | 'maya';
@@ -24,6 +26,7 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,8 +36,8 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
     setTimeout(() => inputRef.current?.focus(), 120);
   }, []);
 
-  const send = async () => {
-    const text = input.trim();
+  const sendText = useCallback(async (textRaw: string) => {
+    const text = textRaw.trim();
     if (!text || loading) return;
     setInput('');
     const next: Message[] = [...messages, { role: 'user', text }];
@@ -65,7 +68,47 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
     } finally {
       setLoading(false);
     }
-  };
+  }, [cardContext, cardTitle, loading, messages]);
+
+  const handleAutoSend = useCallback((text: string) => {
+    if (!text.trim()) return;
+    void sendText(text);
+  }, [sendText]);
+
+  const speech = useSpeechToText('de', handleAutoSend);
+
+  useEffect(() => {
+    if (speech.transcript) {
+      setInput(speech.transcript);
+    }
+  }, [speech.transcript]);
+
+  const send = useCallback(() => {
+    speech.resetTranscript();
+    void sendText(input);
+  }, [input, sendText, speech]);
+
+  const handleMicClick = useCallback(() => {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+    if (speech.isListening) {
+      speech.stopListening();
+    } else {
+      speech.startListening();
+    }
+  }, [speech]);
+
+  const handleConsentAccept = useCallback(() => {
+    speech.grantConsent();
+    setShowConsent(false);
+    speech.startListening();
+  }, [speech]);
+
+  const handleConsentCancel = useCallback(() => {
+    setShowConsent(false);
+  }, []);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
@@ -180,6 +223,24 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
             outline: 'none',
           }}
         />
+        {speech.isSupported && (
+          <button
+            onClick={handleMicClick}
+            disabled={loading}
+            style={{
+              background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+              border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              color: speech.isListening ? '#ef4444' : '#6b6560',
+              fontSize: 16,
+            }}
+            title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+          >
+            🎤
+          </button>
+        )}
         <button
           onClick={() => void send()}
           disabled={loading || !input.trim()}
@@ -193,6 +254,13 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
           }}
         >↑</button>
       </div>
+
+      {showConsent && (
+        <SpeechConsentDialog
+          onAccept={handleConsentAccept}
+          onCancel={handleConsentCancel}
+        />
+      )}
     </div>
   );
 }
