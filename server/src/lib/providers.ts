@@ -65,11 +65,28 @@ export async function callProvider(
     throw new Error(`${provider} API ${resp.status}: ${errText}`);
   }
 
-  const data = await resp.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
+  const data = await resp.json() as Record<string, unknown>;
 
-  let content = data.choices?.[0]?.message?.content;
+  if (provider === 'openai') {
+    console.log('[providers] OpenAI raw response:', JSON.stringify(data, null, 2));
+  }
+
+  // Try all known response shapes:
+  // 1. Chat Completions: choices[0].message.content
+  // 2. Responses API: output[0].content[0].text
+  // 3. Responses API alt: output[0].text
+  type Choices = Array<{ message?: { content?: string } }>;
+  type Output = Array<{ content?: Array<{ text?: string }>; text?: string }>;
+
+  const choices = data.choices as Choices | undefined;
+  const output = data.output as Output | undefined;
+
+  let content: string | undefined =
+    choices?.[0]?.message?.content ||
+    output?.[0]?.content?.[0]?.text ||
+    output?.[0]?.text ||
+    undefined;
+
   if (!content) throw new Error(`No content in ${provider} response`);
 
   content = content.trim();
