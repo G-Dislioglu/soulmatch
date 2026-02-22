@@ -1,4 +1,4 @@
-import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES, PERSONA_TITLES, PERSONA_TIERS } from '../lib/personaColors';
+import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES, PERSONA_TITLES } from '../lib/personaColors';
 
 interface PersonaPickerProps {
   selectedPersonas: string[];
