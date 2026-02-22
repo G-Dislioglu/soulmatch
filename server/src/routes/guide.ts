@@ -73,7 +73,9 @@ guideRouter.post('/guide', async (req: Request, res: Response) => {
           { role: 'system', content: body.systemPrompt },
           { role: 'user', content: body.userMessage },
         ],
-        max_tokens: body.maxTokens ?? 100,
+        ...(provider === 'openai'
+          ? { max_completion_tokens: body.maxTokens ?? 100 }
+          : { max_tokens: body.maxTokens ?? 100 }),
         temperature: body.temperature ?? 0.7,
       }),
     });

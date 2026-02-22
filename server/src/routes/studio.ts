@@ -591,7 +591,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       });
       responses.push({
         persona: personaId,
-        text: `[${personaDef.name} ist gerade nicht erreichbar — bitte erneut versuchen.]`,
+        text: `[${personaDef.name} Fehler: ${errMsg.slice(0, 200)}]`,
         color: personaDef.color,
         provider: providerConfig.provider,
         model: providerConfig.model,
