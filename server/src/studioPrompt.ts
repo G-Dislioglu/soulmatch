@@ -259,7 +259,7 @@ export function buildDiscussPrompt(
     .join(' und ');
 
   const previousBlock = context.previousResponses
-    ? `\nBISHERIGE ANTWORTEN IN DIESER RUNDE:\n${context.previousResponses}\n\nREAGIERE auf das Gesagte — stimme zu, widersprich, ergänze, oder bringe eine neue Perspektive ein. Beziehe dich DIREKT auf das was die anderen gesagt haben.\n`
+    ? `\nBISHERIGE ANTWORTEN IN DIESER RUNDE:\n${context.previousResponses}\n\nWICHTIG: Wiederhole NICHT was bereits gesagt wurde. Bring deine EIGENE, einzigartige Perspektive aus deinem Fachgebiet. Wenn du nichts Neues beizutragen hast, sag das kurz und gib den anderen den Vortritt.\n`
     : '';
 
   const lilithBlock = personaId === 'lilith' && context.lilithIntensity
