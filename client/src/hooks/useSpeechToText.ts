@@ -58,8 +58,22 @@ export function useSpeechToText(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      const result = event.results[event.results.length - 1];
-      const text = result[0].transcript as string;
+      // Accumulate ALL final results + current interim
+      let finalText = '';
+      let interimText = '';
+      
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalText += result[0].transcript;
+        } else {
+          interimText = result[0].transcript;
+        }
+      }
+      
+      // Use final text if available, otherwise interim
+      const text = finalText || interimText;
+      console.log('[speech] onresult - finalText:', finalText, 'interimText:', interimText, 'using:', text);
       setTranscript(text);
       transcriptRef.current = text;
     };
@@ -70,30 +84,34 @@ export function useSpeechToText(
 
       // CONTINUOUS MODE: Auto-send after speech pause, then restart
       if (isContinuousModeRef.current) {
-        const currentTranscript = transcriptRef.current;
-
-        if (currentTranscript && currentTranscript.trim().length > 0) {
-          // Auto-send the transcript
-          console.log('[speech] auto-sending:', currentTranscript.trim());
-          onAutoSendRef.current?.(currentTranscript.trim());
-          setTranscript('');
-          transcriptRef.current = '';
-        }
-
-        // Restart listening after short pause (500ms)
-        console.log('[speech] restarting mic in 500ms');
+        // Small delay to ensure transcript is fully captured
         setTimeout(() => {
-          if (isContinuousModeRef.current && recognitionRef.current) {
-            try {
-              console.log('[speech] restarting mic now');
-              recognitionRef.current.start();
-              setIsListening(true);
-            } catch (e) {
-              console.log('[speech] restart failed:', e);
-              // Already started or aborted — ignore
-            }
+          const currentTranscript = transcriptRef.current;
+          console.log('[speech] onend delayed check - transcript:', currentTranscript);
+          
+          if (currentTranscript && currentTranscript.trim().length > 0) {
+            // Auto-send the transcript
+            console.log('[speech] AUTO-SENDING:', currentTranscript.trim());
+            onAutoSendRef.current?.(currentTranscript.trim());
+            setTranscript('');
+            transcriptRef.current = '';
           }
-        }, 500);
+
+          // Restart listening after short pause (500ms)
+          console.log('[speech] restarting mic in 500ms');
+          setTimeout(() => {
+            if (isContinuousModeRef.current && recognitionRef.current) {
+              try {
+                console.log('[speech] restarting mic now');
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (e) {
+                console.log('[speech] restart failed:', e);
+                // Already started or aborted — ignore
+              }
+            }
+          }, 500);
+        }, 100); // 100ms delay to ensure transcript is captured
       }
     };
 
