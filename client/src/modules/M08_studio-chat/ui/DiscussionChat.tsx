@@ -102,7 +102,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         content: m.role === 'persona' ? `${PERSONA_NAMES[m.persona ?? ''] ?? m.persona}: ${m.text}` : m.text,
       }));
 
-      const res = await fetch('/api/studio/discuss', {
+      const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
