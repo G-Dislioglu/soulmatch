@@ -54,7 +54,8 @@ export async function callProvider(
               { role: 'system', content: params.system },
               ...params.messages,
             ],
-            max_output_tokens: params.maxTokens ?? 500,
+            reasoning: { effort: 'low' },
+            max_output_tokens: 2000,
           }
         : {
             // Chat Completions format (xAI, DeepSeek)
