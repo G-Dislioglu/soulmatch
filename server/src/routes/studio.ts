@@ -462,6 +462,30 @@ interface DiscussResponse {
   creditsUsed: number;
 }
 
+studioRouter.get('/discuss-diag', (_req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    keys: {
+      openai:   !!process.env.OPENAI_API_KEY,
+      deepseek: !!process.env.DEEPSEEK_API_KEY,
+      xai:      !!process.env.XAI_API_KEY,
+    },
+    models: {
+      maya:       'gpt-5-nano (openai)',
+      luna:       'deepseek-chat (deepseek)',
+      orion:      'gpt-5-nano (openai)',
+      lilith:     'grok-4-1-fast-non-reasoning (xai)',
+      stella:     'gpt-5-mini (openai)',
+      kael:       'grok-4-1-fast-non-reasoning (xai)',
+      lian:       'deepseek-chat (deepseek)',
+      sibyl:      'gpt-5-mini (openai)',
+      amara:      'deepseek-chat (deepseek)',
+      echo_prism: 'gpt-5 (openai)',
+    },
+    endpoint: 'POST /api/discuss',
+  });
+});
+
 studioRouter.post('/discuss', async (req: Request, res: Response) => {
   const body = req.body as DiscussRequestBody;
 
