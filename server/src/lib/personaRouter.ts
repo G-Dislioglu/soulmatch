@@ -18,16 +18,16 @@ export interface PersonaDefinition {
 }
 
 export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
-  maya:       { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
-  luna:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'companion' },
-  orion:      { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
-  lilith:     { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'companion' },
-  stella:     { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
-  kael:       { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'specialist' },
-  lian:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
-  sibyl:      { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
-  amara:      { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
-  echo_prism: { provider: 'openai',   model: 'gpt-5',                       tier: 'meta' },
+  maya:       { provider: 'openai',   model: 'gpt-4o-mini',   tier: 'companion' },
+  luna:       { provider: 'deepseek', model: 'deepseek-chat', tier: 'companion' },
+  orion:      { provider: 'openai',   model: 'gpt-4o-mini',   tier: 'companion' },
+  lilith:     { provider: 'xai',      model: 'grok-3-fast',   tier: 'companion' },
+  stella:     { provider: 'openai',   model: 'gpt-4o-mini',   tier: 'specialist' },
+  kael:       { provider: 'xai',      model: 'grok-3-fast',   tier: 'specialist' },
+  lian:       { provider: 'deepseek', model: 'deepseek-chat', tier: 'specialist' },
+  sibyl:      { provider: 'openai',   model: 'gpt-4o-mini',   tier: 'specialist' },
+  amara:      { provider: 'deepseek', model: 'deepseek-chat', tier: 'specialist' },
+  echo_prism: { provider: 'openai',   model: 'gpt-4o',        tier: 'meta' },
 };
 
 export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {

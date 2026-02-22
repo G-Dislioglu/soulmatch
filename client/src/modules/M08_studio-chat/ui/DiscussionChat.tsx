@@ -196,10 +196,10 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
                   maxWidth: '75%',
                   padding: '10px 14px',
                   borderRadius: '16px 16px 4px 16px',
-                  background: 'rgba(212,175,55,0.10)',
-                  border: '1px solid rgba(212,175,55,0.18)',
+                  background: 'rgba(212,175,55,0.16)',
+                  border: '1px solid rgba(212,175,55,0.40)',
                   fontSize: 13,
-                  color: '#d4c9b0',
+                  color: '#f0eadc',
                   lineHeight: 1.6,
                 }}>
                   {msg.text}
@@ -235,10 +235,10 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
               <div style={{
                 padding: '10px 14px',
                 borderRadius: '4px 16px 16px 16px',
-                background: `${color}0d`,
-                border: `1px solid ${color}25`,
+                background: `${color}1a`,
+                border: `1px solid ${color}55`,
                 fontSize: 13,
-                color: '#b0a898',
+                color: '#d4cfc8',
                 lineHeight: 1.7,
               }}>
                 {msg.text}
