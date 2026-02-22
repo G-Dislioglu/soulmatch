@@ -573,30 +573,19 @@ Format (JSON):
 Gespräch:
 ${args.conversationText}`;
 
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${args.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-5-nano',
+  // Use the unified provider caller (OpenAI Responses API) for reliability.
+  // Note: args.apiKey is passed as clientApiKey fallback; server env OPENAI_API_KEY still works.
+  let content = await callProvider(
+    'openai',
+    'gpt-5-nano',
+    {
+      system: '',
       messages: [{ role: 'user', content: prompt }],
-      max_completion_tokens: 150,
       temperature: 0.2,
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`OpenAI memory extraction ${resp.status}: ${errText}`);
-  }
-
-  const data = await resp.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  let content = data.choices?.[0]?.message?.content ?? '';
+      maxTokens: 150,
+    },
+    args.apiKey,
+  );
   content = content.trim();
   if (content.startsWith('```')) {
     content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
@@ -733,8 +722,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   const userId = typeof body.userId === 'string' && body.userId.trim().length > 0 ? body.userId.trim() : undefined;
-  const sessionMsgCount = (body.conversationHistory?.length ?? 0) + 1;
-  const shouldLearn = !!userId && (body.end_session === true || (sessionMsgCount % 5 === 0));
+  const userTurnCount = (body.conversationHistory ?? []).filter((m) => m.role === 'user').length + 1;
+  const shouldLearn = !!userId && (body.end_session === true || (userTurnCount % 5 === 0));
   let userProfile: Awaited<ReturnType<typeof loadUserProfile>> = undefined;
   if (userId) {
     try {
@@ -745,10 +734,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     }
   }
 
-  const convoForMemoryExtraction: Array<{ role: string; content: string }> = [
-    ...(body.conversationHistory ?? []),
-    { role: 'user', content: body.message },
-  ];
+  // Avoid duplicating the current user message if the client already included it in conversationHistory.
+  const convoForMemoryExtraction: Array<{ role: string; content: string }> = (() => {
+    const history = body.conversationHistory ?? [];
+    const last = history[history.length - 1];
+    if (last && last.role === 'user' && last.content === body.message) return history;
+    return [...history, { role: 'user', content: body.message }];
+  })();
 
   for (const personaId of body.personas) {
     const providerConfig = getProviderForPersona(personaId);
