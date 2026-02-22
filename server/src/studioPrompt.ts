@@ -226,6 +226,15 @@ export interface DiscussPromptContext {
   userChart: string;
   isFirstSpeaker: boolean;
   lilithIntensity?: LilithIntensity;
+  userProfile?: {
+    name?: string;
+    birthDate?: string;
+    birthTime?: string;
+    birthPlace?: string;
+    preferences?: string;
+  };
+  memories?: Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }>;
+  memoriesMode?: 'standard' | 'deep';
 }
 
 export function buildDiscussPrompt(
@@ -262,6 +271,25 @@ export function buildDiscussPrompt(
     ? `\nBISHERIGE ANTWORTEN IN DIESER RUNDE:\n${context.previousResponses}\n\nWICHTIG: Wiederhole NICHT was bereits gesagt wurde. Bring deine EIGENE, einzigartige Perspektive aus deinem Fachgebiet. Wenn du nichts Neues beizutragen hast, sag das kurz und gib den anderen den Vortritt.\n`
     : '';
 
+  const userProfileBlock = context.userProfile
+    ? `\nUSER-PROFIL:\n- Name: ${context.userProfile.name ?? 'unbekannt'}\n- Geburtstag: ${context.userProfile.birthDate ?? 'unbekannt'}${context.userProfile.birthTime ? `\n- Geburtszeit: ${context.userProfile.birthTime}` : ''}${context.userProfile.birthPlace ? `\n- Geburtsort: ${context.userProfile.birthPlace}` : ''}${context.userProfile.preferences ? `\n- Präferenzen: ${context.userProfile.preferences}` : ''}\n`
+    : '';
+
+  const memories = (context.memories ?? [])
+    .map((m) => ({
+      text: (m.memory_text ?? '').trim(),
+      category: (m.category ?? '').trim(),
+      importance: Number(m.importance ?? 1),
+    }))
+    .filter((m) => m.text.length > 0);
+
+  const memoryBlock = memories.length > 0
+    ? (context.memoriesMode === 'deep'
+      ? `\nERINNERUNGS-HISTORIE (vollständig):\n${memories.map((m) => `- (${m.category}, ${m.importance}/3) ${m.text}`).join('\n')}\n`
+      : `\nRELEVANTE ERINNERUNGEN (max 3):\n${memories.slice(0, 3).map((m) => `- (${m.category}, ${m.importance}/3) ${m.text}`).join('\n')}\n`
+    )
+    : '';
+
   const lilithBlock = personaId === 'lilith' && context.lilithIntensity
     ? `\nLilith Intensity: ${context.lilithIntensity.toUpperCase()}\n`
     : '';
@@ -269,8 +297,8 @@ export function buildDiscussPrompt(
   return `${personaDesc}${lilithBlock}
 
 Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
-${previousBlock}
-USER-DATEN:
+${userProfileBlock}${memoryBlock}${previousBlock}
+AKTUELLE USER-DATEN / CHAT-KONTEXT:
 ${context.userChart || 'Keine Profildaten vorhanden.'}
 
 REGELN:

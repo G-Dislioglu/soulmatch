@@ -9,6 +9,8 @@ import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioA
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 import { getProviderForPersona, getPersonaDefinition } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
+import { getDb, profiles } from '../db.js';
+import { eq, sql } from 'drizzle-orm';
 
 export const studioRouter = Router();
 
@@ -446,6 +448,204 @@ interface DiscussRequestBody {
   audioMode?: boolean;
   lilithIntensity?: LilithIntensity;
   clientApiKey?: string;
+  userId?: string;
+  end_session?: boolean;
+}
+
+type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
+
+const DEEP_MEMORY_KEYWORDS = [
+  'erinnerst',
+  'damals',
+  'früher',
+  'letztes mal',
+  'immer',
+  'muster',
+  'schon öfter',
+  'weißt du noch',
+];
+
+function detectCategory(textRaw: string): MemoryCategory {
+  const text = textRaw.toLowerCase();
+  if (/(liebes|partner|partnerschaft|beziehung|freundin|freund|dating)/i.test(text)) return 'relationship';
+  if (/(job|arbeit|karriere|chef|kollege|kündig|bewerb)/i.test(text)) return 'career';
+  if (/(familie|mutter|vater|eltern|bruder|schwester|kind|tochter|sohn)/i.test(text)) return 'family';
+  if (/(ich bin|charakter|persönlich|persönlichkeit|selbstbild|muster|trauma|angst)/i.test(text)) return 'personality';
+  return 'general';
+}
+
+function wantsDeepMemory(textRaw: string): boolean {
+  const text = textRaw.toLowerCase();
+  return DEEP_MEMORY_KEYWORDS.some((k) => text.includes(k));
+}
+
+async function loadUserProfile(userId: string): Promise<undefined | { name?: string; birthDate?: string; birthTime?: string; birthPlace?: string; preferences?: string }> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+
+  if (rows.length === 0) return undefined;
+  const raw = rows[0]?.profileJson;
+  if (!raw) return undefined;
+
+  try {
+    const p = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      name: typeof p.name === 'string' ? p.name : undefined,
+      birthDate: typeof p.birthDate === 'string' ? p.birthDate : undefined,
+      birthTime: typeof p.birthTime === 'string' ? p.birthTime : undefined,
+      birthPlace: typeof p.birthPlace === 'string' ? p.birthPlace : undefined,
+      preferences: typeof p.preferences === 'string' ? p.preferences : undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadMemories(args: {
+  userId: string;
+  personaId: string;
+  message: string;
+}): Promise<{ mode: 'standard' | 'deep'; memories: Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }> }> {
+  const db = getDb();
+
+  const deep = wantsDeepMemory(args.message);
+  if (deep) {
+    const rows = await db.execute(sql`
+      SELECT memory_text, category, importance, created_at
+      FROM persona_memories
+      WHERE user_id = ${args.userId} AND persona_id = ${args.personaId}
+      ORDER BY created_at ASC
+    `);
+    return {
+      mode: 'deep',
+      memories: (rows.rows as Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }>) ?? [],
+    };
+  }
+
+  const category = detectCategory(args.message);
+  const rows = await db.execute(sql`
+    SELECT memory_text, category, importance, created_at
+    FROM persona_memories
+    WHERE user_id = ${args.userId}
+      AND persona_id = ${args.personaId}
+      AND (category = ${category} OR category = 'general')
+    ORDER BY importance DESC, created_at DESC
+    LIMIT 3
+  `);
+
+  return {
+    mode: 'standard',
+    memories: (rows.rows as Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }>) ?? [],
+  };
+}
+
+function renderConversationForMemoryExtraction(messages: Array<{ role: string; content: string }>): string {
+  return messages
+    .slice(-10)
+    .map((m) => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content}`)
+    .join('\n');
+}
+
+async function extractNewMemories(args: {
+  apiKey: string;
+  conversationText: string;
+}): Promise<Array<{ category: MemoryCategory; memory_text: string; importance: 1 | 2 | 3 }>> {
+  const prompt = `Analysiere dieses Gespräch. Gib maximal 2 neue, wichtige Fakten über den User zurück, die für zukünftige Gespräche relevant sind. Nur wenn wirklich etwas Neues gelernt wurde, sonst leeres Array.
+
+Format (JSON):
+[
+  {
+    "category": "relationship"|"career"|"family"|"personality"|"general",
+    "memory_text": "Max 200 Zeichen, als Fakt formuliert",
+    "importance": 1|2|3
+  }
+]
+
+Gespräch:
+${args.conversationText}`;
+
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${args.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-nano',
+      messages: [{ role: 'user', content: prompt }],
+      max_completion_tokens: 150,
+      temperature: 0.2,
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`OpenAI memory extraction ${resp.status}: ${errText}`);
+  }
+
+  const data = await resp.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  let content = data.choices?.[0]?.message?.content ?? '';
+  content = content.trim();
+  if (content.startsWith('```')) {
+    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+
+  const parsed = JSON.parse(content) as unknown;
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((item) => item as Record<string, unknown>)
+    .map((item) => ({
+      category: (typeof item.category === 'string' ? item.category : 'general') as MemoryCategory,
+      memory_text: typeof item.memory_text === 'string' ? item.memory_text : '',
+      importance: (typeof item.importance === 'number' ? item.importance : 1) as 1 | 2 | 3,
+    }))
+    .filter((m) => ['relationship', 'career', 'family', 'personality', 'general'].includes(m.category))
+    .map((m) => ({
+      ...m,
+      memory_text: m.memory_text.trim().slice(0, 200),
+      importance: (m.importance === 3 || m.importance === 2 ? m.importance : 1) as 1 | 2 | 3,
+    }))
+    .filter((m) => m.memory_text.length > 0)
+    .slice(0, 2);
+}
+
+async function saveMemories(args: {
+  userId: string;
+  personaId: string;
+  memories: Array<{ category: MemoryCategory; memory_text: string; importance: 1 | 2 | 3 }>;
+}): Promise<void> {
+  if (args.memories.length === 0) return;
+  const db = getDb();
+
+  for (const m of args.memories) {
+    const text = m.memory_text.trim().slice(0, 200);
+    if (!text) continue;
+
+    const snippet = text.slice(0, 24);
+    const existing = await db.execute(sql`
+      SELECT id
+      FROM persona_memories
+      WHERE user_id = ${args.userId}
+        AND persona_id = ${args.personaId}
+        AND memory_text ILIKE ${`%${snippet}%`}
+      LIMIT 1
+    `);
+
+    if ((existing.rows?.length ?? 0) > 0) continue;
+
+    await db.execute(sql`
+      INSERT INTO persona_memories (user_id, persona_id, category, memory_text, importance)
+      VALUES (${args.userId}, ${args.personaId}, ${m.category}, ${text}, ${m.importance})
+    `);
+  }
 }
 
 interface PersonaResponse {
@@ -527,9 +727,23 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   let accumulatedContext = '';
   const startTime = Date.now();
 
+  const userId = typeof body.userId === 'string' && body.userId.trim().length > 0 ? body.userId.trim() : undefined;
+  const sessionMsgCount = (body.conversationHistory?.length ?? 0) + 1;
+  const shouldLearn = !!userId && (body.end_session === true || (sessionMsgCount % 5 === 0));
+  const userProfile = userId ? await loadUserProfile(userId) : undefined;
+
+  const convoForMemoryExtraction: Array<{ role: string; content: string }> = [
+    ...(body.conversationHistory ?? []),
+    { role: 'user', content: body.message },
+  ];
+
   for (const personaId of body.personas) {
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
+
+    const memoryQuery = userId
+      ? await loadMemories({ userId, personaId, message: body.message })
+      : { mode: 'standard' as const, memories: [] as Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }> };
 
     const systemPrompt = buildDiscussPrompt(personaId, {
       otherPersonas: body.personas.filter((p) => p !== personaId),
@@ -537,6 +751,9 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       userChart: body.userChart ?? '',
       isFirstSpeaker: responses.length === 0,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',
+      userProfile,
+      memories: memoryQuery.memories,
+      memoriesMode: memoryQuery.mode,
     });
 
     const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -581,6 +798,19 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       responses.push(response);
       accumulatedContext += `\n${personaDef.name}: ${text}`;
+
+      if (shouldLearn && userId) {
+        try {
+          const apiKey = process.env.OPENAI_API_KEY;
+          if (apiKey) {
+            const conversationText = renderConversationForMemoryExtraction(convoForMemoryExtraction);
+            const extracted = await extractNewMemories({ apiKey, conversationText });
+            await saveMemories({ userId, personaId, memories: extracted });
+          }
+        } catch (e) {
+          devLogger.error('llm', 'Memory extraction failed', { error: String(e), personaId, userId });
+        }
+      }
 
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
