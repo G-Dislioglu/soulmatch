@@ -462,6 +462,27 @@ interface DiscussResponse {
   creditsUsed: number;
 }
 
+studioRouter.get('/openai-test', async (_req: Request, res: Response) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set' }); return; }
+  try {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-5-nano',
+        messages: [{ role: 'user', content: 'Say: {"text":"ok"}' }],
+        max_completion_tokens: 20,
+        temperature: 0.5,
+      }),
+    });
+    const body = await r.text();
+    res.json({ status: r.status, body: JSON.parse(body) });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 studioRouter.get('/discuss-diag', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
