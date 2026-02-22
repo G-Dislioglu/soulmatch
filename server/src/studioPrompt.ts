@@ -273,8 +273,27 @@ Der User interagiert mit dir über die Soulmatch Chat-Funktion.`;
     })
     .join(' und ');
 
-  const previousBlock = context.previousResponses
-    ? `\nBISHERIGE ANTWORTEN IN DIESER RUNDE:\n${context.previousResponses}\n\nWICHTIG: Wiederhole NICHT was bereits gesagt wurde. Bring deine EIGENE, einzigartige Perspektive aus deinem Fachgebiet. Wenn du nichts Neues beizutragen hast, sag das kurz und gib den anderen den Vortritt.\n`
+  const activePersonaIds = [personaId, ...context.otherPersonas];
+  const activePersonaNames = activePersonaIds
+    .map((id) => {
+      const names: Record<string, string> = {
+        maya: 'Maya', luna: 'Luna', orion: 'Orion', lilith: 'Lilith',
+        stella: 'Stella', kael: 'Kael', lian: 'Lian', sibyl: 'Sibyl',
+        amara: 'Amara', echo_prism: 'Echo Prism',
+      };
+      return names[id] ?? id;
+    })
+    .join(', ');
+
+  const answeredLines = (context.previousResponses ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map((l) => (l.startsWith('- ') ? l : `- ${l}`))
+    .join('\n');
+
+  const roundTableBlock = context.previousResponses
+    ? `\n[RUNDEN-TISCH KONTEXT]\nFolgende Personas sind heute dabei: ${activePersonaNames}\nIn dieser Runde haben bereits geantwortet:\n${answeredLines || '- (keine)'}\n\nVerhalte dich wie in einem echten Gespräch:\n- Reagiere auf was die anderen gesagt haben\n- Stimme zu, widersprich oder ergänze - aus deiner Rolle heraus\n- Wenn der User etwas Neues geschrieben hat: das hat oberste Priorität,\n  beantworte zuerst den User, dann kannst du kurz auf die anderen eingehen\n- Halte deine Antwort kurz (max 3-4 Sätze) damit der Dialog fließt\n`
     : '';
 
   const userProfileBlock = context.userProfile
@@ -305,7 +324,7 @@ Der User interagiert mit dir über die Soulmatch Chat-Funktion.`;
 ${personaDesc}${lilithBlock}
 
 Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
-${userProfileBlock}${memoryBlock}${previousBlock}
+${userProfileBlock}${memoryBlock}${roundTableBlock}
 AKTUELLE USER-DATEN / CHAT-KONTEXT:
 ${context.userChart || 'Keine Profildaten vorhanden.'}
 

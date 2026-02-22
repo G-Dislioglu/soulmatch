@@ -661,6 +661,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const discussRoundTokenByUserId = new Map<string, number>();
+
 function detectAddressedPersonaId(messageRaw: string): string | undefined {
   const message = messageRaw.toLowerCase();
   const personaIds = ['maya', 'stella', 'kael', 'luna', 'orion', 'lian', 'sibyl', 'amara', 'lilith'] as const;
@@ -744,6 +746,21 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   const userId = typeof body.userId === 'string' && body.userId.trim().length > 0 ? body.userId.trim() : undefined;
+
+  // Per-user round cancellation: every new request bumps a token.
+  // Older in-flight rounds will stop before producing further persona responses.
+  const roundToken = (() => {
+    if (!userId) return undefined;
+    const next = (discussRoundTokenByUserId.get(userId) ?? 0) + 1;
+    discussRoundTokenByUserId.set(userId, next);
+    return next;
+  })();
+
+  const isRoundCanceled = (): boolean => {
+    if (!userId || roundToken === undefined) return false;
+    return (discussRoundTokenByUserId.get(userId) ?? 0) !== roundToken;
+  };
+
   const userTurnCount = (body.conversationHistory ?? []).filter((m) => m.role === 'user').length + 1;
   const shouldLearn = !!userId && (body.end_session === true || (userTurnCount % 5 === 0));
   let userProfile: Awaited<ReturnType<typeof loadUserProfile>> = undefined;
@@ -779,6 +796,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   }
 
+  function finalizeStreamAndEnd(): void {
+    if (!wantsStream) return;
+    sendSseEvent({ type: 'done', creditsUsed: responses.length * (body.audioMode ? 10 : 1) });
+    res.end();
+  }
+
   // This is the dynamic chat history used for persona calls.
   // It grows as each persona answers so later personas see earlier persona answers.
   const providerMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -795,8 +818,18 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     : body.personas;
 
   for (const personaId of personasToCall) {
+    if (isRoundCanceled()) {
+      devLogger.info('llm', 'Discuss: aborted round before persona call (newer user message received)', { userId, personaId });
+      finalizeStreamAndEnd();
+      return;
+    }
     if (responses.length > 0) {
       await sleep(1500);
+      if (isRoundCanceled()) {
+        devLogger.info('llm', 'Discuss: aborted round after delay (newer user message received)', { userId, personaId });
+        finalizeStreamAndEnd();
+        return;
+      }
     }
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
@@ -865,6 +898,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       // Stream this persona response immediately to the client (if enabled).
       sendSseEvent({ type: 'persona', response });
 
+      if (isRoundCanceled()) {
+        devLogger.info('llm', 'Discuss: aborted round after persona response (newer user message received)', { userId, personaId });
+        finalizeStreamAndEnd();
+        return;
+      }
+
       if (shouldLearn && userId) {
         try {
           const apiKey = process.env.OPENAI_API_KEY;
@@ -896,12 +935,18 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       accumulatedContext += `\n${personaDef.name}: ${response.text}`;
       providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${response.text}` });
       sendSseEvent({ type: 'persona', response });
+
+      if (isRoundCanceled()) {
+        devLogger.info('llm', 'Discuss: aborted round after persona error response (newer user message received)', { userId, personaId });
+        finalizeStreamAndEnd();
+        return;
+      }
     }
   }
 
   const result: DiscussResponse = {
     responses,
-    creditsUsed: personasToCall.length * (body.audioMode ? 10 : 1),
+    creditsUsed: responses.length * (body.audioMode ? 10 : 1),
   };
 
   devLogger.info('llm', `Discuss: completed ${body.personas.length} personas in ${Date.now() - startTime}ms`);
