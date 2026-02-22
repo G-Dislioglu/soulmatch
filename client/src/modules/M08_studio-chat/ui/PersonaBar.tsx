@@ -8,6 +8,9 @@ interface PersonaBarProps {
   audioMode: boolean;
   onToggleAudio: () => void;
   onBack: () => void;
+  continuousMode?: boolean;
+  onToggleContinuous?: () => void;
+  isSpeechSupported?: boolean;
 }
 
 export function PersonaBar({
@@ -18,6 +21,9 @@ export function PersonaBar({
   audioMode,
   onToggleAudio,
   onBack,
+  continuousMode = false,
+  onToggleContinuous,
+  isSpeechSupported = false,
 }: PersonaBarProps) {
   return (
     <div style={{
@@ -136,6 +142,38 @@ export function PersonaBar({
       >
         🔊
       </button>
+
+      {/* Freisprechen Toggle */}
+      {isSpeechSupported && onToggleContinuous && (
+        <button
+          onClick={onToggleContinuous}
+          title={continuousMode ? 'Freisprechen beenden' : 'Freisprechen starten'}
+          style={{
+            background: continuousMode ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+            border: continuousMode ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.10)',
+            borderRadius: 8,
+            color: continuousMode ? '#ef4444' : '#6b6560',
+            cursor: 'pointer',
+            fontSize: 16,
+            padding: '5px 10px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          🎙
+          {continuousMode && (
+            <span style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#ef4444',
+              animation: 'pulse 1.5s infinite',
+            }} />
+          )}
+        </button>
+      )}
     </div>
   );
 }

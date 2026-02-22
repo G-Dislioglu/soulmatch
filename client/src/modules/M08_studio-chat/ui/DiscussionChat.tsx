@@ -55,7 +55,67 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
 
   // Speech-to-text integration
   // TODO: Read language from central app settings when implemented
-  const speech = useSpeechToText('de');
+
+  // Auto-send callback for continuous mode
+  const handleAutoSend = useCallback(async (text: string) => {
+    if (!text || loading) return;
+
+    const userMsg: DiscussMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      text,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const conversationHistory = updated.slice(-20).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.role === 'persona' ? `${PERSONA_NAMES[m.persona ?? ''] ?? m.persona}: ${m.text}` : m.text,
+      }));
+
+      const activePersonas = selectedPersonasRef.current;
+      const res = await fetch('/api/discuss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personas: activePersonas,
+          message: text,
+          conversationHistory,
+          userChart: profileExcerpt,
+          audioMode,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText })) as { error?: string };
+        throw new Error(err.error ?? `API ${res.status}`);
+      }
+
+      const data = await res.json() as { responses: PersonaResponseRaw[]; creditsUsed: number };
+      const newMsgs: DiscussMessage[] = data.responses.map((r, i) => ({
+        id: `p-${Date.now()}-${i}`,
+        role: 'persona',
+        persona: r.persona,
+        text: r.text,
+        timestamp: new Date().toISOString(),
+        provider: r.provider,
+        model: r.model,
+      }));
+
+      setMessages((prev) => [...prev, ...newMsgs]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, messages, profileExcerpt, audioMode]);
+
+  const speech = useSpeechToText('de', handleAutoSend);
   const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
@@ -170,14 +230,26 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     }
   }
 
+  function handleConsentCancel() {
+    setShowConsent(false);
+  }
+
+  function handleToggleContinuous() {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+    if (speech.isContinuousMode) {
+      speech.stopContinuous();
+    } else {
+      speech.startContinuous();
+    }
+  }
+
   function handleConsentAccept() {
     speech.grantConsent();
     setShowConsent(false);
-    speech.startListening();
-  }
-
-  function handleConsentCancel() {
-    setShowConsent(false);
+    speech.startContinuous();
   }
 
   return (
@@ -196,6 +268,9 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         audioMode={audioMode}
         onToggleAudio={() => setAudioMode((v) => !v)}
         onBack={onBack}
+        continuousMode={speech.isContinuousMode}
+        onToggleContinuous={handleToggleContinuous}
+        isSpeechSupported={speech.isSupported}
       />
 
       {/* Messages */}
@@ -311,75 +386,132 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       {/* Input */}
       <div style={{
         padding: '10px 14px 14px',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        borderTop: speech.isContinuousMode ? '1px solid rgba(239,68,68,0.20)' : '1px solid rgba(255,255,255,0.06)',
         background: 'rgba(8,6,15,0.95)',
+        borderLeft: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
+        borderRight: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
       }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={speech.isListening ? 'Höre zu…' : 'Schreib eine Nachricht… (Enter zum Senden)'}
-            rows={2}
-            style={{
-              flex: 1,
-              background: speech.isListening ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
-              border: speech.isListening ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.10)',
+        {speech.isContinuousMode ? (
+          // Continuous Mode UI
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: 'rgba(239,68,68,0.08)',
               borderRadius: 10,
-              color: '#d4c9b0',
-              fontSize: 13,
-              padding: '10px 12px',
-              resize: 'none',
-              outline: 'none',
-              lineHeight: 1.5,
-              fontFamily: 'inherit',
-            }}
-          />
-          {speech.isSupported && (
-            <button
-              onClick={handleMicClick}
-              title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
-              style={{
-                background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
-                border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 10,
-                color: speech.isListening ? '#ef4444' : '#6b6560',
-                cursor: 'pointer',
-                fontSize: 18,
+              border: '1px solid rgba(239,68,68,0.20)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: speech.isListening ? '#ef4444' : '#6b6560',
+                  animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
+                }} />
+                <span style={{ fontSize: 12, color: speech.isListening ? '#ef4444' : '#8a8580' }}>
+                  {speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören'}
+                </span>
+              </div>
+              <button
+                onClick={() => speech.stopContinuous()}
+                style={{
+                  background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid rgba(239,68,68,0.30)',
+                  borderRadius: 8,
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  padding: '6px 12px',
+                }}
+              >
+                ⏹ Beenden
+              </button>
+            </div>
+            {speech.transcript && (
+              <div style={{
                 padding: '10px 12px',
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: 8,
+                fontSize: 13,
+                color: '#a8a298',
+                fontStyle: 'italic',
+              }}>
+                "{speech.transcript}"
+              </div>
+            )}
+          </div>
+        ) : (
+          // Normal Mode UI
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={speech.isListening ? 'Höre zu…' : 'Schreib eine Nachricht… (Enter zum Senden)'}
+              rows={2}
+              style={{
+                flex: 1,
+                background: speech.isListening ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
+                border: speech.isListening ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.10)',
+                borderRadius: 10,
+                color: '#d4c9b0',
+                fontSize: 13,
+                padding: '10px 12px',
+                resize: 'none',
+                outline: 'none',
+                lineHeight: 1.5,
+                fontFamily: 'inherit',
+              }}
+            />
+            {speech.isSupported && (
+              <button
+                onClick={handleMicClick}
+                title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+                style={{
+                  background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 10,
+                  color: speech.isListening ? '#ef4444' : '#6b6560',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  padding: '10px 12px',
+                  alignSelf: 'stretch',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
+                }}
+              >
+                🎤
+              </button>
+            )}
+            <button
+              onClick={() => void handleSend()}
+              disabled={!input.trim() || loading}
+              style={{
+                background: input.trim() && !loading ? 'rgba(212,175,55,0.20)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${input.trim() && !loading ? 'rgba(212,175,55,0.40)' : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 10,
+                color: input.trim() && !loading ? '#d4af37' : '#4a4540',
+                cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                fontSize: 18,
+                padding: '10px 14px',
                 alignSelf: 'stretch',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
               }}
             >
-              🎤
+              ↑
             </button>
-          )}
-          <button
-            onClick={() => void handleSend()}
-            disabled={!input.trim() || loading}
-            style={{
-              background: input.trim() && !loading ? 'rgba(212,175,55,0.20)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${input.trim() && !loading ? 'rgba(212,175,55,0.40)' : 'rgba(255,255,255,0.08)'}`,
-              borderRadius: 10,
-              color: input.trim() && !loading ? '#d4af37' : '#4a4540',
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-              fontSize: 18,
-              padding: '10px 14px',
-              alignSelf: 'stretch',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            ↑
-          </button>
-        </div>
+          </div>
+        )}
 
-        {audioMode && (
+        {audioMode && !speech.isContinuousMode && (
           <div style={{ fontSize: 10, color: '#6b6560', marginTop: 6 }}>
             🔊 Audio-Modus aktiv — Sprachausgabe wird generiert (coming soon)
           </div>
