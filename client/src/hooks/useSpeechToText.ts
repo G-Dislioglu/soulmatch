@@ -83,9 +83,9 @@ export function useSpeechToText(
         window.clearTimeout(silenceTimerRef.current);
       }
 
-      if (isContinuousModeRef.current) {
+      if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && text.trim().length > 0) {
         silenceTimerRef.current = window.setTimeout(() => {
-          if (!isContinuousModeRef.current || !recognitionRef.current) return;
+          if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || !recognitionRef.current) return;
           console.log('[speech] silence 2s -> stopping recognition');
           try {
             recognitionRef.current.stop();
@@ -100,7 +100,7 @@ export function useSpeechToText(
       console.log('[speech] onend, continuous:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
       setIsListening(false);
 
-      // Auto-send (continuous or single-shot mic) if enabled
+      // Auto-send + optional auto-restart (handsfree session)
       if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
         const text = transcriptRef.current?.trim();
 
@@ -117,25 +117,18 @@ export function useSpeechToText(
           silenceTimerRef.current = null;
         }
 
-        // Continuous mode: restart mic after short pause
-        if (isContinuousModeRef.current) {
-          setTimeout(() => {
-            if (isContinuousModeRef.current && recognitionRef.current) {
-              try {
-                recognitionRef.current.start();
-                setIsListening(true);
-                console.log('[speech] mic restarted');
-              } catch (e) {
-                console.error('[speech] restart failed:', e);
-              }
+        // Handsfree: restart mic after short pause, until user explicitly stops
+        setTimeout(() => {
+          if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+              console.log('[speech] mic restarted');
+            } catch (e) {
+              console.error('[speech] restart failed:', e);
             }
-          }, 800);
-        }
-
-        // Single-shot mic: disable auto-send for subsequent unrelated onend events
-        if (!isContinuousModeRef.current) {
-          shouldAutoSendOnEndRef.current = false;
-        }
+          }
+        }, 800);
       }
     };
 
@@ -143,10 +136,10 @@ export function useSpeechToText(
     recognition.onerror = (event: any) => {
       console.log('[speech] error:', event.error);
       if (event.error === 'no-speech') {
-        // Silence — just restart if in continuous mode
-        if (isContinuousModeRef.current) {
+        // Silence — just restart if handsfree is active
+        if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
           setTimeout(() => {
-            if (isContinuousModeRef.current && recognitionRef.current) {
+            if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
               try {
                 recognitionRef.current.start();
                 setIsListening(true);
@@ -159,6 +152,7 @@ export function useSpeechToText(
       } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         // Permission denied — stop continuous mode
         isContinuousModeRef.current = false;
+        shouldAutoSendOnEndRef.current = false;
         setIsContinuousMode(false);
         try { recognitionRef.current?.stop(); } catch { /* ignore */ }
         setTranscript('');
