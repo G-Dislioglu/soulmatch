@@ -52,19 +52,17 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   const loadingRef = useRef(false); // Ref for auto-send callback
+  const messagesRef = useRef<DiscussMessage[]>(messages);
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Speech-to-text integration
   // TODO: Read language from central app settings when implemented
 
-  // Auto-send callback for continuous mode
-  const handleAutoSend = useCallback(async (text: string) => {
-    console.log('[DiscussionChat] handleAutoSend called with:', text, 'loading:', loadingRef.current);
-    if (!text || loadingRef.current) {
-      console.log('[DiscussionChat] handleAutoSend early return - text empty or loading');
-      return;
-    }
+  const sendMessage = useCallback(async (textRaw: string) => {
+    const text = textRaw.trim();
+    if (!text || loadingRef.current) return;
 
     const userMsg: DiscussMessage = {
       id: `u-${Date.now()}`,
@@ -73,8 +71,10 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       timestamp: new Date().toISOString(),
     };
 
-    const updated = [...messages, userMsg];
+    const updated = [...messagesRef.current, userMsg];
+    messagesRef.current = updated;
     setMessages(updated);
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -117,9 +117,18 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [messages, profileExcerpt, audioMode]);
+  }, [profileExcerpt, audioMode]);
+
+  // Auto-send callback for continuous mode
+  const handleAutoSend = useCallback((text: string) => {
+    console.log('[chat] handleAutoSend called with:', text);
+    if (!text.trim()) return;
+    setInput('');
+    void sendMessage(text);
+  }, [sendMessage]);
 
   const speech = useSpeechToText('de', handleAutoSend);
   const [showConsent, setShowConsent] = useState(false);
@@ -146,69 +155,13 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   }
 
   const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-
-    const userMsg: DiscussMessage = {
-      id: `u-${Date.now()}`,
-      role: 'user',
-      text,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updated = [...messages, userMsg];
-    setMessages(updated);
+    if (loading) return;
+    const text = input;
     setInput('');
-    setLoading(true);
-    setError(null);
     speech.resetTranscript();
-
-    try {
-      const conversationHistory = updated.slice(-20).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.role === 'persona' ? `${PERSONA_NAMES[m.persona ?? ''] ?? m.persona}: ${m.text}` : m.text,
-      }));
-
-      const activePersonas = selectedPersonasRef.current;
-      console.log('[discuss] sending personas:', activePersonas);
-
-      const res = await fetch('/api/discuss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personas: activePersonas,
-          message: text,
-          conversationHistory,
-          userChart: profileExcerpt,
-          audioMode,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText })) as { error?: string };
-        throw new Error(err.error ?? `API ${res.status}`);
-      }
-
-      const data = await res.json() as { responses: PersonaResponseRaw[]; creditsUsed: number };
-
-      const newMsgs: DiscussMessage[] = data.responses.map((r, i) => ({
-        id: `p-${Date.now()}-${i}`,
-        role: 'persona',
-        persona: r.persona,
-        text: r.text,
-        timestamp: new Date().toISOString(),
-        provider: r.provider,
-        model: r.model,
-      }));
-
-      setMessages((prev) => [...prev, ...newMsgs]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-      inputRef.current?.focus();
-    }
-  }, [input, loading, messages, selectedPersonas, profileExcerpt, audioMode, speech]);
+    await sendMessage(text);
+    inputRef.current?.focus();
+  }, [input, loading, sendMessage, speech]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {

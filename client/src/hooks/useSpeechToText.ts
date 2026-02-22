@@ -35,6 +35,7 @@ export function useSpeechToText(
   const isContinuousModeRef = useRef(false);
   const transcriptRef = useRef('');
   const onAutoSendRef = useRef(onAutoSend);
+  const silenceTimerRef = useRef<number | null>(null);
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -73,63 +74,86 @@ export function useSpeechToText(
       
       // Use final text if available, otherwise interim
       const text = finalText || interimText;
-      console.log('[speech] onresult - finalText:', finalText, 'interimText:', interimText, 'using:', text);
+      console.log('[speech] onresult:', text);
       setTranscript(text);
       transcriptRef.current = text;
+
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+      }
+
+      if (isContinuousModeRef.current) {
+        silenceTimerRef.current = window.setTimeout(() => {
+          if (!isContinuousModeRef.current || !recognitionRef.current) return;
+          console.log('[speech] silence 2s -> stopping recognition');
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {
+            console.error('[speech] stop failed:', e);
+          }
+        }, 2000);
+      }
     };
 
     recognition.onend = () => {
-      console.log('[speech] onend fired, continuousMode:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
+      console.log('[speech] onend, continuous:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
       setIsListening(false);
 
       // CONTINUOUS MODE: Auto-send after speech pause, then restart
       if (isContinuousModeRef.current) {
-        // Small delay to ensure transcript is fully captured
-        setTimeout(() => {
-          const currentTranscript = transcriptRef.current;
-          console.log('[speech] onend delayed check - transcript:', currentTranscript);
-          
-          if (currentTranscript && currentTranscript.trim().length > 0) {
-            // Auto-send the transcript
-            console.log('[speech] AUTO-SENDING:', currentTranscript.trim());
-            onAutoSendRef.current?.(currentTranscript.trim());
-            setTranscript('');
-            transcriptRef.current = '';
-          }
+        const text = transcriptRef.current?.trim();
 
-          // Restart listening after short pause (500ms)
-          console.log('[speech] restarting mic in 500ms');
-          setTimeout(() => {
-            if (isContinuousModeRef.current && recognitionRef.current) {
-              try {
-                console.log('[speech] restarting mic now');
-                recognitionRef.current.start();
-                setIsListening(true);
-              } catch (e) {
-                console.log('[speech] restart failed:', e);
-                // Already started or aborted — ignore
-              }
+        if (text && text.length > 0 && onAutoSendRef.current) {
+          console.log('[speech] auto-sending:', text);
+          onAutoSendRef.current(text);
+        }
+
+        setTranscript('');
+        transcriptRef.current = '';
+
+        if (silenceTimerRef.current) {
+          window.clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+
+        setTimeout(() => {
+          if (isContinuousModeRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+              console.log('[speech] mic restarted');
+            } catch (e) {
+              console.error('[speech] restart failed:', e);
             }
-          }, 500);
-        }, 100); // 100ms delay to ensure transcript is captured
+          }
+        }, 800);
       }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
+      console.log('[speech] error:', event.error);
       if (event.error === 'no-speech') {
         // Silence — just restart if in continuous mode
         if (isContinuousModeRef.current) {
           setTimeout(() => {
             if (isContinuousModeRef.current && recognitionRef.current) {
-              try { recognitionRef.current.start(); } catch { /* ignore */ }
+              try {
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch {
+                // ignore
+              }
             }
           }, 300);
         }
-      } else if (event.error === 'not-allowed') {
+      } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         // Permission denied — stop continuous mode
         isContinuousModeRef.current = false;
         setIsContinuousMode(false);
+        try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+        setTranscript('');
+        transcriptRef.current = '';
       }
       setIsListening(false);
     };
@@ -153,6 +177,10 @@ export function useSpeechToText(
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      if (silenceTimerRef.current) {
+        window.clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       recognition.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
