@@ -30,15 +30,6 @@ interface DiscussionChatProps {
 
 const STORAGE_KEY = 'soulmatch_discuss_history';
 
-function loadHistory(): DiscussMessage[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as DiscussMessage[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function saveHistory(msgs: DiscussMessage[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-200)));
@@ -51,7 +42,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>(initialPersonas);
   const [showPicker, setShowPicker] = useState(false);
   const [audioMode, setAudioMode] = useState(false);
-  const [messages, setMessages] = useState<DiscussMessage[]>(() => loadHistory());
+  const [messages, setMessages] = useState<DiscussMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

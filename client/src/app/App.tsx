@@ -16,9 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { StudioPage, MayaPortrait, LilithPortrait, LunaPortrait, OrionPortrait, PersonaPreview, OracleMode, SoulPortraitCard, WeeklyInsightCard, DiscussionChat, PersonaGrid } from '../modules/M08_studio-chat';
-import type { MayaCommandCallbacks } from '../modules/M08_studio-chat/ui/PersonaSoloChat';
-import type { TourStep } from '../modules/M08_studio-chat/lib/commandParser';
+import { PersonaPreview, SoulPortraitCard, WeeklyInsightCard, DiscussionChat, PersonaGrid } from '../modules/M08_studio-chat';
 import type { StudioSeat } from '../shared/types/studio';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
@@ -140,7 +138,6 @@ function HomePage() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
   const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
-  const [soloTrigger, setSoloTrigger] = useState<PreviewSeat>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
@@ -150,10 +147,9 @@ function HomePage() {
   const [chatPersonas, setChatPersonas] = useState<string[] | null>(null);
 
   // ── Maya Command System state ──
-  const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
-  const [, setExpandedCard] = useState<string | null>(null);
-  const [tourTarget, setTourTarget] = useState<string | null>(null);
-  const [tourText, setTourText] = useState('');
+  const [highlightedCard] = useState<string | null>(null);
+  const [tourTarget] = useState<string | null>(null);
+  const [tourText] = useState('');
   const [astroLoading, setAstroLoading] = useState(false);
   const [astroResult, setAstroResult] = useState<AstroCalcResponse | null>(null);
   const [astroError, setAstroError] = useState<string | null>(null);
@@ -292,11 +288,6 @@ function HomePage() {
     }
   }
 
-  async function handleStudioMatch(aId: string, bId: string) {
-    const result = await computeMatch({ aProfileId: aId, bProfileId: bId });
-    return result;
-  }
-
   async function handleAstroCalc(targetProfile?: typeof profile) {
     const p = targetProfile ?? profile;
     if (!p?.birthDate) return;
@@ -368,46 +359,12 @@ function HomePage() {
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
     onNavigateScore: () => setActivePage(PAGE_REPORT),
     onNavigateChat: (personaId: string) => {
-      setSoloTrigger(personaId as StudioSeat);
+      setChatPersonas([personaId]);
       setActivePage(PAGE_STUDIO);
     },
     onNavigateInsight: () => setActivePage(PAGE_REPORT),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
-  }), []);
-
-  // ── Maya Command Callbacks ──
-  const commandCallbacks: MayaCommandCallbacks = useMemo(() => ({
-    onNavigate(target: string) {
-      const pageMap: Record<string, number> = { profil: PAGE_PROFILE, report: PAGE_REPORT, match: PAGE_REPORT, studio: PAGE_STUDIO, chat: PAGE_STUDIO, explore: PAGE_EXPLORE, astro: PAGE_ASTRO };
-      const idx = pageMap[target];
-      if (idx !== undefined) setActivePage(idx);
-    },
-    onHighlight(target: string) {
-      setHighlightedCard(target);
-      setTimeout(() => setHighlightedCard(null), 2200);
-    },
-    onExpand(target: string) {
-      setExpandedCard((prev) => (prev === target ? null : target));
-    },
-    onPersonaSwitch(target: StudioSeat) {
-      setSoloTrigger(target);
-    },
-    onScrollTo(target: string) {
-      const el = document.getElementById(target);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    },
-    async onTourStart(steps: TourStep[]) {
-      for (const step of steps) {
-        setTourTarget(step.target);
-        setTourText(step.text);
-        const el = document.getElementById(`card-${step.target}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await new Promise((r) => setTimeout(r, step.duration || 3000));
-      }
-      setTourTarget(null);
-      setTourText('');
-    },
   }), []);
 
   /* ── Overlay content (rendered inside global shell) ── */
@@ -1685,7 +1642,7 @@ function HomePage() {
                         highlightedCard={highlightedCard}
                         tourTarget={tourTarget}
                         onAskMaya={() => {
-                          setSoloTrigger('maya');
+                          setChatPersonas(['maya']);
                           setActivePage(PAGE_STUDIO);
                         }}
                         onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
@@ -1746,57 +1703,6 @@ function HomePage() {
               /* ── Persona Grid ── */
               <div style={{ overflowY: 'auto', flex: 1, padding: '0 16px 40px' }}>
                 <PersonaGrid onSelectPersona={(id) => setChatPersonas([id])} />
-
-                {/* Studio section — collapsible below grid */}
-                <div style={{ marginTop: 8 }}>
-                  <div style={{
-                    fontSize: 10, color: '#6b6560', textTransform: 'uppercase',
-                    letterSpacing: '0.12em', fontWeight: 600, marginBottom: 14,
-                    paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.05)',
-                  }}>
-                    Studio · Roundtable
-                  </div>
-
-                  {/* Persona Portraits */}
-                  <div id="persona-row" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('maya')}>
-                      <MayaPortrait size={100} />
-                      <div style={{ fontSize: 9, color: '#a855f7', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Maya</div>
-                    </div>
-                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('luna')}>
-                      <LunaPortrait size={100} />
-                      <div style={{ fontSize: 9, color: '#c084fc', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Luna</div>
-                    </div>
-                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('orion')}>
-                      <OrionPortrait size={100} />
-                      <div style={{ fontSize: 9, color: '#38bdf8', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Orion</div>
-                    </div>
-                    <div className="persona-card-hover" style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setPreviewSeat('lilith')}>
-                      <LilithPortrait size={100} />
-                      <div style={{ fontSize: 9, color: '#d49137', marginTop: 4, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Lilith</div>
-                    </div>
-                  </div>
-
-                  {/* Oracle Mode */}
-                  <SCard accentHex="#c084fc">
-                    <OracleMode profile={profile} />
-                  </SCard>
-
-                  {/* Studio integration */}
-                  {profile && (
-                    <StudioPage
-                      profileId={profile.id}
-                      onBack={() => setActivePage(PAGE_PROFILE)}
-                      lilithUnlocked={hasProfile}
-                      embedded
-                      allProfiles={allProfiles}
-                      onComputeMatch={handleStudioMatch}
-                      initialSoloSeat={soloTrigger}
-                      onSoloChatOpened={() => setSoloTrigger(null)}
-                      commandCallbacks={commandCallbacks}
-                    />
-                  )}
-                </div>
               </div>
             )}
 
@@ -1805,7 +1711,7 @@ function HomePage() {
               <PersonaPreview
                 seat={previewSeat}
                 onStartChat={() => {
-                  setSoloTrigger(previewSeat);
+                  if (previewSeat) setChatPersonas([previewSeat]);
                   setPreviewSeat(null);
                 }}
                 onClose={() => setPreviewSeat(null)}
