@@ -661,50 +661,116 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getChatterboxVoiceForPersona(personaId: string): string {
-  const voices: Record<string, string> = {
-    maya: 'ruhig, weiblich',
-    lilith: 'dunkel, weiblich',
-    kael: 'sachlich, männlich',
-    stella: 'hell, weiblich',
-    luna: 'sanft, weiblich',
-    orion: 'tief, männlich',
-    lian: 'klar, weiblich',
-    sibyl: 'mystisch, weiblich',
-    amara: 'warm, weiblich',
+type ChatterboxTurboVoicePreset =
+  | 'aaron'
+  | 'abigail'
+  | 'anaya'
+  | 'andy'
+  | 'archer'
+  | 'brian'
+  | 'chloe'
+  | 'dylan'
+  | 'emmanuel'
+  | 'ethan'
+  | 'evelyn'
+  | 'gavin'
+  | 'gordon'
+  | 'ivan'
+  | 'laura'
+  | 'lucy'
+  | 'madison'
+  | 'marisol'
+  | 'meera'
+  | 'walter';
+
+function getChatterboxTurboVoiceForPersona(personaId: string): ChatterboxTurboVoicePreset {
+  const voices: Record<string, ChatterboxTurboVoicePreset> = {
+    maya: 'lucy',
+    lilith: 'marisol',
+    kael: 'gordon',
+    stella: 'evelyn',
+    luna: 'abigail',
+    orion: 'walter',
+    lian: 'laura',
+    sibyl: 'meera',
+    amara: 'chloe',
   };
-  return voices[personaId] ?? 'neutral';
+  return voices[personaId] ?? 'lucy';
 }
 
-async function generateChatterboxTts(args: { apiKey: string; text: string; voice: string }): Promise<string | undefined> {
+async function generateChatterboxTurboTts(args: { apiKey: string; text: string; voice: ChatterboxTurboVoicePreset }): Promise<string | undefined> {
   try {
-    const r = await fetch('https://fal.run/fal-ai/chatterbox/text-to-speech', {
+    // Submit request (queue)
+    const submitResp = await fetch('https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${args.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        input: {
-          text: args.text,
-          voice: args.voice,
-        },
+        text: args.text,
+        voice: args.voice,
       }),
     });
 
-    const raw = await r.text();
-    if (!r.ok) {
-      devLogger.error('llm', 'fal.ai chatterbox TTS failed', { status: r.status, body: raw.slice(0, 500) });
+    const submitRaw = await submitResp.text();
+    if (!submitResp.ok) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo submit failed', { status: submitResp.status, body: submitRaw.slice(0, 500) });
       return undefined;
     }
 
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const audioUrl = typeof parsed.audio_url === 'string'
-      ? parsed.audio_url
-      : (typeof parsed.audioUrl === 'string' ? parsed.audioUrl : undefined);
+    const submitJson = JSON.parse(submitRaw) as Record<string, unknown>;
+    const requestId = typeof submitJson.request_id === 'string' ? submitJson.request_id : undefined;
+    if (!requestId) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo submit missing request_id', { body: submitRaw.slice(0, 500) });
+      return undefined;
+    }
+
+    // Poll status until completed
+    const maxWaitMs = 25_000;
+    const pollEveryMs = 600;
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      const statusResp = await fetch(`https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo/requests/${requestId}/status?logs=0`, {
+        headers: {
+          'Authorization': `Key ${args.apiKey}`,
+        },
+      });
+      const statusRaw = await statusResp.text();
+      if (!statusResp.ok) {
+        devLogger.error('llm', 'fal.ai chatterbox turbo status failed', { status: statusResp.status, body: statusRaw.slice(0, 500) });
+        return undefined;
+      }
+
+      const statusJson = JSON.parse(statusRaw) as Record<string, unknown>;
+      const status = typeof statusJson.status === 'string' ? statusJson.status : '';
+      if (status === 'COMPLETED') break;
+      await sleep(pollEveryMs);
+    }
+
+    // Fetch result
+    const resultResp = await fetch(`https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo/requests/${requestId}`, {
+      headers: {
+        'Authorization': `Key ${args.apiKey}`,
+      },
+    });
+    const resultRaw = await resultResp.text();
+    if (!resultResp.ok) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo result failed', { status: resultResp.status, body: resultRaw.slice(0, 500) });
+      return undefined;
+    }
+
+    const resultJson = JSON.parse(resultRaw) as Record<string, unknown>;
+    const audio = resultJson.audio as undefined | { url?: unknown };
+    const audioUrl = audio && typeof audio.url === 'string' ? audio.url : undefined;
+    if (!audioUrl) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo result missing audio.url', { body: resultRaw.slice(0, 500) });
+      return undefined;
+    }
+
     return audioUrl;
   } catch (e) {
-    devLogger.error('llm', 'fal.ai chatterbox TTS exception', { error: String(e) });
+    devLogger.error('llm', 'fal.ai chatterbox turbo exception', { error: String(e) });
     return undefined;
   }
 }
@@ -934,8 +1000,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         const falKey = process.env.FAL_API_KEY;
         if (falKey) {
           if (!isRoundCanceled()) {
-            const voice = getChatterboxVoiceForPersona(personaId);
-            audio_url = await generateChatterboxTts({ apiKey: falKey, text, voice });
+            const voice = getChatterboxTurboVoiceForPersona(personaId);
+            audio_url = await generateChatterboxTurboTts({ apiKey: falKey, text, voice });
           }
         } else {
           devLogger.error('system', 'FAL_API_KEY not set (audioMode requested)', { personaId });
