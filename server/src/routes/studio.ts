@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
-import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt } from '../studioPrompt.js';
+import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt, buildDiscussPrompt } from '../studioPrompt.js';
 import type { LilithIntensity, OracleQuestionType } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
 import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioAnchors.js';
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
+import { getProviderForPersona, getPersonaDefinition } from '../lib/personaRouter.js';
+import { callProvider } from '../lib/providers.js';
 
 export const studioRouter = Router();
 
@@ -54,7 +56,7 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   xai: {
     apiUrl: 'https://api.x.ai/v1/chat/completions',
     envKey: 'XAI_API_KEY',
-    defaultModel: 'grok-3-mini-fast',
+    defaultModel: 'grok-4-1-fast-non-reasoning',
     engineVersion: 'studio-1.0-xai',
     supportsStructuredOutputs: false,
   },
@@ -433,6 +435,132 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       error: `LLM-Aufruf an ${providerName} fehlgeschlagen: ${errMsg}`,
     });
   }
+});
+
+// POST /discuss — Multi-persona sequential discussion (1-3 personas, different providers)
+interface DiscussRequestBody {
+  personas: string[];
+  message: string;
+  conversationHistory?: Array<{ role: string; content: string }>;
+  userChart?: string;
+  audioMode?: boolean;
+  lilithIntensity?: LilithIntensity;
+  clientApiKey?: string;
+}
+
+interface PersonaResponse {
+  persona: string;
+  text: string;
+  color: string;
+  provider: string;
+  model: string;
+  audio_url?: string;
+}
+
+interface DiscussResponse {
+  responses: PersonaResponse[];
+  creditsUsed: number;
+}
+
+studioRouter.post('/discuss', async (req: Request, res: Response) => {
+  const body = req.body as DiscussRequestBody;
+
+  if (!body.personas || !Array.isArray(body.personas) || body.personas.length === 0) {
+    res.status(400).json({ error: 'personas array required (1-3 items)' });
+    return;
+  }
+  if (body.personas.length > 3) {
+    res.status(400).json({ error: 'Maximal 3 Personas pro Diskussion' });
+    return;
+  }
+  if (!body.message) {
+    res.status(400).json({ error: 'message required' });
+    return;
+  }
+
+  const responses: PersonaResponse[] = [];
+  let accumulatedContext = '';
+  const startTime = Date.now();
+
+  for (const personaId of body.personas) {
+    const providerConfig = getProviderForPersona(personaId);
+    const personaDef = getPersonaDefinition(personaId);
+
+    const systemPrompt = buildDiscussPrompt(personaId, {
+      otherPersonas: body.personas.filter((p) => p !== personaId),
+      previousResponses: accumulatedContext,
+      userChart: body.userChart ?? '',
+      isFirstSpeaker: responses.length === 0,
+      lilithIntensity: body.lilithIntensity ?? 'ehrlich',
+    });
+
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      ...(body.conversationHistory ?? []).map((m) => ({
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: m.content,
+      })),
+      { role: 'user', content: body.message },
+    ];
+
+    try {
+      devLogger.info('llm', `Discuss: calling ${providerConfig.provider}/${providerConfig.model} for ${personaId}`, {
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+        persona: personaId,
+      });
+
+      const rawText = await callProvider(
+        providerConfig.provider,
+        providerConfig.model,
+        { system: systemPrompt, messages, temperature: 0.85 },
+        body.clientApiKey,
+      );
+
+      let text: string;
+      try {
+        const parsed = JSON.parse(rawText) as Record<string, unknown>;
+        text = typeof parsed.text === 'string'
+          ? parsed.text
+          : (typeof parsed.answer === 'string' ? parsed.answer : rawText);
+      } catch {
+        text = rawText;
+      }
+
+      const response: PersonaResponse = {
+        persona: personaId,
+        text,
+        color: personaDef.color,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+      };
+
+      responses.push(response);
+      accumulatedContext += `\n${personaDef.name}: ${text}`;
+
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      devLogger.error('llm', `Discuss: ${providerConfig.provider}/${providerConfig.model} failed for ${personaId}: ${errMsg}`, {
+        persona: personaId,
+        provider: providerConfig.provider,
+        durationMs: Date.now() - startTime,
+      });
+      responses.push({
+        persona: personaId,
+        text: `[${personaDef.name} ist gerade nicht erreichbar — bitte erneut versuchen.]`,
+        color: personaDef.color,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+      });
+    }
+  }
+
+  const result: DiscussResponse = {
+    responses,
+    creditsUsed: body.personas.length * (body.audioMode ? 10 : 1),
+  };
+
+  devLogger.info('llm', `Discuss: completed ${body.personas.length} personas in ${Date.now() - startTime}ms`);
+  res.json(result);
 });
 
 // POST /soul-portrait — Maya channels a poetic soul portrait from profile data

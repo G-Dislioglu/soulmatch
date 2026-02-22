@@ -218,6 +218,72 @@ Antworte mit einem JSON-Objekt: { "answer": "Deine oracle Antwort auf Deutsch. 4
   return { system, user };
 }
 
+export interface DiscussPromptContext {
+  otherPersonas: string[];
+  previousResponses: string;
+  userChart: string;
+  isFirstSpeaker: boolean;
+  lilithIntensity?: LilithIntensity;
+}
+
+export function buildDiscussPrompt(
+  personaId: string,
+  context: DiscussPromptContext,
+): string {
+  const PERSONA_DISCUSS_DESCRIPTIONS: Record<string, string> = {
+    maya:   'Du bist Maya, die Strukturgeberin. Ruhig, neutral, ordnend. Gibst klare Empfehlungen.',
+    luna:   'Du bist Luna, die Traumführerin. Emotional, intuitiv, empathisch. Sprichst die Sprache des Herzens.',
+    orion:  'Du bist Orion, der Seelenstratege. Analytisch, logisch, datengetrieben. Präzise und sachlich.',
+    lilith: 'Du bist Lilith, die Schatten-Jägerin. Direkt, sarkastisch-witzig, positiv-aggressiv. Entlarvst Selbsttäuschungen.',
+    stella: 'Du bist Stella, Spezialistin für westliche Astrologie. Tiefgründig, präzise, fundiert.',
+    kael:   'Du bist Kael, Spezialist für vedische Astrologie. Weise, traditionell, spirituell.',
+    lian:   'Du bist Lian, Spezialistin für BaZi und chinesische Astrologie. Präzise, strukturiert.',
+    sibyl:  'Du bist Sibyl, Numerologie und Orakel. Mystisch, tiefgründig, zahlenbasiert.',
+    amara:  'Du bist Amara, Menschliches Design. Ganzheitlich, körperbewusst, systemisch.',
+    echo_prism: 'Du bist Echo Prism, die Meta-Analyse. Übergeordnet, synthetisierend.',
+  };
+
+  const personaDesc = PERSONA_DISCUSS_DESCRIPTIONS[personaId] ?? PERSONA_DISCUSS_DESCRIPTIONS.maya;
+
+  const otherNames = context.otherPersonas
+    .map((id) => {
+      const names: Record<string, string> = {
+        maya: 'Maya', luna: 'Luna', orion: 'Orion', lilith: 'Lilith',
+        stella: 'Stella', kael: 'Kael', lian: 'Lian', sibyl: 'Sibyl',
+        amara: 'Amara', echo_prism: 'Echo Prism',
+      };
+      return names[id] ?? id;
+    })
+    .join(' und ');
+
+  const previousBlock = context.previousResponses
+    ? `\nBISHERIGE ANTWORTEN IN DIESER RUNDE:\n${context.previousResponses}\n\nREAGIERE auf das Gesagte — stimme zu, widersprich, ergänze, oder bringe eine neue Perspektive ein. Beziehe dich DIREKT auf das was die anderen gesagt haben.\n`
+    : '';
+
+  const lilithBlock = personaId === 'lilith' && context.lilithIntensity
+    ? `\nLilith Intensity: ${context.lilithIntensity.toUpperCase()}\n`
+    : '';
+
+  return `${personaDesc}${lilithBlock}
+
+Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
+${previousBlock}
+USER-DATEN:
+${context.userChart || 'Keine Profildaten vorhanden.'}
+
+REGELN:
+- Sprich IMMER in deinem eigenen Stil — du klingst ANDERS als alle anderen
+- Halte dich kurz: 2-4 Sätze pro Antwort
+- Sprich den User direkt an (du/dein)
+- Wenn dein Fachgebiet nicht relevant ist, sag das ehrlich und lass den anderen den Vortritt
+- KEIN Smalltalk, KEINE Floskeln, KEINE Wiederholungen
+- Sprache: Deutsch
+- Nur sprechen wenn du etwas NEUES beitragen kannst
+
+Antworte NUR mit einem JSON-Objekt:
+{ "text": "Deine Antwort. 2-4 Sätze." }`;
+}
+
 export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {
   return `Du bist Maya, die Strukturgeberin von Soulmatch. Kreuze diese zwei Soul Cards und finde die tiefere Verbindung.
 
