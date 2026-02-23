@@ -666,6 +666,7 @@ type OpenAiTtsVoice =
   | 'shimmer'
   | 'onyx'
   | 'alloy'
+  | 'ballad'
   | 'echo'
   | 'sage'
   | 'fable'
@@ -673,15 +674,15 @@ type OpenAiTtsVoice =
 
 function getOpenAiTtsConfigForPersona(personaId: string): { voice: OpenAiTtsVoice; instructions: string } {
   const map: Record<string, { voice: OpenAiTtsVoice; instructions: string }> = {
-    maya: { voice: 'nova', instructions: 'Sprich ruhig, klar und strukturiert' },
-    lilith: { voice: 'shimmer', instructions: 'Sprich dunkel, geheimnisvoll' },
-    kael: { voice: 'onyx', instructions: 'Sprich sachlich und direkt' },
-    stella: { voice: 'alloy', instructions: 'Sprich hell und enthusiastisch' },
-    luna: { voice: 'nova', instructions: 'Sprich sanft und einfühlsam' },
-    orion: { voice: 'echo', instructions: 'Sprich tief und bedächtig' },
-    lian: { voice: 'sage', instructions: 'Sprich klar und präzise' },
-    sibyl: { voice: 'fable', instructions: 'Sprich mystisch und weise' },
-    amara: { voice: 'coral', instructions: 'Sprich warm und herzlich' },
+    maya: { voice: 'nova', instructions: 'Sprich ruhig, klar und strukturiert. Deutsch.' },
+    lilith: { voice: 'shimmer', instructions: 'Sprich dunkel und geheimnisvoll. Deutsch.' },
+    kael: { voice: 'onyx', instructions: 'Sprich sachlich, direkt und männlich. Deutsch.' },
+    stella: { voice: 'alloy', instructions: 'Sprich hell und enthusiastisch. Deutsch.' },
+    luna: { voice: 'ballad', instructions: 'Sprich sanft und einfühlsam. Deutsch.' },
+    orion: { voice: 'echo', instructions: 'Sprich tief und bedächtig. Deutsch.' },
+    lian: { voice: 'sage', instructions: 'Sprich klar und präzise. Deutsch.' },
+    sibyl: { voice: 'fable', instructions: 'Sprich mystisch und weise. Deutsch.' },
+    amara: { voice: 'coral', instructions: 'Sprich warm und herzlich. Deutsch.' },
   };
 
   return map[personaId] ?? map.maya;
