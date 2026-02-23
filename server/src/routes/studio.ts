@@ -997,14 +997,14 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       let audio_url: string | undefined;
       if (body.audioMode) {
-        const falKey = process.env.FAL_API_KEY;
+        const falKey = process.env.FAL_API_KEY || process.env.FAL_KEY;
         if (falKey) {
           if (!isRoundCanceled()) {
             const voice = getChatterboxTurboVoiceForPersona(personaId);
             audio_url = await generateChatterboxTurboTts({ apiKey: falKey, text, voice });
           }
         } else {
-          devLogger.error('system', 'FAL_API_KEY not set (audioMode requested)', { personaId });
+          devLogger.error('system', 'FAL_API_KEY/FAL_KEY not set (audioMode requested)', { personaId });
         }
       }
 
