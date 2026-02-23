@@ -225,6 +225,7 @@ export interface DiscussPromptContext {
   previousResponses: string;
   userChart: string;
   isFirstSpeaker: boolean;
+  isFirstUserMessage?: boolean;
   lilithIntensity?: LilithIntensity;
   userProfile?: {
     name?: string;
@@ -319,12 +320,16 @@ Der User interagiert mit dir über die Soulmatch Chat-Funktion.`;
     ? `\nLilith Intensity: ${context.lilithIntensity.toUpperCase()}\n`
     : '';
 
+  const firstContactBlock = context.isFirstUserMessage
+    ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
+    : '';
+
   return `${APP_CONTEXT_BLOCK}
 
 ${personaDesc}${lilithBlock}
 
 Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
-${userProfileBlock}${memoryBlock}${roundTableBlock}
+${userProfileBlock}${memoryBlock}${firstContactBlock}${roundTableBlock}
 AKTUELLE USER-DATEN / CHAT-KONTEXT:
 ${context.userChart || 'Keine Profildaten vorhanden.'}
 

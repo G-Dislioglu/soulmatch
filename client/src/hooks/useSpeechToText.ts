@@ -36,7 +36,10 @@ export function useSpeechToText(
   const shouldAutoSendOnEndRef = useRef(false);
   const transcriptRef = useRef('');
   const onAutoSendRef = useRef(onAutoSend);
-  const silenceTimerRef = useRef<number | null>(null);
+  const stopTimerRef = useRef<number | null>(null);
+  const fallbackStopTimerRef = useRef<number | null>(null);
+  const noNewWordsTimerRef = useRef<number | null>(null);
+  const lastStableTextRef = useRef<string>('');
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -79,21 +82,64 @@ export function useSpeechToText(
       setTranscript(text);
       transcriptRef.current = text;
 
-      if (silenceTimerRef.current) {
-        window.clearTimeout(silenceTimerRef.current);
+      if (stopTimerRef.current) window.clearTimeout(stopTimerRef.current);
+      if (fallbackStopTimerRef.current) window.clearTimeout(fallbackStopTimerRef.current);
+      if (noNewWordsTimerRef.current) window.clearTimeout(noNewWordsTimerRef.current);
+
+      if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || text.trim().length === 0) {
+        lastStableTextRef.current = text;
+        return;
       }
 
-      if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && text.trim().length > 0) {
-        silenceTimerRef.current = window.setTimeout(() => {
-          if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || !recognitionRef.current) return;
-          console.log('[speech] silence 2s -> stopping recognition');
-          try {
-            recognitionRef.current.stop();
-          } catch (e) {
-            console.error('[speech] stop failed:', e);
-          }
+      const normalized = text.trim().toLowerCase();
+      const words = normalized.split(/\s+/).filter(Boolean);
+      const wordCount = words.length;
+      const endsWithPunctuation = /[.!?]$/.test(normalized);
+      const endsWithCommonEndWord = (() => {
+        const endPhrases = [
+          'okay',
+          'danke',
+          'bitte',
+          'ja',
+          'nein',
+          'genau',
+          'stimmt',
+          'alles klar',
+          'verstanden',
+        ];
+
+        return endPhrases.some((p) => normalized === p || normalized.endsWith(` ${p}`));
+      })();
+
+      const stopRecognition = (reason: string) => {
+        if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || !recognitionRef.current) return;
+        console.log('[speech] stopping recognition:', reason);
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.error('[speech] stop failed:', e);
+        }
+      };
+
+      // Fast path: explicit sentence-end signals => auto-send after ~800ms
+      if (endsWithPunctuation || endsWithCommonEndWord) {
+        stopTimerRef.current = window.setTimeout(() => stopRecognition('end-signal (800ms)'), 800);
+        lastStableTextRef.current = text;
+        return;
+      }
+
+      // Medium path: sentence has >= 4 words and then 2s no new words => auto-send after 800ms
+      lastStableTextRef.current = text;
+      if (wordCount >= 4) {
+        noNewWordsTimerRef.current = window.setTimeout(() => {
+          if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current)) return;
+          if (transcriptRef.current !== lastStableTextRef.current) return;
+          stopTimerRef.current = window.setTimeout(() => stopRecognition('no-new-words-2s (800ms)'), 800);
         }, 2000);
       }
+
+      // Fallback: stop after 3000ms complete silence
+      fallbackStopTimerRef.current = window.setTimeout(() => stopRecognition('silence-3s (fallback)'), 3000);
     };
 
     recognition.onend = () => {
@@ -112,10 +158,10 @@ export function useSpeechToText(
         setTranscript('');
         transcriptRef.current = '';
 
-        if (silenceTimerRef.current) {
-          window.clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
+        if (stopTimerRef.current) { window.clearTimeout(stopTimerRef.current); stopTimerRef.current = null; }
+        if (fallbackStopTimerRef.current) { window.clearTimeout(fallbackStopTimerRef.current); fallbackStopTimerRef.current = null; }
+        if (noNewWordsTimerRef.current) { window.clearTimeout(noNewWordsTimerRef.current); noNewWordsTimerRef.current = null; }
+        lastStableTextRef.current = '';
 
         // Handsfree: restart mic after short pause, until user explicitly stops
         setTimeout(() => {
@@ -180,9 +226,17 @@ export function useSpeechToText(
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (silenceTimerRef.current) {
-        window.clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
+      if (stopTimerRef.current) {
+        window.clearTimeout(stopTimerRef.current);
+        stopTimerRef.current = null;
+      }
+      if (fallbackStopTimerRef.current) {
+        window.clearTimeout(fallbackStopTimerRef.current);
+        fallbackStopTimerRef.current = null;
+      }
+      if (noNewWordsTimerRef.current) {
+        window.clearTimeout(noNewWordsTimerRef.current);
+        noNewWordsTimerRef.current = null;
       }
       recognition.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);

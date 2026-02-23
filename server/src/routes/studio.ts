@@ -701,6 +701,7 @@ async function generateOpenAiTts(args: { apiKey: string; text: string; voice: Op
         input: args.text,
         voice: args.voice,
         instructions: args.instructions,
+        speed: 1.2,
         response_format: 'mp3',
       }),
     });
@@ -871,6 +872,15 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     { role: 'user', content: body.message },
   ];
 
+  const isFirstUserMessage = (() => {
+    const history = body.conversationHistory ?? [];
+    const last = history[history.length - 1];
+    const lastIsCurrent = !!last && last.role === 'user' && last.content === body.message;
+    const historyUserCount = history.filter((m) => m.role === 'user').length;
+    const priorUserCount = historyUserCount - (lastIsCurrent ? 1 : 0);
+    return priorUserCount === 0;
+  })();
+
   const addressedPersonaId = detectAddressedPersonaId(body.message);
   const personasToCall = addressedPersonaId && body.personas.includes(addressedPersonaId)
     ? [addressedPersonaId]
@@ -910,6 +920,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       previousResponses: accumulatedContext,
       userChart: body.userChart ?? '',
       isFirstSpeaker: responses.length === 0,
+      isFirstUserMessage,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',
       userProfile,
       memories: memoryQuery.memories,
