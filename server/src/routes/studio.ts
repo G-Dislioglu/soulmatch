@@ -695,6 +695,7 @@ function getChatterboxTurboVoiceForPersona(personaId: string): ChatterboxTurboVo
     sibyl: 'meera',
     amara: 'chloe',
   };
+
   return voices[personaId] ?? 'lucy';
 }
 
@@ -721,8 +722,15 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
 
     const submitJson = JSON.parse(submitRaw) as Record<string, unknown>;
     const requestId = typeof submitJson.request_id === 'string' ? submitJson.request_id : undefined;
+    const statusUrl = typeof submitJson.status_url === 'string' ? submitJson.status_url : undefined;
+    const responseUrl = typeof submitJson.response_url === 'string' ? submitJson.response_url : undefined;
     if (!requestId) {
       devLogger.error('llm', 'fal.ai chatterbox turbo submit missing request_id', { body: submitRaw.slice(0, 500) });
+      return undefined;
+    }
+
+    if (!statusUrl || !responseUrl) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo submit missing status_url/response_url', { body: submitRaw.slice(0, 500) });
       return undefined;
     }
 
@@ -730,11 +738,10 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
     const maxWaitMs = 25_000;
     const pollEveryMs = 600;
     const start = Date.now();
+    let completed = false;
     while (Date.now() - start < maxWaitMs) {
-      const statusResp = await fetch(`https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo/requests/${requestId}/status?logs=0`, {
-        headers: {
-          'Authorization': `Key ${args.apiKey}`,
-        },
+      const statusResp = await fetch(statusUrl, {
+        headers: { 'Authorization': `Key ${args.apiKey}` },
       });
       const statusRaw = await statusResp.text();
       if (!statusResp.ok) {
@@ -744,15 +751,21 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
 
       const statusJson = JSON.parse(statusRaw) as Record<string, unknown>;
       const status = typeof statusJson.status === 'string' ? statusJson.status : '';
-      if (status === 'COMPLETED') break;
+      if (status === 'COMPLETED') {
+        completed = true;
+        break;
+      }
       await sleep(pollEveryMs);
     }
 
+    if (!completed) {
+      devLogger.error('llm', 'fal.ai chatterbox turbo status timed out', { requestId });
+      return undefined;
+    }
+
     // Fetch result
-    const resultResp = await fetch(`https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo/requests/${requestId}`, {
-      headers: {
-        'Authorization': `Key ${args.apiKey}`,
-      },
+    const resultResp = await fetch(responseUrl, {
+      headers: { 'Authorization': `Key ${args.apiKey}` },
     });
     const resultRaw = await resultResp.text();
     if (!resultResp.ok) {
