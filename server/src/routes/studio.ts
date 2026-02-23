@@ -661,135 +661,60 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-type ChatterboxTurboVoicePreset =
-  | 'aaron'
-  | 'abigail'
-  | 'anaya'
-  | 'andy'
-  | 'archer'
-  | 'brian'
-  | 'chloe'
-  | 'dylan'
-  | 'emmanuel'
-  | 'ethan'
-  | 'evelyn'
-  | 'gavin'
-  | 'gordon'
-  | 'ivan'
-  | 'laura'
-  | 'lucy'
-  | 'madison'
-  | 'marisol'
-  | 'meera'
-  | 'walter';
+type OpenAiTtsVoice =
+  | 'nova'
+  | 'shimmer'
+  | 'onyx'
+  | 'alloy'
+  | 'echo'
+  | 'sage'
+  | 'fable'
+  | 'coral';
 
-function getChatterboxTurboVoiceForPersona(personaId: string): ChatterboxTurboVoicePreset {
-  const voices: Record<string, ChatterboxTurboVoicePreset> = {
-    maya: 'lucy',
-    lilith: 'marisol',
-    kael: 'gordon',
-    stella: 'evelyn',
-    luna: 'abigail',
-    orion: 'walter',
-    lian: 'laura',
-    sibyl: 'meera',
-    amara: 'chloe',
+function getOpenAiTtsConfigForPersona(personaId: string): { voice: OpenAiTtsVoice; instructions: string } {
+  const map: Record<string, { voice: OpenAiTtsVoice; instructions: string }> = {
+    maya: { voice: 'nova', instructions: 'Sprich ruhig, klar und strukturiert' },
+    lilith: { voice: 'shimmer', instructions: 'Sprich dunkel, geheimnisvoll' },
+    kael: { voice: 'onyx', instructions: 'Sprich sachlich und direkt' },
+    stella: { voice: 'alloy', instructions: 'Sprich hell und enthusiastisch' },
+    luna: { voice: 'nova', instructions: 'Sprich sanft und einfühlsam' },
+    orion: { voice: 'echo', instructions: 'Sprich tief und bedächtig' },
+    lian: { voice: 'sage', instructions: 'Sprich klar und präzise' },
+    sibyl: { voice: 'fable', instructions: 'Sprich mystisch und weise' },
+    amara: { voice: 'coral', instructions: 'Sprich warm und herzlich' },
   };
 
-  return voices[personaId] ?? 'lucy';
+  return map[personaId] ?? map.maya;
 }
 
-async function generateChatterboxTurboTts(args: { apiKey: string; text: string; voice: ChatterboxTurboVoicePreset }): Promise<string | undefined> {
+async function generateOpenAiTts(args: { apiKey: string; text: string; voice: OpenAiTtsVoice; instructions: string }): Promise<string | undefined> {
   try {
-    // Submit request (queue)
-    const submitResp = await fetch('https://queue.fal.run/fal-ai/chatterbox/text-to-speech/turbo', {
+    const resp = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${args.apiKey}`,
+        'Authorization': `Bearer ${args.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        input: {
-          text: args.text,
-          language: 'de',
-          exaggeration: 0.3,
-        },
+        model: 'gpt-4o-mini-tts',
+        input: args.text,
         voice: args.voice,
+        instructions: args.instructions,
+        response_format: 'mp3',
       }),
     });
 
-    const submitRaw = await submitResp.text();
-    if (!submitResp.ok) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo submit failed', { status: submitResp.status, body: submitRaw.slice(0, 500) });
+    if (!resp.ok) {
+      const body = await resp.text();
+      devLogger.error('llm', 'OpenAI TTS failed', { status: resp.status, body: body.slice(0, 500) });
       return undefined;
     }
 
-    const submitJson = JSON.parse(submitRaw) as Record<string, unknown>;
-    const requestId = typeof submitJson.request_id === 'string' ? submitJson.request_id : undefined;
-    const statusUrl = typeof submitJson.status_url === 'string' ? submitJson.status_url : undefined;
-    const responseUrl = typeof submitJson.response_url === 'string' ? submitJson.response_url : undefined;
-    if (!requestId) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo submit missing request_id', { body: submitRaw.slice(0, 500) });
-      return undefined;
-    }
-
-    if (!statusUrl || !responseUrl) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo submit missing status_url/response_url', { body: submitRaw.slice(0, 500) });
-      return undefined;
-    }
-
-    // Poll status until completed (cold starts can take 20-40s)
-    const pollEveryMs = 2_000;
-    const maxAttempts = 30; // 30 * 2000ms = ~60s
-    let completed = false;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const statusResp = await fetch(statusUrl, {
-        headers: { 'Authorization': `Key ${args.apiKey}` },
-      });
-      const statusRaw = await statusResp.text();
-      if (!statusResp.ok) {
-        devLogger.error('llm', 'fal.ai chatterbox turbo status failed', { status: statusResp.status, body: statusRaw.slice(0, 500) });
-        return undefined;
-      }
-
-      const statusJson = JSON.parse(statusRaw) as Record<string, unknown>;
-      const status = typeof statusJson.status === 'string' ? statusJson.status : '';
-      if (status === 'COMPLETED') {
-        completed = true;
-        break;
-      }
-
-      if (attempt < maxAttempts - 1) {
-        await sleep(pollEveryMs);
-      }
-    }
-
-    if (!completed) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo status timed out', { requestId });
-      return undefined;
-    }
-
-    // Fetch result
-    const resultResp = await fetch(responseUrl, {
-      headers: { 'Authorization': `Key ${args.apiKey}` },
-    });
-    const resultRaw = await resultResp.text();
-    if (!resultResp.ok) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo result failed', { status: resultResp.status, body: resultRaw.slice(0, 500) });
-      return undefined;
-    }
-
-    const resultJson = JSON.parse(resultRaw) as Record<string, unknown>;
-    const audio = resultJson.audio as undefined | { url?: unknown };
-    const audioUrl = audio && typeof audio.url === 'string' ? audio.url : undefined;
-    if (!audioUrl) {
-      devLogger.error('llm', 'fal.ai chatterbox turbo result missing audio.url', { body: resultRaw.slice(0, 500) });
-      return undefined;
-    }
-
-    return audioUrl;
+    const audioBuffer = Buffer.from(await resp.arrayBuffer());
+    const base64 = audioBuffer.toString('base64');
+    return `data:audio/mpeg;base64,${base64}`;
   } catch (e) {
-    devLogger.error('llm', 'fal.ai chatterbox turbo exception', { error: String(e) });
+    devLogger.error('llm', 'OpenAI TTS exception', { error: String(e) });
     return undefined;
   }
 }
@@ -1016,17 +941,15 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       let audio_url: string | undefined;
       if (body.audioMode) {
-        const falKey = process.env.FAL_API_KEY || process.env.FAL_KEY;
-        if (falKey) {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (apiKey) {
           if (!isRoundCanceled()) {
-            const voice = getChatterboxTurboVoiceForPersona(personaId);
-            audio_url = await generateChatterboxTurboTts({ apiKey: falKey, text, voice });
+            const cfg = getOpenAiTtsConfigForPersona(personaId);
+            audio_url = await generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions });
           }
         } else {
-          devLogger.error('system', 'FAL_API_KEY/FAL_KEY not set (audioMode requested)', { personaId });
+          devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
         }
-
-        console.log("TTS result:", JSON.stringify({ audioUrl: audio_url, personaId }));
       }
 
       const response: PersonaResponse = {
