@@ -100,7 +100,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       } else if (mode === 'listening') {
         speech.startListening();
       }
-    }, 1000);
+    }, 800);
   }, [speech]);
 
   const playAudioOnce = useCallback((id: string, url: string, delayMs = 1500) => {
@@ -118,14 +118,25 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           currentAudioRef.current.pause();
           currentAudioRef.current.currentTime = 0;
         }
-        pauseSpeechForAudio();
-        setIsAwaitingAudio(true);
         const session = audioSessionRef.current + 1;
         audioSessionRef.current = session;
         currentAudioRef.current = a;
         a.currentTime = 0;
 
+        a.onplay = () => {
+          if (audioSessionRef.current !== session) return;
+          pauseSpeechForAudio();
+          setIsAwaitingAudio(true);
+        };
+
         a.onended = () => {
+          if (currentAudioRef.current === a) {
+            currentAudioRef.current = null;
+          }
+          scheduleResumeSpeechAfterAudio(session);
+        };
+
+        a.onerror = () => {
           if (currentAudioRef.current === a) {
             currentAudioRef.current = null;
           }
@@ -140,6 +151,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
               currentAudioRef.current = null;
             }
             setIsAwaitingAudio(false);
+            scheduleResumeSpeechAfterAudio(session);
           });
         }
       } catch {
@@ -160,14 +172,25 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         currentAudioRef.current.pause();
         currentAudioRef.current.currentTime = 0;
       }
-      pauseSpeechForAudio();
-      setIsAwaitingAudio(true);
       const session = audioSessionRef.current + 1;
       audioSessionRef.current = session;
       currentAudioRef.current = a;
       a.currentTime = 0;
 
+      a.onplay = () => {
+        if (audioSessionRef.current !== session) return;
+        pauseSpeechForAudio();
+        setIsAwaitingAudio(true);
+      };
+
       a.onended = () => {
+        if (currentAudioRef.current === a) {
+          currentAudioRef.current = null;
+        }
+        scheduleResumeSpeechAfterAudio(session);
+      };
+
+      a.onerror = () => {
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
@@ -182,6 +205,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
             currentAudioRef.current = null;
           }
           setIsAwaitingAudio(false);
+          scheduleResumeSpeechAfterAudio(session);
         });
       }
     } catch {
