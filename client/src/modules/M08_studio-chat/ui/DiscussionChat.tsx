@@ -125,6 +125,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
 
         a.onplay = () => {
           if (audioSessionRef.current !== session) return;
+          speech.setPlaybackActive(true);
           pauseSpeechForAudio();
           setIsAwaitingAudio(true);
         };
@@ -133,6 +134,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           if (currentAudioRef.current === a) {
             currentAudioRef.current = null;
           }
+          speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(session);
         };
 
@@ -140,6 +142,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           if (currentAudioRef.current === a) {
             currentAudioRef.current = null;
           }
+          speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(session);
         };
 
@@ -179,6 +182,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
 
       a.onplay = () => {
         if (audioSessionRef.current !== session) return;
+        speech.setPlaybackActive(true);
         pauseSpeechForAudio();
         setIsAwaitingAudio(true);
       };
@@ -187,6 +191,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
+        speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
       };
 
@@ -194,6 +199,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
+        speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
       };
 

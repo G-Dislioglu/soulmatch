@@ -19,6 +19,7 @@ export interface UseSpeechToTextReturn {
   grantConsent: () => void;
   startContinuous: () => void;
   stopContinuous: () => void;
+  setPlaybackActive: (active: boolean) => void;
 }
 
 export function useSpeechToText(
@@ -40,6 +41,8 @@ export function useSpeechToText(
   const fallbackStopTimerRef = useRef<number | null>(null);
   const noNewWordsTimerRef = useRef<number | null>(null);
   const lastStableTextRef = useRef<string>('');
+  const isPlaybackActiveRef = useRef(false);
+  const micStreamRef = useRef<MediaStream | null>(null);
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -63,6 +66,7 @@ export function useSpeechToText(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      if (isPlaybackActiveRef.current) return;
       // Accumulate ALL final results + current interim
       let finalText = '';
       let interimText = '';
@@ -145,6 +149,10 @@ export function useSpeechToText(
     recognition.onend = () => {
       console.log('[speech] onend, continuous:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
       setIsListening(false);
+
+      if (isPlaybackActiveRef.current) {
+        return;
+      }
 
       // Auto-send + optional auto-restart (handsfree session)
       if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
@@ -240,16 +248,44 @@ export function useSpeechToText(
       }
       recognition.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+      if (micStreamRef.current) {
+        try {
+          micStreamRef.current.getTracks().forEach((t) => t.stop());
+        } catch {
+          // ignore
+        }
+        micStreamRef.current = null;
+      }
     };
   }, [language]);
+
+  const ensureMicStream = useCallback(async () => {
+    if (micStreamRef.current) return;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      micStreamRef.current = stream;
+    } catch {
+      // best-effort
+    }
+  }, []);
 
   const grantConsent = useCallback(() => {
     localStorage.setItem(SPEECH_CONSENT_KEY, 'true');
     setHasConsent(true);
+    void ensureMicStream();
   }, []);
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
+      void ensureMicStream();
       setTranscript('');
       transcriptRef.current = '';
       shouldAutoSendOnEndRef.current = true;
@@ -271,9 +307,22 @@ export function useSpeechToText(
     transcriptRef.current = '';
   }, []);
 
+  const setPlaybackActive = useCallback((active: boolean) => {
+    isPlaybackActiveRef.current = active;
+    if (active) {
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+    }
+  }, []);
+
   const startContinuous = useCallback(() => {
     if (!recognitionRef.current) return;
     console.log('[speech] startContinuous called');
+    void ensureMicStream();
     isContinuousModeRef.current = true;
     shouldAutoSendOnEndRef.current = true;
     setIsContinuousMode(true);
@@ -310,5 +359,6 @@ export function useSpeechToText(
     grantConsent,
     startContinuous,
     stopContinuous,
+    setPlaybackActive,
   };
 }
