@@ -57,6 +57,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const messagesRef = useRef<DiscussMessage[]>(messages);
   const playedAudioRef = useRef<Set<string>>(new Set());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -72,6 +73,12 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         if (!existing) {
           audioElsRef.current.set(id, a);
         }
+        if (currentAudioRef.current && currentAudioRef.current !== a) {
+          currentAudioRef.current.pause();
+          currentAudioRef.current.currentTime = 0;
+        }
+        currentAudioRef.current = a;
+        a.currentTime = 0;
         const p = a.play();
         if (p && typeof (p as any).catch === 'function') {
           (p as Promise<void>).catch((e) => {
@@ -92,6 +99,11 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       audioElsRef.current.set(id, a);
     }
     try {
+      if (currentAudioRef.current && currentAudioRef.current !== a) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      }
+      currentAudioRef.current = a;
       a.currentTime = 0;
       const p = a.play();
       if (p && typeof (p as any).catch === 'function') {

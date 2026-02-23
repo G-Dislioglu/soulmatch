@@ -709,7 +709,11 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: args.text,
+        input: {
+          text: args.text,
+          language: 'de',
+          exaggeration: 0.3,
+        },
         voice: args.voice,
       }),
     });
