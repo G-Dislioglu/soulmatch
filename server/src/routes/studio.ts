@@ -1006,6 +1006,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         } else {
           devLogger.error('system', 'FAL_API_KEY/FAL_KEY not set (audioMode requested)', { personaId });
         }
+
+        console.log("TTS result:", JSON.stringify({ audioUrl: audio_url, personaId }));
       }
 
       const response: PersonaResponse = {

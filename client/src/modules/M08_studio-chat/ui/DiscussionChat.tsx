@@ -84,10 +84,15 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     }, delayMs);
   }, []);
 
-  const playAudioNow = useCallback((id: string) => {
-    const a = audioElsRef.current.get(id);
-    if (!a) return;
+  const playAudioNow = useCallback((id: string, url: string) => {
+    if (!url) return;
+    const existing = audioElsRef.current.get(id);
+    const a = existing ?? new Audio(url);
+    if (!existing) {
+      audioElsRef.current.set(id, a);
+    }
     try {
+      a.currentTime = 0;
       const p = a.play();
       if (p && typeof (p as any).catch === 'function') {
         (p as Promise<void>).catch((e) => {
@@ -423,7 +428,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
                   <button
                     type="button"
                     title="Audio abspielen"
-                    onClick={() => playAudioNow(msg.id)}
+                    onClick={() => playAudioNow(msg.id, msg.audioUrl ?? '')}
                     style={{
                       fontSize: 12,
                       color: '#6b6560',
