@@ -56,6 +56,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const loadingRef = useRef(false); // Ref for auto-send callback
   const messagesRef = useRef<DiscussMessage[]>(messages);
   const playedAudioRef = useRef<Set<string>>(new Set());
+  const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -66,12 +67,36 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     playedAudioRef.current.add(id);
     setTimeout(() => {
       try {
-        const a = new Audio(url);
-        void a.play();
+        const existing = audioElsRef.current.get(id);
+        const a = existing ?? new Audio(url);
+        if (!existing) {
+          audioElsRef.current.set(id, a);
+        }
+        const p = a.play();
+        if (p && typeof (p as any).catch === 'function') {
+          (p as Promise<void>).catch((e) => {
+            console.warn('[audio] autoplay blocked or failed', e);
+          });
+        }
       } catch {
         // ignore
       }
     }, delayMs);
+  }, []);
+
+  const playAudioNow = useCallback((id: string) => {
+    const a = audioElsRef.current.get(id);
+    if (!a) return;
+    try {
+      const p = a.play();
+      if (p && typeof (p as any).catch === 'function') {
+        (p as Promise<void>).catch((e) => {
+          console.warn('[audio] manual play failed', e);
+        });
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // Speech-to-text integration
@@ -395,9 +420,23 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
                 <span>{icon}</span>
                 <span>{name}</span>
                 {msg.audioUrl && (
-                  <span title="Audio verfügbar" style={{ fontSize: 12, color: '#6b6560', marginLeft: 4 }}>
+                  <button
+                    type="button"
+                    title="Audio abspielen"
+                    onClick={() => playAudioNow(msg.id)}
+                    style={{
+                      fontSize: 12,
+                      color: '#6b6560',
+                      marginLeft: 4,
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      lineHeight: 1,
+                    }}
+                  >
                     🔊
-                  </span>
+                  </button>
                 )}
                 {msg.provider && (
                   <span style={{ color: '#3a3530', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
