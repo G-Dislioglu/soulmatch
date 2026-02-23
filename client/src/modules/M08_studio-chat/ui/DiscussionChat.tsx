@@ -50,17 +50,58 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAwaitingAudio, setIsAwaitingAudio] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   const loadingRef = useRef(false); // Ref for auto-send callback
   const messagesRef = useRef<DiscussMessage[]>(messages);
+  const handleAutoSendRef = useRef<((text: string) => void) | null>(null);
   const playedAudioRef = useRef<Set<string>>(new Set());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const shouldResumeSpeechAfterAudioRef = useRef<{ mode: 'none' | 'continuous' | 'listening' }>({ mode: 'none' });
+  const audioSessionRef = useRef(0);
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const speech = useSpeechToText('de', (text) => {
+    const fn = handleAutoSendRef.current;
+    if (fn) fn(text);
+  });
+  const [showConsent, setShowConsent] = useState(false);
+
+  const pauseSpeechForAudio = useCallback(() => {
+    if (speech.isContinuousMode) {
+      shouldResumeSpeechAfterAudioRef.current = { mode: 'continuous' };
+      speech.stopContinuous();
+      return;
+    }
+    if (speech.isListening) {
+      shouldResumeSpeechAfterAudioRef.current = { mode: 'listening' };
+      speech.stopListening();
+      return;
+    }
+    shouldResumeSpeechAfterAudioRef.current = { mode: 'none' };
+  }, [speech]);
+
+  const scheduleResumeSpeechAfterAudio = useCallback((session: number) => {
+    window.setTimeout(() => {
+      if (audioSessionRef.current !== session) return;
+      if (currentAudioRef.current) return;
+
+      const mode = shouldResumeSpeechAfterAudioRef.current.mode;
+      shouldResumeSpeechAfterAudioRef.current = { mode: 'none' };
+      setIsAwaitingAudio(false);
+
+      if (mode === 'continuous') {
+        speech.startContinuous();
+      } else if (mode === 'listening') {
+        speech.startListening();
+      }
+    }, 1000);
+  }, [speech]);
 
   const playAudioOnce = useCallback((id: string, url: string, delayMs = 1500) => {
     if (!url) return;
@@ -77,19 +118,35 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           currentAudioRef.current.pause();
           currentAudioRef.current.currentTime = 0;
         }
+        pauseSpeechForAudio();
+        setIsAwaitingAudio(true);
+        const session = audioSessionRef.current + 1;
+        audioSessionRef.current = session;
         currentAudioRef.current = a;
         a.currentTime = 0;
+
+        a.onended = () => {
+          if (currentAudioRef.current === a) {
+            currentAudioRef.current = null;
+          }
+          scheduleResumeSpeechAfterAudio(session);
+        };
+
         const p = a.play();
         if (p && typeof (p as any).catch === 'function') {
           (p as Promise<void>).catch((e) => {
             console.warn('[audio] autoplay blocked or failed', e);
+            if (currentAudioRef.current === a) {
+              currentAudioRef.current = null;
+            }
+            setIsAwaitingAudio(false);
           });
         }
       } catch {
         // ignore
       }
     }, delayMs);
-  }, []);
+  }, [pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
 
   const playAudioNow = useCallback((id: string, url: string) => {
     if (!url) return;
@@ -103,21 +160,34 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         currentAudioRef.current.pause();
         currentAudioRef.current.currentTime = 0;
       }
+      pauseSpeechForAudio();
+      setIsAwaitingAudio(true);
+      const session = audioSessionRef.current + 1;
+      audioSessionRef.current = session;
       currentAudioRef.current = a;
       a.currentTime = 0;
+
+      a.onended = () => {
+        if (currentAudioRef.current === a) {
+          currentAudioRef.current = null;
+        }
+        scheduleResumeSpeechAfterAudio(session);
+      };
+
       const p = a.play();
       if (p && typeof (p as any).catch === 'function') {
         (p as Promise<void>).catch((e) => {
           console.warn('[audio] manual play failed', e);
+          if (currentAudioRef.current === a) {
+            currentAudioRef.current = null;
+          }
+          setIsAwaitingAudio(false);
         });
       }
     } catch {
       // ignore
     }
-  }, []);
-
-  // Speech-to-text integration
-  // TODO: Read language from central app settings when implemented
+  }, [pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
 
   const sendMessage = useCallback(async (textRaw: string) => {
     const text = textRaw.trim();
@@ -265,8 +335,9 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     void sendMessage(text);
   }, [sendMessage]);
 
-  const speech = useSpeechToText('de', handleAutoSend);
-  const [showConsent, setShowConsent] = useState(false);
+  useEffect(() => {
+    handleAutoSendRef.current = handleAutoSend;
+  }, [handleAutoSend]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -529,11 +600,11 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: speech.isListening ? '#ef4444' : '#6b6560',
-                  animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
+                  background: isAwaitingAudio ? '#6b6560' : (speech.isListening ? '#ef4444' : '#6b6560'),
+                  animation: !isAwaitingAudio && speech.isListening ? 'pulse 1.5s infinite' : 'none',
                 }} />
-                <span style={{ fontSize: 12, color: speech.isListening ? '#ef4444' : '#8a8580' }}>
-                  {speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören'}
+                <span style={{ fontSize: 12, color: isAwaitingAudio ? '#8a8580' : (speech.isListening ? '#ef4444' : '#8a8580') }}>
+                  {isAwaitingAudio ? '🔇 Warte auf Ausgabe...' : (speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören')}
                 </span>
               </div>
               <button
