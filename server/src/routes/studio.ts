@@ -734,12 +734,11 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
       return undefined;
     }
 
-    // Poll status until completed
-    const maxWaitMs = 25_000;
-    const pollEveryMs = 600;
-    const start = Date.now();
+    // Poll status until completed (cold starts can take 20-40s)
+    const pollEveryMs = 2_000;
+    const maxAttempts = 30; // 30 * 2000ms = ~60s
     let completed = false;
-    while (Date.now() - start < maxWaitMs) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const statusResp = await fetch(statusUrl, {
         headers: { 'Authorization': `Key ${args.apiKey}` },
       });
@@ -755,7 +754,10 @@ async function generateChatterboxTurboTts(args: { apiKey: string; text: string; 
         completed = true;
         break;
       }
-      await sleep(pollEveryMs);
+
+      if (attempt < maxAttempts - 1) {
+        await sleep(pollEveryMs);
+      }
     }
 
     if (!completed) {
