@@ -57,6 +57,8 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const loadingRef = useRef(false); // Ref for auto-send callback
   const messagesRef = useRef<DiscussMessage[]>(messages);
   const handleAutoSendRef = useRef<((text: string) => void) | null>(null);
+  const autoSendDebounceTimerRef = useRef<number | null>(null);
+  const pendingAutoSendTextRef = useRef<string>('');
   const playedAudioRef = useRef<Set<string>>(new Set());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -355,13 +357,34 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
   const handleAutoSend = useCallback((text: string) => {
     console.log('[chat] handleAutoSend called with:', text);
     if (!text.trim()) return;
-    setInput('');
-    void sendMessage(text);
+    pendingAutoSendTextRef.current = text;
+
+    if (autoSendDebounceTimerRef.current) {
+      window.clearTimeout(autoSendDebounceTimerRef.current);
+    }
+
+    autoSendDebounceTimerRef.current = window.setTimeout(() => {
+      const finalText = pendingAutoSendTextRef.current.trim();
+      pendingAutoSendTextRef.current = '';
+      autoSendDebounceTimerRef.current = null;
+      if (!finalText) return;
+      setInput('');
+      void sendMessage(finalText);
+    }, 1500);
   }, [sendMessage]);
 
   useEffect(() => {
     handleAutoSendRef.current = handleAutoSend;
   }, [handleAutoSend]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSendDebounceTimerRef.current) {
+        window.clearTimeout(autoSendDebounceTimerRef.current);
+        autoSendDebounceTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
