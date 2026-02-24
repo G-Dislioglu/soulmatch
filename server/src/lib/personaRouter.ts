@@ -29,16 +29,16 @@ export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
   // amara:      { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
   // echo_prism: { provider: 'openai',   model: 'gpt-5',                       tier: 'meta' },
 
-  maya:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
-  luna:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
-  orion:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
-  lilith:     { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
-  stella:     { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
-  kael:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
-  lian:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
-  sibyl:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
-  amara:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
-  echo_prism: { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'meta' },
+  maya:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
+  luna:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
+  orion:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
+  lilith:     { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
+  stella:     { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
+  kael:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
+  lian:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
+  sibyl:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
+  amara:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
+  echo_prism: { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'meta' },
 };
 
 export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {

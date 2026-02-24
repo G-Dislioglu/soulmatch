@@ -73,7 +73,7 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   gemini: {
     apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
     envKey: 'GEMINI_API_KEY',
-    defaultModel: 'gemini-2.0-flash-lite',
+    defaultModel: 'gemini-2.5-flash-lite',
     engineVersion: 'studio-1.0-gemini',
     supportsStructuredOutputs: false,
   },
@@ -613,7 +613,7 @@ ${args.conversationText}`;
 
   let content = await callProvider(
     'gemini',
-    'gemini-2.0-flash-lite',
+    'gemini-2.5-flash-lite',
     {
       system: '',
       messages: [{ role: 'user', content: prompt }],
@@ -847,16 +847,16 @@ studioRouter.get('/discuss-diag', (_req: Request, res: Response) => {
       gemini:   !!process.env.GEMINI_API_KEY,
     },
     models: {
-      maya:       'gemini-2.0-flash (gemini)',
-      luna:       'gemini-2.0-flash (gemini)',
-      orion:      'gemini-2.0-flash (gemini)',
-      lilith:     'gemini-2.0-flash (gemini)',
-      stella:     'gemini-2.0-flash (gemini)',
-      kael:       'gemini-2.0-flash (gemini)',
-      lian:       'gemini-2.0-flash (gemini)',
-      sibyl:      'gemini-2.0-flash (gemini)',
-      amara:      'gemini-2.0-flash (gemini)',
-      echo_prism: 'gemini-2.0-flash (gemini)',
+      maya:       'gemini-2.5-flash (gemini)',
+      luna:       'gemini-2.5-flash (gemini)',
+      orion:      'gemini-2.5-flash (gemini)',
+      lilith:     'gemini-2.5-flash (gemini)',
+      stella:     'gemini-2.5-flash (gemini)',
+      kael:       'gemini-2.5-flash (gemini)',
+      lian:       'gemini-2.5-flash (gemini)',
+      sibyl:      'gemini-2.5-flash (gemini)',
+      amara:      'gemini-2.5-flash (gemini)',
+      echo_prism: 'gemini-2.5-flash (gemini)',
     },
     endpoint: 'POST /api/discuss',
   });
