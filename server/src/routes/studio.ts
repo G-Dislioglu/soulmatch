@@ -1019,14 +1019,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       finalizeStreamAndEnd();
       return;
     }
-    if (responses.length > 0) {
-      await sleep(1500);
-      if (isRoundCanceled()) {
-        devLogger.info('llm', 'Discuss: aborted round after delay (newer user message received)', { userId, personaId });
-        finalizeStreamAndEnd();
-        return;
-      }
-    }
+
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
 
@@ -1208,6 +1201,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       // Stream this persona response immediately to the client (if enabled).
       sendSseEvent({ type: 'persona', response });
+
+      // BUG 2: Sequenzielle Wartepflicht, wenn weitere Personas antworten sollen, 
+      // damit die Audios im Client nicht kollidieren.
+      if (personasToCall.length > 1 && responses.length < personasToCall.length) {
+        await sleep(800);
+      }
 
       if (isRoundCanceled()) {
         devLogger.info('llm', 'Discuss: aborted round after persona response (newer user message received)', { userId, personaId });

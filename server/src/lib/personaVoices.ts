@@ -16,9 +16,9 @@ export function getPersonaVoice(personaId: string): string {
 
 export function getPersonaVoiceDirector(personaId: string): string {
   const directors: Record<string, string> = {
-    maya: `Audio Profile: Weise Astrologin, Mitte 40, ruhig und einfühlsam.
+    maya: `Audio Profile: Weise Astrologin, Mitte 40, warm und einfühlsam.
 Scene: Stilles Beratungszimmer, Kerzenlicht.
-Director's Notes: Langsam und bedächtig. Kurze Pausen bei wichtigen Aussagen. Warm aber nicht übertrieben.`,
+Director's Notes: Natürliches, ruhiges Tempo. NICHT langsam — fließend und klar. Kurze bedeutungsvolle Pausen nur bei wichtigen Aussagen. Wie eine gute Freundin die zuhört und antwortet.`,
 
     luna: `Audio Profile: Mondgöttin-Persona, sanft und träumerisch.
 Scene: Nächtlicher Garten, Mondlicht.
