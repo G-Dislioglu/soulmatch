@@ -13,6 +13,21 @@ import { getPersonaVoice, getPersonaVoiceDirector } from '../lib/personaVoices.j
 import { getDb, profiles } from '../db.js';
 import { eq, sql } from 'drizzle-orm';
 
+function extractCleanText(raw: string): string {
+  // Entferne ```json ... ``` Wrapper
+  const jsonMatch = raw.match(/```json\s*\{[^}]*"text"\s*:\s*"([^"]+)"[^}]*\}\s*```/s);
+  if (jsonMatch) return jsonMatch[1];
+  
+  // Entferne einfaches { "text": "..." }
+  try {
+    const parsed = JSON.parse(raw.trim());
+    if (parsed.text) return parsed.text;
+  } catch {}
+  
+  // Gib raw zurück wenn kein JSON erkannt
+  return raw.trim();
+}
+
 export const studioRouter = Router();
 
 studioRouter.post('/narrative/probe', (req: Request, res: Response) => {
@@ -1027,15 +1042,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         body.clientApiKey,
       );
 
-      let text: string;
-      try {
-        const parsed = JSON.parse(rawText) as Record<string, unknown>;
-        text = typeof parsed.text === 'string'
-          ? parsed.text
-          : (typeof parsed.answer === 'string' ? parsed.answer : rawText);
-      } catch {
-        text = rawText;
-      }
+      const text = extractCleanText(rawText);
 
       let audio_url: string | undefined;
       if (body.audioMode) {
@@ -1124,12 +1131,18 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 const audioBase64 = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                 const rawMimeType = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
                 const mimeType = rawMimeType === 'audio/mp3' ? 'audio/mpeg' : rawMimeType;
+                
+                // Erzwinge audio/wav als Fallback wenn mimeType leer:
+                const audioMimeType = mimeType || 'audio/wav';
+                
+                console.log('[Native Audio] mimeType:', audioMimeType, 'bytes:', audioBase64?.length ?? 0);
+
                 if (!audioBase64) {
                   console.error('[Native Audio] Keine Audio-Daten in Response:', JSON.stringify(ttsData));
                   console.log('[TTS Fallback]', 'native-audio-missing-inlineData', '→ gemini-2.5-flash-preview-tts');
                   audio_url = await tryGeminiPreviewTts();
                 } else {
-                  audio_url = `data:${mimeType};base64,${audioBase64}`;
+                  audio_url = `data:${audioMimeType};base64,${audioBase64}`;
                 }
               }
             }
