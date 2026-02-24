@@ -794,10 +794,10 @@ async function generateGeminiTts(args: { apiKey: string; text: string; voiceName
     const data = await resp.json() as {
       candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
     };
-
     const inline = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
     const audioBase64 = inline?.data;
-    const mimeType = inline?.mimeType ?? 'audio/mp3';
+    const rawMimeType = inline?.mimeType ?? 'audio/mp3';
+    const mimeType = rawMimeType === 'audio/mp3' ? 'audio/mpeg' : rawMimeType;
     if (!audioBase64) return undefined;
     return `data:${mimeType};base64,${audioBase64}`;
   } catch (e) {
@@ -1122,7 +1122,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 audio_url = await tryGeminiPreviewTts();
               } else {
                 const audioBase64 = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-                const mimeType = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
+                const rawMimeType = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
+                const mimeType = rawMimeType === 'audio/mp3' ? 'audio/mpeg' : rawMimeType;
                 if (!audioBase64) {
                   console.error('[Native Audio] Keine Audio-Daten in Response:', JSON.stringify(ttsData));
                   console.log('[TTS Fallback]', 'native-audio-missing-inlineData', '→ gemini-2.5-flash-preview-tts');
