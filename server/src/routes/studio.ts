@@ -740,7 +740,7 @@ async function generateOpenAiTts(args: { apiKey: string; text: string; voice: Op
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini-tts',
+        model: 'tts-1',
         input: args.text,
         voice: args.voice,
         instructions: args.instructions,
