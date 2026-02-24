@@ -14,18 +14,18 @@ import { getDb, profiles } from '../db.js';
 import { eq, sql } from 'drizzle-orm';
 
 function extractCleanText(raw: string): string {
-  // Entferne ```json ... ``` Wrapper
-  const jsonMatch = raw.match(/```json\s*\{[^}]*"text"\s*:\s*"([^"]+)"[^}]*\}\s*```/s);
+  // Entferne ```json { "text": "..." } ```
+  const fenceMatch = raw.match(/```(?:json)?\s*\{[^}]*"text"\s*:\s*"([\s\S]*?)"[^}]*\}\s*```/);
+  if (fenceMatch) return fenceMatch[1];
+  
+  // Entferne { "text": "..." } ohne Fence
+  const jsonMatch = raw.match(/^\s*\{[^}]*"text"\s*:\s*"([\s\S]*?)"[^}]*\}\s*$/);
   if (jsonMatch) return jsonMatch[1];
   
-  // Entferne einfaches { "text": "..." }
-  try {
-    const parsed = JSON.parse(raw.trim());
-    if (parsed.text) return parsed.text;
-  } catch {}
+  // Entferne führende/trailing ```
+  const cleaned = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
   
-  // Gib raw zurück wenn kein JSON erkannt
-  return raw.trim();
+  return cleaned;
 }
 
 export const studioRouter = Router();
@@ -1046,7 +1046,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       let audio_url: string | undefined;
       if (body.audioMode) {
-        const ttsProvider = process.env.TTS_PROVIDER ?? 'gemini';
+        const ttsProvider = process.env.TTS_PROVIDER ?? 'openai';
 
         const tryGeminiPreviewTts = async (): Promise<string | undefined> => {
           const apiKey = process.env.GEMINI_API_KEY;
