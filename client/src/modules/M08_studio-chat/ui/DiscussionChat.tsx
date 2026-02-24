@@ -100,68 +100,62 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       } else if (mode === 'listening') {
         speech.startListening();
       }
-    }, 800);
+    }, 1000);
   }, [speech]);
 
-  const playAudioOnce = useCallback((id: string, url: string, delayMs = 1500) => {
-    if (!url) return;
+  const playAudioOnce = useCallback((id: string, url: string) => {
+    if (!url || typeof url !== 'string') return;
     if (playedAudioRef.current.has(id)) return;
     playedAudioRef.current.add(id);
-    setTimeout(() => {
-      try {
-        const existing = audioElsRef.current.get(id);
-        const a = existing ?? new Audio(url);
-        if (!existing) {
-          audioElsRef.current.set(id, a);
-        }
-        if (currentAudioRef.current && currentAudioRef.current !== a) {
-          currentAudioRef.current.pause();
-          currentAudioRef.current.currentTime = 0;
-        }
-        const session = audioSessionRef.current + 1;
-        audioSessionRef.current = session;
-        currentAudioRef.current = a;
-        a.currentTime = 0;
 
-        a.onplay = () => {
-          if (audioSessionRef.current !== session) return;
-          speech.setPlaybackActive(true);
-          pauseSpeechForAudio();
-          setIsAwaitingAudio(true);
-        };
-
-        a.onended = () => {
-          if (currentAudioRef.current === a) {
-            currentAudioRef.current = null;
-          }
-          speech.setPlaybackActive(false);
-          scheduleResumeSpeechAfterAudio(session);
-        };
-
-        a.onerror = () => {
-          if (currentAudioRef.current === a) {
-            currentAudioRef.current = null;
-          }
-          speech.setPlaybackActive(false);
-          scheduleResumeSpeechAfterAudio(session);
-        };
-
-        const p = a.play();
-        if (p && typeof (p as any).catch === 'function') {
-          (p as Promise<void>).catch((e) => {
-            console.warn('[audio] autoplay blocked or failed', e);
-            if (currentAudioRef.current === a) {
-              currentAudioRef.current = null;
-            }
-            setIsAwaitingAudio(false);
-            scheduleResumeSpeechAfterAudio(session);
-          });
-        }
-      } catch {
-        // ignore
+    try {
+      const existing = audioElsRef.current.get(id);
+      const a = existing ?? new Audio(url);
+      if (!existing) {
+        audioElsRef.current.set(id, a);
       }
-    }, delayMs);
-  }, [pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+      if (currentAudioRef.current && currentAudioRef.current !== a) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      }
+      const session = audioSessionRef.current + 1;
+      audioSessionRef.current = session;
+      currentAudioRef.current = a;
+      a.currentTime = 0;
+
+      a.onplay = () => {
+        if (audioSessionRef.current !== session) return;
+        speech.setPlaybackActive(true);
+        pauseSpeechForAudio();
+        setIsAwaitingAudio(true);
+      };
+      a.onended = () => {
+        if (audioSessionRef.current !== session) return;
+        speech.setPlaybackActive(false);
+        scheduleResumeSpeechAfterAudio(session);
+        setIsAwaitingAudio(false);
+      };
+      a.onerror = (e) => {
+        console.error('[audio] playback failed', e);
+        if (audioSessionRef.current !== session) return;
+        speech.setPlaybackActive(false);
+        scheduleResumeSpeechAfterAudio(session);
+        setIsAwaitingAudio(false);
+      };
+      
+      const playPromise = a.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[audio] autoplay blocked or failed', err);
+          speech.setPlaybackActive(false);
+          scheduleResumeSpeechAfterAudio(session);
+          setIsAwaitingAudio(false);
+        });
+      }
+    } catch (err) {
+      console.error('[audio] sync error', err);
+    }
+  }, [speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
 
   const playAudioNow = useCallback((id: string, url: string) => {
     if (!url) return;
@@ -285,7 +279,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           const m = newMsgs[i];
           if (!m) continue;
           if (m.audioUrl) {
-            playAudioOnce(m.id, m.audioUrl, 1500 * (i + 1));
+            playAudioOnce(m.id, m.audioUrl);
           }
         }
 
@@ -418,9 +412,22 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     const text = input;
     setInput('');
     speech.resetTranscript();
+
+    // Autoplay unlocker: Fire audio on direct user interaction
+    if (audioMode) {
+      try {
+        const dummy = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        dummy.volume = 0.01;
+        const p = dummy.play();
+        if (p !== undefined) {
+          p.catch(() => { /* ignore */ });
+        }
+      } catch { /* ignore */ }
+    }
+
     await sendMessage(text);
     inputRef.current?.focus();
-  }, [input, loading, sendMessage, speech]);
+  }, [input, loading, sendMessage, speech, audioMode]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
