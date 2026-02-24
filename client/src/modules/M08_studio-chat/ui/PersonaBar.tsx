@@ -130,10 +130,10 @@ export function PersonaBar({
         onClick={onToggleAudio}
         title={audioMode ? 'Audio deaktivieren' : 'Audio aktivieren'}
         style={{
-          background: audioMode ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${audioMode ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.10)'}`,
+          background: audioMode ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${audioMode ? 'rgba(34,197,94,0.55)' : 'rgba(255,255,255,0.10)'}`,
           borderRadius: 8,
-          color: audioMode ? '#d4af37' : '#6b6560',
+          color: audioMode ? '#22c55e' : '#6b6560',
           cursor: 'pointer',
           fontSize: 16,
           padding: '5px 10px',
@@ -148,10 +148,10 @@ export function PersonaBar({
         <button
           onClick={onToggleContinuous}
           style={{
-            background: continuousMode ? 'rgba(239,68,68,0.20)' : 'rgba(255,255,255,0.04)',
-            border: continuousMode ? '2px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.10)',
+            background: continuousMode ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)',
+            border: continuousMode ? '2px solid rgba(34,197,94,0.65)' : '1px solid rgba(255,255,255,0.10)',
             borderRadius: 8,
-            color: continuousMode ? '#ef4444' : '#6b6560',
+            color: continuousMode ? '#22c55e' : '#6b6560',
             cursor: 'pointer',
             fontSize: 13,
             padding: continuousMode ? '6px 12px' : '5px 10px',
@@ -170,7 +170,7 @@ export function PersonaBar({
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: '#ef4444',
+              background: '#22c55e',
               animation: 'pulse 1s infinite',
             }} />
           )}
