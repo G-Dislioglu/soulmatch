@@ -187,6 +187,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         }
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
+        setIsAwaitingAudio(false);
       };
 
       a.onerror = () => {
@@ -195,6 +196,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         }
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
+        setIsAwaitingAudio(false);
       };
 
       const p = a.play();
@@ -204,8 +206,9 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           if (currentAudioRef.current === a) {
             currentAudioRef.current = null;
           }
-          setIsAwaitingAudio(false);
+          speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(session);
+          setIsAwaitingAudio(false);
         });
       }
     } catch {
