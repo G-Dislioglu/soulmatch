@@ -779,6 +779,28 @@ async function generateOpenAiTts(args: { apiKey: string; text: string; voice: Op
   }
 }
 
+// PCM zu WAV konvertieren (WAV Header hinzufügen)
+function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {
+  const dataSize = pcmBuffer.length;
+  const header = Buffer.alloc(44);
+  
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);           // PCM chunk size
+  header.writeUInt16LE(1, 20);            // PCM format
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * channels * bitDepth / 8, 28);
+  header.writeUInt16LE(channels * bitDepth / 8, 32);
+  header.writeUInt16LE(bitDepth, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+  
+  return Buffer.concat([header, pcmBuffer]);
+}
+
 async function generateGeminiTts(args: { apiKey: string; text: string; voiceName: string; directorPrompt: string }): Promise<string | undefined> {
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${args.apiKey}`;
@@ -811,10 +833,14 @@ async function generateGeminiTts(args: { apiKey: string; text: string; voiceName
     };
     const inline = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
     const audioBase64 = inline?.data;
-    const rawMimeType = inline?.mimeType ?? 'audio/mp3';
-    const mimeType = rawMimeType === 'audio/mp3' ? 'audio/mpeg' : rawMimeType;
+    
     if (!audioBase64) return undefined;
-    return `data:${mimeType};base64,${audioBase64}`;
+    
+    const pcmBuffer = Buffer.from(audioBase64, 'base64');
+    const wavBuffer = pcmToWav(pcmBuffer);
+    const wavBase64 = wavBuffer.toString('base64');
+
+    return `data:audio/wav;base64,${wavBase64}`;
   } catch (e) {
     devLogger.error('llm', 'Gemini TTS exception', { error: String(e) });
     return undefined;
@@ -1142,7 +1168,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                   console.log('[TTS Fallback]', 'native-audio-missing-inlineData', '→ gemini-2.5-flash-preview-tts');
                   audio_url = await tryGeminiPreviewTts();
                 } else {
-                  audio_url = `data:${audioMimeType};base64,${audioBase64}`;
+                  const pcmBuffer = Buffer.from(audioBase64, 'base64');
+                  const wavBuffer = pcmToWav(pcmBuffer);
+                  const wavBase64 = wavBuffer.toString('base64');
+                  audio_url = `data:${audioMimeType};base64,${wavBase64}`;
                 }
               }
             }
