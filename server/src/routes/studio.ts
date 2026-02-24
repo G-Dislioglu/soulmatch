@@ -1040,46 +1040,111 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       let audio_url: string | undefined;
       if (body.audioMode) {
         const ttsProvider = process.env.TTS_PROVIDER ?? 'gemini';
-        if (ttsProvider === 'gemini') {
-          const apiKey = process.env.GEMINI_API_KEY;
-          if (apiKey) {
-            if (!isRoundCanceled()) {
-              try {
-                audio_url = await withTimeout(
-                  generateGeminiTts({
-                    apiKey,
-                    text,
-                    voiceName: getPersonaVoice(personaId),
-                    directorPrompt: getPersonaVoiceDirector(personaId),
-                  }),
-                  20000,
-                );
-              } catch {
-                audio_url = undefined;
-              }
-            }
-          } else {
-            devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
-          }
-        }
 
-        if (!audio_url) {
+        const tryGeminiPreviewTts = async (): Promise<string | undefined> => {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) {
+            devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
+            return undefined;
+          }
+          if (isRoundCanceled()) return undefined;
+          try {
+            return await withTimeout(
+              generateGeminiTts({
+                apiKey,
+                text,
+                voiceName: getPersonaVoice(personaId),
+                directorPrompt: getPersonaVoiceDirector(personaId),
+              }),
+              20000,
+            );
+          } catch {
+            console.log('[TTS Fallback]', 'gemini-preview-tts-error', '→ gemini-2.5-flash-preview-tts');
+            return undefined;
+          }
+        };
+
+        const tryOpenAiTts = async (): Promise<string | undefined> => {
           const apiKey = process.env.OPENAI_API_KEY;
-          if (apiKey) {
-            if (!isRoundCanceled()) {
-              const cfg = getOpenAiTtsConfigForPersona(personaId);
-              try {
-                audio_url = await withTimeout(
-                  generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions }),
-                  20000,
-                );
-              } catch {
-                audio_url = undefined;
+          if (!apiKey) {
+            devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
+            return undefined;
+          }
+          if (isRoundCanceled()) return undefined;
+          const cfg = getOpenAiTtsConfigForPersona(personaId);
+          try {
+            return await withTimeout(
+              generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions }),
+              20000,
+            );
+          } catch {
+            return undefined;
+          }
+        };
+
+        try {
+          if (ttsProvider === 'gemini-native') {
+            const geminiKey = process.env.GEMINI_API_KEY;
+            if (!geminiKey) {
+              devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
+            } else if (!isRoundCanceled()) {
+              const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-native-audio-preview-12-2025:generateContent?key=${geminiKey}`;
+              const directorPrompt = getPersonaVoiceDirector(personaId);
+              const voiceName = getPersonaVoice(personaId);
+
+              const ttsData = await withTimeout(
+                (async () => {
+                  const ttsResponse = await fetch(ttsUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contents: [{
+                        parts: [{ text: `${directorPrompt}\n\nSprich folgenden Text:\n${text}` }],
+                      }],
+                      generationConfig: {
+                        responseModalities: ['AUDIO'],
+                        speechConfig: {
+                          voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName },
+                          },
+                        },
+                      },
+                    }),
+                  });
+                  return await ttsResponse.json() as any;
+                })(),
+                20000,
+              );
+
+              if (ttsData?.error) {
+                console.error('[Native Audio] Fehler:', ttsData.error?.message ?? ttsData.error);
+                console.log('[TTS Fallback]', ttsData.error?.message ?? 'native-audio-error', '→ gemini-2.5-flash-preview-tts');
+                audio_url = await tryGeminiPreviewTts();
+              } else {
+                const audioBase64 = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                const mimeType = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
+                if (!audioBase64) {
+                  console.error('[Native Audio] Keine Audio-Daten in Response:', JSON.stringify(ttsData));
+                  console.log('[TTS Fallback]', 'native-audio-missing-inlineData', '→ gemini-2.5-flash-preview-tts');
+                  audio_url = await tryGeminiPreviewTts();
+                } else {
+                  audio_url = `data:${mimeType};base64,${audioBase64}`;
+                }
               }
             }
-          } else {
-            devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
+          } else if (ttsProvider === 'gemini') {
+            audio_url = await tryGeminiPreviewTts();
+          } else if (ttsProvider === 'openai') {
+            audio_url = await tryOpenAiTts();
           }
+
+          if (!audio_url && ttsProvider !== 'openai') {
+            audio_url = await tryOpenAiTts();
+          }
+        } catch (e) {
+          console.log('[TTS Fallback]', String(e), '→ gemini-2.5-flash-preview-tts');
+          devLogger.error('llm', 'TTS block failed, falling back to OpenAI', { error: String(e), personaId });
+          audio_url = await tryOpenAiTts();
         }
       }
 
