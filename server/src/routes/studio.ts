@@ -9,6 +9,7 @@ import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioA
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 import { getProviderForPersona, getPersonaDefinition } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
+import { getPersonaVoice, getPersonaVoiceDirector } from '../lib/personaVoices.js';
 import { getDb, profiles } from '../db.js';
 import { eq, sql } from 'drizzle-orm';
 
@@ -30,7 +31,7 @@ studioRouter.post('/narrative/probe', (req: Request, res: Response) => {
   });
 });
 
-type ProviderName = 'openai' | 'deepseek' | 'xai';
+type ProviderName = 'openai' | 'deepseek' | 'xai' | 'gemini';
 
 interface ProviderConfig {
   apiUrl: string;
@@ -40,7 +41,42 @@ interface ProviderConfig {
   supportsStructuredOutputs: boolean;
 }
 
+async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      systemInstruction: systemPrompt ? { parts: [{ text: systemPrompt }] } : undefined,
+      generationConfig: {
+        maxOutputTokens: 1200,
+        temperature: 0.7,
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Gemini API ${resp.status}: ${errText}`);
+  }
+
+  const data = await resp.json() as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
+  if (!content) throw new Error('No content in Gemini response');
+  return JSON.parse(content);
+}
+
 const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
+  gemini: {
+    apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    envKey: 'GEMINI_API_KEY',
+    defaultModel: 'gemini-2.0-flash-lite',
+    engineVersion: 'studio-1.0-gemini',
+    supportsStructuredOutputs: false,
+  },
   openai: {
     apiUrl: 'https://api.openai.com/v1/responses',
     envKey: 'OPENAI_API_KEY',
@@ -196,7 +232,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     return;
   }
 
-  const providerName: ProviderName = body.provider ?? 'openai';
+  const providerName: ProviderName = body.provider ?? 'gemini';
   const config = PROVIDER_CONFIGS[providerName];
   if (!config) {
     res.status(400).json({ error: `Unknown provider: ${providerName}` });
@@ -248,6 +284,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
 
     if (providerName === 'openai') {
       parsed = await callOpenAI(apiKey, model, systemPrompt, userPrompt);
+    } else if (providerName === 'gemini') {
+      parsed = await callGemini(apiKey, model, systemPrompt, userPrompt);
     } else {
       parsed = await callChatCompletions(config, apiKey, model, systemPrompt, userPrompt);
     }
@@ -557,7 +595,6 @@ function renderConversationForMemoryExtraction(messages: Array<{ role: string; c
 }
 
 async function extractNewMemories(args: {
-  apiKey: string;
   conversationText: string;
 }): Promise<Array<{ category: MemoryCategory; memory_text: string; importance: 1 | 2 | 3 }>> {
   const prompt = `Analysiere dieses Gespräch. Gib maximal 2 neue, wichtige Fakten über den User zurück, die für zukünftige Gespräche relevant sind. Nur wenn wirklich etwas Neues gelernt wurde, sonst leeres Array.
@@ -574,18 +611,15 @@ Format (JSON):
 Gespräch:
 ${args.conversationText}`;
 
-  // Use the unified provider caller (OpenAI Responses API) for reliability.
-  // Note: args.apiKey is passed as clientApiKey fallback; server env OPENAI_API_KEY still works.
   let content = await callProvider(
-    'openai',
-    'gpt-5-nano',
+    'gemini',
+    'gemini-2.0-flash-lite',
     {
       system: '',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.2,
       maxTokens: 150,
     },
-    args.apiKey,
   );
   content = content.trim();
   if (content.startsWith('```')) {
@@ -721,6 +755,48 @@ async function generateOpenAiTts(args: { apiKey: string; text: string; voice: Op
   }
 }
 
+async function generateGeminiTts(args: { apiKey: string; text: string; voiceName: string; directorPrompt: string }): Promise<string | undefined> {
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${args.apiKey}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `${args.directorPrompt}\n\nText:\n${args.text}` }],
+        }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: args.voiceName },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      devLogger.error('llm', 'Gemini TTS failed', { status: resp.status, body: body.slice(0, 500) });
+      return undefined;
+    }
+
+    const data = await resp.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
+    };
+
+    const inline = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    const audioBase64 = inline?.data;
+    const mimeType = inline?.mimeType ?? 'audio/mp3';
+    if (!audioBase64) return undefined;
+    return `data:${mimeType};base64,${audioBase64}`;
+  } catch (e) {
+    devLogger.error('llm', 'Gemini TTS exception', { error: String(e) });
+    return undefined;
+  }
+}
+
 const discussRoundTokenByUserId = new Map<string, number>();
 
 function detectAddressedPersonaId(messageRaw: string): string | undefined {
@@ -768,18 +844,19 @@ studioRouter.get('/discuss-diag', (_req: Request, res: Response) => {
       openai:   !!process.env.OPENAI_API_KEY,
       deepseek: !!process.env.DEEPSEEK_API_KEY,
       xai:      !!process.env.XAI_API_KEY,
+      gemini:   !!process.env.GEMINI_API_KEY,
     },
     models: {
-      maya:       'gpt-5-nano (openai)',
-      luna:       'deepseek-chat (deepseek)',
-      orion:      'gpt-5-nano (openai)',
-      lilith:     'grok-4-1-fast-non-reasoning (xai)',
-      stella:     'gpt-5-mini (openai)',
-      kael:       'grok-4-1-fast-non-reasoning (xai)',
-      lian:       'deepseek-chat (deepseek)',
-      sibyl:      'gpt-5-mini (openai)',
-      amara:      'deepseek-chat (deepseek)',
-      echo_prism: 'gpt-5 (openai)',
+      maya:       'gemini-2.0-flash (gemini)',
+      luna:       'gemini-2.0-flash (gemini)',
+      orion:      'gemini-2.0-flash (gemini)',
+      lilith:     'gemini-2.0-flash (gemini)',
+      stella:     'gemini-2.0-flash (gemini)',
+      kael:       'gemini-2.0-flash (gemini)',
+      lian:       'gemini-2.0-flash (gemini)',
+      sibyl:      'gemini-2.0-flash (gemini)',
+      amara:      'gemini-2.0-flash (gemini)',
+      echo_prism: 'gemini-2.0-flash (gemini)',
     },
     endpoint: 'POST /api/discuss',
   });
@@ -953,14 +1030,33 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       let audio_url: string | undefined;
       if (body.audioMode) {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (apiKey) {
-          if (!isRoundCanceled()) {
-            const cfg = getOpenAiTtsConfigForPersona(personaId);
-            audio_url = await generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions });
+        const ttsProvider = process.env.TTS_PROVIDER ?? 'gemini';
+        if (ttsProvider === 'gemini') {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (apiKey) {
+            if (!isRoundCanceled()) {
+              audio_url = await generateGeminiTts({
+                apiKey,
+                text,
+                voiceName: getPersonaVoice(personaId),
+                directorPrompt: getPersonaVoiceDirector(personaId),
+              });
+            }
+          } else {
+            devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
           }
-        } else {
-          devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
+        }
+
+        if (!audio_url) {
+          const apiKey = process.env.OPENAI_API_KEY;
+          if (apiKey) {
+            if (!isRoundCanceled()) {
+              const cfg = getOpenAiTtsConfigForPersona(personaId);
+              audio_url = await generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions });
+            }
+          } else {
+            devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
+          }
         }
       }
 
@@ -990,12 +1086,9 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       if (shouldLearn && userId) {
         try {
-          const apiKey = process.env.OPENAI_API_KEY;
-          if (apiKey) {
-            const conversationText = renderConversationForMemoryExtraction(convoForMemoryExtraction);
-            const extracted = await extractNewMemories({ apiKey, conversationText });
-            await saveMemories({ userId, personaId, memories: extracted });
-          }
+          const conversationText = renderConversationForMemoryExtraction(convoForMemoryExtraction);
+          const extracted = await extractNewMemories({ conversationText });
+          await saveMemories({ userId, personaId, memories: extracted });
         } catch (e) {
           devLogger.error('llm', 'Memory extraction failed', { error: String(e), personaId, userId });
         }

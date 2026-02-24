@@ -33,6 +33,49 @@ export async function callProvider(
   params: CallProviderParams,
   clientApiKey?: string,
 ): Promise<string> {
+  if (provider === 'gemini') {
+    const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
+    if (!apiKey) throw new Error('No API key for gemini. Set GEMINI_API_KEY on server.');
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const contents = params.messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: params.system
+          ? { parts: [{ text: params.system }] }
+          : undefined,
+        generationConfig: {
+          maxOutputTokens: params.maxTokens ?? 500,
+          temperature: params.temperature ?? 0.85,
+        },
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`gemini API ${resp.status}: ${errText}`);
+    }
+
+    const data = await resp.json() as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string; inlineData?: { data?: string; mimeType?: string } }>;
+        };
+      }>;
+    };
+
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
+    return typeof text === 'string' ? text : '';
+  }
+
   const endpoint = PROVIDER_ENDPOINTS[provider];
   if (!endpoint) throw new Error(`Unknown provider: ${provider}`);
 
@@ -127,6 +170,9 @@ export async function callProvider(
 }
 
 export function getProviderApiKey(provider: string, clientApiKey?: string): string | undefined {
+  if (provider === 'gemini') {
+    return process.env.GEMINI_API_KEY || clientApiKey || undefined;
+  }
   const endpoint = PROVIDER_ENDPOINTS[provider];
   if (!endpoint) return undefined;
   return process.env[endpoint.envKey] || clientApiKey || undefined;

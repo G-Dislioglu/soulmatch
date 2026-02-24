@@ -1,5 +1,5 @@
 export type PersonaTier = 'companion' | 'specialist' | 'meta';
-export type ProviderName = 'openai' | 'deepseek' | 'xai';
+export type ProviderName = 'openai' | 'deepseek' | 'xai' | 'gemini';
 
 export interface PersonaProviderConfig {
   provider: ProviderName;
@@ -18,16 +18,27 @@ export interface PersonaDefinition {
 }
 
 export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
-  maya:       { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
-  luna:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'companion' },
-  orion:      { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
-  lilith:     { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'companion' },
-  stella:     { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
-  kael:       { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'specialist' },
-  lian:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
-  sibyl:      { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
-  amara:      { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
-  echo_prism: { provider: 'openai',   model: 'gpt-5',                       tier: 'meta' },
+  // maya:       { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
+  // luna:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'companion' },
+  // orion:      { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
+  // lilith:     { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'companion' },
+  // stella:     { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
+  // kael:       { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'specialist' },
+  // lian:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
+  // sibyl:      { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
+  // amara:      { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
+  // echo_prism: { provider: 'openai',   model: 'gpt-5',                       tier: 'meta' },
+
+  maya:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
+  luna:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
+  orion:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
+  lilith:     { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'companion' },
+  stella:     { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
+  kael:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
+  lian:       { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
+  sibyl:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
+  amara:      { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'specialist' },
+  echo_prism: { provider: 'gemini', model: 'gemini-2.0-flash', tier: 'meta' },
 };
 
 export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {

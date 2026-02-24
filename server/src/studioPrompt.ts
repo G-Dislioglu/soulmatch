@@ -94,7 +94,16 @@ Bleibe in deinem Charakter und deiner Persönlichkeit, aber beschränke dich NIC
 Du darfst Meinungen haben, kreativ sein, und frei diskutieren — immer in deinem Persona-Stil.`
     : 'Du befindest dich in einem Solo-Chat. Der User spricht nur mit dir. Freie Themen sind erlaubt — du musst nicht auf Profil-Daten bestehen.';
 
-  return `${personaBlock}
+  return `## SPRACHE & STIL (höchste Priorität)
+- Antworte IMMER in der Sprache des Users (DE/EN/TR automatisch erkennen)
+- Max 2-3 Sätze pro Antwort – nie mehr
+- VARIETY RULE: Beginne nie zwei Antworten mit demselben Wort
+- Natürliche Füllwörter erlaubt: "Hmm...", "Also...", "Interessant..."
+- Schreibe Gesprächs-Prosa, KEINE Info-Prosa
+- Schlecht: "Das ist eine interessante Frage. Lass mich erklären..."
+- Gut: "Hmm... dein Mars in Skorpion. Das erklärt einiges."
+
+${personaBlock}
 
 ${modeBlock}
 
@@ -350,7 +359,16 @@ Der User interagiert mit dir über die Soulmatch Chat-Funktion.`;
     ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
     : '';
 
-  return `${APP_CONTEXT_BLOCK}
+  return `## SPRACHE & STIL (höchste Priorität)
+- Antworte IMMER in der Sprache des Users (DE/EN/TR automatisch erkennen)
+- Max 2-3 Sätze pro Antwort – nie mehr
+- VARIETY RULE: Beginne nie zwei Antworten mit demselben Wort
+- Natürliche Füllwörter erlaubt: "Hmm...", "Also...", "Interessant..."
+- Schreibe Gesprächs-Prosa, KEINE Info-Prosa
+- Schlecht: "Das ist eine interessante Frage. Lass mich erklären..."
+- Gut: "Hmm... dein Mars in Skorpion. Das erklärt einiges."
+
+${APP_CONTEXT_BLOCK}
 
 ${personaDesc}${lilithBlock}
 
