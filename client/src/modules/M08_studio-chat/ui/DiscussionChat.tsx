@@ -300,6 +300,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       const reader = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
+      let doneEventReceived = false;
 
       // SSE frames are separated by a blank line. We only use `data: ...` lines.
       while (true) {
@@ -346,8 +347,22 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
               }
               setMessages((prev) => [...prev, newMsg]);
             }
+
+            if (evt?.type === 'done') {
+              doneEventReceived = true;
+              try {
+                await reader.cancel();
+              } catch {
+                // ignore
+              }
+              break;
+            }
           }
+
+          if (doneEventReceived) break;
         }
+
+        if (doneEventReceived) break;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

@@ -549,6 +549,15 @@ async function loadUserProfile(userId: string): Promise<undefined | { name?: str
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_resolve, reject) => {
+      setTimeout(() => reject(new Error('Timeout')), ms);
+    }),
+  ]);
+}
+
 async function loadMemories(args: {
   userId: string;
   personaId: string;
@@ -1035,12 +1044,19 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           const apiKey = process.env.GEMINI_API_KEY;
           if (apiKey) {
             if (!isRoundCanceled()) {
-              audio_url = await generateGeminiTts({
-                apiKey,
-                text,
-                voiceName: getPersonaVoice(personaId),
-                directorPrompt: getPersonaVoiceDirector(personaId),
-              });
+              try {
+                audio_url = await withTimeout(
+                  generateGeminiTts({
+                    apiKey,
+                    text,
+                    voiceName: getPersonaVoice(personaId),
+                    directorPrompt: getPersonaVoiceDirector(personaId),
+                  }),
+                  20000,
+                );
+              } catch {
+                audio_url = undefined;
+              }
             }
           } else {
             devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
@@ -1052,7 +1068,14 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           if (apiKey) {
             if (!isRoundCanceled()) {
               const cfg = getOpenAiTtsConfigForPersona(personaId);
-              audio_url = await generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions });
+              try {
+                audio_url = await withTimeout(
+                  generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions }),
+                  20000,
+                );
+              } catch {
+                audio_url = undefined;
+              }
             }
           } else {
             devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
