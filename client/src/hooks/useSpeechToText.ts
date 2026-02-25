@@ -175,11 +175,18 @@ export function useSpeechToText(
         setTimeout(() => {
           if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
             try {
+              // Ensure we don't start if already listening
+              // Use try-catch to safely ignore InvalidStateError if it was already started by another event
               recognitionRef.current.start();
               setIsListening(true);
               console.log('[speech] mic restarted');
-            } catch (e) {
-              console.error('[speech] restart failed:', e);
+            } catch (e: any) {
+              if (e.name === 'InvalidStateError') {
+                // Already started, this is fine.
+                setIsListening(true);
+              } else {
+                console.error('[speech] restart failed:', e);
+              }
             }
           }
         }, 800);
@@ -189,14 +196,17 @@ export function useSpeechToText(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       console.log('[speech] error:', event.error);
+      setIsListening(false);
       if (event.error === 'no-speech') {
         // Silence — just restart if handsfree is active
         if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
           setTimeout(() => {
             if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
               try {
-                recognitionRef.current.start();
-                setIsListening(true);
+                if (!isListening) {
+                  recognitionRef.current.start();
+                  setIsListening(true);
+                }
               } catch {
                 // ignore
               }
@@ -212,7 +222,6 @@ export function useSpeechToText(
         setTranscript('');
         transcriptRef.current = '';
       }
-      setIsListening(false);
     };
 
     recognitionRef.current = recognition;
