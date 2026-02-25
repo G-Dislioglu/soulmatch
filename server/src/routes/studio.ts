@@ -14,17 +14,31 @@ import { getDb, profiles } from '../db.js';
 import { eq, sql } from 'drizzle-orm';
 
 function extractCleanText(raw: string): string {
-  // Entferne ```json { "text": "..." } ```
-  const fenceMatch = raw.match(/```(?:json)?\s*\{[^}]*"text"\s*:\s*"([\s\S]*?)"[^}]*\}\s*```/);
-  if (fenceMatch) return fenceMatch[1];
+  const trimmed = raw.trim();
   
-  // Entferne { "text": "..." } ohne Fence
-  const jsonMatch = raw.match(/^\s*\{[^}]*"text"\s*:\s*"([\s\S]*?)"[^}]*\}\s*$/);
-  if (jsonMatch) return jsonMatch[1];
+  // Versuch 1: Echtes JSON parsen (für den Fall, dass Gemini sauberes JSON liefert)
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    if (typeof parsed.text === 'string') return parsed.text;
+    if (typeof parsed.answer === 'string') return parsed.answer;
+  } catch {}
+
+  // Versuch 2: JSON in Markdown-Fences extrahieren ```json { ... } ```
+  const fenceMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (fenceMatch) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1]) as Record<string, unknown>;
+      if (typeof parsed.text === 'string') return parsed.text;
+      if (typeof parsed.answer === 'string') return parsed.answer;
+    } catch {}
+  }
   
-  // Entferne führende/trailing ```
-  const cleaned = raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
+  // Versuch 3: Roher Regex Fallback für "text": "..." (falls JSON kaputt ist)
+  const regexMatch = raw.match(/"text"\s*:\s*"([\s\S]*?)"/);
+  if (regexMatch) return regexMatch[1];
   
+  // Versuch 4: Führende/trailing ``` entfernen und Rest zurückgeben
+  const cleaned = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   return cleaned;
 }
 
