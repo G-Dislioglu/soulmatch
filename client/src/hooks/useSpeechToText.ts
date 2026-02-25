@@ -289,8 +289,12 @@ export function useSpeechToText(
       setTranscript('');
       transcriptRef.current = '';
       shouldAutoSendOnEndRef.current = true;
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.warn('[speech] start failed', e);
+      }
     }
   }, [isListening]);
 
