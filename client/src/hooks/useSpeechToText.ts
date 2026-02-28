@@ -37,10 +37,8 @@ export function useSpeechToText(
   const shouldAutoSendOnEndRef = useRef(false);
   const transcriptRef = useRef('');
   const onAutoSendRef = useRef(onAutoSend);
-  const stopTimerRef = useRef<number | null>(null);
-  const fallbackStopTimerRef = useRef<number | null>(null);
-  const noNewWordsTimerRef = useRef<number | null>(null);
-  const lastStableTextRef = useRef<string>('');
+  const debounceTimerRef = useRef<number | null>(null);
+  const accumulatedFinalTextRef = useRef('');
   const isPlaybackActiveRef = useRef(false);
   const micStreamRef = useRef<MediaStream | null>(null);
 
@@ -67,83 +65,36 @@ export function useSpeechToText(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       if (isPlaybackActiveRef.current) return;
-      // Accumulate ALL final results + current interim
-      let finalText = '';
+
       let interimText = '';
-      
-      for (let i = 0; i < event.results.length; i++) {
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          finalText += result[0].transcript;
+          accumulatedFinalTextRef.current += `${result[0].transcript} `;
+
+          if (debounceTimerRef.current) {
+            window.clearTimeout(debounceTimerRef.current);
+          }
+
+          debounceTimerRef.current = window.setTimeout(() => {
+            const finalText = accumulatedFinalTextRef.current.trim();
+            if (finalText.length > 0 && onAutoSendRef.current) {
+              onAutoSendRef.current(finalText);
+              accumulatedFinalTextRef.current = '';
+              setTranscript('');
+              transcriptRef.current = '';
+            }
+          }, 2000);
         } else {
-          interimText = result[0].transcript;
+          interimText += result[0].transcript;
         }
       }
-      
-      // Use final text if available, otherwise interim
-      const text = finalText || interimText;
+
+      const text = `${accumulatedFinalTextRef.current}${interimText}`.trim();
       console.log('[speech] onresult:', text);
       setTranscript(text);
       transcriptRef.current = text;
-
-      if (stopTimerRef.current) window.clearTimeout(stopTimerRef.current);
-      if (fallbackStopTimerRef.current) window.clearTimeout(fallbackStopTimerRef.current);
-      if (noNewWordsTimerRef.current) window.clearTimeout(noNewWordsTimerRef.current);
-
-      if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || text.trim().length === 0) {
-        lastStableTextRef.current = text;
-        return;
-      }
-
-      const normalized = text.trim().toLowerCase();
-      const words = normalized.split(/\s+/).filter(Boolean);
-      const wordCount = words.length;
-      const endsWithPunctuation = /[.!?]$/.test(normalized);
-      const endsWithCommonEndWord = (() => {
-        const endPhrases = [
-          'okay',
-          'danke',
-          'bitte',
-          'ja',
-          'nein',
-          'genau',
-          'stimmt',
-          'alles klar',
-          'verstanden',
-        ];
-
-        return endPhrases.some((p) => normalized === p || normalized.endsWith(` ${p}`));
-      })();
-
-      const stopRecognition = (reason: string) => {
-        if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current) || !recognitionRef.current) return;
-        console.log('[speech] stopping recognition:', reason);
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          console.error('[speech] stop failed:', e);
-        }
-      };
-
-      // Fast path: explicit sentence-end signals => auto-send after ~800ms
-      if (endsWithPunctuation || endsWithCommonEndWord) {
-        stopTimerRef.current = window.setTimeout(() => stopRecognition('end-signal (800ms)'), 800);
-        lastStableTextRef.current = text;
-        return;
-      }
-
-      // Medium path: sentence has >= 4 words and then 2s no new words => auto-send after 800ms
-      lastStableTextRef.current = text;
-      if (wordCount >= 4) {
-        noNewWordsTimerRef.current = window.setTimeout(() => {
-          if (!(isContinuousModeRef.current || shouldAutoSendOnEndRef.current)) return;
-          if (transcriptRef.current !== lastStableTextRef.current) return;
-          stopTimerRef.current = window.setTimeout(() => stopRecognition('no-new-words-2s (800ms)'), 800);
-        }, 2000);
-      }
-
-      // Fallback: stop after 3000ms complete silence
-      fallbackStopTimerRef.current = window.setTimeout(() => stopRecognition('silence-3s (fallback)'), 3000);
     };
 
     recognition.onend = () => {
@@ -154,32 +105,35 @@ export function useSpeechToText(
         return;
       }
 
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+
       // Auto-send + optional auto-restart (handsfree session)
       if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
-        const text = transcriptRef.current?.trim();
+        const text = accumulatedFinalTextRef.current.trim();
 
         if (text && text.length > 0 && onAutoSendRef.current) {
           console.log('[speech] auto-sending:', text);
           onAutoSendRef.current(text);
         }
 
+        accumulatedFinalTextRef.current = '';
+
         setTranscript('');
         transcriptRef.current = '';
-
-        if (stopTimerRef.current) { window.clearTimeout(stopTimerRef.current); stopTimerRef.current = null; }
-        if (fallbackStopTimerRef.current) { window.clearTimeout(fallbackStopTimerRef.current); fallbackStopTimerRef.current = null; }
-        if (noNewWordsTimerRef.current) { window.clearTimeout(noNewWordsTimerRef.current); noNewWordsTimerRef.current = null; }
-        lastStableTextRef.current = '';
 
         // Handsfree: restart mic after short pause, until user explicitly stops
         setTimeout(() => {
           if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
             try {
               // Ensure we don't start if already listening
-              // Use try-catch to safely ignore InvalidStateError if it was already started by another event
-              recognitionRef.current.start();
-              setIsListening(true);
-              console.log('[speech] mic restarted');
+              if (!isListening) {
+                recognitionRef.current.start();
+                setIsListening(true);
+                console.log('[speech] mic restarted');
+              }
             } catch (e: any) {
               if (e.name === 'InvalidStateError') {
                 // Already started, this is fine.
@@ -243,17 +197,9 @@ export function useSpeechToText(
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (stopTimerRef.current) {
-        window.clearTimeout(stopTimerRef.current);
-        stopTimerRef.current = null;
-      }
-      if (fallbackStopTimerRef.current) {
-        window.clearTimeout(fallbackStopTimerRef.current);
-        fallbackStopTimerRef.current = null;
-      }
-      if (noNewWordsTimerRef.current) {
-        window.clearTimeout(noNewWordsTimerRef.current);
-        noNewWordsTimerRef.current = null;
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
       recognition.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -295,12 +241,14 @@ export function useSpeechToText(
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
       void ensureMicStream();
+      accumulatedFinalTextRef.current = '';
       setTranscript('');
       transcriptRef.current = '';
       shouldAutoSendOnEndRef.current = true;
       try {
         recognitionRef.current.start();
         setIsListening(true);
+        console.log('[STT] started');
       } catch (e) {
         console.warn('[speech] start failed', e);
       }
@@ -316,6 +264,11 @@ export function useSpeechToText(
   }, []);
 
   const resetTranscript = useCallback(() => {
+    accumulatedFinalTextRef.current = '';
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     setTranscript('');
     transcriptRef.current = '';
   }, []);
@@ -339,11 +292,13 @@ export function useSpeechToText(
     isContinuousModeRef.current = true;
     shouldAutoSendOnEndRef.current = true;
     setIsContinuousMode(true);
+    accumulatedFinalTextRef.current = '';
     setTranscript('');
     transcriptRef.current = '';
     try {
       recognitionRef.current.start();
       setIsListening(true);
+      console.log('[STT] started');
       console.log('[speech] mic started, isContinuousMode=true');
     } catch (e) { console.log('[speech] start failed:', e); /* already started */ }
   }, []);
@@ -352,6 +307,11 @@ export function useSpeechToText(
     isContinuousModeRef.current = false;
     shouldAutoSendOnEndRef.current = false;
     setIsContinuousMode(false);
+    accumulatedFinalTextRef.current = '';
+    if (debounceTimerRef.current) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }

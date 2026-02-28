@@ -14,6 +14,7 @@ import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMem
 import { extractInsights, checkMilestone } from '../lib/insightExtractor';
 import { useGuide } from '../../../modules/M14_guide/GuideProvider';
 import { LiveSigil } from './LiveSigil';
+import { PersonaTuningBar, usePersonaTuning } from './PersonaTuningBar';
 import type { SigilState } from './LiveSigil';
 import { parseResponse, parseSoulCard } from '../lib/commandParser';
 import type { MayaCommand, TourStep, SoulCardProposal } from '../lib/commandParser';
@@ -106,10 +107,12 @@ function formatBlockRemaining(ms: number): string {
 
 export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: PersonaSoloChatProps) {
   const guide = useGuide();
+  const { mood } = usePersonaTuning(seat);
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory(seat));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeepMode, setIsDeepMode] = useState(false);
   const [freeMode, setFreeMode] = useState(false);
   const [intensity, setIntensity] = useState<LilithIntensity>(() => getPersonaIntensity(seat));
   const [blocked, setBlocked] = useState(() => isBlocked() || getBanStatus(profileId).banned);
@@ -120,6 +123,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   const [showAuraSnap, setShowAuraSnap] = useState(true);
   const [shadowDiveConfirm, setShadowDiveConfirm] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialMsgCount = useRef(messages.length);
 
@@ -260,6 +264,19 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+
+    const handleScroll = () => {
+      setShowScrollTop(node.scrollTop > 300);
+    };
+
+    handleScroll();
+    node.addEventListener('scroll', handleScroll);
+    return () => node.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     setIntensity(getPersonaIntensity(seat));
@@ -408,6 +425,47 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
       const chatExcerpt = buildChatExcerpt(updated);
       const userMemory = buildMemoryContext(profileId, 2000);
 
+      const playAudio = async (base64Audio: string, mimeType: string): Promise<void> => {
+        await new Promise<void>((resolve, reject) => {
+          const blob = new Blob(
+            [Uint8Array.from(atob(base64Audio), (c) => c.charCodeAt(0))],
+            { type: mimeType },
+          );
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          audio.onerror = (ev) => {
+            URL.revokeObjectURL(url);
+            reject(ev);
+          };
+
+          void audio.play().catch((err) => {
+            URL.revokeObjectURL(url);
+            reject(err);
+          });
+        });
+      };
+
+      const playResponseWithFiller = async (responseData: {
+        fillerAudio?: string;
+        fillerMimeType?: string;
+        audio?: string;
+        mimeType?: string;
+      }): Promise<void> => {
+        if (responseData.fillerAudio && responseData.fillerMimeType) {
+          await playAudio(responseData.fillerAudio, responseData.fillerMimeType);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+
+        if (responseData.audio && responseData.mimeType) {
+          await playAudio(responseData.audio, responseData.mimeType);
+        }
+      };
+
       const res = await provider.generateStudio({
         mode: 'profile',
         profileId,
@@ -420,7 +478,17 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
         freeMode,
         chatExcerpt,
         userMemory: userMemory || undefined,
+        moodParameters: mood,
       });
+
+      const deepPayload = res as unknown as {
+        fillerAudio?: string;
+        fillerMimeType?: string;
+        audio?: string;
+        mimeType?: string;
+        usedDeepMode?: boolean;
+      };
+      setIsDeepMode(!!deepPayload.usedDeepMode);
 
       const turn = res.turns[0];
       if (turn) {
@@ -434,6 +502,14 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
         const personaMsg: ChatMessage = { role: 'persona', seat, text: cleanText, timestamp: new Date().toISOString() };
         const withResponse = appendMessage(seat, personaMsg);
         setMessages(withResponse);
+
+        if (deepPayload.usedDeepMode && (deepPayload.fillerAudio || deepPayload.audio)) {
+          try {
+            await playResponseWithFiller(deepPayload);
+          } catch {
+            // ignore playback errors; text response already rendered
+          }
+        }
 
         // Trigger 'truth' sigil flash for Lilith brutal responses
         if (isLilith && effectiveIntensity === 'brutal') {
@@ -462,10 +538,11 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
+      setIsDeepMode(false);
     } finally {
       setLoading(false);
     }
-  }, [blocked, banMessage, freeMode, intensity, isLilith, loading, profileId, seat]);
+  }, [blocked, banMessage, freeMode, intensity, isLilith, loading, profileId, seat, mood]);
 
   const handleAutoSend = useCallback((text: string) => {
     if (!text.trim()) return;
@@ -568,6 +645,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
             >
               ✕
             </button>
+            <PersonaTuningBar seat={seat} accentColor={theme.accent.replace('text-', '')} />
           </div>
         </div>
 
@@ -720,6 +798,14 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
             <div className="flex justify-start">
               <div className={`rounded-lg px-3 py-2 text-sm ${isLilith ? 'bg-orange-900/20 text-orange-400' : 'bg-zinc-800/60 text-zinc-400'}`}>
                 <span className="animate-pulse">Denke…</span>
+              </div>
+            </div>
+          )}
+
+          {isDeepMode && (
+            <div className="flex justify-start">
+              <div className="rounded-lg px-3 py-2 text-xs text-zinc-400 italic animate-pulse border border-zinc-700/40 bg-zinc-900/40">
+                ✦ denkt tief nach...
               </div>
             </div>
           )}
@@ -877,6 +963,31 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
             Senden
           </Button>
         </div>
+
+        <button
+          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          title="Zum Anfang"
+          aria-label="Zum Anfang"
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            right: 20,
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 20,
+            color: '#fff',
+            padding: '6px 14px',
+            fontSize: 12,
+            cursor: showScrollTop ? 'pointer' : 'default',
+            backdropFilter: 'blur(8px)',
+            transition: 'opacity 0.3s',
+            opacity: showScrollTop ? 1 : 0,
+            pointerEvents: showScrollTop ? 'auto' : 'none',
+            zIndex: 70,
+          }}
+        >
+          ↑ Anfang
+        </button>
 
         {showConsent && (
           <SpeechConsentDialog

@@ -64,6 +64,12 @@ export interface StudioCallOptions {
   chatExcerpt?: string;
   userMemory?: string;
   matchExcerpt?: string;
+  moodParameters?: {
+    empathy: number;
+    mysticism: number;
+    provocation: number;
+    intellect: number;
+  };
 }
 
 export interface StudioProvider {
@@ -105,6 +111,7 @@ class LLMProvider implements StudioProvider {
         chatExcerpt: opts?.chatExcerpt,
         userMemory: opts?.userMemory,
         matchExcerpt: opts?.matchExcerpt,
+        moodParameters: opts?.moodParameters,
       }),
     });
 

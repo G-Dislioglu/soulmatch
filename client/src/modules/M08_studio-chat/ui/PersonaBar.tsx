@@ -125,28 +125,16 @@ export function PersonaBar({
         )}
       </div>
 
-      {/* Audio Toggle */}
-      <button
-        onClick={onToggleAudio}
-        title={audioMode ? 'Audio deaktivieren' : 'Audio aktivieren'}
-        style={{
-          background: audioMode ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${audioMode ? 'rgba(34,197,94,0.55)' : 'rgba(255,255,255,0.10)'}`,
-          borderRadius: 8,
-          color: audioMode ? '#22c55e' : '#6b6560',
-          cursor: 'pointer',
-          fontSize: 16,
-          padding: '5px 10px',
-          flexShrink: 0,
-        }}
-      >
-        🔊
-      </button>
-
-      {/* Freisprechen Toggle */}
+      {/* Live Talk Toggle (vereint Audio & Mic) */}
       {isSpeechSupported && onToggleContinuous && (
         <button
-          onClick={onToggleContinuous}
+          onClick={() => {
+            onToggleContinuous();
+            // Wenn Live Talk aktiviert wird, schalte auch Audio ein (falls aus)
+            if (!continuousMode && !audioMode) {
+              onToggleAudio();
+            }
+          }}
           style={{
             background: continuousMode ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)',
             border: continuousMode ? '2px solid rgba(34,197,94,0.65)' : '1px solid rgba(255,255,255,0.10)',
@@ -163,8 +151,8 @@ export function PersonaBar({
             animation: continuousMode ? 'pulse 1.5s infinite' : 'none',
           }}
         >
-          <span style={{ fontSize: 16 }}>🎙</span>
-          {continuousMode && <span>Freisprechen</span>}
+          <span style={{ fontSize: 16 }}>🎙️</span>
+          <span>Live Talk</span>
           {continuousMode && (
             <span style={{
               width: 8,

@@ -7,15 +7,16 @@ import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
 import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioAnchors.js';
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
-import { getProviderForPersona, getPersonaDefinition } from '../lib/personaRouter.js';
+import { getProviderForPersona, getPersonaDefinition, shouldUseDeepMode } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
-import { getPersonaVoice, getPersonaVoiceDirector } from '../lib/personaVoices.js';
+import { generateTTS } from '../lib/ttsService.js';
+import { handleDeepModeRequest } from '../lib/deepModeHandler.js';
 import { getDb, profiles } from '../db.js';
 import { eq, sql } from 'drizzle-orm';
 
 function extractCleanText(raw: string): string {
   const trimmed = raw.trim();
-  
+
   // Versuch 1: Echtes JSON parsen (für den Fall, dass Gemini sauberes JSON liefert)
   try {
     const parsed = JSON.parse(trimmed) as Record<string, unknown>;
@@ -32,13 +33,14 @@ function extractCleanText(raw: string): string {
       if (typeof parsed.answer === 'string') return parsed.answer;
     } catch {}
   }
-  
-  // Versuch 3: Roher Regex Fallback für "text": "..." (falls JSON kaputt ist)
-  const regexMatch = raw.match(/"text"\s*:\s*"([\s\S]*?)"/);
-  if (regexMatch) return regexMatch[1];
-  
-  // Versuch 4: Führende/trailing ``` entfernen und Rest zurückgeben
-  const cleaned = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  // Da wir jetzt primär Text anfordern, greifen die obigen Fallbacks nur,
+  // wenn das Modell sich weigert und doch JSON liefert.
+
+  // Ansonsten: Führende/trailing ``` entfernen und den Rest als Text zurückgeben.
+  // Wir entfernen KEIN Regex auf "text": "..." mehr, weil das normalen Fließtext
+  // abschneiden kann, wenn das Wort "text" darin vorkommt!
+  const cleaned = trimmed.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/, '').trim();
   return cleaned;
 }
 
@@ -70,6 +72,26 @@ interface ProviderConfig {
   supportsStructuredOutputs: boolean;
 }
 
+function parseChatExcerptToHistory(chatExcerpt?: string): Array<{ role: string; content: string }> {
+  if (!chatExcerpt) return [];
+
+  return chatExcerpt
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (line.startsWith('USER:')) {
+        return { role: 'user', content: line.slice('USER:'.length).trim() };
+      }
+      if (line.startsWith('PERSONA(')) {
+        const idx = line.indexOf(':');
+        const content = idx >= 0 ? line.slice(idx + 1).trim() : line;
+        return { role: 'assistant', content };
+      }
+      return { role: 'assistant', content: line };
+    });
+}
+
 async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const resp = await fetch(url, {
@@ -93,8 +115,14 @@ async function callGemini(apiKey: string, model: string, systemPrompt: string, u
   const data = await resp.json() as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
-  const content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
+  let content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
   if (!content) throw new Error('No content in Gemini response');
+
+  content = content.trim();
+  if (content.startsWith('```')) {
+    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+
   return JSON.parse(content);
 }
 
@@ -145,9 +173,15 @@ interface StudioRequestBody {
   matchExcerpt?: string;
   chatExcerpt?: string;
   userMemory?: string;
-  lilithIntensity?: LilithIntensity;
+  lilithIntensity?: string;
   soloPersona?: string;
   freeMode?: boolean;
+  moodParameters?: {
+    empathy: number;
+    mysticism: number;
+    provocation: number;
+    intellect: number;
+  };
 }
 
 function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | undefined {
@@ -285,10 +319,10 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   });
   const anchorInstruction = renderAnchorInstructionBlock(anchors);
 
-  const lilithIntensity: LilithIntensity = body.lilithIntensity ?? 'ehrlich';
+  const lilithIntensity: LilithIntensity = (body.lilithIntensity as LilithIntensity) ?? 'ehrlich';
   const systemPrompt = body.soloPersona
-    ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity, body.freeMode ?? false)
-    : buildSystemPrompt(lilithIntensity);
+    ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity, body.freeMode ?? false, body.moodParameters)
+    : buildSystemPrompt(lilithIntensity, body.moodParameters);
   const userPrompt = buildUserPrompt({
     mode: studioRequest.mode,
     profileExcerpt,
@@ -303,6 +337,49 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
+    const messageHistory = parseChatExcerptToHistory(chatExcerpt);
+    const useDeep = !!body.soloPersona && shouldUseDeepMode(studioRequest.userMessage, messageHistory);
+
+    if (body.soloPersona && useDeep) {
+      if (!process.env.GEMINI_API_KEY || !process.env.OPENAI_API_KEY) {
+        res.status(500).json({ error: 'Deep Mode benötigt GEMINI_API_KEY und OPENAI_API_KEY.' });
+        return;
+      }
+
+      console.log(`[Deep Mode] Aktiviert für Persona: ${body.soloPersona}, Nachrichtenlänge: ${studioRequest.userMessage.split(/\s+/).filter(Boolean).length} Wörter`);
+
+      const result = await handleDeepModeRequest({
+        userMessage: studioRequest.userMessage,
+        personaId: body.soloPersona,
+        messageHistory,
+        systemPrompt,
+        useDeep: true,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        clientApiKey: body.clientApiKey,
+      });
+
+      res.json({
+        meta: {
+          engine: 'llm',
+          engineVersion: `${config.engineVersion}-deep`,
+          computedAt: new Date().toISOString(),
+          warnings: ['deep_mode'],
+        },
+        turns: [{ seat: body.soloPersona, text: result.mainResponse.text }],
+        nextSteps: [],
+        watchOut: '',
+        fillerAudio: result.fillerAudio.buffer.toString('base64'),
+        fillerMimeType: result.fillerAudio.mimeType,
+        fillerDurationMs: result.fillerAudio.durationMs,
+        audio: result.mainResponse.audioBuffer.toString('base64'),
+        mimeType: result.mainResponse.mimeType,
+        usedDeepMode: true,
+        reasoningTimeMs: result.reasoningTimeMs,
+      });
+      return;
+    }
+
     let parsed;
 
     devLogger.info('llm', `Calling ${providerName}/${model}`, {
@@ -351,7 +428,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     const missing: string[] = [];
     if (!parsed.turns || !Array.isArray(parsed.turns)) missing.push('turns');
     if (!parsed.nextSteps || !Array.isArray(parsed.nextSteps)) missing.push('nextSteps');
-    if (!parsed.watchOut || typeof parsed.watchOut !== 'string') missing.push('watchOut');
+    if (typeof parsed.watchOut !== 'string') missing.push('watchOut');
 
     if (missing.length > 0) {
       const errMsg = `Schema mismatch: missing ${missing.join(', ')}`;
@@ -401,7 +478,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
         const missing2: string[] = [];
         if (!repaired.turns || !Array.isArray(repaired.turns)) missing2.push('turns');
         if (!repaired.nextSteps || !Array.isArray(repaired.nextSteps)) missing2.push('nextSteps');
-        if (!repaired.watchOut || typeof repaired.watchOut !== 'string') missing2.push('watchOut');
+        if (typeof repaired.watchOut !== 'string') missing2.push('watchOut');
 
         if (missing2.length === 0) {
           parsed = repaired;
@@ -744,123 +821,6 @@ type OpenAiTtsVoice =
   | 'fable'
   | 'coral';
 
-function getOpenAiTtsConfigForPersona(personaId: string): { voice: OpenAiTtsVoice; instructions: string } {
-  const map: Record<string, { voice: OpenAiTtsVoice; instructions: string }> = {
-    maya: { voice: 'nova', instructions: 'Sprich ruhig, klar und strukturiert. Deutsch.' },
-    lilith: { voice: 'shimmer', instructions: 'Sprich dunkel und geheimnisvoll. Deutsch.' },
-    kael: { voice: 'onyx', instructions: 'Sprich sachlich, direkt und männlich. Deutsch.' },
-    stella: { voice: 'alloy', instructions: 'Sprich hell und enthusiastisch. Deutsch.' },
-    luna: { voice: 'ballad', instructions: 'Sprich sanft und einfühlsam. Deutsch.' },
-    orion: { voice: 'echo', instructions: 'Sprich tief und bedächtig. Deutsch.' },
-    lian: { voice: 'sage', instructions: 'Sprich klar und präzise. Deutsch.' },
-    sibyl: { voice: 'fable', instructions: 'Sprich mystisch und weise. Deutsch.' },
-    amara: { voice: 'coral', instructions: 'Sprich warm und herzlich. Deutsch.' },
-  };
-
-  return map[personaId] ?? map.maya;
-}
-
-async function generateOpenAiTts(args: { apiKey: string; text: string; voice: OpenAiTtsVoice; instructions: string }): Promise<string | undefined> {
-  try {
-    const resp = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${args.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: args.text,
-        voice: args.voice,
-        instructions: args.instructions,
-        speed: 1.2,
-        response_format: 'mp3',
-      }),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      devLogger.error('llm', 'OpenAI TTS failed', { status: resp.status, body: body.slice(0, 500) });
-      return undefined;
-    }
-
-    const audioBuffer = Buffer.from(await resp.arrayBuffer());
-    const base64 = audioBuffer.toString('base64');
-    return `data:audio/mpeg;base64,${base64}`;
-  } catch (e) {
-    devLogger.error('llm', 'OpenAI TTS exception', { error: String(e) });
-    return undefined;
-  }
-}
-
-// PCM zu WAV konvertieren (WAV Header hinzufügen)
-function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {
-  const dataSize = pcmBuffer.length;
-  const header = Buffer.alloc(44);
-  
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + dataSize, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);           // PCM chunk size
-  header.writeUInt16LE(1, 20);            // PCM format
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(sampleRate * channels * bitDepth / 8, 28);
-  header.writeUInt16LE(channels * bitDepth / 8, 32);
-  header.writeUInt16LE(bitDepth, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(dataSize, 40);
-  
-  return Buffer.concat([header, pcmBuffer]);
-}
-
-async function generateGeminiTts(args: { apiKey: string; text: string; voiceName: string; directorPrompt: string }): Promise<string | undefined> {
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${args.apiKey}`;
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${args.directorPrompt}\n\nText:\n${args.text}` }],
-        }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: args.voiceName },
-            },
-          },
-        },
-      }),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      devLogger.error('llm', 'Gemini TTS failed', { status: resp.status, body: body.slice(0, 500) });
-      return undefined;
-    }
-
-    const data = await resp.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
-    };
-    const inline = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-    const audioBase64 = inline?.data;
-    
-    if (!audioBase64) return undefined;
-    
-    const pcmBuffer = Buffer.from(audioBase64, 'base64');
-    const wavBuffer = pcmToWav(pcmBuffer);
-    const wavBase64 = wavBuffer.toString('base64');
-
-    return `data:audio/wav;base64,${wavBase64}`;
-  } catch (e) {
-    devLogger.error('llm', 'Gemini TTS exception', { error: String(e) });
-    return undefined;
-  }
-}
-
 const discussRoundTokenByUserId = new Map<string, number>();
 
 function detectAddressedPersonaId(messageRaw: string): string | undefined {
@@ -1027,15 +987,17 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     ? [addressedPersonaId]
     : body.personas;
 
-  for (const personaId of personasToCall) {
+  const personaPromises = personasToCall.map(async (personaId, index) => {
     if (isRoundCanceled()) {
-      devLogger.info('llm', 'Discuss: aborted round before persona call (newer user message received)', { userId, personaId });
-      finalizeStreamAndEnd();
-      return;
+      return { canceled: true, personaId };
     }
 
     const providerConfig = getProviderForPersona(personaId);
     const personaDef = getPersonaDefinition(personaId);
+
+    // Each persona's context is built independently for parallel calls
+    const currentAccumulatedContext = accumulatedContext;
+    const currentProviderMessages = [...providerMessages];
 
     let memoryQuery: Awaited<ReturnType<typeof loadMemories>> | { mode: 'standard'; memories: Array<{ memory_text: string; category: string; importance: number; created_at: string | Date }> };
     if (userId) {
@@ -1051,9 +1013,9 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
     const systemPrompt = buildDiscussPrompt(personaId, {
       otherPersonas: personasToCall.filter((p) => p !== personaId),
-      previousResponses: accumulatedContext,
+      previousResponses: currentAccumulatedContext,
       userChart: body.userChart ?? '',
-      isFirstSpeaker: responses.length === 0,
+      isFirstSpeaker: index === 0,
       isFirstUserMessage,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',
       userProfile,
@@ -1061,6 +1023,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       memoriesMode: memoryQuery.mode,
     });
 
+    const callStartTime = Date.now();
     try {
       devLogger.info('llm', `Discuss: calling ${providerConfig.provider}/${providerConfig.model} for ${personaId}`, {
         provider: providerConfig.provider,
@@ -1071,7 +1034,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       const rawText = await callProvider(
         providerConfig.provider,
         providerConfig.model,
-        { system: systemPrompt, messages: providerMessages, temperature: 0.85 },
+        { system: systemPrompt, messages: currentProviderMessages, temperature: 0.85 },
         body.clientApiKey,
       );
 
@@ -1079,122 +1042,28 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       let audio_url: string | undefined;
       if (body.audioMode) {
-        const ttsProvider = process.env.TTS_PROVIDER ?? 'openai';
+        const geminiApiKey = process.env.GEMINI_API_KEY;
+        const openaiApiKey = process.env.OPENAI_API_KEY;
 
-        const tryGeminiPreviewTts = async (): Promise<string | undefined> => {
-          const apiKey = process.env.GEMINI_API_KEY;
-          if (!apiKey) {
-            devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
-            return undefined;
-          }
-          if (isRoundCanceled()) return undefined;
-          try {
-            return await withTimeout(
-              generateGeminiTts({
-                apiKey,
-                text,
-                voiceName: getPersonaVoice(personaId),
-                directorPrompt: getPersonaVoiceDirector(personaId),
-              }),
-              20000,
-            );
-          } catch {
-            console.log('[TTS Fallback]', 'gemini-preview-tts-error', '→ gemini-2.5-flash-preview-tts');
-            return undefined;
-          }
-        };
-
-        const tryOpenAiTts = async (): Promise<string | undefined> => {
-          const apiKey = process.env.OPENAI_API_KEY;
-          if (!apiKey) {
-            devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
-            return undefined;
-          }
-          if (isRoundCanceled()) return undefined;
-          const cfg = getOpenAiTtsConfigForPersona(personaId);
-          try {
-            return await withTimeout(
-              generateOpenAiTts({ apiKey, text, voice: cfg.voice, instructions: cfg.instructions }),
-              20000,
-            );
-          } catch {
-            return undefined;
-          }
-        };
+        if (!geminiApiKey) {
+          devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
+        }
+        if (!openaiApiKey) {
+          devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
+        }
 
         try {
-          if (ttsProvider === 'gemini-native') {
-            const geminiKey = process.env.GEMINI_API_KEY;
-            if (!geminiKey) {
-              devLogger.error('system', 'GEMINI_API_KEY not set (audioMode requested)', { personaId });
-            } else if (!isRoundCanceled()) {
-              const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-native-audio-preview-12-2025:generateContent?key=${geminiKey}`;
-              const directorPrompt = getPersonaVoiceDirector(personaId);
-              const voiceName = getPersonaVoice(personaId);
-
-              const ttsData = await withTimeout(
-                (async () => {
-                  const ttsResponse = await fetch(ttsUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      contents: [{
-                        parts: [{ text: `${directorPrompt}\n\nSprich folgenden Text:\n${text}` }],
-                      }],
-                      generationConfig: {
-                        responseModalities: ['AUDIO'],
-                        speechConfig: {
-                          voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName },
-                          },
-                        },
-                      },
-                    }),
-                  });
-                  return await ttsResponse.json() as any;
-                })(),
-                20000,
-              );
-
-              if (ttsData?.error) {
-                console.error('[Native Audio] Fehler:', ttsData.error?.message ?? ttsData.error);
-                console.log('[TTS Fallback]', ttsData.error?.message ?? 'native-audio-error', '→ gemini-2.5-flash-preview-tts');
-                audio_url = await tryGeminiPreviewTts();
-              } else {
-                const audioBase64 = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-                const rawMimeType = ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
-                const mimeType = rawMimeType === 'audio/mp3' ? 'audio/mpeg' : rawMimeType;
-                
-                // Erzwinge audio/wav als Fallback wenn mimeType leer:
-                const audioMimeType = mimeType || 'audio/wav';
-                
-                console.log('[Native Audio] mimeType:', audioMimeType, 'bytes:', audioBase64?.length ?? 0);
-
-                if (!audioBase64) {
-                  console.error('[Native Audio] Keine Audio-Daten in Response:', JSON.stringify(ttsData));
-                  console.log('[TTS Fallback]', 'native-audio-missing-inlineData', '→ gemini-2.5-flash-preview-tts');
-                  audio_url = await tryGeminiPreviewTts();
-                } else {
-                  const pcmBuffer = Buffer.from(audioBase64, 'base64');
-                  const wavBuffer = pcmToWav(pcmBuffer);
-                  const wavBase64 = wavBuffer.toString('base64');
-                  audio_url = `data:${audioMimeType};base64,${wavBase64}`;
-                }
-              }
-            }
-          } else if (ttsProvider === 'gemini') {
-            audio_url = await tryGeminiPreviewTts();
-          } else if (ttsProvider === 'openai') {
-            audio_url = await tryOpenAiTts();
-          }
-
-          if (!audio_url && ttsProvider !== 'openai') {
-            audio_url = await tryOpenAiTts();
+          // DEPRECATED: Gemini Native removed - MIME bug + not universal
+          if (geminiApiKey && openaiApiKey && !isRoundCanceled()) {
+            const ttsResult = await withTimeout(
+              generateTTS(text, personaId, geminiApiKey, openaiApiKey),
+              20000,
+            );
+            const audioBase64 = ttsResult.audioBuffer.toString('base64');
+            audio_url = `data:${ttsResult.mimeType};base64,${audioBase64}`;
           }
         } catch (e) {
-          console.log('[TTS Fallback]', String(e), '→ gemini-2.5-flash-preview-tts');
-          devLogger.error('llm', 'TTS block failed, falling back to OpenAI', { error: String(e), personaId });
-          audio_url = await tryOpenAiTts();
+          devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
         }
       }
 
@@ -1207,11 +1076,42 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         audio_url,
       };
 
-      responses.push(response);
-      accumulatedContext += `\n${personaDef.name}: ${text}`;
+      return { response };
 
-      // Make this answer available to later personas.
-      providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${text}` });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      devLogger.error('llm', `Discuss: ${providerConfig.provider}/${providerConfig.model} failed for ${personaId}: ${errMsg}`, {
+        persona: personaId,
+        provider: providerConfig.provider,
+        durationMs: Date.now() - callStartTime,
+      });
+      const response: PersonaResponse = {
+        persona: personaId,
+        text: `[${personaDef.name} Fehler: ${errMsg.slice(0, 200)}]`,
+        color: personaDef.color,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+      };
+      return { response, error: true };
+    }
+  });
+
+  const resolvedResults = await Promise.all(personaPromises);
+
+  for (const result of resolvedResults) {
+    if (result.canceled) {
+      devLogger.info('llm', 'Discuss: aborted round before/after persona call (newer user message received)', { userId, personaId: result.personaId });
+      finalizeStreamAndEnd();
+      return;
+    }
+
+    if (result.response) {
+      const { response } = result;
+      const personaDef = getPersonaDefinition(response.persona);
+
+      responses.push(response);
+      accumulatedContext += `\n${personaDef.name}: ${response.text}`;
+      providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${response.text}` });
 
       // Stream this persona response immediately to the client (if enabled).
       sendSseEvent({ type: 'persona', response });
@@ -1223,45 +1123,20 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       }
 
       if (isRoundCanceled()) {
-        devLogger.info('llm', 'Discuss: aborted round after persona response (newer user message received)', { userId, personaId });
+        devLogger.info('llm', 'Discuss: aborted round after persona response (newer user message received)', { userId, personaId: response.persona });
         finalizeStreamAndEnd();
         return;
       }
+    }
+  }
 
-      if (shouldLearn && userId) {
-        try {
-          const conversationText = renderConversationForMemoryExtraction(convoForMemoryExtraction);
-          const extracted = await extractNewMemories({ conversationText });
-          await saveMemories({ userId, personaId, memories: extracted });
-        } catch (e) {
-          devLogger.error('llm', 'Memory extraction failed', { error: String(e), personaId, userId });
-        }
-      }
-
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      devLogger.error('llm', `Discuss: ${providerConfig.provider}/${providerConfig.model} failed for ${personaId}: ${errMsg}`, {
-        persona: personaId,
-        provider: providerConfig.provider,
-        durationMs: Date.now() - startTime,
-      });
-      const response: PersonaResponse = {
-        persona: personaId,
-        text: `[${personaDef.name} Fehler: ${errMsg.slice(0, 200)}]`,
-        color: personaDef.color,
-        provider: providerConfig.provider,
-        model: providerConfig.model,
-      };
-      responses.push(response);
-      accumulatedContext += `\n${personaDef.name}: ${response.text}`;
-      providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${response.text}` });
-      sendSseEvent({ type: 'persona', response });
-
-      if (isRoundCanceled()) {
-        devLogger.info('llm', 'Discuss: aborted round after persona error response (newer user message received)', { userId, personaId });
-        finalizeStreamAndEnd();
-        return;
-      }
+  if (shouldLearn && userId && personasToCall.length > 0) {
+    try {
+      const conversationText = renderConversationForMemoryExtraction(convoForMemoryExtraction);
+      const extracted = await extractNewMemories({ conversationText });
+      await saveMemories({ userId, personaId: personasToCall[0], memories: extracted });
+    } catch (e) {
+      devLogger.error('llm', 'Memory extraction failed', { error: String(e), userId });
     }
   }
 

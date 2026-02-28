@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PersonaBar } from './PersonaBar';
-import { PersonaPicker } from './PersonaPicker';
+import { PersonaTuningBar } from './PersonaTuningBar';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES } from '../lib/personaColors';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from './SpeechConsentDialog';
 import { loadProfile } from '../../M03_profile';
+import type { StudioSeat } from '../../../shared/types/studio';
 
 interface DiscussMessage {
   id: string;
@@ -24,12 +25,27 @@ interface PersonaResponseRaw {
   provider: string;
   model: string;
   audio_url?: string;
+  audio?: string;
+  mimeType?: string;
+}
+
+function getAudioUrlFromResponse(response: PersonaResponseRaw): string | undefined {
+  if (response.audio_url) return response.audio_url;
+  if (response.audio && response.audio.trim().length > 0) {
+    return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
+  }
+  return undefined;
 }
 
 interface DiscussionChatProps {
   initialPersonas?: string[];
+  selectedPersonas?: string[];
   profileExcerpt?: string;
+  currentQuestion?: string;
   onBack: () => void;
+  onSwitchPersona?: (personaId: string) => void;
+  showTopBar?: boolean;
+  onSpeakingPersonaChange?: (personaId: string | null) => void;
 }
 
 const STORAGE_KEY = 'soulmatch_discuss_history';
@@ -42,35 +58,66 @@ function saveHistory(msgs: DiscussMessage[]): void {
   }
 }
 
-export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = '', onBack }: DiscussionChatProps) {
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>(initialPersonas);
-  const [showPicker, setShowPicker] = useState(false);
+export function DiscussionChat({
+  initialPersonas = ['maya'],
+  selectedPersonas: selectedPersonasProp,
+  profileExcerpt = '',
+  currentQuestion = '',
+  onBack,
+  onSwitchPersona,
+  showTopBar = true,
+  onSpeakingPersonaChange,
+}: DiscussionChatProps) {
+  const [selectedPersonasState, setSelectedPersonasState] = useState<string[]>(initialPersonas);
+  const selectedPersonas = selectedPersonasProp ?? selectedPersonasState;
   const [audioMode, setAudioMode] = useState(false);
   const [messages, setMessages] = useState<DiscussMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAwaitingAudio, setIsAwaitingAudio] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [speakingPersona, setSpeakingPersona] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   const loadingRef = useRef(false); // Ref for auto-send callback
   const messagesRef = useRef<DiscussMessage[]>(messages);
-  const handleAutoSendRef = useRef<((text: string) => void) | null>(null);
+  const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const playedAudioRef = useRef<Set<string>>(new Set());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const shouldResumeSpeechAfterAudioRef = useRef<{ mode: 'none' | 'continuous' | 'listening' }>({ mode: 'none' });
   const audioSessionRef = useRef(0);
+  const audioQueueRef = useRef<{ id: string, url: string }[]>([]);
+  const isPlayingQueueRef = useRef(false);
+  const messagePersonaRef = useRef<Map<string, string>>(new Map());
+
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+
+    const handleScroll = () => {
+      setShowScrollTop(node.scrollTop > 300);
+    };
+
+    handleScroll();
+    node.addEventListener('scroll', handleScroll);
+    return () => node.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const speech = useSpeechToText('de', (text) => {
-    const fn = handleAutoSendRef.current;
-    if (fn) fn(text);
+    const spoken = text.trim();
+    if (!spoken) return;
+    console.log('[STT] auto-send:', spoken);
+    void sendMessageRef.current(spoken);
   });
   const [showConsent, setShowConsent] = useState(false);
+  const [consentIntent, setConsentIntent] = useState<'continuous' | 'listening'>('continuous');
 
   const pauseSpeechForAudio = useCallback(() => {
     if (speech.isContinuousMode) {
@@ -88,12 +135,13 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
 
   const scheduleResumeSpeechAfterAudio = useCallback((session: number) => {
     window.setTimeout(() => {
+      // Nur wenn die Queue leer ist, das Mikrofon wieder starten
+      if (audioQueueRef.current.length > 0) return;
       if (audioSessionRef.current !== session) return;
       if (currentAudioRef.current) return;
 
       const mode = shouldResumeSpeechAfterAudioRef.current.mode;
       shouldResumeSpeechAfterAudioRef.current = { mode: 'none' };
-      setIsAwaitingAudio(false);
 
       if (mode === 'continuous') {
         speech.startContinuous();
@@ -103,16 +151,27 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     }, 1000);
   }, [speech]);
 
-  const playAudioOnce = useCallback((id: string, url: string) => {
-    if (!url || typeof url !== 'string') return;
-    if (playedAudioRef.current.has(id)) return;
-    playedAudioRef.current.add(id);
+  const playNextInQueue = useCallback(() => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingQueueRef.current = false;
+      const session = audioSessionRef.current;
+      speech.setPlaybackActive(false);
+      scheduleResumeSpeechAfterAudio(session);
+      setIsAwaitingAudio(false);
+      setSpeakingPersona(null);
+      return;
+    }
+
+    isPlayingQueueRef.current = true;
+    const next = audioQueueRef.current.shift();
+    if (!next) return;
+    setSpeakingPersona(messagePersonaRef.current.get(next.id) ?? null);
 
     try {
-      const existing = audioElsRef.current.get(id);
-      const a = existing ?? new Audio(url);
+      const existing = audioElsRef.current.get(next.id);
+      const a = existing ?? new Audio(next.url);
       if (!existing) {
-        audioElsRef.current.set(id, a);
+        audioElsRef.current.set(next.id, a);
       }
       if (currentAudioRef.current && currentAudioRef.current !== a) {
         currentAudioRef.current.pause();
@@ -129,33 +188,48 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         pauseSpeechForAudio();
         setIsAwaitingAudio(true);
       };
-      a.onended = () => {
-        if (audioSessionRef.current !== session) return;
-        speech.setPlaybackActive(false);
-        scheduleResumeSpeechAfterAudio(session);
-        setIsAwaitingAudio(false);
-      };
-      a.onerror = (e) => {
-        console.error('[audio] playback failed', e);
-        if (audioSessionRef.current !== session) return;
-        speech.setPlaybackActive(false);
-        scheduleResumeSpeechAfterAudio(session);
-        setIsAwaitingAudio(false);
-      };
       
+      const handleEndOrError = () => {
+        if (audioSessionRef.current !== session) return;
+        currentAudioRef.current = null;
+        setSpeakingPersona(null);
+        // Spiele das nächste Audio in der Warteschlange ab (falls vorhanden)
+        setTimeout(() => {
+          playNextInQueue();
+        }, 300); // Kurze Pause zwischen den Sprechern
+      };
+
+      a.onended = handleEndOrError;
+      a.onerror = (e) => {
+        console.error('[audio] playback failed in queue', e);
+        handleEndOrError();
+      };
+
       const playPromise = a.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
           console.warn('[audio] autoplay blocked or failed', err);
-          speech.setPlaybackActive(false);
-          scheduleResumeSpeechAfterAudio(session);
-          setIsAwaitingAudio(false);
+          handleEndOrError();
         });
       }
     } catch (err) {
-      console.error('[audio] sync error', err);
+      console.error('[audio] sync error in queue', err);
+      playNextInQueue();
     }
   }, [speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+
+  const playAudioOnce = useCallback((id: string, url: string) => {
+    if (!url || typeof url !== 'string') return;
+    if (playedAudioRef.current.has(id)) return;
+    playedAudioRef.current.add(id);
+
+    audioQueueRef.current.push({ id, url });
+    
+    // Wenn die Queue nicht gerade läuft, anstoßen
+    if (!isPlayingQueueRef.current) {
+      playNextInQueue();
+    }
+  }, [playNextInQueue]);
 
   const playAudioNow = useCallback((id: string, url: string) => {
     if (!url) return;
@@ -185,6 +259,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
+        setSpeakingPersona(null);
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
         setIsAwaitingAudio(false);
@@ -194,6 +269,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
+        setSpeakingPersona(null);
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
         setIsAwaitingAudio(false);
@@ -206,6 +282,7 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           if (currentAudioRef.current === a) {
             currentAudioRef.current = null;
           }
+          setSpeakingPersona(null);
           speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(session);
           setIsAwaitingAudio(false);
@@ -244,6 +321,9 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       const userId = profile?.id;
 
       const activePersonas = selectedPersonasRef.current;
+      if (activePersonas.length === 0) {
+        throw new Error('Bitte mindestens eine Persona auswählen.');
+      }
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -275,12 +355,13 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           timestamp: new Date().toISOString(),
           provider: r.provider,
           model: r.model,
-          audioUrl: r.audio_url,
+          audioUrl: getAudioUrlFromResponse(r),
         }));
 
         for (let i = 0; i < newMsgs.length; i++) {
           const m = newMsgs[i];
           if (!m) continue;
+          if (m.persona) messagePersonaRef.current.set(m.id, m.persona);
           if (m.audioUrl) {
             playAudioOnce(m.id, m.audioUrl);
           }
@@ -336,9 +417,10 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
                 timestamp: new Date().toISOString(),
                 provider: r.provider,
                 model: r.model,
-                audioUrl: r.audio_url,
+                audioUrl: getAudioUrlFromResponse(r),
               };
 
+              if (newMsg.persona) messagePersonaRef.current.set(newMsg.id, newMsg.persona);
               if (newMsg.audioUrl) {
                 playAudioOnce(newMsg.id, newMsg.audioUrl);
               }
@@ -366,20 +448,22 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     } finally {
       loadingRef.current = false;
       setLoading(false);
+      
+      // SAFETY RESET: Ensure microphone isn't locked if no audio was received or an error occurred
+      // Let it unlock if we are waiting for audio but nothing plays after a short delay
+      setTimeout(() => {
+        if (!currentAudioRef.current || currentAudioRef.current.paused) {
+          setIsAwaitingAudio(false);
+          speech.setPlaybackActive(false);
+          scheduleResumeSpeechAfterAudio(audioSessionRef.current);
+        }
+      }, 1500);
     }
-  }, [profileExcerpt, audioMode]);
-
-  // Auto-send callback for continuous mode
-  const handleAutoSend = useCallback((text: string) => {
-    console.log('[chat] handleAutoSend called with:', text);
-    if (!text.trim()) return;
-    setInput('');
-    void sendMessage(text);
-  }, [sendMessage]);
+  }, [profileExcerpt, audioMode, scheduleResumeSpeechAfterAudio]);
 
   useEffect(() => {
-    handleAutoSendRef.current = handleAutoSend;
-  }, [handleAutoSend]);
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -397,16 +481,36 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     saveHistory(messages);
   }, [messages]);
 
-  function handleAddPersona(id: string) {
-    if (selectedPersonas.length < 3 && !selectedPersonas.includes(id)) {
-      setSelectedPersonas((prev) => [...prev, id]);
-    }
-    setShowPicker(false);
-  }
+  useEffect(() => {
+    onSpeakingPersonaChange?.(speakingPersona);
+  }, [speakingPersona, onSpeakingPersonaChange]);
 
   function handleRemovePersona(id: string) {
+    if (selectedPersonasProp) return;
     if (selectedPersonas.length > 1) {
-      setSelectedPersonas((prev) => prev.filter((p) => p !== id));
+      setSelectedPersonasState((prev) => prev.filter((p) => p !== id));
+    }
+  }
+
+  const activePersonaId = selectedPersonas[0] ?? 'maya';
+  const activePersonaColor = PERSONA_COLORS[activePersonaId] ?? '#d4af37';
+  const activePersonaName = PERSONA_NAMES[activePersonaId] ?? activePersonaId;
+  const activePersonaIcon = PERSONA_ICONS[activePersonaId] ?? '◇';
+  const isSpeaking = speakingPersona === activePersonaId;
+  const profile = loadProfile();
+
+  const otherRealms = ['maya', 'luna', 'orion', 'lilith', 'stella', 'kael', 'lian', 'sibyl', 'amara']
+    .filter((id) => id !== activePersonaId)
+    .map((id) => ({
+      id,
+      label: PERSONA_NAMES[id] ?? id,
+      color: PERSONA_COLORS[id] ?? '#d4af37',
+    }));
+
+  function handleSwitchPersona(id: string) {
+    onSwitchPersona?.(id);
+    if (!onSwitchPersona && !selectedPersonasProp) {
+      setSelectedPersonasState([id]);
     }
   }
 
@@ -439,31 +543,13 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
     }
   }
 
-  // Live transcript update
-  useEffect(() => {
-    if (speech.transcript) {
-      setInput(speech.transcript);
-    }
-  }, [speech.transcript]);
-
-  function handleMicClick() {
-    if (!speech.hasConsent) {
-      setShowConsent(true);
-      return;
-    }
-    if (speech.isListening) {
-      speech.stopListening();
-    } else {
-      speech.startListening();
-    }
-  }
-
   function handleConsentCancel() {
     setShowConsent(false);
   }
 
   function handleToggleContinuous() {
     if (!speech.hasConsent) {
+      setConsentIntent('continuous');
       setShowConsent(true);
       return;
     }
@@ -471,13 +557,20 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       speech.stopContinuous();
     } else {
       speech.startContinuous();
+      console.log('[STT] started');
     }
   }
 
   function handleConsentAccept() {
     speech.grantConsent();
     setShowConsent(false);
+    if (consentIntent === 'listening') {
+      speech.startListening();
+      console.log('[STT] started');
+      return;
+    }
     speech.startContinuous();
+    console.log('[STT] started');
   }
 
   return (
@@ -488,291 +581,428 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
       minHeight: 0,
       background: 'rgba(8,6,15,0.98)',
     }}>
-      {/* PersonaBar */}
-      <PersonaBar
-        selectedPersonas={selectedPersonas}
-        onAdd={() => setShowPicker(true)}
-        onRemove={handleRemovePersona}
-        audioMode={audioMode}
-        onToggleAudio={() => setAudioMode((v) => !v)}
-        onBack={onBack}
-        continuousMode={speech.isContinuousMode}
-        onToggleContinuous={handleToggleContinuous}
-        isSpeechSupported={speech.isSupported}
-      />
-
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a4540' }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>
-              {selectedPersonas.map((id) => PERSONA_ICONS[id] ?? '◇').join(' ')}
-            </div>
-            <div style={{ fontSize: 13, color: '#6b6560' }}>
-              {selectedPersonas.map((id) => PERSONA_NAMES[id] ?? id).join(' & ')} warten auf deine Frage.
-            </div>
-          </div>
-        )}
-
-        {messages.map((msg) => {
-          if (msg.role === 'user') {
-            return (
-              <div key={msg.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{
-                  maxWidth: '75%',
-                  padding: '10px 14px',
-                  borderRadius: '16px 16px 4px 16px',
-                  background: 'rgba(212,175,55,0.16)',
-                  border: '1px solid rgba(212,175,55,0.40)',
-                  fontSize: 13,
-                  color: '#f0eadc',
-                  lineHeight: 1.6,
-                }}>
-                  {msg.text}
-                </div>
-              </div>
-            );
-          }
-
-          const color = PERSONA_COLORS[msg.persona ?? ''] ?? '#d4af37';
-          const icon = PERSONA_ICONS[msg.persona ?? ''] ?? '◇';
-          const name = PERSONA_NAMES[msg.persona ?? ''] ?? msg.persona ?? '';
-
-          return (
-            <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: '85%' }}>
-              <div style={{
-                fontSize: 10,
-                color,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}>
-                <span>{icon}</span>
-                <span>{name}</span>
-                {msg.audioUrl && (
-                  <button
-                    type="button"
-                    title="Audio abspielen"
-                    onClick={() => playAudioNow(msg.id, msg.audioUrl ?? '')}
-                    style={{
-                      fontSize: 12,
-                      color: '#6b6560',
-                      marginLeft: 4,
-                      background: 'transparent',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      lineHeight: 1,
-                    }}
-                  >
-                    🔊
-                  </button>
-                )}
-                {msg.provider && (
-                  <span style={{ color: '#3a3530', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                    · {msg.provider}/{msg.model}
-                  </span>
-                )}
-              </div>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '4px 16px 16px 16px',
-                background: `${color}1a`,
-                border: `1px solid ${color}55`,
-                fontSize: 13,
-                color: '#d4cfc8',
-                lineHeight: 1.7,
-              }}>
-                {msg.text}
-              </div>
-            </div>
-          );
-        })}
-
-        {loading && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0' }}>
-            {selectedPersonas.map((id) => (
-              <div key={id} style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: PERSONA_COLORS[id] ?? '#d4af37',
-                animation: 'pulse 1.2s ease-in-out infinite',
-                opacity: 0.7,
-              }} />
-            ))}
-            <span style={{ fontSize: 11, color: '#4a4540' }}>antwortet…</span>
-          </div>
-        )}
-
-        {error && (
-          <div style={{
-            padding: '10px 14px',
-            borderRadius: 10,
-            background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.20)',
-            fontSize: 12,
-            color: '#ef4444',
-          }}>
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* Input */}
-      <div style={{
-        padding: '10px 14px 14px',
-        borderTop: speech.isContinuousMode ? '1px solid rgba(239,68,68,0.20)' : '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(8,6,15,0.95)',
-        borderLeft: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
-        borderRight: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
-      }}>
-        {speech.isContinuousMode ? (
-          // Continuous Mode UI
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              background: 'rgba(239,68,68,0.08)',
-              borderRadius: 10,
-              border: '1px solid rgba(239,68,68,0.20)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: isAwaitingAudio ? '#6b6560' : (speech.isListening ? '#ef4444' : '#6b6560'),
-                  animation: !isAwaitingAudio && speech.isListening ? 'pulse 1.5s infinite' : 'none',
-                }} />
-                <span style={{ fontSize: 12, color: isAwaitingAudio ? '#8a8580' : (speech.isListening ? '#ef4444' : '#8a8580') }}>
-                  {isAwaitingAudio ? '🔇 Warte auf Ausgabe...' : (speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören')}
-                </span>
-              </div>
-              <button
-                onClick={() => speech.stopContinuous()}
-                style={{
-                  background: 'rgba(239,68,68,0.15)',
-                  border: '1px solid rgba(239,68,68,0.30)',
-                  borderRadius: 8,
-                  color: '#ef4444',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  padding: '6px 12px',
-                }}
-              >
-                ⏹ Beenden
-              </button>
-            </div>
-            {speech.transcript && (
-              <div style={{
-                padding: '10px 12px',
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: 8,
-                fontSize: 13,
-                color: '#a8a298',
-                fontStyle: 'italic',
-              }}>
-                "{speech.transcript}"
-              </div>
-            )}
-          </div>
-        ) : (
-          // Normal Mode UI
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={speech.isListening ? 'Höre zu…' : 'Schreib eine Nachricht… (Enter zum Senden)'}
-              rows={2}
-              style={{
-                flex: 1,
-                background: speech.isListening ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
-                border: speech.isListening ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.10)',
-                borderRadius: 10,
-                color: '#d4c9b0',
-                fontSize: 13,
-                padding: '10px 12px',
-                resize: 'none',
-                outline: 'none',
-                lineHeight: 1.5,
-                fontFamily: 'inherit',
-              }}
-            />
-            {speech.isSupported && (
-              <button
-                onClick={handleMicClick}
-                title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
-                style={{
-                  background: speech.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
-                  border: speech.isListening ? '1px solid rgba(239,68,68,0.30)' : '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  color: speech.isListening ? '#ef4444' : '#6b6560',
-                  cursor: 'pointer',
-                  fontSize: 18,
-                  padding: '10px 12px',
-                  alignSelf: 'stretch',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: speech.isListening ? 'pulse 1.5s infinite' : 'none',
-                }}
-              >
-                🎤
-              </button>
-            )}
-            <button
-              onClick={() => void handleSend()}
-              disabled={!input.trim() || loading}
-              style={{
-                background: input.trim() && !loading ? 'rgba(212,175,55,0.20)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${input.trim() && !loading ? 'rgba(212,175,55,0.40)' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: 10,
-                color: input.trim() && !loading ? '#d4af37' : '#4a4540',
-                cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-                fontSize: 18,
-                padding: '10px 14px',
-                alignSelf: 'stretch',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              ↑
-            </button>
-          </div>
-        )}
-
-        {audioMode && !speech.isContinuousMode && (
-          <div style={{ fontSize: 10, color: '#6b6560', marginTop: 6 }}>
-            🔊 Audio-Modus aktiv — Sprachausgabe wird generiert (coming soon)
-          </div>
-        )}
-      </div>
-
-      {/* PersonaPicker Overlay */}
-      {showPicker && (
-        <PersonaPicker
+      {showTopBar && (
+        <PersonaBar
           selectedPersonas={selectedPersonas}
-          onSelect={handleAddPersona}
-          onClose={() => setShowPicker(false)}
+          onAdd={() => {}}
+          onRemove={handleRemovePersona}
+          audioMode={audioMode}
+          onToggleAudio={() => setAudioMode((v) => !v)}
+          onBack={onBack}
+          continuousMode={speech.isContinuousMode}
+          onToggleContinuous={handleToggleContinuous}
+          isSpeechSupported={speech.isSupported}
         />
       )}
+
+      <div className="session-layout" style={{ flex: 1, minHeight: 0 }}>
+        <div className="session-context-bar">
+          <button className="back-to-oracle" onClick={onBack}>
+            ← Neue Frage
+          </button>
+          <div className="context-question-display">
+            {currentQuestion ? `"${currentQuestion}"` : 'Neue Session'}
+          </div>
+          <div className="realm-badge" style={{ borderColor: activePersonaColor, color: activePersonaColor }}>
+            {activePersonaIcon} {activePersonaName}
+          </div>
+        </div>
+
+        <div className="session-body">
+          <aside className="analyst-sidebar">
+            <div className="analyst-portrait-wrap">
+              <div className="analyst-portrait" style={{ background: `${activePersonaColor}18`, borderColor: activePersonaColor }}>
+                {activePersonaIcon}
+              </div>
+              {isSpeaking && <div className="speaking-ring" style={{ borderColor: activePersonaColor }} />}
+            </div>
+
+            <div className={`voice-oscillator ${isSpeaking ? 'active' : ''}`} style={{ ['--persona-color' as string]: activePersonaColor }}>
+              {Array.from({ length: 7 }).map((_, i) => (
+                <span key={i} style={{ animationDelay: `${i * 0.08}s` }} />
+              ))}
+            </div>
+
+            <h3 className="analyst-sidebar-name" style={{ color: activePersonaColor }}>{activePersonaName}</h3>
+            <span className="analyst-sidebar-realm">Aktiver Analyst</span>
+
+            <div className="mood-section">
+              <span className="mood-label">Gesprächstiefe</span>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <PersonaTuningBar seat={activePersonaId as StudioSeat} accentColor={activePersonaColor} />
+              </div>
+            </div>
+          </aside>
+
+          <div className="chat-main" style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+          {/* Messages */}
+          <div
+            className="messages"
+            ref={scrollRef}
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '16px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              minHeight: 0,
+            }}
+          >
+            {messages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a4540' }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>
+                  {activePersonaIcon}
+                </div>
+                <div style={{ fontSize: 13, color: '#6b6560' }}>
+                  {activePersonaName} wartet auf deine Frage.
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg) => {
+              if (msg.role === 'user') {
+                return (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{
+                      maxWidth: '75%',
+                      padding: '10px 14px',
+                      borderRadius: '16px 16px 4px 16px',
+                      background: 'rgba(212,175,55,0.16)',
+                      border: '1px solid rgba(212,175,55,0.40)',
+                      fontSize: 13,
+                      color: '#f0eadc',
+                      lineHeight: 1.6,
+                    }}>
+                      {msg.text}
+                    </div>
+                  </div>
+                );
+              }
+
+              const color = PERSONA_COLORS[msg.persona ?? ''] ?? '#d4af37';
+              const icon = PERSONA_ICONS[msg.persona ?? ''] ?? '◇';
+              const name = PERSONA_NAMES[msg.persona ?? ''] ?? msg.persona ?? '';
+
+              return (
+                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: '85%' }}>
+                  <div style={{
+                    fontSize: 10,
+                    color,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}>
+                    <span>{icon}</span>
+                    <span>{name}</span>
+                    {msg.audioUrl && (
+                      <button
+                        type="button"
+                        title="Audio abspielen"
+                        onClick={() => playAudioNow(msg.id, msg.audioUrl ?? '')}
+                        style={{
+                          fontSize: 12,
+                          color: '#6b6560',
+                          marginLeft: 4,
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          lineHeight: 1,
+                        }}
+                      >
+                        🔊
+                      </button>
+                    )}
+                    {msg.provider && (
+                      <span style={{ color: '#3a3530', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                        · {msg.provider}/{msg.model}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{
+                    padding: '10px 14px',
+                    borderRadius: '4px 16px 16px 16px',
+                    background: `${color}1a`,
+                    border: `1px solid ${color}55`,
+                    fontSize: 13,
+                    color: '#d4cfc8',
+                    lineHeight: 1.7,
+                  }}>
+                    {msg.text}
+                  </div>
+                </div>
+              );
+            })}
+
+            {loading && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0' }}>
+                {selectedPersonas.map((id) => (
+                  <div key={id} style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: PERSONA_COLORS[id] ?? '#d4af37',
+                    animation: 'pulse 1.2s ease-in-out infinite',
+                    opacity: 0.7,
+                  }} />
+                ))}
+                <span style={{ fontSize: 11, color: '#4a4540' }}>antwortet…</span>
+              </div>
+            )}
+
+            {error && (
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.20)',
+                fontSize: 12,
+                color: '#ef4444',
+              }}>
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div style={{
+            padding: '10px 14px 14px',
+            borderTop: speech.isContinuousMode ? '1px solid rgba(239,68,68,0.20)' : '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(8,6,15,0.95)',
+            borderLeft: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
+            borderRight: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {speech.isContinuousMode && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(239,68,68,0.08)',
+                  borderRadius: 10,
+                  border: '1px solid rgba(239,68,68,0.20)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: isAwaitingAudio ? '#6b6560' : (speech.isListening ? '#ef4444' : '#6b6560'),
+                      animation: !isAwaitingAudio && speech.isListening ? 'pulse 1.5s infinite' : 'none',
+                    }} />
+                    <span style={{ fontSize: 12, color: isAwaitingAudio ? '#8a8580' : (speech.isListening ? '#ef4444' : '#8a8580') }}>
+                      {isAwaitingAudio ? '🔇 Warte auf Ausgabe...' : (speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => speech.stopContinuous()}
+                    style={{
+                      background: 'rgba(239,68,68,0.15)',
+                      border: '1px solid rgba(239,68,68,0.30)',
+                      borderRadius: 8,
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      padding: '6px 12px',
+                    }}
+                  >
+                    ⏹ Beenden
+                  </button>
+                </div>
+              )}
+
+              {speech.transcript && (
+                <div style={{
+                  padding: '8px 10px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: '#a8a298',
+                  fontStyle: 'italic',
+                }}>
+                  erkannt: "{speech.transcript}"
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                {!showTopBar && speech.isSupported && (
+                  <button
+                    onClick={() => {
+                      if (!speech.isContinuousMode && !audioMode) {
+                        setAudioMode(true);
+                      }
+                      handleToggleContinuous();
+                    }}
+                    title="Live-Talk"
+                    style={{
+                      minWidth: 98,
+                      height: 42,
+                      borderRadius: 10,
+                      border: speech.isContinuousMode ? '1px solid rgba(80,220,120,0.55)' : '1px solid rgba(255,255,255,0.10)',
+                      background: speech.isContinuousMode ? 'rgba(80,220,120,0.16)' : 'rgba(255,255,255,0.04)',
+                      color: speech.isContinuousMode ? '#50dc78' : '#d4c9b0',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '0 12px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{speech.isContinuousMode ? '⏹' : '🎙️'}</span>
+                    <span>Live-Talk</span>
+                  </button>
+                )}
+
+                {speech.isSupported && (
+                  <button
+                    onClick={() => {
+                      if (speech.isListening) {
+                        speech.stopListening();
+                        return;
+                      }
+                      if (!speech.hasConsent) {
+                        setConsentIntent('listening');
+                        setShowConsent(true);
+                        return;
+                      }
+                      speech.startListening();
+                      console.log('[STT] started');
+                    }}
+                    title="Freisprechen"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 10,
+                      border: speech.isListening ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(255,255,255,0.10)',
+                      background: speech.isListening ? 'rgba(239,68,68,0.16)' : 'rgba(255,255,255,0.04)',
+                      color: speech.isListening ? '#ef4444' : '#d4c9b0',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 18,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {speech.isListening ? '⏹' : '🎤'}
+                  </button>
+                )}
+
+                <textarea
+                  className="session-input"
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={false}
+                  placeholder={speech.isListening ? 'Spreche oder tippe...' : 'Schreibe eine Nachricht...'}
+                  rows={2}
+                  style={{
+                    flex: 1,
+                    background: speech.isListening ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: speech.isListening ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(255,255,255,0.10)',
+                    borderRadius: 10,
+                    color: '#d4c9b0',
+                    fontSize: 13,
+                    padding: '10px 12px',
+                    resize: 'none',
+                    outline: 'none',
+                    lineHeight: 1.5,
+                    fontFamily: 'inherit',
+                  }}
+                />
+                <button
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() || loading}
+                  style={{
+                    background: input.trim() && !loading ? 'rgba(212,175,55,0.20)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${input.trim() && !loading ? 'rgba(212,175,55,0.40)' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 10,
+                    color: input.trim() && !loading ? '#d4af37' : '#4a4540',
+                    cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                    fontSize: 18,
+                    padding: '10px 14px',
+                    alignSelf: 'stretch',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ↑
+                </button>
+              </div>
+            </div>
+
+            {audioMode && !speech.isContinuousMode && (
+              <div style={{ fontSize: 10, color: '#6b6560', marginTop: 6 }}>
+                🔊 Audio-Modus aktiv — Sprachausgabe wird generiert (coming soon)
+              </div>
+            )}
+          </div>
+          </div>
+
+          <aside className="context-panel">
+            <div className="ctx-block">
+              <span className="ctx-label">Deine Daten</span>
+              <div className="user-data-grid">
+                <span>Geburt</span><span>{profile?.birthDate ?? '–'}</span>
+                <span>Ort</span><span>{profile?.birthLocation?.label ?? '–'}</span>
+                <span>Aszendent</span><span>{profileExcerpt.includes('Aszendent') ? 'bekannt' : '–'}</span>
+              </div>
+            </div>
+
+            <div className="ctx-block">
+              <span className="ctx-label">Andere Methoden</span>
+              {otherRealms.map((realm) => (
+                <div key={realm.id} className="realm-row" onClick={() => handleSwitchPersona(realm.id)}>
+                  <div className="realm-dot" style={{ background: realm.color }} />
+                  {realm.label}
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <button
+        onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+        title="Zum Anfang"
+        aria-label="Zum Anfang"
+        style={{
+          position: 'fixed',
+          bottom: 80,
+          right: 32,
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 20,
+          color: '#fff',
+          padding: '6px 14px',
+          fontSize: 12,
+          cursor: showScrollTop ? 'pointer' : 'default',
+          backdropFilter: 'blur(8px)',
+          transition: 'opacity 0.3s',
+          opacity: showScrollTop ? 1 : 0,
+          pointerEvents: showScrollTop ? 'auto' : 'none',
+          zIndex: 70,
+        }}
+      >
+        ↑ Anfang
+      </button>
 
       {/* Speech Consent Dialog */}
       {showConsent && (
@@ -781,6 +1011,228 @@ export function DiscussionChat({ initialPersonas = ['maya'], profileExcerpt = ''
           onCancel={handleConsentCancel}
         />
       )}
+
+      <style>{`@keyframes voicePulse {
+        0%, 100% { box-shadow: 0 0 8px rgba(80,220,120,0.2); }
+        50% { box-shadow: 0 0 20px rgba(80,220,120,0.6); }
+      }
+      @keyframes wave {
+        0%, 100% { height: 4px; }
+        50% { height: 14px; }
+      }
+      .session-layout {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .session-context-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 24px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        flex-shrink: 0;
+        background: rgba(255,255,255,0.02);
+        backdrop-filter: blur(12px);
+      }
+      .back-to-oracle {
+        font-size: 12px;
+        color: rgba(255,255,255,0.35);
+        letter-spacing: 0.08em;
+        transition: color 0.2s;
+        white-space: nowrap;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+      }
+      .back-to-oracle:hover { color: rgba(255,255,255,0.65); }
+      .context-question-display {
+        flex: 1;
+        font-size: 13px;
+        font-style: italic;
+        color: rgba(255,255,255,0.35);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .realm-badge {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        padding: 4px 14px;
+        border-radius: 20px;
+        border: 1px solid;
+        white-space: nowrap;
+      }
+      .session-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        align-items: stretch;
+        min-height: 0;
+      }
+      .chat-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        overscroll-behavior: contain;
+      }
+      .analyst-sidebar {
+        width: 220px;
+        flex-shrink: 0;
+        position: relative;
+        border-right: 1px solid rgba(255,255,255,0.08);
+        padding: 28px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        overflow-y: auto;
+        background: rgba(255,255,255,0.015);
+      }
+      .analyst-portrait-wrap { position: relative; margin-bottom: 4px; }
+      .analyst-portrait {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        border: 1px solid rgba(255,255,255,0.15);
+      }
+      .speaking-ring {
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.3);
+        animation: speakRing 1.5s ease-in-out infinite;
+      }
+      .voice-oscillator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 24px;
+        margin-top: 8px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .voice-oscillator.active { opacity: 1; }
+      .voice-oscillator span {
+        width: 3px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--persona-color, #c9a84c);
+        transform-origin: bottom;
+        animation: none;
+      }
+      .voice-oscillator.active span {
+        animation: oscBar 0.6s ease-in-out infinite alternate;
+      }
+      .voice-oscillator span:nth-child(1) { animation-duration: 0.45s; }
+      .voice-oscillator span:nth-child(2) { animation-duration: 0.60s; }
+      .voice-oscillator span:nth-child(3) { animation-duration: 0.35s; }
+      .voice-oscillator span:nth-child(4) { animation-duration: 0.55s; }
+      .voice-oscillator span:nth-child(5) { animation-duration: 0.40s; }
+      .voice-oscillator span:nth-child(6) { animation-duration: 0.65s; }
+      .voice-oscillator span:nth-child(7) { animation-duration: 0.50s; }
+      @keyframes speakRing {
+        0%, 100% { transform: scale(1); opacity: 0.4; }
+        50% { transform: scale(1.08); opacity: 0.8; }
+      }
+      @keyframes oscBar {
+        from { height: 3px; opacity: 0.4; }
+        to { height: 20px; opacity: 1; }
+      }
+      .analyst-sidebar-name {
+        font-size: 20px;
+        font-weight: 500;
+        text-align: center;
+        margin: 0;
+      }
+      .analyst-sidebar-realm {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        text-align: center;
+      }
+      .mood-section {
+        width: 100%;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      .mood-label {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        margin-bottom: 12px;
+        display: block;
+      }
+      .context-panel {
+        width: 200px;
+        flex-shrink: 0;
+        position: relative;
+        border-left: 1px solid rgba(255,255,255,0.08);
+        padding: 24px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        overflow-y: auto;
+        background: rgba(255,255,255,0.01);
+      }
+      .ctx-label {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.25);
+        margin-bottom: 12px;
+        display: block;
+      }
+      .user-data-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 12px;
+        font-size: 12px;
+      }
+      .user-data-grid span:nth-child(odd) { color: rgba(255,255,255,0.3); }
+      .user-data-grid span:nth-child(even) { color: rgba(255,255,255,0.65); }
+      .realm-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 12px;
+        color: rgba(255,255,255,0.35);
+        margin-bottom: 4px;
+      }
+      .realm-row:hover {
+        background: rgba(255,255,255,0.04);
+        color: rgba(255,255,255,0.65);
+      }
+      .realm-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      @media (max-width: 900px) {
+        .analyst-sidebar, .context-panel { display: none; }
+      }`}</style>
     </div>
   );
 }

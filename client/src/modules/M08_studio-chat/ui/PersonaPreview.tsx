@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 import { ResponsiveArtwork } from '../../M02_ui-kit';
 import { useAssetImage } from '../../M15_aetheria/lib/useAssetImage';
+import { PersonaTuningBar } from './PersonaTuningBar';
 
 interface PersonaPreviewProps {
   seat: StudioSeat;
@@ -130,24 +131,29 @@ export function PersonaPreview({ seat, onStartChat, onClose }: PersonaPreviewPro
         }}>
           <PortraitWithFallback seat={seat} info={info} />
 
-          {/* Close button — inside portrait but above everything via zIndex */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            style={{
-              position: 'absolute', top: 12, right: 12, zIndex: 50,
-              color: 'rgba(255,255,255,0.85)', fontSize: 16,
-              background: 'rgba(0,0,0,0.55)',
-              borderRadius: '50%', width: 34, height: 34,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
-              backdropFilter: 'blur(6px)',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.55)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; }}
-          >
-            ✕
-          </button>
+          {/* Action Buttons (Tuning & Close) */}
+          <div style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 50,
+            display: 'flex', gap: 8, alignItems: 'flex-start',
+          }}>
+            <PersonaTuningBar seat={seat} accentColor={info.accent} />
+            <button
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              style={{
+                color: 'rgba(255,255,255,0.85)', fontSize: 16,
+                background: 'rgba(0,0,0,0.55)',
+                borderRadius: '50%', width: 34, height: 34,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+                backdropFilter: 'blur(6px)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.55)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; }}
+            >
+              ✕
+            </button>
+          </div>
 
           {/* Vignette overlay */}
           <div style={{

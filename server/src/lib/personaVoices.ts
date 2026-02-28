@@ -3,7 +3,7 @@ export function getPersonaVoice(personaId: string): string {
     maya:       'Aoede',
     luna:       'Leda',
     orion:      'Orus',
-    lilith:     'Charon',
+    lilith:     'Kore',
     stella:     'Callirrhoe',
     kael:       'Fenrir',
     lian:       'Zephyr',
@@ -15,46 +15,47 @@ export function getPersonaVoice(personaId: string): string {
 }
 
 export function getPersonaVoiceDirector(personaId: string): string {
+  const baseStyle = 'Speak at a natural, conversational pace. Not slow, not rushed. Like a real person talking.';
   const directors: Record<string, string> = {
     maya: `Audio Profile: Weise Astrologin, Mitte 40, warm und einfühlsam.
 Scene: Stilles Beratungszimmer, Kerzenlicht.
-Director's Notes: Natürliches, ruhiges Tempo. NICHT langsam — fließend und klar. Kurze bedeutungsvolle Pausen nur bei wichtigen Aussagen. Wie eine gute Freundin die zuhört und antwortet.`,
+Director's Notes: ${baseStyle}`,
 
     luna: `Audio Profile: Mondgöttin-Persona, sanft und träumerisch.
 Scene: Nächtlicher Garten, Mondlicht.
-Director's Notes: Fließende Sprachmelodie, leise aber klar. Nie gehetzt.`,
+Director's Notes: Speak thoughtfully but not slowly. Natural pace with gentle rhythm.`,
 
     orion: `Audio Profile: Kosmischer Weiser, maskulin, geerdet.
 Scene: Sternwarte bei Nacht.
-Director's Notes: Klar und ruhig. Selbstsicher ohne arrogant zu wirken. Kurze Denkpausen.`,
+Director's Notes: Speak calmly and clearly. Measured but not slow.`,
 
     lilith: `Audio Profile: Dunkle Prophetin, intensiv und direkt.
 Scene: Düsteres Orakel.
-Director's Notes: Tief und intensiv. Kurze präzise Sätze. Spricht als würde sie Geheimnisse enthüllen.`,
+Director's Notes: Speak quickly and directly. No dramatic pauses. Sharp and precise. Normal to slightly fast pace.`,
 
     stella: `Audio Profile: Sonnenenergetische Beraterin, warm und optimistisch.
 Scene: Helles Atelier, Morgensonne.
-Director's Notes: Energetisch aber nicht überdreht. Natürliches Lachen in der Stimme.`,
+Director's Notes: ${baseStyle}`,
 
     kael: `Audio Profile: Astrologischer Krieger, direkt und ehrlich.
 Scene: Freies Feld unter Sternenhimmel.
-Director's Notes: Direkt, kein Weichspülen. Kurze Sätze. Spricht die Wahrheit ohne Umschweife.`,
+Director's Notes: ${baseStyle}`,
 
     lian: `Audio Profile: Östliche Weisheitsträgerin, fließend und harmonisch.
 Scene: Zen-Garten, Wassergeräusche.
-Director's Notes: Sanfte Melodie, harmonische Pausen. Nie abrupt.`,
+Director's Notes: ${baseStyle}`,
 
     sibyl: `Audio Profile: Antike Seherin, weise und alterslos.
 Scene: Altes Orakel, Steinhallen.
-Director's Notes: Langsam, bedeutungsschwer. Jedes Wort zählt.`,
+Director's Notes: ${baseStyle}`,
 
     amara: `Audio Profile: Seelenheilerin, warm und mütterlich.
 Scene: Warmes Gemeinschaftshaus, Abendstimmung.
-Director's Notes: Herzlich und einladend. Rhythmisch, fast wie Musik.`,
+Director's Notes: ${baseStyle}`,
 
     echo_prism: `Audio Profile: Meta-Synthesizer, neutral und allumfassend.
 Scene: Zwischen allen Welten.
-Director's Notes: Ruhig, balanciert. Fasst zusammen ohne zu urteilen.`,
+Director's Notes: ${baseStyle}`,
   };
   return directors[personaId] ?? directors.maya;
 }

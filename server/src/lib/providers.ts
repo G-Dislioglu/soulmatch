@@ -53,7 +53,7 @@ export async function callProvider(
           ? { parts: [{ text: params.system }] }
           : undefined,
         generationConfig: {
-          maxOutputTokens: params.maxTokens ?? 500,
+          maxOutputTokens: params.maxTokens ?? 2000,
           temperature: params.temperature ?? 0.85,
         },
       }),
@@ -109,7 +109,7 @@ export async function callProvider(
             ],
             response_format: { type: 'json_object' },
             temperature: params.temperature ?? 0.85,
-            max_tokens: params.maxTokens ?? 500,
+            max_tokens: params.maxTokens ?? 2000,
           },
     ),
   });

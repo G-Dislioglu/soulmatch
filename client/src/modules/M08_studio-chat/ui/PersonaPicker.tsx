@@ -1,4 +1,5 @@
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES, PERSONA_TITLES } from '../lib/personaColors';
+import { createPortal } from 'react-dom';
 
 interface PersonaPickerProps {
   selectedPersonas: string[];
@@ -56,18 +57,18 @@ function PersonaChip({
 }
 
 export function PersonaPicker({ selectedPersonas, onSelect, onClose }: PersonaPickerProps) {
-  return (
+  const overlay = (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 300,
+        zIndex: 9999,
         background: 'rgba(0,0,0,0.7)',
         backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '60px 16px 16px',
+        padding: '10vh 16px 16px',
         overflowY: 'auto',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -76,17 +77,39 @@ export function PersonaPicker({ selectedPersonas, onSelect, onClose }: PersonaPi
         background: 'rgba(12,10,20,0.97)',
         border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 16,
-        padding: '20px',
+        padding: '16px 20px 20px',
         width: '100%',
         maxWidth: 400,
+        maxHeight: '80vh',
+        overflowY: 'auto',
         boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#f0eadc' }}>Persona hinzufügen</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 8 }}>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#6b6560', cursor: 'pointer', fontSize: 18, padding: 4 }}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              borderRadius: 8,
+              color: '#b0a898',
+              cursor: 'pointer',
+              fontSize: 13,
+              padding: '5px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0,
+            }}
+            title="Zurück"
+          >
+            ← Zurück
+          </button>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#f0eadc', flex: 1, textAlign: 'center' }}>Persona hinzufügen</div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#6b6560', cursor: 'pointer', fontSize: 18, padding: 4, flexShrink: 0 }}
+            title="Schließen"
           >
             ✕
           </button>
@@ -145,4 +168,7 @@ export function PersonaPicker({ selectedPersonas, onSelect, onClose }: PersonaPi
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return overlay;
+  return createPortal(overlay, document.body);
 }

@@ -1,5 +1,10 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
+
+// Load environment variables before anything else
+dotenv.config();
+
 import { fileURLToPath } from 'url';
 import { studioRouter } from './routes/studio.js';
 import { guideRouter } from './routes/guide.js';

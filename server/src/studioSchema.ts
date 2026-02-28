@@ -26,7 +26,7 @@ export const STUDIO_RESULT_SCHEMA = {
         items: { type: 'string' },
       },
     },
-    required: ['turns', 'nextSteps', 'watchOut'],
+    required: ['turns', 'nextSteps', 'watchOut', 'anchorsUsed'],
     additionalProperties: false,
   },
 } as const;

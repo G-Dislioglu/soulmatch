@@ -16,7 +16,9 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { PersonaPreview, SoulPortraitCard, WeeklyInsightCard, DiscussionChat, PersonaGrid } from '../modules/M08_studio-chat';
+import { PersonaPreview, SoulPortraitCard, WeeklyInsightCard, DiscussionChat } from '../modules/M08_studio-chat';
+import { StudioHome } from '../modules/M08_studio-chat/ui/StudioHome';
+import { OracleRouting } from '../modules/M08_studio-chat/ui/OracleRouting';
 import type { StudioSeat } from '../shared/types/studio';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
@@ -144,7 +146,11 @@ function HomePage() {
   const [showCrossing, setShowCrossing] = useState(false);
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
-  const [chatPersonas, setChatPersonas] = useState<string[] | null>(null);
+  const [chatPersonas, setChatPersonas] = useState<string[]>([]);
+  const [studioPhase, setStudioPhase] = useState<'oracle' | 'routing' | 'session'>('oracle');
+  const [studioQuestion, setStudioQuestion] = useState('');
+  const [studioPersona, setStudioPersona] = useState('maya');
+  const chatSectionRef = useRef<HTMLDivElement>(null);
 
   // ── Maya Command System state ──
   const [highlightedCard] = useState<string | null>(null);
@@ -359,13 +365,22 @@ function HomePage() {
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
     onNavigateScore: () => setActivePage(PAGE_REPORT),
     onNavigateChat: (personaId: string) => {
-      setChatPersonas([personaId]);
+      setChatPersonas((prev) => (prev.includes(personaId) ? prev : [personaId, ...prev].slice(0, 3)));
+      setStudioPersona(personaId);
+      setStudioPhase('session');
+      setStudioQuestion('');
       setActivePage(PAGE_STUDIO);
     },
     onNavigateInsight: () => setActivePage(PAGE_REPORT),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
   }), []);
+
+  useEffect(() => {
+    if (activePage !== PAGE_STUDIO) return;
+    if (chatPersonas.length === 0) return;
+    chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [chatPersonas.length, activePage]);
 
   /* ── Overlay content (rendered inside global shell) ── */
   function renderOverlay() {
@@ -1114,7 +1129,7 @@ function HomePage() {
         className="app-content-main"
         style={{
           flex: 1,
-          overflowY: 'auto',
+          overflowY: activePage === PAGE_STUDIO && studioPhase === 'session' ? 'hidden' : 'auto',
           overflowX: 'hidden',
           position: 'relative',
           zIndex: 10,
@@ -1643,6 +1658,9 @@ function HomePage() {
                         tourTarget={tourTarget}
                         onAskMaya={() => {
                           setChatPersonas(['maya']);
+                          setStudioPersona('maya');
+                          setStudioPhase('session');
+                          setStudioQuestion('');
                           setActivePage(PAGE_STUDIO);
                         }}
                         onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
@@ -1686,37 +1704,69 @@ function HomePage() {
           <div key="studio" className="portal-enter" style={{
             display: 'flex',
             flexDirection: 'column',
-            height: 'calc(100vh - 120px)',
+            height: '100%',
             minHeight: 0,
-            maxWidth: 700,
+            maxWidth: studioPhase === 'session' ? 1280 : 980,
             margin: '0 auto',
             width: '100%',
+            overflow: 'hidden',
           }}>
-            {chatPersonas ? (
-              /* ── Inline Discussion Chat ── */
-              <DiscussionChat
-                initialPersonas={chatPersonas}
-                profileExcerpt={profile ? `Name: ${profile.name}, Geburtsdatum: ${profile.birthDate}${profile.birthTime ? `, Geburtszeit: ${profile.birthTime}` : ''}${profile.birthLocation?.label ? `, Geburtsort: ${profile.birthLocation.label}` : ''}` : ''}
-                onBack={() => setChatPersonas(null)}
-              />
-            ) : (
-              /* ── Persona Grid ── */
-              <div style={{ overflowY: 'auto', flex: 1, padding: '0 16px 40px' }}>
-                <PersonaGrid onSelectPersona={(id) => setChatPersonas([id])} />
-              </div>
-            )}
+            <div style={{ overflowY: studioPhase === 'session' ? 'hidden' : 'auto', flex: 1, minHeight: 0, height: '100%', padding: studioPhase === 'session' ? '0' : '0 16px 40px' }}>
+              {studioPhase === 'oracle' && (
+                <StudioHome
+                  onStartSession={(question, personaId) => {
+                    setStudioQuestion(question);
+                    setStudioPersona(personaId);
+                    setChatPersonas([personaId]);
+                    setStudioPhase('routing');
+                  }}
+                />
+              )}
 
-            {/* Persona Preview Lightbox */}
-            {previewSeat && (
-              <PersonaPreview
-                seat={previewSeat}
-                onStartChat={() => {
-                  if (previewSeat) setChatPersonas([previewSeat]);
-                  setPreviewSeat(null);
-                }}
-                onClose={() => setPreviewSeat(null)}
-              />
-            )}
+              {studioPhase === 'routing' && (
+                <OracleRouting
+                  question={studioQuestion}
+                  personaId={studioPersona}
+                  onComplete={() => setStudioPhase('session')}
+                />
+              )}
+
+              {studioPhase === 'session' && chatPersonas.length > 0 && (
+                <div ref={chatSectionRef} style={{ height: '100%', minHeight: 0, display: 'flex' }}>
+                  <DiscussionChat
+                    selectedPersonas={chatPersonas}
+                    profileExcerpt={profile ? `Name: ${profile.name}, Geburtsdatum: ${profile.birthDate}${profile.birthTime ? `, Geburtszeit: ${profile.birthTime}` : ''}${profile.birthLocation?.label ? `, Geburtsort: ${profile.birthLocation.label}` : ''}` : ''}
+                    currentQuestion={studioQuestion}
+                    onBack={() => {
+                      setStudioPhase('oracle');
+                      setChatPersonas([]);
+                    }}
+                    onSwitchPersona={(personaId) => {
+                      setStudioPersona(personaId);
+                      setChatPersonas([personaId]);
+                    }}
+                    showTopBar={false}
+                  />
+                </div>
+              )}
+
+              {/* Persona Preview Lightbox */}
+              {previewSeat && (
+                <PersonaPreview
+                  seat={previewSeat}
+                  onStartChat={() => {
+                    if (previewSeat) {
+                      setChatPersonas([previewSeat]);
+                      setStudioPersona(previewSeat);
+                      setStudioPhase('session');
+                      setStudioQuestion('');
+                    }
+                    setPreviewSeat(null);
+                  }}
+                  onClose={() => setPreviewSeat(null)}
+                />
+              )}
+              </div>
           </div>
         )}
 
