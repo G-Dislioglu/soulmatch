@@ -1021,18 +1021,28 @@ export function DiscussionChat({
         overflow: hidden;
       }
       .back-to-oracle {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.28);
+        position: sticky;
+        top: 8px;
+        z-index: 5;
+        background: rgba(8,6,15,0.92);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+        color: rgba(255,255,255,0.62);
         cursor: pointer;
         font-size: 18px;
+        width: 34px;
+        height: 34px;
         padding: 0;
         margin-bottom: 10px;
         align-self: flex-start;
         line-height: 1;
-        transition: color 0.2s;
+        transition: color 0.2s, border-color 0.2s, background 0.2s;
       }
-      .back-to-oracle:hover { color: rgba(255,255,255,0.75); }
+      .back-to-oracle:hover {
+        color: rgba(255,255,255,0.9);
+        border-color: rgba(255,255,255,0.22);
+        background: rgba(16,12,27,0.98);
+      }
       .session-body {
         display: flex;
         flex: 1;
