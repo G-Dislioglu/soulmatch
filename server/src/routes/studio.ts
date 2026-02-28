@@ -873,6 +873,7 @@ interface PersonaResponse {
   provider: string;
   model: string;
   audio_url?: string;
+  meta?: Record<string, unknown> | null;
 }
 
 interface DiscussResponse {
@@ -1112,7 +1113,21 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         body.clientApiKey,
       );
 
-      const text = extractCleanText(rawText);
+      const metaMatch = rawText.match(/\[META\]([\s\S]*?)\[\/META\]/);
+      let meta: Record<string, unknown> | null = null;
+      let cleanText = rawText;
+
+      if (metaMatch) {
+        try {
+          meta = JSON.parse(metaMatch[1].trim()) as Record<string, unknown>;
+          cleanText = rawText.replace(/\[META\][\s\S]*?\[\/META\]/, '').trim();
+        } catch {
+          // JSON-Parse-Fehler: trotzdem weiter, meta bleibt null
+          console.warn('[studio] META parse failed');
+        }
+      }
+
+      const text = extractCleanText(cleanText);
 
       let audio_url: string | undefined;
       if (body.audioMode) {
@@ -1148,6 +1163,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         provider: providerConfig.provider,
         model: providerConfig.model,
         audio_url,
+        meta,
       };
 
       return { response };

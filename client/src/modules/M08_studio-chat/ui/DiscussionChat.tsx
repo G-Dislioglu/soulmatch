@@ -8,6 +8,11 @@ import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from './SpeechConsentDialog';
 import { loadProfile } from '../../M03_profile';
 import type { StudioSeat } from '../../../shared/types/studio';
+import { usePersonaTension } from '../../../hooks/usePersonaTension';
+import { PersonaTensionCard } from './PersonaTensionCard';
+import { RelationshipLines } from './RelationshipLines';
+import { EMOTION_CONFIG, inferAudienceEvent, calcDissensScore, type LLMTurnMeta, type EmotionState } from '../../../lib/emotionEngine';
+import { playAudienceEvent, setAudienceEnabled, setAudienceVolume } from '../../../lib/audienceEngine';
 
 interface DiscussMessage {
   id: string;
@@ -29,6 +34,7 @@ interface PersonaResponseRaw {
   audio_url?: string;
   audio?: string;
   mimeType?: string;
+  meta?: LLMTurnMeta | null;
 }
 
 function getAudioUrlFromResponse(response: PersonaResponseRaw): string | undefined {
@@ -83,6 +89,7 @@ export function DiscussionChat({
   );
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [speakingPersona, setSpeakingPersona] = useState<string | null>(null);
+  const [audienceOn, setAudienceOn] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
@@ -100,9 +107,55 @@ export function DiscussionChat({
   const messagePersonaRef = useRef<Map<string, string>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const {
+    personas, relations, applyTurn,
+    setInterrupt, clearSpeaking, clearMicroReaction,
+  } = usePersonaTension(
+    ['maya', 'luna', 'orion', 'lilith', 'stella', 'kael', 'lian', 'sibyl', 'amara'].map((id) => ({
+      id,
+      name: PERSONA_NAMES[id] ?? id,
+      icon: PERSONA_ICONS[id] ?? '◇',
+      baseColor: PERSONA_COLORS[id] ?? '#d4af37',
+      baseTension: 30,
+    }))
+  );
+  void setInterrupt;
+  const personasRef = useRef(personas);
+
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { personasRef.current = personas; }, [personas]);
+
+  useEffect(() => {
+    setAudienceEnabled(audienceOn);
+  }, [audienceOn]);
+
+  useEffect(() => {
+    setAudienceVolume(0.65);
+  }, []);
+
+  const handleMetaAndAudience = useCallback((meta: LLMTurnMeta | null | undefined, text: string) => {
+    if (!meta) return;
+
+    applyTurn(meta);
+
+    const emotion: EmotionState = ['calm', 'neutral', 'engaged', 'heated', 'angry'].includes(String(meta.emotion))
+      ? (meta.emotion as EmotionState)
+      : 'neutral';
+
+    const audienceEvent = meta.audienceEvent
+      ?? inferAudienceEvent(
+        calcDissensScore(personasRef.current),
+        emotion,
+        text ?? '',
+        meta.speakerId === 'maya' && (text ?? '').length > 120,
+      );
+
+    if (audienceEvent && audienceOn) {
+      setTimeout(() => playAudienceEvent(audienceEvent), 800);
+    }
+  }, [applyTurn, audienceOn]);
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -314,6 +367,7 @@ export function DiscussionChat({
     const updated = [...messagesRef.current, userMsg];
     messagesRef.current = updated;
     setMessages(updated);
+    clearSpeaking();
     loadingRef.current = true;
     setLoading(true);
     setError(null);
@@ -374,6 +428,8 @@ export function DiscussionChat({
         for (let i = 0; i < newMsgs.length; i++) {
           const m = newMsgs[i];
           if (!m) continue;
+          const r = data.responses[i];
+          handleMetaAndAudience(r?.meta, m.text);
           if (m.persona) messagePersonaRef.current.set(m.id, m.persona);
           if (m.audioUrl) {
             playAudioOnce(m.id, m.audioUrl);
@@ -421,6 +477,7 @@ export function DiscussionChat({
 
             if (evt?.type === 'persona' && evt?.response) {
               const r = evt.response as PersonaResponseRaw;
+              handleMetaAndAudience(r.meta, r.text);
               const id = `p-${Date.now()}-${Math.random().toString(16).slice(2)}`;
               const newMsg: DiscussMessage = {
                 id,
@@ -472,7 +529,7 @@ export function DiscussionChat({
         }
       }, 1500);
     }
-  }, [profileExcerpt, audioMode, scheduleResumeSpeechAfterAudio]);
+  }, [profileExcerpt, audioMode, scheduleResumeSpeechAfterAudio, clearSpeaking, handleMetaAndAudience]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -512,6 +569,10 @@ export function DiscussionChat({
   const activePersonaName = PERSONA_NAMES[activePersonaId] ?? activePersonaId;
   const activePersonaIcon = PERSONA_ICONS[activePersonaId] ?? '◇';
   const isSpeaking = speakingPersona === activePersonaId;
+  const stagePersonas = personas.filter((p) => selectedPersonas.includes(p.id));
+  const active = stagePersonas.find((p) => p.speaking);
+  const activeColor = active ? EMOTION_CONFIG[active.emotion].color : undefined;
+  const interruptQ = stagePersonas.filter((p) => p.wantsInterrupt).map((p) => p.id);
   const profile = loadProfile();
 
   const otherRealms = ['maya', 'luna', 'orion', 'lilith', 'stella', 'kael', 'lian', 'sibyl', 'amara']
@@ -658,6 +719,26 @@ export function DiscussionChat({
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <PersonaTuningBar seat={activePersonaId as StudioSeat} accentColor={activePersonaColor} />
               </div>
+              <button
+                style={{
+                  marginTop: 10,
+                  width: '100%',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8,
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#d4c9b0',
+                  padding: '7px 8px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  const next = !audienceOn;
+                  setAudienceOn(next);
+                  setAudienceEnabled(next);
+                }}
+              >
+                {audienceOn ? '🔊 Publikum an' : '🔇 Publikum aus'}
+              </button>
             </div>
           </aside>
 
@@ -962,6 +1043,30 @@ export function DiscussionChat({
                   {realm.label}
                 </div>
               ))}
+            </div>
+
+            <div className="ctx-block">
+              <span className="ctx-label">Spannung im Studio</span>
+              <div
+                id="studio-persona-stage"
+                style={{ position: 'relative', minHeight: 124, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
+              >
+                <RelationshipLines
+                  relations={relations}
+                  personaIds={stagePersonas.map((p) => p.id)}
+                  containerId="studio-persona-stage"
+                  activeSpeakerId={active?.id}
+                  activeColor={activeColor}
+                  interruptQueue={interruptQ}
+                />
+                {stagePersonas.map((p) => (
+                  <PersonaTensionCard
+                    key={p.id}
+                    persona={p}
+                    onMicroReactionExpired={clearMicroReaction}
+                  />
+                ))}
+              </div>
             </div>
           </aside>
         </div>

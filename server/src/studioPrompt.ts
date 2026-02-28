@@ -29,6 +29,48 @@ function buildMoodInstruction(mood?: MoodParameters): string {
   return `\n## SOUL-TUNING (Aktuelle Stimmung & Verhaltensanpassung)\nBitte passe deinen Stil aktuell wie folgt an:\n${rules.join('\n')}\n`;
 }
 
+const STUDIO_META_OUTPUT_BLOCK = `
+STUDIO META-AUSGABE:
+
+Am Ende jeder Antwort im Studio-Modus IMMER diesen Block anfügen:
+
+[META]
+{
+  "speakerId": "DEINE_PERSONA_ID",
+  "tension": 0-100,
+  "emotion": "calm|neutral|engaged|heated|angry",
+  "interruptQueue": ["persona_id_die_unterbrechen_will"],
+  "relationUpdates": [{"with": "andere_persona_id", "tension": 0-100}],
+  "audienceEvent": "murmur|laughter|approval|unrest|applause|null",
+  "microReactions": [
+    {"personaId": "andere_persona_id", "reaction": "agree|disagree|curious|shocked|amused"}
+  ]
+}
+[/META]
+
+Tension-Guide:
+0-24:   calm    (ruhig, sachlich, offen)
+25-44:  neutral (engagiert, aufmerksam)
+45-64:  engaged (klarer Standpunkt, Nachdruck)
+65-81:  heated  (provoziert, scharf, leicht gereizt)
+82-100: angry   (wütend, Großbuchstaben möglich, kurz vor Unterbrechung)
+
+audienceEvent-Guide:
+- murmur:   du sagst etwas Überraschendes oder Unerwartetes
+- laughter: du machst einen trockenen Witz oder eine ironische Bemerkung
+- approval: du formulierst ein besonders starkes, klares Argument
+- unrest:   du wirst sehr laut/wütend oder unterbrichst roh
+- applause: Maya fasst elegant zusammen (nur für Maya, Abschluss-Turns)
+- null:     normaler Turn ohne besonderen Moment
+
+microReactions-Guide:
+- Setze 1-2 Reaktionen der anderen Personas die gerade zuhören
+- agree: Person stimmt zu (nickt quasi)
+- disagree: Person widerspricht still (will dran)
+- curious: Person ist verwirrt oder stellt innerlich eine Frage
+- shocked: überraschende Aussage hat Wirkung
+- amused: Person findet es ironisch oder leicht belustigt`;
+
 export function buildSystemPrompt(lilithIntensity: LilithIntensity = 'ehrlich', mood?: MoodParameters): string {
   const intensityBlock = {
     mild: 'Sanfter Modus: Sei einfühlsam aber ehrlich. Verpacke Wahrheiten in Fragen statt Aussagen. Weniger Sarkasmus, mehr Empathie — aber lüge nie.',
@@ -82,7 +124,9 @@ Regeln:
 - "watchOut": Ein einzelner String, mindestens 10 Zeichen.
 - "anchorsUsed": optionales Array von Anchor-IDs (z. B. A1, A2), wenn DATA ANCHORS im User-Prompt vorhanden sind.
 - KEIN "meta" Feld — das wird serverseitig hinzugefügt.
-- Sprache: Deutsch.`;
+- Sprache: Deutsch.
+
+${STUDIO_META_OUTPUT_BLOCK}`;
 }
 
 const COMMON_PERSONA_GUIDANCE = `WICHTIG – Gesprächsführung:
@@ -407,7 +451,8 @@ Soul Card Regeln:
 - Tags: 3-5 Stück, kurz, relevant für späteres Crossing (z.B. "pluto", "kontrolle", "partnerschaft").
 - Formuliere so, dass der User sich wiedererkennt.
 - Schlage die Card NUR vor, wenn du eine echte Erkenntnis destillieren kannst.
-`;
+
+${STUDIO_META_OUTPUT_BLOCK}`;
 }
 
 export function buildUserPrompt(params: {
@@ -608,7 +653,9 @@ REGELN:
 - Keine Wiederholungen von dem was andere bereits gesagt haben
 
 Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
-Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.`;
+Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.
+
+${STUDIO_META_OUTPUT_BLOCK}`;
 }
 
 export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {
