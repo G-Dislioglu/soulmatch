@@ -1,6 +1,22 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import type { StudioSeat } from '../../../shared/types/studio';
 
+const SPEECH_RATE_KEY_PREFIX = 'soulmatch_voice_rate_';
+const MIN_SPEECH_RATE = 0.75;
+const MAX_SPEECH_RATE = 1.5;
+const DEFAULT_SPEECH_RATE = 1;
+
+export function getPersonaSpeechRate(personaId: string): number {
+  try {
+    const raw = localStorage.getItem(`${SPEECH_RATE_KEY_PREFIX}${personaId}`);
+    const parsed = raw ? Number.parseFloat(raw) : Number.NaN;
+    if (Number.isNaN(parsed)) return DEFAULT_SPEECH_RATE;
+    return Math.max(MIN_SPEECH_RATE, Math.min(MAX_SPEECH_RATE, parsed));
+  } catch {
+    return DEFAULT_SPEECH_RATE;
+  }
+}
+
 export interface MoodParameters {
   empathy: number;
   mysticism: number;
@@ -48,9 +64,18 @@ const TUNING_LABELS: Record<keyof MoodParameters, { icon: string; left: string; 
 export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { mood, setMood } = usePersonaTuning(seat);
+  const [speechRate, setSpeechRate] = useState<number>(() => getPersonaSpeechRate(seat));
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    setSpeechRate(getPersonaSpeechRate(seat));
+  }, [seat]);
+
+  useEffect(() => {
+    localStorage.setItem(`${SPEECH_RATE_KEY_PREFIX}${seat}`, speechRate.toFixed(2));
+  }, [seat, speechRate]);
 
   useLayoutEffect(() => {
     if (!isOpen || !triggerRef.current || !popupRef.current) return;
@@ -191,6 +216,36 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
               />
             </div>
           ))}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#a8a298' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>🗣️</span>
+                Langsamer
+              </span>
+              <span>Schneller · {speechRate.toFixed(2)}x</span>
+            </div>
+            <input
+              type="range"
+              min={MIN_SPEECH_RATE}
+              max={MAX_SPEECH_RATE}
+              step="0.05"
+              value={speechRate}
+              onChange={(e) => setSpeechRate(Number.parseFloat(e.target.value))}
+              style={{
+                width: '100%',
+                appearance: 'none',
+                height: 4,
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: 2,
+                outline: 'none',
+                cursor: 'pointer',
+                backgroundImage: `linear-gradient(${accentColor}, ${accentColor})`,
+                backgroundSize: `${((speechRate - MIN_SPEECH_RATE) / (MAX_SPEECH_RATE - MIN_SPEECH_RATE)) * 100}% 100%`,
+                backgroundRepeat: 'no-repeat',
+              }}
+            />
+          </div>
 
           {/* Injecting CSS for slider thumb and animation */}
           <style>{`

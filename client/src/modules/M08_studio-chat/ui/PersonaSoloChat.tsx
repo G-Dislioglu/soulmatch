@@ -14,7 +14,7 @@ import { buildMemoryContext, addMemoryEntry, getBanStatus } from '../lib/userMem
 import { extractInsights, checkMilestone } from '../lib/insightExtractor';
 import { useGuide } from '../../../modules/M14_guide/GuideProvider';
 import { LiveSigil } from './LiveSigil';
-import { PersonaTuningBar, usePersonaTuning } from './PersonaTuningBar';
+import { PersonaTuningBar, usePersonaTuning, getPersonaSpeechRate } from './PersonaTuningBar';
 import type { SigilState } from './LiveSigil';
 import { parseResponse, parseSoulCard } from '../lib/commandParser';
 import type { MayaCommand, TourStep, SoulCardProposal } from '../lib/commandParser';
@@ -433,6 +433,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
           );
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
+          audio.playbackRate = getPersonaSpeechRate(seat);
 
           audio.onended = () => {
             URL.revokeObjectURL(url);

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PersonaBar } from './PersonaBar';
 import { PersonaTuningBar } from './PersonaTuningBar';
+import { getPersonaSpeechRate } from './PersonaTuningBar';
 import { VoiceRitual } from './VoiceRitual';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES } from '../lib/personaColors';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
@@ -70,6 +71,7 @@ export function DiscussionChat({
 }: DiscussionChatProps) {
   const [selectedPersonasState, setSelectedPersonasState] = useState<string[]>(initialPersonas);
   const selectedPersonas = selectedPersonasProp ?? selectedPersonasState;
+  const activePersonaId = selectedPersonas[0] ?? 'maya';
   const [audioMode, setAudioMode] = useState(false);
   const [messages, setMessages] = useState<DiscussMessage[]>([]);
   const [input, setInput] = useState('');
@@ -171,7 +173,8 @@ export function DiscussionChat({
     isPlayingQueueRef.current = true;
     const next = audioQueueRef.current.shift();
     if (!next) return;
-    setSpeakingPersona(messagePersonaRef.current.get(next.id) ?? null);
+    const personaId = messagePersonaRef.current.get(next.id) ?? null;
+    setSpeakingPersona(personaId);
 
     try {
       const existing = audioElsRef.current.get(next.id);
@@ -187,6 +190,7 @@ export function DiscussionChat({
       audioSessionRef.current = session;
       currentAudioRef.current = a;
       a.currentTime = 0;
+      a.playbackRate = getPersonaSpeechRate(personaId ?? activePersonaId);
 
       a.onplay = () => {
         if (audioSessionRef.current !== session) return;
@@ -221,7 +225,7 @@ export function DiscussionChat({
       console.error('[audio] sync error in queue', err);
       playNextInQueue();
     }
-  }, [speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+  }, [activePersonaId, speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
 
   const playAudioOnce = useCallback((id: string, url: string) => {
     if (!url || typeof url !== 'string') return;
@@ -238,6 +242,7 @@ export function DiscussionChat({
 
   const playAudioNow = useCallback((id: string, url: string) => {
     if (!url) return;
+    const personaId = messagePersonaRef.current.get(id) ?? activePersonaId;
     const existing = audioElsRef.current.get(id);
     const a = existing ?? new Audio(url);
     if (!existing) {
@@ -252,6 +257,7 @@ export function DiscussionChat({
       audioSessionRef.current = session;
       currentAudioRef.current = a;
       a.currentTime = 0;
+      a.playbackRate = getPersonaSpeechRate(personaId);
 
       a.onplay = () => {
         if (audioSessionRef.current !== session) return;
@@ -292,7 +298,7 @@ export function DiscussionChat({
     } catch {
       // ignore
     }
-  }, [pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+  }, [activePersonaId, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
 
   const sendMessage = useCallback(async (textRaw: string) => {
     const text = textRaw.trim();
@@ -502,7 +508,6 @@ export function DiscussionChat({
     }
   }
 
-  const activePersonaId = selectedPersonas[0] ?? 'maya';
   const activePersonaColor = PERSONA_COLORS[activePersonaId] ?? '#d4af37';
   const activePersonaName = PERSONA_NAMES[activePersonaId] ?? activePersonaId;
   const activePersonaIcon = PERSONA_ICONS[activePersonaId] ?? '◇';
