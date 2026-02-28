@@ -24,6 +24,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    watch: {
+      usePolling: true,
+      interval: 150,
+    },
   },
   build: {
     chunkSizeWarningLimit: 600,

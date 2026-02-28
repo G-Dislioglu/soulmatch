@@ -36,6 +36,8 @@ export function useSpeechToText(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const isContinuousModeRef = useRef(false);
+  const runningRef = useRef(false);          // true while recognition.start() is active
+  const restartTimerRef = useRef<number | null>(null); // pending restart handle
   const shouldAutoSendOnEndRef = useRef(false);
   const transcriptRef = useRef('');
   const onAutoSendRef = useRef(onAutoSend);
@@ -99,53 +101,48 @@ export function useSpeechToText(
       transcriptRef.current = text;
     };
 
-    recognition.onend = () => {
-      console.log('[speech] onend, continuous:', isContinuousModeRef.current, 'transcript:', transcriptRef.current);
-      setIsListening(false);
-
-      if (isPlaybackActiveRef.current) {
-        return;
+    // safeStart: only start if shouldRun=true AND not already running (no stale closure)
+    const safeStart = () => {
+      if (!isContinuousModeRef.current || !recognitionRef.current || runningRef.current) return;
+      if (restartTimerRef.current) { window.clearTimeout(restartTimerRef.current); restartTimerRef.current = null; }
+      try {
+        recognitionRef.current.start();
+        runningRef.current = true;
+        setIsListening(true);
+        console.log('[speech] mic started');
+      } catch (e: any) {
+        if (e.name === 'InvalidStateError') {
+          runningRef.current = true;
+          setIsListening(true);
+        } else {
+          console.warn('[speech] safeStart failed:', e);
+        }
       }
+    };
+
+    recognition.onend = () => {
+      runningRef.current = false;
+      setIsListening(false);
+      console.log('[speech] onend, shouldRun:', isContinuousModeRef.current);
 
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
 
-      // Auto-send + optional auto-restart (handsfree session)
-      if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
-        const text = accumulatedFinalTextRef.current.trim();
+      // Auto-send accumulated text
+      const text = accumulatedFinalTextRef.current.trim();
+      if (text.length > 0 && (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && onAutoSendRef.current) {
+        console.log('[speech] auto-sending:', text);
+        onAutoSendRef.current(text);
+      }
+      accumulatedFinalTextRef.current = '';
+      setTranscript('');
+      transcriptRef.current = '';
 
-        if (text && text.length > 0 && onAutoSendRef.current) {
-          console.log('[speech] auto-sending:', text);
-          onAutoSendRef.current(text);
-        }
-
-        accumulatedFinalTextRef.current = '';
-
-        setTranscript('');
-        transcriptRef.current = '';
-
-        // Handsfree: restart mic after short pause, until user explicitly stops
-        setTimeout(() => {
-          if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
-            try {
-              // Ensure we don't start if already listening
-              if (!isListening) {
-                recognitionRef.current.start();
-                setIsListening(true);
-                console.log('[speech] mic restarted');
-              }
-            } catch (e: any) {
-              if (e.name === 'InvalidStateError') {
-                // Already started, this is fine.
-                setIsListening(true);
-              } else {
-                console.error('[speech] restart failed:', e);
-              }
-            }
-          }
-        }, 800);
+      // Restart only if continuous mode is still active and audio is not playing
+      if (isContinuousModeRef.current && !isPlaybackActiveRef.current) {
+        restartTimerRef.current = window.setTimeout(safeStart, 600);
       }
     };
 
@@ -153,17 +150,20 @@ export function useSpeechToText(
     recognition.onerror = (event: any) => {
       console.log('[speech] error:', event.error);
       if (event.error === 'no-speech') {
-        // With continuous=true the recognition keeps running after silence — ignore
+        return; // silence during continuous — recognition keeps running
+      }
+      if (event.error === 'aborted') {
+        // aborted fires before onend — just mark not running, let onend handle restart
+        runningRef.current = false;
         return;
       }
+      runningRef.current = false;
       setIsListening(false);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        // Permission denied — stop continuous mode
         isContinuousModeRef.current = false;
         shouldAutoSendOnEndRef.current = false;
         setIsContinuousMode(false);
         setMicBlocked(true);
-        try { recognitionRef.current?.stop(); } catch { /* ignore */ }
         setTranscript('');
         transcriptRef.current = '';
       }
@@ -266,19 +266,22 @@ export function useSpeechToText(
 
   const setPlaybackActive = useCallback((active: boolean) => {
     isPlaybackActiveRef.current = active;
-    if (active) {
+    if (active && recognitionRef.current && runningRef.current) {
       try {
-        recognitionRef.current?.abort();
-      } catch {
-        // ignore
-      }
-      setIsListening(false);
+        recognitionRef.current.stop(); // use stop() not abort() to avoid error loop
+      } catch { /* ignore */ }
     }
   }, []);
 
   const startContinuous = useCallback(() => {
     if (!recognitionRef.current) return;
+    if (runningRef.current) return; // guard: already running
     console.log('[speech] startContinuous called');
+    // Cancel any pending restart timer
+    if (restartTimerRef.current) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     isContinuousModeRef.current = true;
     shouldAutoSendOnEndRef.current = true;
     setIsContinuousMode(true);
@@ -286,29 +289,24 @@ export function useSpeechToText(
     accumulatedFinalTextRef.current = '';
     setTranscript('');
     transcriptRef.current = '';
-
-    // Release any open getUserMedia stream so the Recognition API
-    // gets exclusive mic access (holding both simultaneously causes conflicts).
+    // Release getUserMedia stream for exclusive mic access
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach((t) => t.stop());
       micStreamRef.current = null;
     }
-
-    const doStart = (attempt: number) => {
-      if (!isContinuousModeRef.current || !recognitionRef.current) return;
-      try {
-        recognitionRef.current.start();
+    try {
+      recognitionRef.current.start();
+      runningRef.current = true;
+      setIsListening(true);
+      console.log('[speech] mic started (continuous)');
+    } catch (e: any) {
+      if (e.name === 'InvalidStateError') {
+        runningRef.current = true; // already running — treat as success
         setIsListening(true);
-        console.log('[speech] mic started (continuous), attempt', attempt);
-      } catch (e: any) {
-        if (e.name === 'InvalidStateError' && attempt < 5) {
-          window.setTimeout(() => doStart(attempt + 1), 250);
-        } else {
-          console.warn('[speech] startContinuous failed:', e);
-        }
+      } else {
+        console.warn('[speech] startContinuous failed:', e);
       }
-    };
-    doStart(0);
+    }
   }, []);
 
   const stopContinuous = useCallback(() => {
@@ -316,13 +314,19 @@ export function useSpeechToText(
     shouldAutoSendOnEndRef.current = false;
     setIsContinuousMode(false);
     accumulatedFinalTextRef.current = '';
+    // Cancel any pending restart timer
+    if (restartTimerRef.current) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     if (debounceTimerRef.current) {
       window.clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    if (recognitionRef.current) {
+    if (recognitionRef.current && runningRef.current) {
       recognitionRef.current.stop();
     }
+    runningRef.current = false;
     setIsListening(false);
     setTranscript('');
     transcriptRef.current = '';
