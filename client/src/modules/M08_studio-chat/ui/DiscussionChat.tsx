@@ -75,7 +75,6 @@ export function DiscussionChat({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAwaitingAudio, setIsAwaitingAudio] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [speakingPersona, setSpeakingPersona] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -157,7 +156,6 @@ export function DiscussionChat({
       const session = audioSessionRef.current;
       speech.setPlaybackActive(false);
       scheduleResumeSpeechAfterAudio(session);
-      setIsAwaitingAudio(false);
       setSpeakingPersona(null);
       return;
     }
@@ -186,7 +184,6 @@ export function DiscussionChat({
         if (audioSessionRef.current !== session) return;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
-        setIsAwaitingAudio(true);
       };
       
       const handleEndOrError = () => {
@@ -252,7 +249,6 @@ export function DiscussionChat({
         if (audioSessionRef.current !== session) return;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
-        setIsAwaitingAudio(true);
       };
 
       a.onended = () => {
@@ -262,7 +258,6 @@ export function DiscussionChat({
         setSpeakingPersona(null);
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
-        setIsAwaitingAudio(false);
       };
 
       a.onerror = () => {
@@ -272,7 +267,6 @@ export function DiscussionChat({
         setSpeakingPersona(null);
         speech.setPlaybackActive(false);
         scheduleResumeSpeechAfterAudio(session);
-        setIsAwaitingAudio(false);
       };
 
       const p = a.play();
@@ -285,7 +279,6 @@ export function DiscussionChat({
           setSpeakingPersona(null);
           speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(session);
-          setIsAwaitingAudio(false);
         });
       }
     } catch {
@@ -453,7 +446,6 @@ export function DiscussionChat({
       // Let it unlock if we are waiting for audio but nothing plays after a short delay
       setTimeout(() => {
         if (!currentAudioRef.current || currentAudioRef.current.paused) {
-          setIsAwaitingAudio(false);
           speech.setPlaybackActive(false);
           scheduleResumeSpeechAfterAudio(audioSessionRef.current);
         }
@@ -617,7 +609,7 @@ export function DiscussionChat({
               {isSpeaking && <div className="speaking-ring" style={{ borderColor: activePersonaColor }} />}
             </div>
 
-            <div className={`voice-oscillator ${isSpeaking ? 'active' : ''}`} style={{ ['--persona-color' as string]: activePersonaColor }}>
+            <div className={`voice-oscillator ${isSpeaking ? 'active' : speech.isContinuousMode ? 'listening' : 'idle'}`} style={{ ['--persona-color' as string]: activePersonaColor }}>
               {Array.from({ length: 7 }).map((_, i) => (
                 <span key={i} style={{ animationDelay: `${i * 0.08}s` }} />
               ))}
@@ -777,50 +769,10 @@ export function DiscussionChat({
           {/* Input */}
           <div style={{
             padding: '10px 14px 14px',
-            borderTop: speech.isContinuousMode ? '1px solid rgba(239,68,68,0.20)' : '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
             background: 'rgba(8,6,15,0.95)',
-            borderLeft: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
-            borderRight: speech.isContinuousMode ? '2px solid rgba(239,68,68,0.30)' : 'none',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {speech.isContinuousMode && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: 'rgba(239,68,68,0.08)',
-                  borderRadius: 10,
-                  border: '1px solid rgba(239,68,68,0.20)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: isAwaitingAudio ? '#6b6560' : (speech.isListening ? '#ef4444' : '#6b6560'),
-                      animation: !isAwaitingAudio && speech.isListening ? 'pulse 1.5s infinite' : 'none',
-                    }} />
-                    <span style={{ fontSize: 12, color: isAwaitingAudio ? '#8a8580' : (speech.isListening ? '#ef4444' : '#8a8580') }}>
-                      {isAwaitingAudio ? '🔇 Warte auf Ausgabe...' : (speech.isListening ? '🎙 Ich höre zu...' : loading ? '💬 Warte auf Antwort...' : '🎙 Bereit zum Zuhören')}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => speech.stopContinuous()}
-                    style={{
-                      background: 'rgba(239,68,68,0.15)',
-                      border: '1px solid rgba(239,68,68,0.30)',
-                      borderRadius: 8,
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      padding: '6px 12px',
-                    }}
-                  >
-                    ⏹ Beenden
-                  </button>
-                </div>
-              )}
 
               {speech.transcript && (
                 <div style={{
@@ -868,40 +820,6 @@ export function DiscussionChat({
                   </button>
                 )}
 
-                {speech.isSupported && (
-                  <button
-                    onClick={() => {
-                      if (speech.isListening) {
-                        speech.stopListening();
-                        return;
-                      }
-                      if (!speech.hasConsent) {
-                        setConsentIntent('listening');
-                        setShowConsent(true);
-                        return;
-                      }
-                      speech.startListening();
-                      console.log('[STT] started');
-                    }}
-                    title="Freisprechen"
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 10,
-                      border: speech.isListening ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(255,255,255,0.10)',
-                      background: speech.isListening ? 'rgba(239,68,68,0.16)' : 'rgba(255,255,255,0.04)',
-                      color: speech.isListening ? '#ef4444' : '#d4c9b0',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 18,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {speech.isListening ? '⏹' : '🎤'}
-                  </button>
-                )}
 
                 <textarea
                   className="session-input"
@@ -1123,9 +1041,11 @@ export function DiscussionChat({
         gap: 3px;
         height: 24px;
         margin-top: 8px;
-        opacity: 0;
+        opacity: 0.15;
         transition: opacity 0.3s;
       }
+      .voice-oscillator.idle { opacity: 0.15; }
+      .voice-oscillator.listening { opacity: 0.65; }
       .voice-oscillator.active { opacity: 1; }
       .voice-oscillator span {
         width: 3px;
@@ -1135,8 +1055,15 @@ export function DiscussionChat({
         transform-origin: bottom;
         animation: none;
       }
+      .voice-oscillator.listening span {
+        animation: oscListen 2s ease-in-out infinite alternate;
+      }
       .voice-oscillator.active span {
         animation: oscBar 0.6s ease-in-out infinite alternate;
+      }
+      @keyframes oscListen {
+        from { height: 2px; opacity: 0.35; }
+        to { height: 9px; opacity: 1; }
       }
       .voice-oscillator span:nth-child(1) { animation-duration: 0.45s; }
       .voice-oscillator span:nth-child(2) { animation-duration: 0.60s; }
