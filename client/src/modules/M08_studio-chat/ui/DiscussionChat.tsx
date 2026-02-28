@@ -1106,7 +1106,7 @@ export function DiscussionChat({
         display: block;
       }
       .context-panel {
-        width: 160px;
+        width: 220px;
         flex-shrink: 0;
         position: relative;
         border-left: 1px solid rgba(255,255,255,0.08);

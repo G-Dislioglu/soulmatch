@@ -1718,7 +1718,7 @@ function HomePage() {
                     setStudioQuestion(question);
                     setStudioPersona(personaId);
                     setChatPersonas([personaId]);
-                    setStudioPhase('session');
+                    setStudioPhase('routing');
                   }}
                 />
               )}
