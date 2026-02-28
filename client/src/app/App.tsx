@@ -17,6 +17,7 @@ import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmati
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
 import { PersonaPreview, SoulPortraitCard, WeeklyInsightCard, DiscussionChat } from '../modules/M08_studio-chat';
+import { StudioPage } from '../modules/M08_studio-chat/ui/StudioPage';
 import { StudioHome } from '../modules/M08_studio-chat/ui/StudioHome';
 import { OracleRouting } from '../modules/M08_studio-chat/ui/OracleRouting';
 import type { StudioSeat } from '../shared/types/studio';
@@ -1701,72 +1702,21 @@ function HomePage() {
 
         {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_STUDIO && (
-          <div key="studio" className="portal-enter" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            minHeight: 0,
-            maxWidth: studioPhase === 'session' ? 1280 : 980,
-            margin: '0 auto',
-            width: '100%',
-            overflow: 'hidden',
-          }}>
-            <div style={{ overflowY: studioPhase === 'session' ? 'hidden' : 'auto', flex: 1, minHeight: 0, height: '100%', padding: studioPhase === 'session' ? '0' : '0 16px 40px' }}>
-              {studioPhase === 'oracle' && (
-                <StudioHome
-                  onStartSession={(question, personaId) => {
-                    setStudioQuestion(question);
-                    setStudioPersona(personaId);
-                    setChatPersonas([personaId]);
-                    setStudioPhase('routing');
-                  }}
-                />
-              )}
-
-              {studioPhase === 'routing' && (
-                <OracleRouting
-                  question={studioQuestion}
-                  personaId={studioPersona}
-                  onComplete={() => setStudioPhase('session')}
-                />
-              )}
-
-              {studioPhase === 'session' && chatPersonas.length > 0 && (
-                <div ref={chatSectionRef} style={{ height: '100%', minHeight: 0, display: 'flex' }}>
-                  <DiscussionChat
-                    selectedPersonas={chatPersonas}
-                    profileExcerpt={profile ? `Name: ${profile.name}, Geburtsdatum: ${profile.birthDate}${profile.birthTime ? `, Geburtszeit: ${profile.birthTime}` : ''}${profile.birthLocation?.label ? `, Geburtsort: ${profile.birthLocation.label}` : ''}` : ''}
-                    currentQuestion={studioQuestion}
-                    onBack={() => {
-                      setStudioPhase('oracle');
-                      setChatPersonas([]);
-                    }}
-                    onSwitchPersona={(personaId) => {
-                      setStudioPersona(personaId);
-                      setChatPersonas([personaId]);
-                    }}
-                    showTopBar={false}
-                  />
-                </div>
-              )}
-
-              {/* Persona Preview Lightbox */}
-              {previewSeat && (
-                <PersonaPreview
-                  seat={previewSeat}
-                  onStartChat={() => {
-                    if (previewSeat) {
-                      setChatPersonas([previewSeat]);
-                      setStudioPersona(previewSeat);
-                      setStudioPhase('session');
-                      setStudioQuestion('');
-                    }
-                    setPreviewSeat(null);
-                  }}
-                  onClose={() => setPreviewSeat(null)}
-                />
-              )}
-              </div>
+          <div
+            key="studio"
+            className="portal-enter"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              minHeight: 0,
+              maxWidth: 1280,
+              margin: '0 auto',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            <StudioPage />
           </div>
         )}
 
