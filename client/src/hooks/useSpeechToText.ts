@@ -47,6 +47,7 @@ export function useSpeechToText(
   const micStreamRef = useRef<MediaStream | null>(null);
   const lastStartAtRef = useRef(0);       // timestamp of last recognition.start() call
   const startAttemptRef = useRef(0);     // consecutive restart attempts (for backoff)
+  const abortLoopGuardRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -138,6 +139,7 @@ export function useSpeechToText(
 
     recognition.onstart = () => {
       startAttemptRef.current = 0; // successful start — reset backoff counter
+      abortLoopGuardRef.current = false;
       console.log('[speech] onstart');
     };
 
@@ -161,6 +163,16 @@ export function useSpeechToText(
       setTranscript('');
       transcriptRef.current = '';
 
+      if (abortLoopGuardRef.current && isContinuousModeRef.current) {
+        // Avoid infinite mic restart loops seen in Chromium when onerror='aborted' repeats.
+        abortLoopGuardRef.current = false;
+        isContinuousModeRef.current = false;
+        shouldAutoSendOnEndRef.current = false;
+        setIsContinuousMode(false);
+        console.warn('[speech] continuous mode stopped after aborted error to prevent restart loop');
+        return;
+      }
+
       // Restart only if continuous mode is still active and audio is not playing
       if (isContinuousModeRef.current && !isPlaybackActiveRef.current) {
         const delay = Math.min(300 + startAttemptRef.current * 150, 1000);
@@ -175,7 +187,8 @@ export function useSpeechToText(
         return; // silence during continuous — recognition keeps running
       }
       if (event.error === 'aborted') {
-        // aborted fires before onend — just mark not running, let onend handle restart
+        // aborted fires before onend — mark guard so onend can stop continuous mode once.
+        abortLoopGuardRef.current = true;
         runningRef.current = false;
         return;
       }
