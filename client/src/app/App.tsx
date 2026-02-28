@@ -16,11 +16,8 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { PersonaPreview, SoulPortraitCard, WeeklyInsightCard, DiscussionChat } from '../modules/M08_studio-chat';
+import { SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import { StudioPage } from '../modules/M08_studio-chat/ui/StudioPage';
-import { StudioHome } from '../modules/M08_studio-chat/ui/StudioHome';
-import { OracleRouting } from '../modules/M08_studio-chat/ui/OracleRouting';
-import type { StudioSeat } from '../shared/types/studio';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -63,7 +60,6 @@ const APP_PAGES: PageDef[] = [
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
-type PreviewSeat = StudioSeat | null;
 
 interface AstroPlanet {
   key: string;
@@ -140,18 +136,12 @@ function HomePage() {
   const [computing, setComputing] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [cardSettings, setCardSettings] = useState<CardSettings>(DEFAULT_CARD_SETTINGS);
-  const [previewSeat, setPreviewSeat] = useState<PreviewSeat>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeSoulCard, setActiveSoulCard] = useState<SoulCard | null>(null);
   const [showCrossing, setShowCrossing] = useState(false);
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
-  const [chatPersonas, setChatPersonas] = useState<string[]>([]);
-  const [studioPhase, setStudioPhase] = useState<'oracle' | 'routing' | 'session'>('oracle');
-  const [studioQuestion, setStudioQuestion] = useState('');
-  const [studioPersona, setStudioPersona] = useState('maya');
-  const chatSectionRef = useRef<HTMLDivElement>(null);
 
   // ── Maya Command System state ──
   const [highlightedCard] = useState<string | null>(null);
@@ -365,23 +355,11 @@ function HomePage() {
   // ── Sidebar Callbacks ──
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
     onNavigateScore: () => setActivePage(PAGE_REPORT),
-    onNavigateChat: (personaId: string) => {
-      setChatPersonas((prev) => (prev.includes(personaId) ? prev : [personaId, ...prev].slice(0, 3)));
-      setStudioPersona(personaId);
-      setStudioPhase('session');
-      setStudioQuestion('');
-      setActivePage(PAGE_STUDIO);
-    },
+    onNavigateChat: (_personaId: string) => setActivePage(PAGE_STUDIO),
     onNavigateInsight: () => setActivePage(PAGE_REPORT),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
   }), []);
-
-  useEffect(() => {
-    if (activePage !== PAGE_STUDIO) return;
-    if (chatPersonas.length === 0) return;
-    chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [chatPersonas.length, activePage]);
 
   /* ── Overlay content (rendered inside global shell) ── */
   function renderOverlay() {
@@ -1130,7 +1108,7 @@ function HomePage() {
         className="app-content-main"
         style={{
           flex: 1,
-          overflowY: activePage === PAGE_STUDIO && studioPhase === 'session' ? 'hidden' : 'auto',
+          overflowY: 'auto',
           overflowX: 'hidden',
           position: 'relative',
           zIndex: 10,
@@ -1657,13 +1635,7 @@ function HomePage() {
                         claims={scoreResult.claims}
                         highlightedCard={highlightedCard}
                         tourTarget={tourTarget}
-                        onAskMaya={() => {
-                          setChatPersonas(['maya']);
-                          setStudioPersona('maya');
-                          setStudioPhase('session');
-                          setStudioQuestion('');
-                          setActivePage(PAGE_STUDIO);
-                        }}
+                        onAskMaya={() => setActivePage(PAGE_STUDIO)}
                         onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
                       />
                     </SCard>
