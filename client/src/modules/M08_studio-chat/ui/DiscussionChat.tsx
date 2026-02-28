@@ -62,7 +62,6 @@ export function DiscussionChat({
   initialPersonas = ['maya'],
   selectedPersonas: selectedPersonasProp,
   profileExcerpt = '',
-  currentQuestion = '',
   onBack,
   onSwitchPersona,
   showTopBar = true,
@@ -588,20 +587,9 @@ export function DiscussionChat({
       )}
 
       <div className="session-layout" style={{ flex: 1, minHeight: 0 }}>
-        <div className="session-context-bar">
-          <button className="back-to-oracle" onClick={onBack}>
-            ← Neue Frage
-          </button>
-          <div className="context-question-display">
-            {currentQuestion ? `"${currentQuestion}"` : 'Neue Session'}
-          </div>
-          <div className="realm-badge" style={{ borderColor: activePersonaColor, color: activePersonaColor }}>
-            {activePersonaIcon} {activePersonaName}
-          </div>
-        </div>
-
         <div className="session-body">
           <aside className="analyst-sidebar">
+            <button className="back-to-oracle" onClick={onBack}>←</button>
             <div className="analyst-portrait-wrap">
               <div className="analyst-portrait" style={{ background: `${activePersonaColor}18`, borderColor: activePersonaColor }}>
                 {activePersonaIcon}
@@ -945,44 +933,19 @@ export function DiscussionChat({
         min-height: 0;
         overflow: hidden;
       }
-      .session-context-bar {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 14px 24px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        flex-shrink: 0;
-        background: rgba(255,255,255,0.02);
-        backdrop-filter: blur(12px);
-      }
       .back-to-oracle {
-        font-size: 12px;
-        color: rgba(255,255,255,0.35);
-        letter-spacing: 0.08em;
-        transition: color 0.2s;
-        white-space: nowrap;
         background: transparent;
         border: none;
+        color: rgba(255,255,255,0.28);
         cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+        margin-bottom: 10px;
+        align-self: flex-start;
+        line-height: 1;
+        transition: color 0.2s;
       }
-      .back-to-oracle:hover { color: rgba(255,255,255,0.65); }
-      .context-question-display {
-        flex: 1;
-        font-size: 13px;
-        font-style: italic;
-        color: rgba(255,255,255,0.35);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .realm-badge {
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        padding: 4px 14px;
-        border-radius: 20px;
-        border: 1px solid;
-        white-space: nowrap;
-      }
+      .back-to-oracle:hover { color: rgba(255,255,255,0.75); }
       .session-body {
         display: flex;
         flex: 1;
@@ -1004,7 +967,7 @@ export function DiscussionChat({
         overscroll-behavior: contain;
       }
       .analyst-sidebar {
-        width: 220px;
+        width: 190px;
         flex-shrink: 0;
         position: relative;
         border-right: 1px solid rgba(255,255,255,0.08);
@@ -1108,7 +1071,7 @@ export function DiscussionChat({
         display: block;
       }
       .context-panel {
-        width: 200px;
+        width: 160px;
         flex-shrink: 0;
         position: relative;
         border-left: 1px solid rgba(255,255,255,0.08);
