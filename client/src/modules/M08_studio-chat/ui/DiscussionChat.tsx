@@ -597,7 +597,7 @@ export function DiscussionChat({
               {isSpeaking && <div className="speaking-ring" style={{ borderColor: activePersonaColor }} />}
             </div>
 
-            <div className={`voice-oscillator ${isSpeaking ? 'active' : speech.isContinuousMode ? 'listening' : 'idle'}`} style={{ ['--persona-color' as string]: activePersonaColor }}>
+            <div className={`voice-oscillator ${isSpeaking ? 'active' : speech.isListening ? 'mic-listening' : speech.isContinuousMode ? 'listening' : 'idle'}`} style={{ ['--persona-color' as string]: activePersonaColor, ['--osc-color' as string]: speech.isListening ? '#50dc78' : activePersonaColor }}>
               {Array.from({ length: 7 }).map((_, i) => (
                 <span key={i} style={{ animationDelay: `${i * 0.08}s` }} />
               ))}
@@ -1049,9 +1049,13 @@ export function DiscussionChat({
         width: 3px;
         height: 4px;
         border-radius: 2px;
-        background: var(--persona-color, #c9a84c);
+        background: var(--osc-color, var(--persona-color, #c9a84c));
         transform-origin: bottom;
         animation: none;
+      }
+      .voice-oscillator.mic-listening { opacity: 0.9; }
+      .voice-oscillator.mic-listening span {
+        animation: oscListen 0.7s ease-in-out infinite alternate;
       }
       .voice-oscillator.listening span {
         animation: oscListen 2s ease-in-out infinite alternate;

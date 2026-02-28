@@ -83,6 +83,10 @@ export function StudioHome({ onStartSession }: StudioHomeProps) {
   const selectedPersonaRef = useRef<string | null>(selectedPersonaId);
   const [showConsent, setShowConsent] = useState(false);
 
+  const suggestedPersonaId = selectedPersonaId ?? (question.trim() ? inferPersonaFromQuestion(question) : null);
+  const suggestedPersonaName = suggestedPersonaId ? (PERSONA_NAMES[suggestedPersonaId] ?? suggestedPersonaId) : null;
+  const suggestedPersonaColor = suggestedPersonaId ? (PERSONA_COLORS[suggestedPersonaId] ?? '#d4af37') : null;
+
   const speech = useSpeechToText('de', (text) => {
     const spoken = text.trim();
     if (!spoken) return;
@@ -143,6 +147,32 @@ export function StudioHome({ onStartSession }: StudioHomeProps) {
         </button>
       </div>
 
+      {suggestedPersonaId && (
+        <div className="persona-hint">
+          <span className="persona-hint-dot" style={{ background: suggestedPersonaColor ?? '#d4af37' }} />
+          <span className="persona-hint-text" style={{ color: suggestedPersonaColor ?? '#d4af37' }}>
+            {suggestedPersonaName}
+          </span>
+          <span className="persona-hint-label">antwortet dir</span>
+        </div>
+      )}
+
+      <div className="oracle-chips">
+        {REALM_CHIPS.map((chip) => (
+          <button
+            key={chip.id}
+            className={`realm-chip${selectedPersonaId === chip.personaId ? ' selected' : ''}`}
+            type="button"
+            onClick={() => {
+              setQuestion(chip.question);
+              setSelectedPersonaId(chip.personaId);
+            }}
+          >
+            {chip.icon} {chip.label}
+          </button>
+        ))}
+      </div>
+
       {speech.isSupported && (
         <button
           className={`oracle-live-talk-btn${speech.isListening ? ' active' : ''}`}
@@ -159,26 +189,10 @@ export function StudioHome({ onStartSession }: StudioHomeProps) {
             speech.startListening();
           }}
         >
-          <span style={{ fontSize: 18 }}>{speech.isListening ? '⏹' : '�️'}</span>
+          <span style={{ fontSize: 18 }}>{speech.isListening ? '⏹' : '🎙️'}</span>
           <span>{speech.isListening ? 'Stopp' : 'Live-Talk'}</span>
         </button>
       )}
-
-      <div className="oracle-chips">
-        {REALM_CHIPS.map((chip) => (
-          <button
-            key={chip.id}
-            className="realm-chip"
-            type="button"
-            onClick={() => {
-              setQuestion(chip.question);
-              setSelectedPersonaId(chip.personaId);
-            }}
-          >
-            {chip.icon} {chip.label}
-          </button>
-        ))}
-      </div>
 
       {recentSessions.length > 0 && (
         <div className="recent-sessions">
@@ -203,7 +217,7 @@ export function StudioHome({ onStartSession }: StudioHomeProps) {
         />
       )}
 
-      <style>{`\n        .oracle-entrance {\n          display: flex;\n          flex-direction: column;\n          align-items: center;\n          justify-content: center;\n          min-height: 80vh;\n          padding: 40px 32px;\n          text-align: center;\n        }\n\n        .oracle-symbol {\n          width: 72px;\n          height: 72px;\n          margin-bottom: 36px;\n          animation: oracleFloat 6s ease-in-out infinite;\n          opacity: 0.7;\n        }\n\n        @keyframes oracleFloat {\n          0%, 100% { transform: translateY(0); }\n          50% { transform: translateY(-8px); }\n        }\n\n        .oracle-headline {\n          font-size: clamp(32px, 4vw, 52px);\n          font-weight: 400;\n          line-height: 1.15;\n          margin-bottom: 12px;\n          letter-spacing: 0.01em;\n        }\n\n        .oracle-headline em {\n          font-style: italic;\n          color: var(--accent-gold, #c9a84c);\n        }\n\n        .oracle-sub {\n          font-size: 15px;\n          font-weight: 300;\n          color: rgba(255, 255, 255, 0.4);\n          margin-bottom: 44px;\n          letter-spacing: 0.02em;\n        }\n\n        .oracle-input-wrap {\n          position: relative;\n          width: 100%;\n          max-width: 600px;\n          margin-bottom: 24px;\n        }\n\n        .oracle-input {\n          width: 100%;\n          padding: 20px 28px;\n          border-radius: 60px;\n          font-style: italic;\n          font-size: 17px;\n          background: rgba(255, 255, 255, 0.04);\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          color: #f0eadc;\n          outline: none;\n        }\n\n        .oracle-input:focus {\n          border-color: rgba(212, 175, 55, 0.5);\n          box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);\n        }\n\n        .oracle-live-talk-btn {\n          display: flex;\n          align-items: center;\n          gap: 8px;\n          padding: 12px 28px;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          background: rgba(255, 255, 255, 0.04);\n          color: #d4c9b0;\n          cursor: pointer;\n          font-size: 14px;\n          font-weight: 500;\n          margin-bottom: 32px;\n          transition: all 0.2s;\n        }\n\n        .oracle-live-talk-btn.active {\n          border-color: rgba(80, 220, 120, 0.55);\n          background: rgba(80, 220, 120, 0.12);\n          color: #50dc78;\n        }\n\n        .oracle-live-talk-btn:hover {\n          border-color: rgba(255, 255, 255, 0.28);\n        }\n\n        .oracle-send-btn {\n          position: absolute;\n          right: 12px;\n          top: 50%;\n          transform: translateY(-50%);\n          width: 40px;\n          height: 40px;\n          border-radius: 50%;\n          border: 1px solid rgba(212, 175, 55, 0.35);\n          background: rgba(212, 175, 55, 0.16);\n          color: #d4af37;\n          cursor: pointer;\n          font-size: 18px;\n        }\n\n        .oracle-send-btn:disabled {\n          opacity: 0.35;\n          cursor: not-allowed;\n        }\n\n        .oracle-chips {\n          display: flex;\n          gap: 8px;\n          justify-content: center;\n          flex-wrap: wrap;\n          max-width: 540px;\n          margin-bottom: 48px;\n          opacity: 0.75;\n        }\n\n        .realm-chip {\n          font-size: 12px;\n          letter-spacing: 0.04em;\n          transition: all 0.2s;\n          padding: 7px 12px;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          background: rgba(255, 255, 255, 0.03);\n          color: #d4c9b0;\n          cursor: pointer;\n        }\n\n        .realm-chip:hover {\n          opacity: 1;\n          border-color: rgba(255, 255, 255, 0.25);\n        }\n\n        .recent-sessions {\n          display: flex;\n          align-items: center;\n          gap: 10px;\n          flex-wrap: wrap;\n          justify-content: center;\n        }\n\n        .recent-label {\n          font-size: 10px;\n          letter-spacing: 0.2em;\n          color: rgba(255, 255, 255, 0.25);\n          margin-right: 4px;\n        }\n\n        .session-pill {\n          display: flex;\n          align-items: center;\n          gap: 8px;\n          font-size: 12px;\n          color: #b5aca0;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.1);\n          background: rgba(255, 255, 255, 0.03);\n          padding: 7px 11px;\n          cursor: pointer;\n          max-width: 280px;\n          overflow: hidden;\n          text-overflow: ellipsis;\n          white-space: nowrap;\n        }\n\n        .session-dot {\n          width: 7px;\n          height: 7px;\n          border-radius: 50%;\n          flex-shrink: 0;\n        }\n      `}</style>
+      <style>{`\n        .oracle-entrance {\n          display: flex;\n          flex-direction: column;\n          align-items: center;\n          justify-content: center;\n          min-height: 80vh;\n          padding: 40px 32px;\n          text-align: center;\n        }\n\n        .oracle-symbol {\n          width: 72px;\n          height: 72px;\n          margin-bottom: 36px;\n          animation: oracleFloat 6s ease-in-out infinite;\n          opacity: 0.7;\n        }\n\n        @keyframes oracleFloat {\n          0%, 100% { transform: translateY(0); }\n          50% { transform: translateY(-8px); }\n        }\n\n        .oracle-headline {\n          font-size: clamp(32px, 4vw, 52px);\n          font-weight: 400;\n          line-height: 1.15;\n          margin-bottom: 12px;\n          letter-spacing: 0.01em;\n        }\n\n        .oracle-headline em {\n          font-style: italic;\n          color: var(--accent-gold, #c9a84c);\n        }\n\n        .oracle-sub {\n          font-size: 15px;\n          font-weight: 300;\n          color: rgba(255, 255, 255, 0.4);\n          margin-bottom: 44px;\n          letter-spacing: 0.02em;\n        }\n\n        .oracle-input-wrap {\n          position: relative;\n          width: 100%;\n          max-width: 600px;\n          margin-bottom: 24px;\n        }\n\n        .oracle-input {\n          width: 100%;\n          padding: 20px 28px;\n          border-radius: 60px;\n          font-style: italic;\n          font-size: 17px;\n          background: rgba(255, 255, 255, 0.04);\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          color: #f0eadc;\n          outline: none;\n        }\n\n        .oracle-input:focus {\n          border-color: rgba(212, 175, 55, 0.5);\n          box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);\n        }\n\n        .oracle-live-talk-btn {\n          display: flex;\n          align-items: center;\n          gap: 8px;\n          padding: 12px 28px;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          background: rgba(255, 255, 255, 0.04);\n          color: #d4c9b0;\n          cursor: pointer;\n          font-size: 14px;\n          font-weight: 500;\n          margin-bottom: 32px;\n          transition: all 0.2s;\n        }\n\n        .oracle-live-talk-btn.active {\n          border-color: rgba(80, 220, 120, 0.55);\n          background: rgba(80, 220, 120, 0.12);\n          color: #50dc78;\n        }\n\n        .oracle-live-talk-btn:hover {\n          border-color: rgba(255, 255, 255, 0.28);\n        }\n\n        .oracle-send-btn {\n          position: absolute;\n          right: 12px;\n          top: 50%;\n          transform: translateY(-50%);\n          width: 40px;\n          height: 40px;\n          border-radius: 50%;\n          border: 1px solid rgba(212, 175, 55, 0.35);\n          background: rgba(212, 175, 55, 0.16);\n          color: #d4af37;\n          cursor: pointer;\n          font-size: 18px;\n        }\n\n        .oracle-send-btn:disabled {\n          opacity: 0.35;\n          cursor: not-allowed;\n        }\n\n        .persona-hint {\n          display: flex;\n          align-items: center;\n          gap: 8px;\n          margin-bottom: 20px;\n          font-size: 13px;\n          opacity: 0;\n          transform: translateY(-4px);\n          animation: hintFadeIn 0.3s ease forwards;\n        }\n        @keyframes hintFadeIn {\n          to { opacity: 1; transform: translateY(0); }\n        }\n        .persona-hint-dot {\n          width: 7px;\n          height: 7px;\n          border-radius: 50%;\n          flex-shrink: 0;\n        }\n        .persona-hint-text {\n          font-weight: 500;\n        }\n        .persona-hint-label {\n          color: rgba(255,255,255,0.35);\n        }\n\n        .oracle-chips {\n          display: flex;\n          gap: 8px;\n          justify-content: flex-start;\n          flex-wrap: nowrap;\n          overflow-x: auto;\n          max-width: 600px;\n          width: 100%;\n          margin-bottom: 28px;\n          padding-bottom: 4px;\n          scrollbar-width: none;\n        }\n        .oracle-chips::-webkit-scrollbar { display: none; }\n\n        .realm-chip {\n          font-size: 12px;\n          letter-spacing: 0.04em;\n          transition: all 0.2s;\n          padding: 7px 14px;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.12);\n          background: rgba(255, 255, 255, 0.03);\n          color: #d4c9b0;\n          cursor: pointer;\n          white-space: nowrap;\n          flex-shrink: 0;\n        }\n\n        .realm-chip:hover {\n          opacity: 1;\n          border-color: rgba(255, 255, 255, 0.25);\n        }\n\n        .realm-chip.selected {\n          border-color: rgba(212,175,55,0.6);\n          background: rgba(212,175,55,0.1);\n          color: #e8c96a;\n        }\n\n        .recent-sessions {\n          display: flex;\n          align-items: center;\n          gap: 10px;\n          flex-wrap: wrap;\n          justify-content: center;\n        }\n\n        .recent-label {\n          font-size: 10px;\n          letter-spacing: 0.2em;\n          color: rgba(255, 255, 255, 0.25);\n          margin-right: 4px;\n        }\n\n        .session-pill {\n          display: flex;\n          align-items: center;\n          gap: 8px;\n          font-size: 12px;\n          color: #b5aca0;\n          border-radius: 999px;\n          border: 1px solid rgba(255, 255, 255, 0.1);\n          background: rgba(255, 255, 255, 0.03);\n          padding: 7px 11px;\n          cursor: pointer;\n          max-width: 280px;\n          overflow: hidden;\n          text-overflow: ellipsis;\n          white-space: nowrap;\n        }\n\n        .session-dot {\n          width: 7px;\n          height: 7px;\n          border-radius: 50%;\n          flex-shrink: 0;\n        }\n      `}</style>
     </div>
   );
 }
