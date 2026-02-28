@@ -12,6 +12,7 @@ import { callProvider } from '../lib/providers.js';
 import { generateTTS } from '../lib/ttsService.js';
 import { handleDeepModeRequest } from '../lib/deepModeHandler.js';
 import { getDb, profiles } from '../db.js';
+import { getUserMemoryContext, saveSessionMemory } from '../lib/memoryService.js';
 import { eq, sql } from 'drizzle-orm';
 
 function extractCleanText(raw: string): string {
@@ -90,6 +91,45 @@ function parseChatExcerptToHistory(chatExcerpt?: string): Array<{ role: string; 
       }
       return { role: 'assistant', content: line };
     });
+}
+
+interface SpeakerInfo {
+  name?: string;
+  isNew?: boolean;
+  uncertain?: boolean;
+  confidence?: number;
+  emotion?: {
+    emotion: string;
+    stress_level: number;
+    confidence: number;
+  };
+}
+
+function getSpeakerContext(sessionData?: { speakerInfo?: SpeakerInfo }): string {
+  if (!sessionData?.speakerInfo) return '';
+
+  const { name, isNew, uncertain, confidence, emotion } = sessionData.speakerInfo;
+  let context = '';
+
+  if (isNew) {
+    context += '\n[SYSTEM: Neue unbekannte Stimme erkannt. Frage natürlich nach dem Namen.]';
+  } else if (uncertain && name) {
+    context += `\n[SYSTEM: Stimme erkannt als "${name}" (unsicher). Frage kurz zur Bestätigung.]`;
+  } else if (name) {
+    const pct = Math.round((confidence ?? 0.9) * 100);
+    context += `\n[SYSTEM: Sprecher identifiziert: ${name} (${pct}% sicher)]`;
+  }
+
+  if (emotion && emotion.confidence > 0.65) {
+    if (emotion.stress_level > 0.7) {
+      const stressPct = Math.round(emotion.stress_level * 100);
+      context += `\n[SYSTEM: Stimmanalyse – erhöhter Stress (${stressPct}%). Person klingt angespannt. Reagiere einfühlsam aber direkt.]`;
+    } else if (emotion.emotion !== 'neutral' && emotion.confidence > 0.75) {
+      context += `\n[SYSTEM: Stimmung erkannt: ${emotion.emotion}. Beziehe das subtil ein wenn es passt.]`;
+    }
+  }
+
+  return context;
 }
 
 async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
@@ -181,6 +221,9 @@ interface StudioRequestBody {
     mysticism: number;
     provocation: number;
     intellect: number;
+  };
+  sessionData?: {
+    speakerInfo?: SpeakerInfo;
   };
 }
 
@@ -312,6 +355,16 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
 
   const model = body.model || config.defaultModel;
   const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt, userMemory } = body;
+  const userId = typeof studioRequest.profileId === 'string' && studioRequest.profileId.trim().length > 0
+    ? studioRequest.profileId.trim()
+    : undefined;
+  const personaIdForMemory = body.soloPersona ?? studioRequest.seats?.[0];
+  const [memoryContext, speakerContext] = await Promise.all([
+    userId ? getUserMemoryContext(userId) : Promise.resolve(''),
+    Promise.resolve(getSpeakerContext(body.sessionData)),
+  ]);
+  const mergedUserMemory = [userMemory, memoryContext].filter((part) => typeof part === 'string' && part.trim().length > 0).join('\n\n');
+
   const anchors = buildStudioAnchors({
     profileExcerpt,
     matchExcerpt,
@@ -320,15 +373,18 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   const anchorInstruction = renderAnchorInstructionBlock(anchors);
 
   const lilithIntensity: LilithIntensity = (body.lilithIntensity as LilithIntensity) ?? 'ehrlich';
-  const systemPrompt = body.soloPersona
+  const baseSystemPrompt = body.soloPersona
     ? buildSoloSystemPrompt(body.soloPersona, lilithIntensity, body.freeMode ?? false, body.moodParameters)
     : buildSystemPrompt(lilithIntensity, body.moodParameters);
+  const systemPrompt = baseSystemPrompt
+    + (speakerContext ? `\n\n${speakerContext}` : '')
+    + (memoryContext ? `\n\n${memoryContext}` : '');
   const userPrompt = buildUserPrompt({
     mode: studioRequest.mode,
     profileExcerpt,
     matchExcerpt,
     chatExcerpt,
-    userMemory,
+    userMemory: mergedUserMemory,
     anchorInstruction,
     userMessage: studioRequest.userMessage,
     seats: studioRequest.seats,
@@ -567,6 +623,24 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     };
 
     devLogger.trackLLMCall(providerName, Date.now() - startTime, true);
+
+    if (userId && personaIdForMemory) {
+      const history = parseChatExcerptToHistory(chatExcerpt)
+        .map((entry) => ({
+          role: entry.role === 'user' ? 'user' : 'assistant',
+          content: entry.content,
+        })) as Array<{ role: 'user' | 'assistant'; content: string }>;
+      const sessionMessages = [
+        ...history,
+        { role: 'user' as const, content: studioRequest.userMessage },
+        ...parsed.turns.map((turn: { seat: string; text: string }) => ({
+          role: 'assistant' as const,
+          content: `${turn.seat}: ${turn.text}`,
+        })),
+      ];
+      saveSessionMemory(userId, personaIdForMemory, sessionMessages).catch(console.error);
+    }
+
     res.json(parsed);
   } catch (err) {
     const durationMs = Date.now() - startTime;

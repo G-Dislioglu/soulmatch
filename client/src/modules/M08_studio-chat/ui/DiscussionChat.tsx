@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PersonaBar } from './PersonaBar';
 import { PersonaTuningBar } from './PersonaTuningBar';
+import { VoiceRitual } from './VoiceRitual';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES } from '../lib/personaColors';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from './SpeechConsentDialog';
@@ -74,6 +75,10 @@ export function DiscussionChat({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showVoiceRitual, setShowVoiceRitual] = useState(false);
+  const [voiceRitualDone, setVoiceRitualDone] = useState(
+    () => localStorage.getItem('voice_ritual_done') === 'true'
+  );
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [speakingPersona, setSpeakingPersona] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -558,9 +563,14 @@ export function DiscussionChat({
       setShowConsent(true);
       return;
     }
+
     if (speech.isContinuousMode) {
       speech.stopContinuous();
     } else {
+      if (!voiceRitualDone) {
+        setShowVoiceRitual(true);
+        return;
+      }
       speech.startContinuous();
       console.log('[STT] started');
     }
@@ -574,8 +584,20 @@ export function DiscussionChat({
       console.log('[STT] started');
       return;
     }
+
+    if (!voiceRitualDone) {
+      setShowVoiceRitual(true);
+      return;
+    }
+
     speech.startContinuous();
     console.log('[STT] started');
+  }
+
+  function handleRitualComplete(_registered: boolean) {
+    setShowVoiceRitual(false);
+    setVoiceRitualDone(true);
+    localStorage.setItem('voice_ritual_done', 'true');
   }
 
   return (
@@ -967,6 +989,16 @@ export function DiscussionChat({
         />
       )}
 
+      {showVoiceRitual && (
+        <VoiceRitual
+          personaId={activePersonaId}
+          personaName={activePersonaName}
+          personaIcon={activePersonaIcon}
+          personaColor={activePersonaColor}
+          onComplete={handleRitualComplete}
+        />
+      )}
+
       <style>{`@keyframes voicePulse {
         0%, 100% { box-shadow: 0 0 8px rgba(80,220,120,0.2); }
         50% { box-shadow: 0 0 20px rgba(80,220,120,0.6); }
@@ -1172,6 +1204,97 @@ export function DiscussionChat({
         height: 7px;
         border-radius: 50%;
         flex-shrink: 0;
+      }
+      .voice-ritual-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(5, 5, 10, 0.92);
+        backdrop-filter: blur(20px);
+        animation: fadeIn 0.5s ease;
+      }
+      .voice-ritual-card {
+        text-align: center;
+        max-width: 360px;
+        padding: 48px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+      .ritual-avatar {
+        width: 88px;
+        height: 88px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        background: color-mix(in srgb, var(--ritual-color, #c9a84c) 12%, transparent);
+        border: 1px solid var(--ritual-color, #c9a84c);
+        margin-bottom: 32px;
+        animation: ritualBreath 3s ease-in-out infinite;
+      }
+      @keyframes ritualBreath {
+        0%, 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+        50% {
+          box-shadow: 0 0 40px color-mix(in srgb, var(--ritual-color) 30%, transparent);
+          transform: scale(1.04);
+        }
+      }
+      .ritual-text {
+        font-size: 22px;
+        font-weight: 300;
+        line-height: 1.55;
+        color: rgba(255,255,255,0.88);
+        margin-bottom: 16px;
+      }
+      .ritual-text em {
+        font-style: italic;
+        color: var(--accent-gold, #c9a84c);
+      }
+      .ritual-sub {
+        font-size: 14px;
+        color: rgba(255,255,255,0.4);
+        line-height: 1.6;
+        margin-bottom: 8px;
+      }
+      .ritual-consent {
+        font-size: 13px;
+        color: rgba(255,255,255,0.35);
+        border-top: 1px solid rgba(255,255,255,0.07);
+        padding-top: 16px;
+        margin-bottom: 28px;
+        margin-top: 8px;
+      }
+      .ritual-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      .btn-primary {
+        border: 1px solid rgba(212,175,55,0.4);
+        border-radius: 10px;
+        background: rgba(212,175,55,0.2);
+        color: #f0eadc;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 10px 14px;
+      }
+      .btn-ghost {
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        color: rgba(255,255,255,0.75);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 10px 14px;
       }
       @media (max-width: 900px) {
         .analyst-sidebar, .context-panel { display: none; }

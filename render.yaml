@@ -3,12 +3,18 @@ services:
     name: soulmatch
     runtime: node
     plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
     buildCommand: >
-      npm install -g pnpm@9 &&
-      cd client && pnpm install --frozen-lockfile && pnpm build &&
-      cd ../server && pnpm install --frozen-lockfile && pnpm build
+      npm install -g pnpm@10 &&
+      pnpm install --frozen-lockfile &&
+      pnpm build
     startCommand: node server/dist/index.js
     envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: DEEPSEEK_API_KEY
@@ -19,5 +25,7 @@ services:
         sync: false
       - key: FAL_KEY
         sync: false
+      - key: BUILD_AT
+        value: render
       - key: NODE_VERSION
         value: 20.11.0
