@@ -90,6 +90,7 @@ export function DiscussionChat({
   const audioQueueRef = useRef<{ id: string, url: string }[]>([]);
   const isPlayingQueueRef = useRef(false);
   const messagePersonaRef = useRef<Map<string, string>>(new Map());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => { selectedPersonasRef.current = selectedPersonas; }, [selectedPersonas]);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
@@ -316,9 +317,15 @@ export function DiscussionChat({
       if (activePersonas.length === 0) {
         throw new Error('Bitte mindestens eine Persona auswählen.');
       }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           personas: activePersonas,
           message: text,
@@ -436,6 +443,7 @@ export function DiscussionChat({
         if (doneEventReceived) break;
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       loadingRef.current = false;
@@ -499,6 +507,12 @@ export function DiscussionChat({
     }));
 
   function handleSwitchPersona(id: string) {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    loadingRef.current = false;
+    setLoading(false);
     onSwitchPersona?.(id);
     if (!onSwitchPersona && !selectedPersonasProp) {
       setSelectedPersonasState([id]);
@@ -993,7 +1007,7 @@ export function DiscussionChat({
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        min-width: 0;
+        min-width: 260px;
       }
       .messages {
         flex: 1;
@@ -1002,7 +1016,7 @@ export function DiscussionChat({
         overscroll-behavior: contain;
       }
       .analyst-sidebar {
-        width: 190px;
+        width: 155px;
         flex-shrink: 0;
         position: relative;
         border-right: 1px solid rgba(255,255,255,0.08);
@@ -1110,7 +1124,7 @@ export function DiscussionChat({
         display: block;
       }
       .context-panel {
-        width: 220px;
+        width: 200px;
         flex-shrink: 0;
         position: relative;
         border-left: 1px solid rgba(255,255,255,0.08);
