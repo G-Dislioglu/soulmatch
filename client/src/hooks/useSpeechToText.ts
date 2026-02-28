@@ -287,6 +287,13 @@ export function useSpeechToText(
     setTranscript('');
     transcriptRef.current = '';
 
+    // Release any open getUserMedia stream so the Recognition API
+    // gets exclusive mic access (holding both simultaneously causes conflicts).
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((t) => t.stop());
+      micStreamRef.current = null;
+    }
+
     const doStart = (attempt: number) => {
       if (!isContinuousModeRef.current || !recognitionRef.current) return;
       try {
@@ -301,29 +308,6 @@ export function useSpeechToText(
         }
       }
     };
-
-    // Explicitly request mic permission via getUserMedia first,
-    // so the browser permission popup definitely appears.
-    const md = typeof navigator !== 'undefined' ? navigator.mediaDevices : null;
-    if (md?.getUserMedia) {
-      const streamActive = micStreamRef.current?.getTracks().some((t) => t.readyState === 'live') ?? false;
-      if (!streamActive) {
-        micStreamRef.current?.getTracks().forEach((t) => t.stop());
-        micStreamRef.current = null;
-        md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-          .then((stream) => {
-            micStreamRef.current = stream;
-            doStart(0);
-          })
-          .catch(() => {
-            console.warn('[speech] Mikrofonzugriff verweigert');
-            isContinuousModeRef.current = false;
-            setIsContinuousMode(false);
-            setMicBlocked(true);
-          });
-        return;
-      }
-    }
     doStart(0);
   }, []);
 
