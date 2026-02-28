@@ -85,6 +85,7 @@ export function DiscussionChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedPersonasRef = useRef<string[]>(selectedPersonas);
   const loadingRef = useRef(false); // Ref for auto-send callback
+  const shouldAutoScrollRef = useRef(true);
   const messagesRef = useRef<DiscussMessage[]>(messages);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const playedAudioRef = useRef<Set<string>>(new Set());
@@ -107,6 +108,8 @@ export function DiscussionChat({
 
     const handleScroll = () => {
       setShowScrollTop(node.scrollTop > 300);
+      const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      shouldAutoScrollRef.current = distanceFromBottom < 120;
     };
 
     handleScroll();
@@ -470,7 +473,10 @@ export function DiscussionChat({
   }, [sendMessage]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    const node = scrollRef.current;
+    if (!node) return;
+    if (!shouldAutoScrollRef.current) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
