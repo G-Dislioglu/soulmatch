@@ -45,6 +45,8 @@ export function useSpeechToText(
   const accumulatedFinalTextRef = useRef('');
   const isPlaybackActiveRef = useRef(false);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const lastStartAtRef = useRef(0);       // timestamp of last recognition.start() call
+  const startAttemptRef = useRef(0);     // consecutive restart attempts (for backoff)
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -105,8 +107,17 @@ export function useSpeechToText(
     const safeStart = () => {
       if (!isContinuousModeRef.current || !recognitionRef.current || runningRef.current) return;
       if (restartTimerRef.current) { window.clearTimeout(restartTimerRef.current); restartTimerRef.current = null; }
+      // Throttle: prevent start() spam closer than 200ms
+      const now = Date.now();
+      if (now - lastStartAtRef.current < 200) {
+        const delay = Math.min(300 + startAttemptRef.current * 150, 1000);
+        restartTimerRef.current = window.setTimeout(safeStart, delay);
+        return;
+      }
       try {
         recognitionRef.current.start();
+        lastStartAtRef.current = Date.now();
+        startAttemptRef.current += 1;
         runningRef.current = true;
         setIsListening(true);
         console.log('[speech] mic started');
@@ -116,8 +127,18 @@ export function useSpeechToText(
           setIsListening(true);
         } else {
           console.warn('[speech] safeStart failed:', e);
+          const delay = Math.min(300 + startAttemptRef.current * 150, 1000);
+          startAttemptRef.current += 1;
+          if (isContinuousModeRef.current) {
+            restartTimerRef.current = window.setTimeout(safeStart, delay);
+          }
         }
       }
+    };
+
+    recognition.onstart = () => {
+      startAttemptRef.current = 0; // successful start — reset backoff counter
+      console.log('[speech] onstart');
     };
 
     recognition.onend = () => {
@@ -142,7 +163,8 @@ export function useSpeechToText(
 
       // Restart only if continuous mode is still active and audio is not playing
       if (isContinuousModeRef.current && !isPlaybackActiveRef.current) {
-        restartTimerRef.current = window.setTimeout(safeStart, 600);
+        const delay = Math.min(300 + startAttemptRef.current * 150, 1000);
+        restartTimerRef.current = window.setTimeout(safeStart, delay);
       }
     };
 
