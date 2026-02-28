@@ -13,6 +13,7 @@ export interface UseSpeechToTextReturn {
   isSupported: boolean;
   hasConsent: boolean;
   isContinuousMode: boolean;
+  micBlocked: boolean;
   startListening: () => void;
   stopListening: () => void;
   resetTranscript: () => void;
@@ -31,6 +32,7 @@ export function useSpeechToText(
   const [isSupported, setIsSupported] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
   const [isContinuousMode, setIsContinuousMode] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const isContinuousModeRef = useRef(false);
@@ -160,6 +162,7 @@ export function useSpeechToText(
         isContinuousModeRef.current = false;
         shouldAutoSendOnEndRef.current = false;
         setIsContinuousMode(false);
+        setMicBlocked(true);
         try { recognitionRef.current?.stop(); } catch { /* ignore */ }
         setTranscript('');
         transcriptRef.current = '';
@@ -276,13 +279,14 @@ export function useSpeechToText(
   const startContinuous = useCallback(() => {
     if (!recognitionRef.current) return;
     console.log('[speech] startContinuous called');
-    void ensureMicStream();
     isContinuousModeRef.current = true;
     shouldAutoSendOnEndRef.current = true;
     setIsContinuousMode(true);
+    setMicBlocked(false);
     accumulatedFinalTextRef.current = '';
     setTranscript('');
     transcriptRef.current = '';
+
     const doStart = (attempt: number) => {
       if (!isContinuousModeRef.current || !recognitionRef.current) return;
       try {
@@ -297,6 +301,29 @@ export function useSpeechToText(
         }
       }
     };
+
+    // Explicitly request mic permission via getUserMedia first,
+    // so the browser permission popup definitely appears.
+    const md = typeof navigator !== 'undefined' ? navigator.mediaDevices : null;
+    if (md?.getUserMedia) {
+      const streamActive = micStreamRef.current?.getTracks().some((t) => t.readyState === 'live') ?? false;
+      if (!streamActive) {
+        micStreamRef.current?.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+        md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+          .then((stream) => {
+            micStreamRef.current = stream;
+            doStart(0);
+          })
+          .catch(() => {
+            console.warn('[speech] Mikrofonzugriff verweigert');
+            isContinuousModeRef.current = false;
+            setIsContinuousMode(false);
+            setMicBlocked(true);
+          });
+        return;
+      }
+    }
     doStart(0);
   }, []);
 
@@ -323,6 +350,7 @@ export function useSpeechToText(
     isSupported,
     hasConsent,
     isContinuousMode,
+    micBlocked,
     startListening,
     stopListening,
     resetTranscript,

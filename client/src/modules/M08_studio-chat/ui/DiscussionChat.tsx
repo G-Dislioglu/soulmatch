@@ -777,35 +777,70 @@ export function DiscussionChat({
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 {!showTopBar && speech.isSupported && (
-                  <button
-                    onClick={() => {
-                      if (!speech.isContinuousMode && !audioMode) {
-                        setAudioMode(true);
-                      }
-                      handleToggleContinuous();
-                    }}
-                    title="Live-Talk"
-                    style={{
-                      minWidth: 98,
-                      height: 42,
-                      borderRadius: 10,
-                      border: speech.isContinuousMode ? '1px solid rgba(80,220,120,0.55)' : '1px solid rgba(255,255,255,0.10)',
-                      background: speech.isContinuousMode ? 'rgba(80,220,120,0.16)' : 'rgba(255,255,255,0.04)',
-                      color: speech.isContinuousMode ? '#50dc78' : '#d4c9b0',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      padding: '0 12px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{ fontSize: 16 }}>{speech.isContinuousMode ? '⏹' : '🎙️'}</span>
-                    <span>Live-Talk</span>
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                    <button
+                      onClick={() => {
+                        if (speech.micBlocked) {
+                          // Berechtigung wurde verweigert – erneut versuchen
+                          speech.stopContinuous();
+                        }
+                        if (!speech.isContinuousMode && !audioMode) {
+                          setAudioMode(true);
+                        }
+                        handleToggleContinuous();
+                      }}
+                      title={speech.micBlocked ? 'Mikrofon gesperrt – Berechtigung prüfen' : 'Live-Talk'}
+                      style={{
+                        minWidth: 98,
+                        height: 42,
+                        borderRadius: 10,
+                        border: speech.micBlocked
+                          ? '1px solid rgba(239,68,68,0.6)'
+                          : speech.isListening
+                          ? '1px solid rgba(80,220,120,0.8)'
+                          : speech.isContinuousMode
+                          ? '1px solid rgba(80,220,120,0.35)'
+                          : '1px solid rgba(255,255,255,0.10)',
+                        background: speech.micBlocked
+                          ? 'rgba(239,68,68,0.12)'
+                          : speech.isListening
+                          ? 'rgba(80,220,120,0.22)'
+                          : speech.isContinuousMode
+                          ? 'rgba(80,220,120,0.10)'
+                          : 'rgba(255,255,255,0.04)',
+                        color: speech.micBlocked
+                          ? '#f87171'
+                          : speech.isListening
+                          ? '#50dc78'
+                          : speech.isContinuousMode
+                          ? '#7de0a0'
+                          : '#d4c9b0',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        padding: '0 12px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span style={{ fontSize: 16 }}>
+                        {speech.micBlocked ? '🚫' : speech.isContinuousMode ? '⏹' : '🎙️'}
+                      </span>
+                      <span>Live-Talk</span>
+                    </button>
+                    {speech.micBlocked && (
+                      <span style={{ fontSize: 10, color: '#f87171', textAlign: 'center', lineHeight: 1.3 }}>
+                        Mikrofon gesperrt
+                      </span>
+                    )}
+                    {speech.isContinuousMode && !speech.isListening && !speech.micBlocked && (
+                      <span style={{ fontSize: 10, color: '#7de0a0', textAlign: 'center', lineHeight: 1.3 }}>
+                        Starte…
+                      </span>
+                    )}
+                  </div>
                 )}
 
 
