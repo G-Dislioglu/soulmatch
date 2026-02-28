@@ -59,7 +59,7 @@ export function useSpeechToText(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recognition: any = new Ctor();
     recognition.lang = LANGUAGE_MAP[language] ?? 'de-DE';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,24 +150,12 @@ export function useSpeechToText(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       console.log('[speech] error:', event.error);
-      setIsListening(false);
       if (event.error === 'no-speech') {
-        // Silence — just restart if handsfree is active
-        if (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) {
-          setTimeout(() => {
-            if ((isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && recognitionRef.current) {
-              try {
-                if (!isListening) {
-                  recognitionRef.current.start();
-                  setIsListening(true);
-                }
-              } catch {
-                // ignore
-              }
-            }
-          }, 300);
-        }
-      } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        // With continuous=true the recognition keeps running after silence — ignore
+        return;
+      }
+      setIsListening(false);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         // Permission denied — stop continuous mode
         isContinuousModeRef.current = false;
         shouldAutoSendOnEndRef.current = false;
@@ -295,12 +283,21 @@ export function useSpeechToText(
     accumulatedFinalTextRef.current = '';
     setTranscript('');
     transcriptRef.current = '';
-    try {
-      recognitionRef.current.start();
-      setIsListening(true);
-      console.log('[STT] started');
-      console.log('[speech] mic started, isContinuousMode=true');
-    } catch (e) { console.log('[speech] start failed:', e); /* already started */ }
+    const doStart = (attempt: number) => {
+      if (!isContinuousModeRef.current || !recognitionRef.current) return;
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        console.log('[speech] mic started (continuous), attempt', attempt);
+      } catch (e: any) {
+        if (e.name === 'InvalidStateError' && attempt < 5) {
+          window.setTimeout(() => doStart(attempt + 1), 250);
+        } else {
+          console.warn('[speech] startContinuous failed:', e);
+        }
+      }
+    };
+    doStart(0);
   }, []);
 
   const stopContinuous = useCallback(() => {
