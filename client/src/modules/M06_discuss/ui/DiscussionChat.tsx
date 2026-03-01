@@ -207,11 +207,13 @@ export function DiscussionChat({ onBack }: Props) {
       })),
       userId: profile?.id,
       audioMode: personaLiveTalk.isActive,
+      stream: false,
     });
 
     if (response?.responses?.length) {
       const first = response.responses[0];
       const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
+      const audioUrl = getAudioUrlFromResponse(first);
       setMessages((prev) => [
         ...prev,
         makeMessage({
@@ -222,7 +224,7 @@ export function DiscussionChat({ onBack }: Props) {
           text: personaText,
         }),
       ]);
-      await personaLiveTalk.playAudioFromResponse(first as { audioUrl?: string; audio_url?: string; audio?: string; mimeType?: string } | undefined);
+      await personaLiveTalk.playAudio(audioUrl);
     } else {
       const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
       const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';

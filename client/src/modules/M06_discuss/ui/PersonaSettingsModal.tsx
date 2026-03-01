@@ -31,16 +31,14 @@ export function PersonaSettingsModal({ persona, open, onClose }: Props) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="presentation"
       style={{
-        alignItems: 'center',
+        alignItems: 'flex-start',
         overflowY: 'auto',
-        padding: '20px',
+        padding: '40px 20px',
       }}
     >
       <div
         className="sm-modal"
         style={{
-          maxHeight: '85vh',
-          overflowY: 'auto',
           position: 'relative',
         }}
       >
