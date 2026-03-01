@@ -137,6 +137,18 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       currentAudioRef.current = audio;
       let done = false;
 
+      // Temporary diagnostics for silent-playback investigation.
+      audio.muted = false;
+      audio.volume = 1;
+      audio.preload = 'auto';
+
+      console.log('[LiveTalk] playAudio start', {
+        urlPrefix: audioUrl.slice(0, 32),
+        isDataUrl: audioUrl.startsWith('data:'),
+        readyState: audio.readyState,
+        networkState: audio.networkState,
+      });
+
       const finish = () => {
         if (done) return;
         done = true;
@@ -156,6 +168,27 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       // Expose finish so stopAudio() can drive cleanup if it interrupts us.
       finishRef.current = finish;
 
+      audio.onloadedmetadata = () => {
+        console.log('[LiveTalk] loadedmetadata', {
+          duration: audio.duration,
+          readyState: audio.readyState,
+          networkState: audio.networkState,
+        });
+      };
+      audio.oncanplay = () => {
+        console.log('[LiveTalk] canplay', {
+          currentTime: audio.currentTime,
+          duration: audio.duration,
+          readyState: audio.readyState,
+        });
+      };
+      audio.onplay = () => {
+        console.log('[LiveTalk] onplay', {
+          currentTime: audio.currentTime,
+          volume: audio.volume,
+          muted: audio.muted,
+        });
+      };
       audio.onended = finish;
       audio.onerror = (event) => {
         console.error('[LiveTalk] Audio-Fehler:', event);
