@@ -78,21 +78,22 @@ async function grantSpeechConsent(page: Page) {
   });
 }
 
-/** Mock /api/discuss to return a deterministic text response (no audio). */
+/** Mock /api/discuss to return a deterministic SSE response (no audio).
+ *  When stream:true the client uses callStream(), which reads text/event-stream. */
 async function mockDiscussApi(page: Page) {
   await page.route('**/api/discuss', async (route) => {
+    const textEvent = 'data: ' + JSON.stringify({
+      type: 'text',
+      persona: 'luna',
+      text: 'Ich höre dich, danke für deine Worte.',
+      color: '#a78bfa',
+    }) + '\n\n';
+    const doneEvent = 'data: ' + JSON.stringify({ type: 'done', creditsUsed: 1 }) + '\n\n';
+
     await route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        responses: [
-          {
-            persona: 'luna',
-            text: 'Ich höre dich, danke für deine Worte.',
-            color: '#a78bfa',
-          },
-        ],
-      }),
+      contentType: 'text/event-stream; charset=utf-8',
+      body: textEvent + doneEvent,
     });
   });
 }
