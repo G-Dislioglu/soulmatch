@@ -103,8 +103,11 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     await new Promise<void>((resolve) => {
       const audio = new Audio(audioUrl);
       currentAudioRef.current = audio;
+      let done = false;
 
       const finish = () => {
+        if (done) return;
+        done = true;
         if (currentAudioRef.current === audio) {
           currentAudioRef.current = null;
         }
@@ -122,6 +125,8 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
         finish();
       };
 
+      // Use play() directly — audio.load()+oncanplay is unreliable for data: URLs (base64 TTS)
+      // and leaves isPlayingRef stuck at true, permanently blocking Freisprechen auto-send.
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
