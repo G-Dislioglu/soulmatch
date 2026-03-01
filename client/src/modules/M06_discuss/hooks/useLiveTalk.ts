@@ -6,6 +6,7 @@ interface UseLiveTalkOptions {
 }
 
 interface AudioLikeResponse {
+  audioUrl?: string;
   audio_url?: string;
   audio?: string;
   mimeType?: string;
@@ -13,8 +14,12 @@ interface AudioLikeResponse {
 
 function getAudioUrl(response: AudioLikeResponse | undefined): string | undefined {
   if (!response) return undefined;
+  if (response.audioUrl) return response.audioUrl;
   if (response.audio_url) return response.audio_url;
   if (response.audio && response.audio.trim().length > 0) {
+    if (response.audio.startsWith('http://') || response.audio.startsWith('https://') || response.audio.startsWith('data:')) {
+      return response.audio;
+    }
     return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
   }
   return undefined;
@@ -34,11 +39,6 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     onTranscript(spoken);
   });
 
-  useEffect(() => {
-    setIsActive(speech.isContinuousMode);
-    isActiveRef.current = speech.isContinuousMode;
-  }, [speech.isContinuousMode]);
-
   const stopAudio = useCallback(() => {
     if (!currentAudioRef.current) return;
     currentAudioRef.current.pause();
@@ -51,10 +51,14 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       setShowConsent(true);
       return;
     }
+    setIsActive(true);
+    isActiveRef.current = true;
     speech.startContinuous();
   }, [speech]);
 
   const deactivate = useCallback(() => {
+    setIsActive(false);
+    isActiveRef.current = false;
     speech.stopContinuous();
     speech.setPlaybackActive(false);
     isPlayingRef.current = false;
@@ -72,6 +76,8 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
   const acceptConsent = useCallback(() => {
     speech.grantConsent();
     setShowConsent(false);
+    setIsActive(true);
+    isActiveRef.current = true;
     speech.startContinuous();
   }, [speech]);
 
@@ -80,7 +86,14 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
   }, []);
 
   const playAudio = useCallback(async (audioUrl: string | undefined): Promise<void> => {
-    if (!audioUrl || !isActiveRef.current) return;
+    if (!audioUrl) {
+      console.warn('[LiveTalk] playAudio: kein audioUrl');
+      return;
+    }
+    if (!isActiveRef.current) {
+      console.log('[LiveTalk] playAudio: LiveTalk nicht aktiv, übersprungen');
+      return;
+    }
 
     stopAudio();
     isPlayingRef.current = true;
@@ -104,11 +117,15 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       };
 
       audio.onended = finish;
-      audio.onerror = finish;
+      audio.onerror = (event) => {
+        console.error('[LiveTalk] Audio-Fehler:', event);
+        finish();
+      };
 
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {
+        playPromise.catch((err) => {
+          console.error('[LiveTalk] play() Fehler:', err);
           finish();
         });
       }

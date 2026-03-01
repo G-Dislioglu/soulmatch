@@ -26,8 +26,24 @@ export function PersonaSettingsModal({ persona, open, onClose }: Props) {
   };
 
   return (
-    <div className={`sm-modal-bd${open ? ' open' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
-      <div className="sm-modal">
+    <div
+      className={`sm-modal-bd${open ? ' open' : ''}`}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="presentation"
+      style={{
+        alignItems: 'center',
+        overflowY: 'auto',
+        padding: '20px',
+      }}
+    >
+      <div
+        className="sm-modal"
+        style={{
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          position: 'relative',
+        }}
+      >
         <div className="sm-modal-hd">
           <div className="sm-modal-av" style={{ borderColor: persona.color }}>{persona.icon}</div>
           <div>

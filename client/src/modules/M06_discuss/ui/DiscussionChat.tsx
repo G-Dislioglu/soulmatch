@@ -111,8 +111,12 @@ function makeMessage(partial: Omit<ChatMessage, 'id' | 'timestamp'>): ChatMessag
 
 function getAudioUrlFromResponse(response: { audio_url?: string; audio?: string; mimeType?: string } | undefined): string | undefined {
   if (!response) return undefined;
+  if ((response as { audioUrl?: string }).audioUrl) return (response as { audioUrl?: string }).audioUrl;
   if (response.audio_url) return response.audio_url;
   if (response.audio && response.audio.trim().length > 0) {
+    if (response.audio.startsWith('http://') || response.audio.startsWith('https://') || response.audio.startsWith('data:')) {
+      return response.audio;
+    }
     return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
   }
   return undefined;
@@ -133,19 +137,23 @@ export function DiscussionChat({ onBack }: Props) {
   const [insightIdx, setInsightIdx] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
+  const sendToCompanionRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const { call } = useDiscussApi();
-  const liveTalk = useLiveTalk({ onTranscript: (text) => {
+  const personaLiveTalk = useLiveTalk({ onTranscript: (text) => {
     setInput(text);
     void sendMessageRef.current(text);
+  } });
+  const companionLiveTalk = useLiveTalk({ onTranscript: (text) => {
+    void sendToCompanionRef.current(text);
   } });
 
   const profile = useMemo(() => loadProfile(), []);
 
   useEffect(() => {
-    if (liveTalk.transcript) {
-      setInput(liveTalk.transcript);
+    if (personaLiveTalk.transcript) {
+      setInput(personaLiveTalk.transcript);
     }
-  }, [liveTalk.transcript]);
+  }, [personaLiveTalk.transcript]);
 
   const handleCompanionSelect = (selected: PersonaInfo) => {
     setCompanion(selected);
@@ -198,7 +206,7 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
-      audioMode: liveTalk.isActive,
+      audioMode: personaLiveTalk.isActive,
     });
 
     if (response?.responses?.length) {
@@ -214,7 +222,7 @@ export function DiscussionChat({ onBack }: Props) {
           text: personaText,
         }),
       ]);
-      await liveTalk.playAudioFromResponse(first);
+      await personaLiveTalk.playAudioFromResponse(first as { audioUrl?: string; audio_url?: string; audio?: string; mimeType?: string } | undefined);
     } else {
       const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
       const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
@@ -282,7 +290,7 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
-      audioMode: liveTalk.isActive,
+      audioMode: companionLiveTalk.isActive,
     });
     setIsAnalyzing(false);
 
@@ -301,6 +309,27 @@ export function DiscussionChat({ onBack }: Props) {
     return getAudioUrlFromResponse(first);
   };
 
+  useEffect(() => {
+    sendToCompanionRef.current = async (textRaw: string) => {
+      const audioUrl = await sendToCompanion(textRaw);
+      await companionLiveTalk.playAudio(audioUrl);
+    };
+  }, [companionLiveTalk, sendToCompanion]);
+
+  const togglePersonaLive = () => {
+    if (companionLiveTalk.isActive) {
+      companionLiveTalk.deactivate();
+    }
+    personaLiveTalk.toggle();
+  };
+
+  const toggleCompanionLive = () => {
+    if (personaLiveTalk.isActive) {
+      personaLiveTalk.deactivate();
+    }
+    companionLiveTalk.toggle();
+  };
+
   if (step === 'companion-select') {
     return <CompanionSelectScreen onSelect={handleCompanionSelect} />;
   }
@@ -313,7 +342,7 @@ export function DiscussionChat({ onBack }: Props) {
     return null;
   }
 
-  const liveActive = liveTalk.isActive;
+  const personaLiveActive = personaLiveTalk.isActive;
 
   return (
     <div className="sm-chat-root" id="s-chat" style={{ overflow: 'hidden' }}>
@@ -332,15 +361,15 @@ export function DiscussionChat({ onBack }: Props) {
           <div>
             <div className="sm-ap-name" style={{ color: persona.color }}>{persona.name}</div>
             <div className="sm-ap-status">
-              {liveTalk.micBlocked
+              {personaLiveTalk.micBlocked
                 ? 'Mikrofon gesperrt'
-                : liveTalk.isActive
+                : personaLiveTalk.isActive
                   ? '🎙 Live aktiv'
                   : 'online · bereit'}
             </div>
           </div>
           <div className="sm-live-controls">
-            {liveTalk.isSupported ? <LiveTalkButton isActive={liveActive} onClick={liveTalk.toggle} /> : null}
+            {personaLiveTalk.isSupported ? <LiveTalkButton isActive={personaLiveActive} onClick={togglePersonaLive} /> : null}
             <button className="sm-settings-btn" onClick={() => setSettingsOpen(true)} type="button" title="Persona-Einstellungen">⚙</button>
           </div>
         </div>
@@ -382,7 +411,7 @@ export function DiscussionChat({ onBack }: Props) {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                liveTalk.resetTranscript();
+                personaLiveTalk.resetTranscript();
                 void sendMessage(input);
               }
             }}
@@ -390,7 +419,7 @@ export function DiscussionChat({ onBack }: Props) {
           <button
             className="sm-send-btn"
             onClick={() => {
-              liveTalk.resetTranscript();
+              personaLiveTalk.resetTranscript();
               void sendMessage(input);
             }}
             type="button"
@@ -407,14 +436,15 @@ export function DiscussionChat({ onBack }: Props) {
         onSendToCompanion={sendToCompanion}
         companionMessages={companionMessages}
         focusInputToken={focusCompanionToken}
-        liveActive={liveActive}
-        onLiveToggle={liveTalk.toggle}
-        onPlayAudio={liveTalk.playAudio}
+        liveActive={companionLiveTalk.isActive}
+        onLiveToggle={toggleCompanionLive}
+        onPlayAudio={companionLiveTalk.playAudio}
       />
 
       <PersonaSettingsModal persona={persona} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {liveTalk.showConsent ? <SpeechConsentDialog onAccept={liveTalk.acceptConsent} onCancel={liveTalk.cancelConsent} /> : null}
+      {personaLiveTalk.showConsent ? <SpeechConsentDialog onAccept={personaLiveTalk.acceptConsent} onCancel={personaLiveTalk.cancelConsent} /> : null}
+      {companionLiveTalk.showConsent ? <SpeechConsentDialog onAccept={companionLiveTalk.acceptConsent} onCancel={companionLiveTalk.cancelConsent} /> : null}
 
       {onBack ? <button className="sm-hidden-exit" type="button" onClick={onBack} aria-hidden="true" tabIndex={-1} /> : null}
     </div>
