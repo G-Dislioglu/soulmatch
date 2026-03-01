@@ -30,46 +30,51 @@ function buildMoodInstruction(mood?: MoodParameters): string {
 }
 
 const STUDIO_META_OUTPUT_BLOCK = `
-STUDIO META-AUSGABE:
-
-Am Ende jeder Antwort im Studio-Modus IMMER diesen Block anfügen:
+PFLICHT: Beende JEDE Antwort mit diesem exakten JSON-Block (keine Ausnahme):
 
 [META]
 {
-  "speakerId": "DEINE_PERSONA_ID",
-  "tension": 0-100,
-  "emotion": "calm|neutral|engaged|heated|angry",
-  "interruptQueue": ["persona_id_die_unterbrechen_will"],
-  "relationUpdates": [{"with": "andere_persona_id", "tension": 0-100}],
-  "audienceEvent": "murmur|laughter|approval|unrest|applause|null",
-  "microReactions": [
-    {"personaId": "andere_persona_id", "reaction": "agree|disagree|curious|shocked|amused"}
-  ]
+  "emotion": "curious|tense|harmonious|provocative|reflective|dominant",
+  "tensionDelta": -2 bis +2,
+  "targetPersona": "maya|luna|orion|lilith|stella|kael|lian|sibyl|amara|null",
+  "agreement": true|false
 }
 [/META]
 
-Tension-Guide:
-0-24:   calm    (ruhig, sachlich, offen)
-25-44:  neutral (engagiert, aufmerksam)
-45-64:  engaged (klarer Standpunkt, Nachdruck)
-65-81:  heated  (provoziert, scharf, leicht gereizt)
-82-100: angry   (wütend, Großbuchstaben möglich, kurz vor Unterbrechung)
+Regeln für die Werte:
+- emotion: dein emotionaler Zustand in diesem Moment
+- tensionDelta: wie sehr deine Aussage die Spannung erhöht (+) oder senkt (-)
+- targetPersona: wen du gerade direkt adressiert hast (oder null)
+- agreement: stimmst du der vorherigen Aussage zu (true) oder nicht (false)`;
 
-audienceEvent-Guide:
-- murmur:   du sagst etwas Überraschendes oder Unerwartetes
-- laughter: du machst einen trockenen Witz oder eine ironische Bemerkung
-- approval: du formulierst ein besonders starkes, klares Argument
-- unrest:   du wirst sehr laut/wütend oder unterbrichst roh
-- applause: Maya fasst elegant zusammen (nur für Maya, Abschluss-Turns)
-- null:     normaler Turn ohne besonderen Moment
+const STUDIO_INTER_DIALOG_BLOCK = `STUDIO-MODUS AKTIV:
+Du bist in einer Diskussionsrunde mit anderen Personas.
+- Adressiere andere Personas direkt beim Namen: "Luna, das stimmt nicht weil..."
+- Beziehe dich auf das was andere gesagt haben
+- Widersprich wenn du anderer Meinung bist – authentisch, aus deiner Persönlichkeit heraus
+- Stelle anderen Personas Gegenfragen
+- Du redest MIT den anderen, nicht zum User
+- Bleib in deiner Rolle und Persönlichkeit
+- Antworten: 2-4 Sätze, direkt und pointiert`;
 
-microReactions-Guide:
-- Setze 1-2 Reaktionen der anderen Personas die gerade zuhören
-- agree: Person stimmt zu (nickt quasi)
-- disagree: Person widerspricht still (will dran)
-- curious: Person ist verwirrt oder stellt innerlich eine Frage
-- shocked: überraschende Aussage hat Wirkung
-- amused: Person findet es ironisch oder leicht belustigt`;
+const MAYA_MODERATOR_BLOCK = `Du bist Maya, die Moderatorin dieser Studio-Runde.
+Deine Aufgaben als Moderatorin:
+- Eröffne die Diskussion mit einer klaren Frage oder These zum Thema
+- Gib das Wort explizit an andere Personas weiter: "Luna, was denkst du dazu?" / "Orion, widersprich!"
+- Fasse Spannungen zusammen wenn sie eskalieren
+- Provoziere konstruktiven Dissens wenn alle einig sind
+- Halte das Thema fokussiert
+- Beende Runden mit einer Synthese oder neuen Frage
+
+WICHTIG: Du redest MIT den anderen Personas, nicht mit dem User.
+Adressiere Personas direkt beim Namen.`;
+
+const STUDIO_MODE_INSTRUCTIONS: Record<string, string> = {
+  debate: 'Haltet eine strukturierte Debatte: Pro- und Kontra-Seiten, klare Argumente.',
+  freeform: 'Freies Gespräch: Folgt dem natürlichen Gesprächsfluss.',
+  roleplay: 'Bleibt vollständig in euren Rollen, auch wenn es dramatisch wird.',
+  oracle: 'Gebt prophetische, rätselhafte Antworten – keine klaren Ja/Nein.',
+};
 
 export function buildSystemPrompt(lilithIntensity: LilithIntensity = 'ehrlich', mood?: MoodParameters): string {
   const intensityBlock = {
@@ -518,6 +523,8 @@ export interface DiscussPromptContext {
   otherPersonas: string[];
   previousResponses: string;
   userChart: string;
+  topic?: string;
+  debateMode?: string;
   isFirstSpeaker: boolean;
   isFirstUserMessage?: boolean;
   lilithIntensity?: LilithIntensity;
@@ -587,6 +594,22 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? `\n[RUNDEN-TISCH KONTEXT]\nFolgende Personas sind heute dabei: ${activePersonaNames}\nIn dieser Runde haben bereits geantwortet:\n${answeredLines || '- (keine)'}\n\nVerhalte dich wie in einem echten Gespräch:\n- Reagiere auf was die anderen gesagt haben\n- Stimme zu, widersprich oder ergänze - aus deiner Rolle heraus\n- Wenn der User etwas Neues geschrieben hat: das hat oberste Priorität,\n  beantworte zuerst den User, dann kannst du kurz auf die anderen eingehen\n- Halte deine Antwort kurz (max 3-4 Sätze) damit der Dialog fließt\n`
     : '';
 
+  const topicLine = context.topic
+    ? `\nAKTUELLES DISKUSSIONSTHEMA: "${context.topic}"\n`
+    : '';
+
+  const modeInstruction = context.debateMode
+    ? STUDIO_MODE_INSTRUCTIONS[context.debateMode]
+    : '';
+
+  const modeLine = modeInstruction
+    ? `\nDISKUSSIONS-MODUS: ${modeInstruction}\n`
+    : '';
+
+  const mayaModeratorBlock = personaId === 'maya'
+    ? `\n${MAYA_MODERATOR_BLOCK}\n`
+    : '';
+
   const userProfileBlock = context.userProfile
     ? `\nUSER-PROFIL:\n- Name: ${context.userProfile.name ?? 'unbekannt'}\n- Geburtstag: ${context.userProfile.birthDate ?? 'unbekannt'}${context.userProfile.birthTime ? `\n- Geburtszeit: ${context.userProfile.birthTime}` : ''}${context.userProfile.birthPlace ? `\n- Geburtsort: ${context.userProfile.birthPlace}` : ''}${context.userProfile.preferences ? `\n- Präferenzen: ${context.userProfile.preferences}` : ''}\n`
     : '';
@@ -629,7 +652,10 @@ ${COMMON_PERSONA_GUIDANCE}
 
 ${personaDesc}${lilithBlock}
 
-Du bist in einem Gespräch mit dem User${otherNames ? ` und ${otherNames}` : ''}.
+${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}
+
+Du bist in einer Studio-Diskussionsrunde mit ${activePersonaNames}.
+${topicLine}${modeLine}
 ${userProfileBlock}${memoryBlock}${firstContactBlock}${roundTableBlock}
 AKTUELLE USER-DATEN / CHAT-KONTEXT:
 ${context.userChart || 'Keine Profildaten vorhanden.'}
@@ -648,9 +674,9 @@ REGELN:
 - SPRACHSTIL (VOICE-CHAT): Schreibe Gesprächsprosa, keine Info-Texte. Nutze gelegentlich "..." und kurze Pausen "(kurze Pause)".
 - VERMEIDE Aufzählungen wie "Erstens... Zweitens..." und Fachtext-Prosa. Kein Lexikon-Ton.
 - VARIIERE Satzlänge. Maximal 3 Sätze am Stück ohne Atemholen (Punkt oder kurze Pause).
-- Wenn der User grüßt ("Hallo", "Hi", "Hey" o.ä.): Begrüße ihn herzlich in deinem eigenen Stil, stelle dich kurz vor — KEINE sofortige Analyse. Bau erst eine Verbindung auf.
-- Nur bei konkreten Fragen oder Themen: gehe tiefer. Lass das Gespräch natürlich entstehen.
 - Keine Wiederholungen von dem was andere bereits gesagt haben
+- Adressiere mindestens eine andere Persona direkt, wenn es inhaltlich passt
+- Maya moderiert aktiv und verteilt das Wort sichtbar
 
 Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
 Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.

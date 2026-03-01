@@ -16,7 +16,7 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
+import { DiscussionChat, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import { StudioPage } from '../modules/M08_studio-chat/ui/StudioPage';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
@@ -44,11 +44,12 @@ import { DisclaimerModal } from '../modules/M01_app-shell';
 const ACCENT = '#d4af37';
 const PAGE_PROFILE = 0;
 const PAGE_REPORT = 1;
-const PAGE_STUDIO = 2;
+const PAGE_CHAT = 2;
 const PAGE_EXPLORE = 3;
 const PAGE_ASTRO = 4;
 const PAGE_JOURNEY = 5;
 const PAGE_SOULS = 6;
+const PAGE_STUDIO = 7;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '👤', color: ACCENT },
   { label: 'Match', icon: '🔥', color: '#c084fc' },
@@ -57,6 +58,7 @@ const APP_PAGES: PageDef[] = [
   { label: 'Astro', icon: '✶', color: '#38bdf8' },
   { label: 'Reise', icon: '✧', color: '#34d399' },
   { label: 'Seelen', icon: '♥', color: '#f472b6' },
+  { label: 'Studio', icon: '◈', color: ACCENT },
 ];
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
@@ -355,7 +357,7 @@ function HomePage() {
   // ── Sidebar Callbacks ──
   const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
     onNavigateScore: () => setActivePage(PAGE_REPORT),
-    onNavigateChat: (_personaId: string) => setActivePage(PAGE_STUDIO),
+    onNavigateChat: (_personaId: string) => setActivePage(PAGE_CHAT),
     onNavigateInsight: () => setActivePage(PAGE_REPORT),
     onOpenSettings: () => setOverlay('settings'),
     onOpenSoulCard: (card) => setActiveSoulCard(card),
@@ -1673,6 +1675,26 @@ function HomePage() {
         )}
 
         {/* ═══ PAGE 2: CHAT ═══ */}
+        {activePage === PAGE_CHAT && (
+          <div
+            key="chat"
+            className="portal-enter"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              minHeight: 0,
+              maxWidth: 1280,
+              margin: '0 auto',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            <DiscussionChat onBack={() => setActivePage(PAGE_PROFILE)} />
+          </div>
+        )}
+
+        {/* ═══ PAGE 7: STUDIO ═══ */}
         {activePage === PAGE_STUDIO && (
           <div
             key="studio"

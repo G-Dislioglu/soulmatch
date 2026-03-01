@@ -44,6 +44,8 @@ export function StudioSession({ config, onBack }: Props) {
   const feedRef = useRef<HTMLDivElement>(null)
   const turnRef = useRef(0)
   const runningRef = useRef(false)
+  const errorCountRef = useRef(0)
+  const MAX_ERRORS = 2
 
   const activeIds = ['maya', ...config.selectedPersonaIds]
   const initPersonas = activeIds.map((id) => ({
@@ -81,20 +83,26 @@ export function StudioSession({ config, onBack }: Props) {
   }
 
   async function callDiscuss(userMessage?: string) {
-    const message = userMessage ?? `Thema: ${config.topic}. Modus: ${config.mode}. Turn ${turnRef.current + 1}. Führt die Diskussion fort.`
+    const message = userMessage
+      ?? (turnRef.current === 0
+        ? `Studio-Diskussion starten. Thema: ${config.topic}`
+        : 'Weiter')
+
     const body = {
+      personas: config.selectedPersonaIds,
+      message,
+      conversationHistory: messages.slice(-12).map((m) => ({
+        role: m.speakerId === 'user' ? 'user' : 'assistant',
+        content: `${m.speakerName}: ${m.text}`,
+      })),
+      end_session: false,
+      stream: false,
+      audioMode: false,
+
       studioMode: true,
       topic: config.topic,
       debateMode: config.mode,
       turn: turnRef.current,
-      personas: activeIds,
-      message,
-      conversationHistory: messages.slice(-10).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.role === 'user' ? m.text : `${m.speakerName}: ${m.text}`,
-      })),
-      userMessage: userMessage ?? null,
-      stream: false,
     }
 
     const res = await fetch('/api/discuss', {
@@ -112,12 +120,16 @@ export function StudioSession({ config, onBack }: Props) {
 
   async function runTurn(userMessage?: string) {
     if (runningRef.current) return
+    if (errorCountRef.current >= MAX_ERRORS && !userMessage) return
+
     runningRef.current = true
     setIsLoading(true)
 
     try {
       const data = await callDiscuss(userMessage)
       const responses = data.responses ?? []
+
+      errorCountRef.current = 0
 
       for (const resp of responses) {
         const speakerId = resp.persona
@@ -153,16 +165,6 @@ export function StudioSession({ config, onBack }: Props) {
       }
 
       turnRef.current++
-    } catch (err) {
-      console.error('[StudioSession]', err)
-      addMessage({
-        speakerId: 'maya',
-        speakerName: PERSONA_NAMES.maya ?? 'Maya',
-        speakerColor: PERSONA_COLORS.maya ?? '#c8a45a',
-        text: 'Ein kurzer Moment der Stille. Ich setze die Diskussion fort.',
-        role: 'moderator',
-      })
-    } finally {
       setIsLoading(false)
       clearSpeaking()
       runningRef.current = false
@@ -172,6 +174,23 @@ export function StudioSession({ config, onBack }: Props) {
           void runTurn()
         }, 3000)
       }
+    } catch (err) {
+      console.error('[StudioSession]', err)
+      errorCountRef.current++
+
+      if (errorCountRef.current >= MAX_ERRORS) {
+        addMessage({
+          speakerId: 'maya',
+          speakerName: PERSONA_NAMES['maya'] ?? 'Maya',
+          speakerColor: PERSONA_COLORS['maya'] ?? '#c8a45a',
+          text: 'Die Verbindung wurde unterbrochen. Nutze "Wort ergreifen" um fortzufahren.',
+          role: 'moderator',
+        })
+      }
+
+      setIsLoading(false)
+      clearSpeaking()
+      runningRef.current = false
     }
   }
 
