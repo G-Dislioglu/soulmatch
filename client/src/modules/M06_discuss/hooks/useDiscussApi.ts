@@ -97,13 +97,20 @@ export function useDiscussApi() {
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
+          if (!line.startsWith('data:')) continue;
           try {
-            const event = JSON.parse(line.slice(6)) as Record<string, unknown>;
+            const event = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
             if (event.type === 'text' && typeof event.persona === 'string' && typeof event.text === 'string') {
               callbacks.onText(event.persona, event.text, typeof event.color === 'string' ? event.color : '');
-            } else if (event.type === 'audio' && typeof event.persona === 'string' && typeof event.audio_url === 'string') {
-              callbacks.onAudio(event.persona, event.audio_url);
+            } else if (event.type === 'audio' && typeof event.persona === 'string') {
+              const audioUrl =
+                (typeof event.audio_url === 'string' ? event.audio_url : undefined)
+                ?? (typeof event.audioUrl === 'string' ? event.audioUrl : undefined)
+                ?? (typeof event.audio === 'string' ? event.audio : undefined);
+              if (audioUrl) {
+                console.log('[LiveTalk] onAudio received');
+                callbacks.onAudio(event.persona, audioUrl);
+              }
             }
           } catch {
             // ignore parse errors on individual SSE lines
