@@ -31,6 +31,12 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
   const isActiveRef = useRef(false);
   const isPlayingRef = useRef(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Tracks the pending play() promise so stopAudio() can wait for it before
+  // calling pause() — prevents "AbortError: play() interrupted by pause()".
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+  // Stores the finish() callback from the active playAudio() so stopAudio()
+  // can trigger cleanup when it interrupts audio that is still loading.
+  const finishRef = useRef<(() => void) | null>(null);
 
   const speech = useSpeechToText('de', (text) => {
     if (isPlayingRef.current) return;
@@ -40,10 +46,35 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
   });
 
   const stopAudio = useCallback(() => {
-    if (!currentAudioRef.current) return;
-    currentAudioRef.current.pause();
-    currentAudioRef.current.currentTime = 0;
+    const audio = currentAudioRef.current;
+    const pending = playPromiseRef.current;
+    const pendingFinish = finishRef.current;
+
+    if (!audio && !pending) return;
+
+    // Clear refs immediately so any concurrent call is a no-op.
     currentAudioRef.current = null;
+    playPromiseRef.current = null;
+    finishRef.current = null;
+
+    const doStop = () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+      // Drive the finish callback so isPlayingRef and mic state are always
+      // reset, even when audio was stopped before it finished loading.
+      pendingFinish?.();
+    };
+
+    if (pending) {
+      // Wait for play() to settle before pausing. Calling pause() on a
+      // still-loading audio element causes the browser to reject the play()
+      // promise with AbortError — this eliminates that race entirely.
+      pending.then(doStop, doStop);
+    } else {
+      doStop();
+    }
   }, []);
 
   const activate = useCallback(() => {
@@ -95,6 +126,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       return;
     }
 
+    // Stop any currently-playing or still-loading audio before starting new.
     stopAudio();
     isPlayingRef.current = true;
     speech.setPlaybackActive(true);
@@ -108,6 +140,8 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       const finish = () => {
         if (done) return;
         done = true;
+        playPromiseRef.current = null;
+        finishRef.current = null;
         if (currentAudioRef.current === audio) {
           currentAudioRef.current = null;
         }
@@ -119,18 +153,26 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
         resolve();
       };
 
+      // Expose finish so stopAudio() can drive cleanup if it interrupts us.
+      finishRef.current = finish;
+
       audio.onended = finish;
       audio.onerror = (event) => {
         console.error('[LiveTalk] Audio-Fehler:', event);
         finish();
       };
 
-      // Use play() directly — audio.load()+oncanplay is unreliable for data: URLs (base64 TTS)
-      // and leaves isPlayingRef stuck at true, permanently blocking Freisprechen auto-send.
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.error('[LiveTalk] play() Fehler:', err);
+        // Store so stopAudio() can wait for it before calling pause().
+        playPromiseRef.current = playPromise;
+        playPromise.catch((err: unknown) => {
+          // AbortError is expected only if stopAudio() somehow called pause()
+          // without waiting for the promise (should not happen after this fix).
+          // Log everything else as a genuine error.
+          if ((err as DOMException).name !== 'AbortError') {
+            console.error('[LiveTalk] play() Fehler:', err);
+          }
           finish();
         });
       }
