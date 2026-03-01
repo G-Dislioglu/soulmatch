@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, InsightCard, PersonaInfo } from '../types';
+import { LiveTalkButton } from './LiveTalkButton';
 
 interface Props {
   companion: PersonaInfo;
   insights: InsightCard[];
   isAnalyzing: boolean;
-  onSendToCompanion: (message: string, context?: string) => Promise<void>;
+  onSendToCompanion: (message: string, context?: string) => Promise<string | undefined>;
   companionMessages: ChatMessage[];
   focusInputToken?: number;
+  liveActive: boolean;
+  onLiveToggle: () => void;
+  onPlayAudio: (url: string | undefined) => Promise<void>;
 }
 
 const PATTERN_CARDS: Array<{ type: string; text: string; category: '' | 'tension' | 'harmony' | 'key' | 'new'; time: string }> = [
@@ -24,6 +28,9 @@ export function CompanionPanel({
   onSendToCompanion,
   companionMessages,
   focusInputToken,
+  liveActive,
+  onLiveToggle,
+  onPlayAudio,
 }: Props) {
   const [activeTab, setActiveTab] = useState<'erkenntnisse' | 'muster'>('erkenntnisse');
   const [contextText, setContextText] = useState<string | null>(null);
@@ -49,7 +56,8 @@ export function CompanionPanel({
     const text = input.trim();
     if (!text) return;
     setInput('');
-    await onSendToCompanion(text, contextText ?? undefined);
+    const audioUrl = await onSendToCompanion(text, contextText ?? undefined);
+    await onPlayAudio(audioUrl);
     setContextText(null);
   };
 
@@ -60,6 +68,9 @@ export function CompanionPanel({
         <div>
           <div className="sm-rp-title" style={{ color: companion.color }}>{companion.icon} {companion.name} · Begleitung</div>
           <div className="sm-rp-sub">beobachtet das Gespräch</div>
+        </div>
+        <div style={{ marginLeft: 'auto' }}>
+          <LiveTalkButton isActive={liveActive} onClick={onLiveToggle} />
         </div>
       </div>
 

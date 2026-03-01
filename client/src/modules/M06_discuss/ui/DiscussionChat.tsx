@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadProfile } from '../../M03_profile';
 import { SpeechConsentDialog } from '../../M08_studio-chat/ui/SpeechConsentDialog';
 import { useDiscussApi } from '../hooks/useDiscussApi';
+import { useLiveTalk } from '../hooks/useLiveTalk';
 import { ChatSidebar } from './ChatSidebar';
 import { CompanionPanel } from './CompanionPanel';
 import { CompanionSelectScreen } from './CompanionSelectScreen';
+import { LiveTalkButton } from './LiveTalkButton';
 import { PersonaSelectScreen } from './PersonaSelectScreen';
 import { PersonaSettingsModal } from './PersonaSettingsModal';
 import { type ChatMessage, type InsightCard, type PersonaInfo } from '../types';
@@ -126,92 +127,25 @@ export function DiscussionChat({ onBack }: Props) {
   const [insights, setInsights] = useState<InsightCard[]>([]);
   const [companionQuote, setCompanionQuote] = useState('Ich beobachte dein Gespräch still mit. Wenn etwas Wichtiges passiert, melde ich mich.');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [spkMuted, setSpkMuted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [focusCompanionToken, setFocusCompanionToken] = useState(0);
   const [insightIdx, setInsightIdx] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
-  const [showConsent, setShowConsent] = useState(false);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const shouldResumeContinuousAfterAudioRef = useRef(false);
   const { call } = useDiscussApi();
-  const speech = useSpeechToText('de', (text) => {
-    const spoken = text.trim();
-    if (!spoken) return;
-    void sendMessageRef.current(spoken);
-  });
+  const liveTalk = useLiveTalk({ onTranscript: (text) => {
+    setInput(text);
+    void sendMessageRef.current(text);
+  } });
 
   const profile = useMemo(() => loadProfile(), []);
 
   useEffect(() => {
-    if (speech.transcript) {
-      setInput(speech.transcript);
+    if (liveTalk.transcript) {
+      setInput(liveTalk.transcript);
     }
-  }, [speech.transcript]);
-
-  const stopCurrentAudio = useCallback(() => {
-    if (!currentAudioRef.current) return;
-    currentAudioRef.current.pause();
-    currentAudioRef.current.currentTime = 0;
-    currentAudioRef.current = null;
-  }, []);
-
-  const playPersonaAudio = useCallback((url: string | undefined) => {
-    if (!url || spkMuted) return;
-
-    stopCurrentAudio();
-
-    const audio = new Audio(url);
-    currentAudioRef.current = audio;
-
-    const shouldResumeContinuous = speech.isContinuousMode;
-    shouldResumeContinuousAfterAudioRef.current = shouldResumeContinuous;
-
-    if (shouldResumeContinuous) {
-      speech.stopContinuous();
-    }
-
-    const handleFinish = () => {
-      if (currentAudioRef.current === audio) {
-        currentAudioRef.current = null;
-      }
-      speech.setPlaybackActive(false);
-      if (shouldResumeContinuousAfterAudioRef.current && !spkMuted && !speech.micBlocked) {
-        speech.startContinuous();
-      }
-      shouldResumeContinuousAfterAudioRef.current = false;
-    };
-
-    audio.onplay = () => {
-      speech.setPlaybackActive(true);
-    };
-    audio.onended = handleFinish;
-    audio.onerror = handleFinish;
-
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        handleFinish();
-      });
-    }
-  }, [spkMuted, speech, stopCurrentAudio]);
-
-  useEffect(() => {
-    if (!spkMuted) return;
-    stopCurrentAudio();
-    speech.setPlaybackActive(false);
-    shouldResumeContinuousAfterAudioRef.current = false;
-  }, [spkMuted, speech, stopCurrentAudio]);
-
-  useEffect(() => {
-    return () => {
-      stopCurrentAudio();
-      speech.setPlaybackActive(false);
-      shouldResumeContinuousAfterAudioRef.current = false;
-    };
-  }, [speech, stopCurrentAudio]);
+  }, [liveTalk.transcript]);
 
   const handleCompanionSelect = (selected: PersonaInfo) => {
     setCompanion(selected);
@@ -264,7 +198,7 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
-      audioMode: !spkMuted,
+      audioMode: liveTalk.isActive,
     });
 
     if (response?.responses?.length) {
@@ -280,7 +214,7 @@ export function DiscussionChat({ onBack }: Props) {
           text: personaText,
         }),
       ]);
-      playPersonaAudio(getAudioUrlFromResponse(first));
+      await liveTalk.playAudioFromResponse(first);
     } else {
       const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
       const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
@@ -328,30 +262,7 @@ export function DiscussionChat({ onBack }: Props) {
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
 
-  const handleToggleLive = () => {
-    if (!speech.hasConsent) {
-      setShowConsent(true);
-      return;
-    }
-
-    if (speech.isContinuousMode) {
-      speech.stopContinuous();
-    } else {
-      speech.startContinuous();
-    }
-  };
-
-  const handleConsentAccept = () => {
-    speech.grantConsent();
-    setShowConsent(false);
-    speech.startContinuous();
-  };
-
-  const handleConsentCancel = () => {
-    setShowConsent(false);
-  };
-
-  const sendToCompanion = async (message: string, context?: string) => {
+  const sendToCompanion = async (message: string, context?: string): Promise<string | undefined> => {
     if (!companion) return;
     const userMessage = makeMessage({
       role: 'user',
@@ -371,10 +282,12 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
+      audioMode: liveTalk.isActive,
     });
     setIsAnalyzing(false);
 
-    const replyText = response?.responses?.[0]?.text?.trim() || `${companion.name} ist hier. Ich höre dir weiter zu.`;
+    const first = response?.responses?.[0];
+    const replyText = first?.text?.trim() || `${companion.name} ist hier. Ich höre dir weiter zu.`;
     setCompanionMessages((prev) => [
       ...prev,
       makeMessage({
@@ -385,6 +298,7 @@ export function DiscussionChat({ onBack }: Props) {
         text: replyText,
       }),
     ]);
+    return getAudioUrlFromResponse(first);
   };
 
   if (step === 'companion-select') {
@@ -399,7 +313,7 @@ export function DiscussionChat({ onBack }: Props) {
     return null;
   }
 
-  const liveActive = speech.isContinuousMode && speech.isListening;
+  const liveActive = liveTalk.isActive;
 
   return (
     <div className="sm-chat-root" id="s-chat" style={{ overflow: 'hidden' }}>
@@ -418,36 +332,15 @@ export function DiscussionChat({ onBack }: Props) {
           <div>
             <div className="sm-ap-name" style={{ color: persona.color }}>{persona.name}</div>
             <div className="sm-ap-status">
-              {speech.micBlocked
+              {liveTalk.micBlocked
                 ? 'Mikrofon gesperrt'
-                : speech.isContinuousMode
+                : liveTalk.isActive
                   ? '🎙 Live aktiv'
                   : 'online · bereit'}
             </div>
           </div>
           <div className="sm-live-controls">
-            <div className={`sm-live-status${liveActive ? ' active' : ''}`}>
-              <div className="sm-live-rdot" />
-              <div className="sm-live-osc">
-                <div className="sm-ob" />
-                <div className="sm-ob" />
-                <div className="sm-ob" />
-                <div className="sm-ob" />
-                <div className="sm-ob" />
-              </div>
-              <span className="sm-live-label">{liveActive ? 'Live' : 'Idle'}</span>
-            </div>
-            {speech.isSupported ? (
-              <button
-                className={`sm-mute-btn${!speech.isContinuousMode ? ' muted' : ''}`}
-                onClick={handleToggleLive}
-                type="button"
-                title={speech.isContinuousMode ? 'Live Talk pausieren' : 'Live Talk starten'}
-              >
-                {speech.isContinuousMode ? '⏹' : '🎙'}
-              </button>
-            ) : null}
-            <button className={`sm-mute-btn${spkMuted ? ' muted' : ''}`} onClick={() => setSpkMuted((v) => !v)} type="button" title="Lautsprecher stumm">🔊</button>
+            {liveTalk.isSupported ? <LiveTalkButton isActive={liveActive} onClick={liveTalk.toggle} /> : null}
             <button className="sm-settings-btn" onClick={() => setSettingsOpen(true)} type="button" title="Persona-Einstellungen">⚙</button>
           </div>
         </div>
@@ -489,7 +382,7 @@ export function DiscussionChat({ onBack }: Props) {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                speech.resetTranscript();
+                liveTalk.resetTranscript();
                 void sendMessage(input);
               }
             }}
@@ -497,7 +390,7 @@ export function DiscussionChat({ onBack }: Props) {
           <button
             className="sm-send-btn"
             onClick={() => {
-              speech.resetTranscript();
+              liveTalk.resetTranscript();
               void sendMessage(input);
             }}
             type="button"
@@ -514,11 +407,14 @@ export function DiscussionChat({ onBack }: Props) {
         onSendToCompanion={sendToCompanion}
         companionMessages={companionMessages}
         focusInputToken={focusCompanionToken}
+        liveActive={liveActive}
+        onLiveToggle={liveTalk.toggle}
+        onPlayAudio={liveTalk.playAudio}
       />
 
       <PersonaSettingsModal persona={persona} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {showConsent ? <SpeechConsentDialog onAccept={handleConsentAccept} onCancel={handleConsentCancel} /> : null}
+      {liveTalk.showConsent ? <SpeechConsentDialog onAccept={liveTalk.acceptConsent} onCancel={liveTalk.cancelConsent} /> : null}
 
       {onBack ? <button className="sm-hidden-exit" type="button" onClick={onBack} aria-hidden="true" tabIndex={-1} /> : null}
     </div>

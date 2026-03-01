@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useSpeechToText } from '../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from '../M08_studio-chat/ui/SpeechConsentDialog';
+import { useLiveTalk } from '../M06_discuss/hooks/useLiveTalk';
+import { LiveTalkButton } from '../M06_discuss/ui/LiveTalkButton';
 
 interface Message {
   role: 'user' | 'maya';
@@ -15,6 +16,15 @@ interface CardMayaChatProps {
 
 const ACCENT = '#d4af37';
 
+function getAudioUrlFromResponse(response: { audio_url?: string; audio?: string; mimeType?: string } | undefined): string | undefined {
+  if (!response) return undefined;
+  if (response.audio_url) return response.audio_url;
+  if (response.audio && response.audio.trim().length > 0) {
+    return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
+  }
+  return undefined;
+}
+
 export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -26,7 +36,11 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [showConsent, setShowConsent] = useState(false);
+  const sendTextRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
+  const liveTalk = useLiveTalk({ onTranscript: (text) => {
+    setInput(text);
+    void sendTextRef.current(text);
+  } });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,59 +70,36 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
             ...next.map((m) => ({ role: m.role === 'maya' ? 'assistant' : 'user', content: m.text })),
           ],
           soloPersona: 'maya',
+          audioMode: liveTalk.isActive,
         }),
       });
 
       if (!res.ok) throw new Error('API error');
-      const data = await res.json() as { reply?: string; message?: string };
+      const data = await res.json() as { reply?: string; message?: string; audio_url?: string; audio?: string; mimeType?: string };
       const reply = data.reply ?? data.message ?? 'Ich bin gerade in tiefer Meditation. Versuche es gleich nochmal.';
       setMessages((prev) => [...prev, { role: 'maya', text: reply }]);
+      await liveTalk.playAudio(getAudioUrlFromResponse(data));
     } catch {
       setMessages((prev) => [...prev, { role: 'maya', text: 'Die kosmische Verbindung ist kurz unterbrochen. Versuche es nochmal.' }]);
     } finally {
       setLoading(false);
     }
-  }, [cardContext, cardTitle, loading, messages]);
-
-  const handleAutoSend = useCallback((text: string) => {
-    if (!text.trim()) return;
-    void sendText(text);
-  }, [sendText]);
-
-  const speech = useSpeechToText('de', handleAutoSend);
+  }, [cardContext, cardTitle, loading, messages, liveTalk]);
 
   useEffect(() => {
-    if (speech.transcript) {
-      setInput(speech.transcript);
+    sendTextRef.current = sendText;
+  }, [sendText]);
+
+  useEffect(() => {
+    if (liveTalk.transcript) {
+      setInput(liveTalk.transcript);
     }
-  }, [speech.transcript]);
+  }, [liveTalk.transcript]);
 
   const send = useCallback(() => {
-    speech.resetTranscript();
+    liveTalk.resetTranscript();
     void sendText(input);
-  }, [input, sendText, speech]);
-
-  const handleMicClick = useCallback(() => {
-    if (!speech.hasConsent) {
-      setShowConsent(true);
-      return;
-    }
-    if (speech.isContinuousMode) {
-      speech.stopContinuous();
-    } else {
-      speech.startContinuous();
-    }
-  }, [speech]);
-
-  const handleConsentAccept = useCallback(() => {
-    speech.grantConsent();
-    setShowConsent(false);
-    speech.startContinuous();
-  }, [speech]);
-
-  const handleConsentCancel = useCallback(() => {
-    setShowConsent(false);
-  }, []);
+  }, [input, sendText, liveTalk]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
@@ -223,29 +214,7 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
             outline: 'none',
           }}
         />
-        {speech.isSupported && (
-          <button
-            onClick={handleMicClick}
-            disabled={loading}
-            className={speech.isContinuousMode ? 'mic-green-pulse' : undefined}
-            style={{
-              background: speech.isContinuousMode ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
-              border: speech.isContinuousMode ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 10,
-              padding: '8px 12px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              color: speech.isContinuousMode ? '#4ade80' : '#6b6560',
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-            title={speech.isContinuousMode ? 'Live Talk pausieren' : 'Live Talk starten'}
-          >
-            <span>{speech.isContinuousMode ? '⏹' : '�️'}</span>
-            <span>Live</span>
-          </button>
-        )}
+        {liveTalk.isSupported ? <LiveTalkButton isActive={liveTalk.isActive} onClick={liveTalk.toggle} /> : null}
         <button
           onClick={() => void send()}
           disabled={loading || !input.trim()}
@@ -260,10 +229,10 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
         >↑</button>
       </div>
 
-      {showConsent && (
+      {liveTalk.showConsent && (
         <SpeechConsentDialog
-          onAccept={handleConsentAccept}
-          onCancel={handleConsentCancel}
+          onAccept={liveTalk.acceptConsent}
+          onCancel={liveTalk.cancelConsent}
         />
       )}
     </div>
