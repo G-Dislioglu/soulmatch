@@ -107,3 +107,19 @@ BUILD_TIMESTAMP=     # set by CI/CD for /api/meta
 ```
 
 Copy `.env.example` to `.env` in the repo root before running locally.
+
+## Working Rules
+
+1. **After EVERY feature or fix, run `pnpm typecheck` — never skip this.** (`cd client && pnpm typecheck` for the client; `cd server && pnpm build` for the server.)
+2. **If typecheck fails, fix it before committing — never commit broken types.**
+3. **Never delete existing functionality to fix a bug.** Find the root cause and fix it directly.
+4. **Commit messages must describe WHAT was fixed and WHY.** Follow the existing `type(scope): description` convention used in this repo.
+5. **After building a feature, trace the logic by reading the relevant code** to verify it actually works end-to-end.
+6. **Never say "done" without having run typecheck green.**
+7. **If a fix requires changes in more than 3 files, pause and summarize what you are about to change before proceeding.**
+
+## Testing Rules
+
+1. **Voice/audio features:** always trace the full event chain (`start → silence → callback → send`) before considering the feature complete.
+2. **API calls:** verify error handling exists for every `fetch` — no unhandled promise rejections.
+3. **State changes:** check that loading states are set AND unset correctly — no stuck spinners.
