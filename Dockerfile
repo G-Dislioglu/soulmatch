@@ -15,6 +15,12 @@ RUN corepack enable
 # Force native addons to build from source (important for .node)
 ENV npm_config_build_from_source=true
 
+# Prevent @playwright/test postinstall from downloading browser binaries.
+# Playwright is a devDependency used only for local E2E tests; no browsers
+# are needed in the Docker build and downloading them (~300 MB) would bloat
+# the image and slow CI. Setting this var is the official skip mechanism.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 # Copy full monorepo
 COPY . .
 
