@@ -1027,14 +1027,17 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.setHeader('X-Accel-Buffering', 'no');
   }
 
+  let streamEnded = false;
+
   function sendSseEvent(event: Record<string, unknown>): void {
-    if (!wantsStream) return;
+    if (!wantsStream || streamEnded) return;
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   }
 
   function finalizeStreamAndEnd(): void {
     if (!wantsStream) return;
     sendSseEvent({ type: 'done', creditsUsed: responses.length * (body.audioMode ? 10 : 1) });
+    streamEnded = true;
     res.end();
   }
 
@@ -1129,7 +1132,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       const text = extractCleanText(cleanText);
 
+      // Stream mode: deliver text to client immediately, before TTS starts
+      if (wantsStream) {
+        sendSseEvent({ type: 'text', persona: personaId, text, color: personaDef.color, meta });
+      }
+
       let audio_url: string | undefined;
+      let ttsPromise: Promise<void> = Promise.resolve();
       if (body.audioMode) {
         const geminiApiKey = process.env.GEMINI_API_KEY;
         const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -1141,18 +1150,34 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
         }
 
-        try {
-          // DEPRECATED: Gemini Native removed - MIME bug + not universal
-          if (geminiApiKey && openaiApiKey && !isRoundCanceled()) {
-            const ttsResult = await withTimeout(
-              generateTTS(text, personaId, geminiApiKey, openaiApiKey),
-              20000,
-            );
-            const audioBase64 = ttsResult.audioBuffer.toString('base64');
-            audio_url = `data:${ttsResult.mimeType};base64,${audioBase64}`;
+        if (geminiApiKey && openaiApiKey && !isRoundCanceled()) {
+          if (wantsStream) {
+            // Fire-and-forget TTS — send audio SSE event when ready
+            ttsPromise = (async () => {
+              try {
+                const ttsResult = await withTimeout(
+                  generateTTS(text, personaId, geminiApiKey, openaiApiKey),
+                  20000,
+                );
+                const audioBase64 = ttsResult.audioBuffer.toString('base64');
+                sendSseEvent({ type: 'audio', persona: personaId, audio_url: `data:${ttsResult.mimeType};base64,${audioBase64}` });
+              } catch (e) {
+                devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
+              }
+            })();
+          } else {
+            // Non-stream: await TTS before returning response
+            try {
+              const ttsResult = await withTimeout(
+                generateTTS(text, personaId, geminiApiKey, openaiApiKey),
+                20000,
+              );
+              const audioBase64 = ttsResult.audioBuffer.toString('base64');
+              audio_url = `data:${ttsResult.mimeType};base64,${audioBase64}`;
+            } catch (e) {
+              devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
+            }
           }
-        } catch (e) {
-          devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
         }
       }
 
@@ -1166,7 +1191,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         meta,
       };
 
-      return { response };
+      return { response, ttsPromise };
 
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -1182,11 +1207,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         provider: providerConfig.provider,
         model: providerConfig.model,
       };
-      return { response, error: true };
+      return { response, error: true, ttsPromise: Promise.resolve() };
     }
   });
 
   const resolvedResults = await Promise.all(personaPromises);
+  const ttsFinalPromises = resolvedResults.map((r) => r.ttsPromise ?? Promise.resolve());
 
   for (const result of resolvedResults) {
     if (result.canceled) {
@@ -1203,10 +1229,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       accumulatedContext += `\n${personaDef.name}: ${response.text}`;
       providerMessages.push({ role: 'assistant', content: `${personaDef.name}: ${response.text}` });
 
-      // Stream this persona response immediately to the client (if enabled).
-      sendSseEvent({ type: 'persona', response });
+      // Non-stream: send full persona event (text + audio already bundled).
+      // Stream mode already sent a 'text' event from inside the promise.
+      if (!wantsStream) {
+        sendSseEvent({ type: 'persona', response });
+      }
 
-      // BUG 2: Sequenzielle Wartepflicht, wenn weitere Personas antworten sollen, 
+      // BUG 2: Sequenzielle Wartepflicht, wenn weitere Personas antworten sollen,
       // damit die Audios im Client nicht kollidieren.
       if (personasToCall.length > 1 && responses.length < personasToCall.length) {
         await sleep(800);
@@ -1218,6 +1247,11 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         return;
       }
     }
+  }
+
+  // Stream mode: wait for all async TTS tasks before closing the SSE stream
+  if (wantsStream) {
+    await Promise.all(ttsFinalPromises);
   }
 
   if (shouldLearn && userId && personasToCall.length > 0) {
