@@ -93,17 +93,17 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
       setShowConsent(true);
       return;
     }
-    if (speech.isListening) {
-      speech.stopListening();
+    if (speech.isContinuousMode) {
+      speech.stopContinuous();
     } else {
-      speech.startListening();
+      speech.startContinuous();
     }
   }, [speech]);
 
   const handleConsentAccept = useCallback(() => {
     speech.grantConsent();
     setShowConsent(false);
-    speech.startListening();
+    speech.startContinuous();
   }, [speech]);
 
   const handleConsentCancel = useCallback(() => {
@@ -227,19 +227,23 @@ export function CardMayaChat({ cardTitle, cardContext, onClose }: CardMayaChatPr
           <button
             onClick={handleMicClick}
             disabled={loading}
-            className={speech.isListening ? 'mic-green-pulse' : undefined}
+            className={speech.isContinuousMode ? 'mic-green-pulse' : undefined}
             style={{
-              background: speech.isListening ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
-              border: speech.isListening ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(255,255,255,0.08)',
+              background: speech.isContinuousMode ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+              border: speech.isContinuousMode ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: 10,
               padding: '8px 12px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              color: speech.isListening ? '#4ade80' : '#6b6560',
-              fontSize: 16,
+              color: speech.isContinuousMode ? '#4ade80' : '#6b6560',
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
             }}
-            title={speech.isListening ? 'Stoppen' : 'Spracheingabe'}
+            title={speech.isContinuousMode ? 'Live Talk pausieren' : 'Live Talk starten'}
           >
-            🎤
+            <span>{speech.isContinuousMode ? '⏹' : '�️'}</span>
+            <span>Live</span>
           </button>
         )}
         <button

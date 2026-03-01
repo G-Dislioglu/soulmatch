@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { loadProfile } from '../../M03_profile';
+import { SpeechConsentDialog } from '../../M08_studio-chat/ui/SpeechConsentDialog';
 import { useDiscussApi } from '../hooks/useDiscussApi';
 import { ChatSidebar } from './ChatSidebar';
 import { CompanionPanel } from './CompanionPanel';
@@ -106,6 +108,15 @@ function makeMessage(partial: Omit<ChatMessage, 'id' | 'timestamp'>): ChatMessag
   };
 }
 
+function getAudioUrlFromResponse(response: { audio_url?: string; audio?: string; mimeType?: string } | undefined): string | undefined {
+  if (!response) return undefined;
+  if (response.audio_url) return response.audio_url;
+  if (response.audio && response.audio.trim().length > 0) {
+    return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
+  }
+  return undefined;
+}
+
 export function DiscussionChat({ onBack }: Props) {
   const [step, setStep] = useState<Step>('companion-select');
   const [companion, setCompanion] = useState<PersonaInfo | null>(null);
@@ -115,16 +126,92 @@ export function DiscussionChat({ onBack }: Props) {
   const [insights, setInsights] = useState<InsightCard[]>([]);
   const [companionQuote, setCompanionQuote] = useState('Ich beobachte dein Gespräch still mit. Wenn etwas Wichtiges passiert, melde ich mich.');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
   const [spkMuted, setSpkMuted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [focusCompanionToken, setFocusCompanionToken] = useState(0);
   const [insightIdx, setInsightIdx] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
+  const [showConsent, setShowConsent] = useState(false);
+  const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const shouldResumeContinuousAfterAudioRef = useRef(false);
   const { call } = useDiscussApi();
+  const speech = useSpeechToText('de', (text) => {
+    const spoken = text.trim();
+    if (!spoken) return;
+    void sendMessageRef.current(spoken);
+  });
 
   const profile = useMemo(() => loadProfile(), []);
+
+  useEffect(() => {
+    if (speech.transcript) {
+      setInput(speech.transcript);
+    }
+  }, [speech.transcript]);
+
+  const stopCurrentAudio = useCallback(() => {
+    if (!currentAudioRef.current) return;
+    currentAudioRef.current.pause();
+    currentAudioRef.current.currentTime = 0;
+    currentAudioRef.current = null;
+  }, []);
+
+  const playPersonaAudio = useCallback((url: string | undefined) => {
+    if (!url || spkMuted) return;
+
+    stopCurrentAudio();
+
+    const audio = new Audio(url);
+    currentAudioRef.current = audio;
+
+    const shouldResumeContinuous = speech.isContinuousMode;
+    shouldResumeContinuousAfterAudioRef.current = shouldResumeContinuous;
+
+    if (shouldResumeContinuous) {
+      speech.stopContinuous();
+    }
+
+    const handleFinish = () => {
+      if (currentAudioRef.current === audio) {
+        currentAudioRef.current = null;
+      }
+      speech.setPlaybackActive(false);
+      if (shouldResumeContinuousAfterAudioRef.current && !spkMuted && !speech.micBlocked) {
+        speech.startContinuous();
+      }
+      shouldResumeContinuousAfterAudioRef.current = false;
+    };
+
+    audio.onplay = () => {
+      speech.setPlaybackActive(true);
+    };
+    audio.onended = handleFinish;
+    audio.onerror = handleFinish;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        handleFinish();
+      });
+    }
+  }, [spkMuted, speech, stopCurrentAudio]);
+
+  useEffect(() => {
+    if (!spkMuted) return;
+    stopCurrentAudio();
+    speech.setPlaybackActive(false);
+    shouldResumeContinuousAfterAudioRef.current = false;
+  }, [spkMuted, speech, stopCurrentAudio]);
+
+  useEffect(() => {
+    return () => {
+      stopCurrentAudio();
+      speech.setPlaybackActive(false);
+      shouldResumeContinuousAfterAudioRef.current = false;
+    };
+  }, [speech, stopCurrentAudio]);
 
   const handleCompanionSelect = (selected: PersonaInfo) => {
     setCompanion(selected);
@@ -177,10 +264,12 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
+      audioMode: !spkMuted,
     });
 
     if (response?.responses?.length) {
       const first = response.responses[0];
+      const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
       setMessages((prev) => [
         ...prev,
         makeMessage({
@@ -188,9 +277,10 @@ export function DiscussionChat({ onBack }: Props) {
           senderName: persona.name,
           senderIcon: persona.icon,
           senderColor: persona.color,
-          text: first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.',
+          text: personaText,
         }),
       ]);
+      playPersonaAudio(getAudioUrlFromResponse(first));
     } else {
       const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
       const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
@@ -232,6 +322,33 @@ export function DiscussionChat({ onBack }: Props) {
         }),
       ]);
     }
+  };
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
+
+  const handleToggleLive = () => {
+    if (!speech.hasConsent) {
+      setShowConsent(true);
+      return;
+    }
+
+    if (speech.isContinuousMode) {
+      speech.stopContinuous();
+    } else {
+      speech.startContinuous();
+    }
+  };
+
+  const handleConsentAccept = () => {
+    speech.grantConsent();
+    setShowConsent(false);
+    speech.startContinuous();
+  };
+
+  const handleConsentCancel = () => {
+    setShowConsent(false);
   };
 
   const sendToCompanion = async (message: string, context?: string) => {
@@ -282,8 +399,10 @@ export function DiscussionChat({ onBack }: Props) {
     return null;
   }
 
+  const liveActive = speech.isContinuousMode && speech.isListening;
+
   return (
-    <div className="sm-chat-root" id="s-chat">
+    <div className="sm-chat-root" id="s-chat" style={{ overflow: 'hidden' }}>
       <ChatSidebar
         companion={companion}
         persona={persona}
@@ -298,10 +417,16 @@ export function DiscussionChat({ onBack }: Props) {
           <div className="sm-ap-av" style={{ borderColor: persona.color }}>{persona.icon}</div>
           <div>
             <div className="sm-ap-name" style={{ color: persona.color }}>{persona.name}</div>
-            <div className="sm-ap-status">{micMuted ? '🔇 Mikrofon stumm' : 'online · bereit'}</div>
+            <div className="sm-ap-status">
+              {speech.micBlocked
+                ? 'Mikrofon gesperrt'
+                : speech.isContinuousMode
+                  ? '🎙 Live aktiv'
+                  : 'online · bereit'}
+            </div>
           </div>
           <div className="sm-live-controls">
-            <div className="sm-live-status">
+            <div className={`sm-live-status${liveActive ? ' active' : ''}`}>
               <div className="sm-live-rdot" />
               <div className="sm-live-osc">
                 <div className="sm-ob" />
@@ -310,9 +435,18 @@ export function DiscussionChat({ onBack }: Props) {
                 <div className="sm-ob" />
                 <div className="sm-ob" />
               </div>
-              <span className="sm-live-label">Live</span>
+              <span className="sm-live-label">{liveActive ? 'Live' : 'Idle'}</span>
             </div>
-            <button className={`sm-mute-btn${micMuted ? ' muted' : ''}`} onClick={() => setMicMuted((v) => !v)} type="button" title="Mikrofon stumm">🎙</button>
+            {speech.isSupported ? (
+              <button
+                className={`sm-mute-btn${!speech.isContinuousMode ? ' muted' : ''}`}
+                onClick={handleToggleLive}
+                type="button"
+                title={speech.isContinuousMode ? 'Live Talk pausieren' : 'Live Talk starten'}
+              >
+                {speech.isContinuousMode ? '⏹' : '🎙'}
+              </button>
+            ) : null}
             <button className={`sm-mute-btn${spkMuted ? ' muted' : ''}`} onClick={() => setSpkMuted((v) => !v)} type="button" title="Lautsprecher stumm">🔊</button>
             <button className="sm-settings-btn" onClick={() => setSettingsOpen(true)} type="button" title="Persona-Einstellungen">⚙</button>
           </div>
@@ -355,11 +489,21 @@ export function DiscussionChat({ onBack }: Props) {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
+                speech.resetTranscript();
                 void sendMessage(input);
               }
             }}
           />
-          <button className="sm-send-btn" onClick={() => void sendMessage(input)} type="button">↑</button>
+          <button
+            className="sm-send-btn"
+            onClick={() => {
+              speech.resetTranscript();
+              void sendMessage(input);
+            }}
+            type="button"
+          >
+            ↑
+          </button>
         </div>
       </div>
 
@@ -373,6 +517,8 @@ export function DiscussionChat({ onBack }: Props) {
       />
 
       <PersonaSettingsModal persona={persona} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {showConsent ? <SpeechConsentDialog onAccept={handleConsentAccept} onCancel={handleConsentCancel} /> : null}
 
       {onBack ? <button className="sm-hidden-exit" type="button" onClick={onBack} aria-hidden="true" tabIndex={-1} /> : null}
     </div>

@@ -10,7 +10,15 @@ interface DiscussPayload {
 }
 
 interface DiscussResponse {
-  responses: Array<{ persona: string; text: string; color: string; meta?: unknown }>;
+  responses: Array<{
+    persona: string;
+    text: string;
+    color: string;
+    meta?: unknown;
+    audio_url?: string;
+    audio?: string;
+    mimeType?: string;
+  }>;
   creditsUsed?: number;
 }
 
@@ -31,7 +39,7 @@ export function useDiscussApi() {
           message: payload.message,
           conversationHistory: payload.conversationHistory ?? [],
           stream: false,
-          audioMode: false,
+          audioMode: payload.audioMode ?? false,
         }),
       });
 
