@@ -133,7 +133,30 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     speech.stopContinuous();
 
     await new Promise<void>((resolve) => {
-      const audio = new Audio(audioUrl);
+      let playbackUrl = audioUrl;
+      let objectUrlToRevoke: string | undefined;
+
+      if (audioUrl.startsWith('data:')) {
+        const match = audioUrl.match(/^data:([^;,]+)?;base64,(.+)$/);
+        if (match && match[2]) {
+          try {
+            const mimeType = match[1] ?? 'audio/wav';
+            const binary = atob(match[2]);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: mimeType });
+            objectUrlToRevoke = URL.createObjectURL(blob);
+            playbackUrl = objectUrlToRevoke;
+            console.log('[LiveTalk] normalized data URL to blob URL', { mimeType, byteLength: bytes.length });
+          } catch (err) {
+            console.error('[LiveTalk] data URL normalization failed, fallback to original URL', err);
+          }
+        }
+      }
+
+      const audio = new Audio(playbackUrl);
       currentAudioRef.current = audio;
       let done = false;
 
@@ -143,8 +166,9 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       audio.preload = 'auto';
 
       console.log('[LiveTalk] playAudio start', {
-        urlPrefix: audioUrl.slice(0, 32),
+        urlPrefix: playbackUrl.slice(0, 32),
         isDataUrl: audioUrl.startsWith('data:'),
+        isBlobUrl: playbackUrl.startsWith('blob:'),
         readyState: audio.readyState,
         networkState: audio.networkState,
       });
@@ -156,6 +180,10 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
         finishRef.current = null;
         if (currentAudioRef.current === audio) {
           currentAudioRef.current = null;
+        }
+        if (objectUrlToRevoke) {
+          URL.revokeObjectURL(objectUrlToRevoke);
+          objectUrlToRevoke = undefined;
         }
         isPlayingRef.current = false;
         speech.setPlaybackActive(false);
