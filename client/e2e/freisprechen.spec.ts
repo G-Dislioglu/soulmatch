@@ -53,10 +53,28 @@ async function injectMockSpeechRecognition(page: Page) {
   });
 }
 
-/** Pre-grant speech consent so the consent dialog never appears. */
+/** Seed localStorage so splash/consent dialogs never appear and the app
+ *  renders the full nav (which requires hasProfile = true). */
 async function grantSpeechConsent(page: Page) {
   await page.addInitScript(() => {
+    // Dismiss one-time disclaimer modal (DisclaimerModal.tsx, key = soulmatch_disclaimer_v2)
+    localStorage.setItem('soulmatch_disclaimer_v2', 'accepted');
+
+    // Pre-grant mic consent (useSpeechToText reads soulmatch_speech_consent)
     localStorage.setItem('soulmatch_speech_consent', 'true');
+
+    // Seed a valid profile so hasValidProfile() returns true and the nav tabs render.
+    // hasValidProfile requires: id (string), name (≥2 chars), birthDate (YYYY-MM-DD).
+    const profile = {
+      id: 'e2e-test-user',
+      name: 'Test User',
+      birthDate: '1990-06-15',
+      birthTime: '12:00',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    };
+    localStorage.setItem('soulmatch.profiles.v1', JSON.stringify([profile]));
+    localStorage.setItem('soulmatch.profile.currentId', profile.id);
   });
 }
 
