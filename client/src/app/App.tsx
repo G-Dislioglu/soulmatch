@@ -16,7 +16,8 @@ import { RadixWheel, CosmicDayCard, PlanetaryHours, MoonCalendar, SignInterpreta
 import { NumerologyCard, ChakraBar, BiorhythmCurve, TarotDayCard, DailyAffirmations, YearForecast, LifePathDetail, LifePinnacles, ChallengeNumbers, NumerologyRadar, BirthstoneCard, KarmicDebts, IdealPartnerHints, SoulTypeCard, SoulSigil, BirthMoonPhase, PersonalityCard, SoulIntention, YearCalendar, SoulDossier, StrengthsAnalysis, LuckyNumbers, SoulColors, SoulJourney, TimeCapsulle, SoulMantra, ShadowSide, LifeMission, YearClock, SoulContract, DreamArchive, TreeOfLife, SoulPathWheel, YearCycleMandala, QuantumLeap, ShadowWork, SoulVow, NumberMeditation, LifeWheel, GiftsCard, LifeMissionCard, ChakraNumbers, YearOracle, DailyEnergy, DestinyCard, SoulUrgeCard, PersonalityDeep, LifeCycleCard } from '../modules/M05_numerology';
 import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
-import { DiscussionChat, SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
+import { SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
+import { DiscussionChat } from '../modules/M06_discuss/ui/DiscussionChat';
 import { StudioPage } from '../modules/M08_studio-chat/ui/StudioPage';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
@@ -1676,22 +1677,7 @@ function HomePage() {
 
         {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_CHAT && (
-          <div
-            key="chat"
-            className="portal-enter"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              minHeight: 0,
-              maxWidth: 1280,
-              margin: '0 auto',
-              width: '100%',
-              overflow: 'hidden',
-            }}
-          >
-            <DiscussionChat onBack={() => setActivePage(PAGE_PROFILE)} />
-          </div>
+          <DiscussionChat onBack={() => setActivePage(PAGE_PROFILE)} />
         )}
 
         {/* ═══ PAGE 7: STUDIO ═══ */}
