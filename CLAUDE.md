@@ -117,6 +117,7 @@ Copy `.env.example` to `.env` in the repo root before running locally.
 5. **After building a feature, trace the logic by reading the relevant code** to verify it actually works end-to-end.
 6. **Never say "done" without having run typecheck green.**
 7. **If a fix requires changes in more than 3 files, pause and summarize what you are about to change before proceeding.**
+8. **After every push to main, run `bash tools/wait-for-deploy.sh` to confirm the live Render deployment succeeded before marking a task done.** Never assume a push == a successful deploy.
 
 ## Testing Rules
 
