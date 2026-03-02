@@ -121,16 +121,18 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       console.warn('[LiveTalk] playAudio: kein audioUrl');
       return;
     }
-    if (!isActiveRef.current) {
-      console.log('[LiveTalk] playAudio: LiveTalk nicht aktiv, übersprungen');
-      return;
+    const shouldManageSpeech = isActiveRef.current;
+    if (!shouldManageSpeech) {
+      console.warn('[LiveTalk] playAudio: LiveTalk nicht aktiv, spiele Audio trotzdem ab');
     }
 
     // Stop any currently-playing or still-loading audio before starting new.
     stopAudio();
     isPlayingRef.current = true;
-    speech.setPlaybackActive(true);
-    speech.stopContinuous();
+    if (shouldManageSpeech) {
+      speech.setPlaybackActive(true);
+      speech.stopContinuous();
+    }
 
     await new Promise<void>((resolve) => {
       let playbackUrl = audioUrl;
@@ -186,9 +188,11 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
           objectUrlToRevoke = undefined;
         }
         isPlayingRef.current = false;
-        speech.setPlaybackActive(false);
-        if (isActiveRef.current && !speech.micBlocked) {
-          speech.startContinuous();
+        if (shouldManageSpeech) {
+          speech.setPlaybackActive(false);
+          if (isActiveRef.current && !speech.micBlocked) {
+            speech.startContinuous();
+          }
         }
         resolve();
       };
