@@ -138,7 +138,7 @@ export function DiscussionChat({ onBack }: Props) {
   const [messageCount, setMessageCount] = useState(0);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const sendToCompanionRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
-  const { call, callStream } = useDiscussApi();
+  const { call } = useDiscussApi();
   const personaLiveTalk = useLiveTalk({ onTranscript: (text) => {
     setInput(text);
     void sendMessageRef.current(text);
@@ -203,74 +203,43 @@ export function DiscussionChat({ onBack }: Props) {
       content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
     }));
 
-    if (personaLiveTalk.isActive) {
-      await callStream(
-        {
-          personas: [persona.id],
-          message: text,
-          conversationHistory: historyForCall,
-          userId: profile?.id,
-          audioMode: true,
-        },
-        {
-          onText: (_pid, responseText) => {
-            const personaText = responseText.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
-            setMessages((prev) => [
-              ...prev,
-              makeMessage({
-                role: 'persona',
-                senderName: persona.name,
-                senderIcon: persona.icon,
-                senderColor: persona.color,
-                text: personaText,
-              }),
-            ]);
-            setIsAnalyzing(false);
-          },
-          onAudio: (_pid, audioUrl) => {
-            void personaLiveTalk.playAudio(audioUrl);
-          },
-        },
-      );
-    } else {
-      const response = await call({
-        personas: [persona.id],
-        message: text,
-        conversationHistory: historyForCall,
-        userId: profile?.id,
-        audioMode: false,
-        stream: false,
-      });
+    const response = await call({
+      personas: [persona.id],
+      message: text,
+      conversationHistory: historyForCall,
+      userId: profile?.id,
+      audioMode: personaLiveTalk.isActive,
+      stream: false,
+    });
 
-      if (response?.responses?.length) {
-        const first = response.responses[0];
-        const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
-        const audioUrl = getAudioUrlFromResponse(first);
-        setMessages((prev) => [
-          ...prev,
-          makeMessage({
-            role: 'persona',
-            senderName: persona.name,
-            senderIcon: persona.icon,
-            senderColor: persona.color,
-            text: personaText,
-          }),
-        ]);
-        await personaLiveTalk.playAudio(audioUrl);
-      } else {
-        const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
-        const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
-        setMessages((prev) => [
-          ...prev,
-          makeMessage({
-            role: 'persona',
-            senderName: persona.name,
-            senderIcon: persona.icon,
-            senderColor: persona.color,
-            text: fallbackText,
-          }),
-        ]);
-      }
+    if (response?.responses?.length) {
+      const first = response.responses[0];
+      const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
+      const audioUrl = getAudioUrlFromResponse(first);
+      setMessages((prev) => [
+        ...prev,
+        makeMessage({
+          role: 'persona',
+          senderName: persona.name,
+          senderIcon: persona.icon,
+          senderColor: persona.color,
+          text: personaText,
+        }),
+      ]);
+      await personaLiveTalk.playAudio(audioUrl);
+    } else {
+      const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
+      const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
+      setMessages((prev) => [
+        ...prev,
+        makeMessage({
+          role: 'persona',
+          senderName: persona.name,
+          senderIcon: persona.icon,
+          senderColor: persona.color,
+          text: fallbackText,
+        }),
+      ]);
     }
 
     const nextCount = messageCount + 1;
