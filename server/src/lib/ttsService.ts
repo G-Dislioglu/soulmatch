@@ -166,7 +166,7 @@ async function openaiTTS(text: string, voice: OpenAiTtsVoice, apiKey: string): P
       model: 'tts-1',
       voice: voice || 'nova',
       input: text,
-      response_format: 'wav',
+      response_format: 'mp3',
       speed: 1.0,
     }),
   });
@@ -179,7 +179,7 @@ async function openaiTTS(text: string, voice: OpenAiTtsVoice, apiKey: string): P
   const buffer = Buffer.from(await response.arrayBuffer());
   return {
     audioBuffer: buffer,
-    mimeType: 'audio/wav',
+    mimeType: 'audio/mpeg',
     engine: 'openai',
   };
 }
