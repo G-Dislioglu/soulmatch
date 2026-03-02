@@ -61,11 +61,12 @@ export async function generateTTS(
   openaiApiKey: string,
 ): Promise<TTSResult> {
   const geminiVoice = getPersonaVoice(personaId);
+  const disableGeminiTts = process.env.DISABLE_GEMINI_TTS === 'true';
 
   try {
-    const result = await geminiPreviewTTS(text, geminiVoice, geminiApiKey, getPersonaVoiceDirector(personaId));
+    const result = await openaiTTS(text, getOpenAiVoiceForPersona(personaId), openaiApiKey);
     console.log('[TTS Engine]', {
-      engine: 'gemini-preview',
+      engine: 'openai-default',
       personaId,
       textLength: text.length,
       success: true,
@@ -75,7 +76,7 @@ export async function generateTTS(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log('[TTS Engine]', {
-      engine: 'gemini-preview',
+      engine: 'openai-default',
       personaId,
       error: message,
       success: false,
@@ -83,10 +84,21 @@ export async function generateTTS(
     });
   }
 
-  try {
-    const result = await openaiTTS(text, getOpenAiVoiceForPersona(personaId), openaiApiKey);
+  if (disableGeminiTts) {
     console.log('[TTS Engine]', {
-      engine: 'openai-fallback',
+      engine: 'gemini-preview',
+      personaId,
+      success: false,
+      error: 'Gemini TTS disabled via DISABLE_GEMINI_TTS=true',
+      timestamp: new Date().toISOString(),
+    });
+    throw new Error('OpenAI TTS fehlgeschlagen und Gemini TTS ist deaktiviert');
+  }
+
+  try {
+    const result = await geminiPreviewTTS(text, geminiVoice, geminiApiKey, getPersonaVoiceDirector(personaId));
+    console.log('[TTS Engine]', {
+      engine: 'gemini-fallback',
       personaId,
       textLength: text.length,
       success: true,
