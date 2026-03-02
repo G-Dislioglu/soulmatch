@@ -138,25 +138,9 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       let playbackUrl = audioUrl;
       let objectUrlToRevoke: string | undefined;
 
-      if (audioUrl.startsWith('data:')) {
-        const match = audioUrl.match(/^data:([^;,]+)?;base64,(.+)$/);
-        if (match && match[2]) {
-          try {
-            const mimeType = match[1] ?? 'audio/wav';
-            const binary = atob(match[2]);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i += 1) {
-              bytes[i] = binary.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: mimeType });
-            objectUrlToRevoke = URL.createObjectURL(blob);
-            playbackUrl = objectUrlToRevoke;
-            console.log('[LiveTalk] normalized data URL to blob URL', { mimeType, byteLength: bytes.length });
-          } catch (err) {
-            console.error('[LiveTalk] data URL normalization failed, fallback to original URL', err);
-          }
-        }
-      }
+      // Use server-provided URL directly (data/blob/http). Manual base64->Blob
+      // conversion can introduce decode edge cases across browsers.
+      playbackUrl = audioUrl;
 
       const audio = new Audio(playbackUrl);
       currentAudioRef.current = audio;
