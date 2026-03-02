@@ -138,6 +138,7 @@ export function DiscussionChat({ onBack }: Props) {
   const [messageCount, setMessageCount] = useState(0);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const sendToCompanionRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
+  const personaRequestIdRef = useRef(0);
   const { call } = useDiscussApi();
   const personaLiveTalk = useLiveTalk({ onTranscript: (text) => {
     setInput(text);
@@ -184,6 +185,8 @@ export function DiscussionChat({ onBack }: Props) {
     if (!persona || !companion) return;
     const text = textRaw.trim();
     if (!text) return;
+    const requestId = personaRequestIdRef.current + 1;
+    personaRequestIdRef.current = requestId;
 
     const userMessage = makeMessage({
       role: 'user',
@@ -211,6 +214,8 @@ export function DiscussionChat({ onBack }: Props) {
       audioMode: personaLiveTalk.isActive,
       stream: false,
     });
+
+    if (requestId !== personaRequestIdRef.current) return;
 
     if (response?.responses?.length) {
       const first = response.responses[0];
@@ -241,6 +246,8 @@ export function DiscussionChat({ onBack }: Props) {
         }),
       ]);
     }
+
+    if (requestId !== personaRequestIdRef.current) return;
 
     const nextCount = messageCount + 1;
     setMessageCount(nextCount);
