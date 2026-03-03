@@ -136,10 +136,15 @@ export function DiscussionChat({ onBack }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [forceAudioRequest, setForceAudioRequest] = useState(false);
+  const [lastRequestedAudioMode, setLastRequestedAudioMode] = useState(false);
   const [lastPersonaAudioUrl, setLastPersonaAudioUrl] = useState<string | null>(null);
+  const [audioDiag, setAudioDiag] = useState('idle');
+  const [audioDiagError, setAudioDiagError] = useState<string | null>(null);
   const [focusCompanionToken, setFocusCompanionToken] = useState(0);
   const [insightIdx, setInsightIdx] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
+  const forceAudioRequestRef = useRef(false);
   const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const sendToCompanionRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
   const personaRequestIdRef = useRef(0);
@@ -190,6 +195,17 @@ export function DiscussionChat({ onBack }: Props) {
   const noopPlayAudio = useCallback(async (_audioUrl: string | undefined): Promise<void> => {
     return Promise.resolve();
   }, []);
+
+  const sendDevAudioProbe = useCallback(async () => {
+    if (!showAudioDevTools) return;
+    forceAudioRequestRef.current = true;
+    setForceAudioRequest(true);
+    await sendMessageRef.current('Audio Dev Probe');
+  }, [showAudioDevTools]);
+
+  useEffect(() => {
+    forceAudioRequestRef.current = forceAudioRequest;
+  }, [forceAudioRequest]);
 
   useEffect(() => {
     if (personaLiveTalk.transcript) {
@@ -247,7 +263,8 @@ export function DiscussionChat({ onBack }: Props) {
       content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
     }));
 
-    const shouldRequestAudio = personaLiveTalk.isActive && LIVE_AUDIO_ENABLED;
+    const shouldRequestAudio = (personaLiveTalk.isActive && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current);
+    setLastRequestedAudioMode(shouldRequestAudio);
     const response = await call({
       personas: [persona.id],
       message: text,
@@ -345,7 +362,7 @@ export function DiscussionChat({ onBack }: Props) {
     setCompanionMessages((prev) => [...prev, userMessage]);
 
     setIsAnalyzing(true);
-    const shouldRequestAudio = companionLiveTalk.isActive && LIVE_AUDIO_ENABLED;
+    const shouldRequestAudio = (companionLiveTalk.isActive && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current);
     const response = await call({
       personas: [companion.id],
       message: context ? `[Kontext: ${context}] ${message}` : message,
@@ -497,12 +514,47 @@ export function DiscussionChat({ onBack }: Props) {
         {showAudioDevTools ? (
           <div style={{ marginTop: 10, border: '1px dashed rgba(212,175,55,0.35)', borderRadius: 10, padding: 10 }}>
             <div style={{ fontSize: 11, color: '#d4af37', marginBottom: 8, letterSpacing: '0.08em' }}>AUDIO DEV TOOLS</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={forceAudioRequest}
+                onChange={(e) => setForceAudioRequest(e.target.checked)}
+              />
+              Request TTS Audio (audioMode=true)
+            </label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button type="button" className="sm-settings-btn" onClick={() => { void playTestTone(); }}>Test Ton (440Hz)</button>
               <button type="button" className="sm-settings-btn" onClick={() => { void playLastPersonaAudio(); }} disabled={!lastPersonaAudioUrl}>Letzte TTS abspielen</button>
+              <button type="button" className="sm-settings-btn" onClick={() => { void sendDevAudioProbe(); }}>Send test message with audioMode=true</button>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, opacity: 0.9 }}>
+              <div>audioMode (last request): <strong>{String(lastRequestedAudioMode)}</strong></div>
+              <div>audio_url prefix: <strong>{lastPersonaAudioUrl ? lastPersonaAudioUrl.slice(0, 28) : 'none'}</strong></div>
+              <div>audio element state: <strong>{audioDiag}</strong></div>
+              {audioDiagError ? <div>audio error: <strong>{audioDiagError}</strong></div> : null}
             </div>
             {lastPersonaAudioUrl ? (
-              <audio controls src={lastPersonaAudioUrl} style={{ width: '100%', marginTop: 8 }} />
+              <audio
+                controls
+                src={lastPersonaAudioUrl}
+                style={{ width: '100%', marginTop: 8 }}
+                onLoadedMetadata={(e) => {
+                  setAudioDiag(`loadedmetadata rs=${e.currentTarget.readyState} ns=${e.currentTarget.networkState}`);
+                  setAudioDiagError(null);
+                }}
+                onCanPlay={(e) => {
+                  setAudioDiag(`canplay rs=${e.currentTarget.readyState} ns=${e.currentTarget.networkState}`);
+                }}
+                onPlay={() => {
+                  setAudioDiag('play');
+                }}
+                onError={(e) => {
+                  const code = e.currentTarget.error?.code;
+                  const message = code ? `MediaError code=${code}` : 'MediaError unknown';
+                  setAudioDiag('error');
+                  setAudioDiagError(message);
+                }}
+              />
             ) : null}
           </div>
         ) : null}

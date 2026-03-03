@@ -19,8 +19,10 @@ async function seedAppForChat(page: Page) {
   });
 }
 
-async function mockDiscussJson(page: Page) {
+async function mockDiscussJson(page: Page, capturedAudioModes: boolean[]) {
   await page.route('**/api/discuss', async (route) => {
+    const requestBody = route.request().postDataJSON() as { audioMode?: unknown } | null;
+    capturedAudioModes.push(Boolean(requestBody?.audioMode));
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -52,16 +54,17 @@ async function navigateToChat(page: Page) {
 test.describe('M06 Audio Dev Tools', () => {
   test('shows hidden dev panel and allows deterministic audio checks', async ({ page }) => {
     const pageErrors: string[] = [];
+    const capturedAudioModes: boolean[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
     await seedAppForChat(page);
-    await mockDiscussJson(page);
+    await mockDiscussJson(page, capturedAudioModes);
     await navigateToChat(page);
 
     await expect(page.locator('text=AUDIO DEV TOOLS')).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('.sm-chat-ta').fill('audio check');
-    await page.locator('.sm-send-btn').click();
+    await page.locator('button', { hasText: 'Send test message with audioMode=true' }).click();
+    await expect(page.locator('text=audioMode (last request): true')).toBeVisible({ timeout: 10_000 });
 
     const replayBtn = page.locator('button', { hasText: 'Letzte TTS abspielen' });
     await expect(replayBtn).toBeEnabled({ timeout: 10_000 });
@@ -70,6 +73,7 @@ test.describe('M06 Audio Dev Tools', () => {
     await replayBtn.click();
 
     await expect(page.locator('audio[controls]')).toBeVisible({ timeout: 5_000 });
+    expect(capturedAudioModes.some(Boolean)).toBeTruthy();
     expect(pageErrors, `Unexpected page errors:\n${pageErrors.join('\n')}`).toHaveLength(0);
   });
 });
