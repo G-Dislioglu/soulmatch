@@ -1107,6 +1107,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       studioMode: isStudioRound,
       autoTurn: body.autoTurn === true,
       allowUserCheckIn: body.allowUserCheckIn === true,
+      turn: typeof body.turn === 'number' ? body.turn : 0,
       isFirstSpeaker: index === 0,
       isFirstUserMessage,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',

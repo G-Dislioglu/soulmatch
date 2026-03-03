@@ -79,10 +79,18 @@ export function StudioSession({ config, onBack }: Props) {
   const isContinuousModeRef = useRef(false)
   const shouldResumeSpeechAfterAudioRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const nextTurnTimerRef = useRef<number | null>(null)
   const autoRoundsSinceUserRef = useRef(0)
   const errorCountRef = useRef(0)
   const MAX_ERRORS = 2
   const MAX_AUTO_ROUNDS = 10
+
+  const clearNextTurnTimer = useCallback(() => {
+    if (nextTurnTimerRef.current !== null) {
+      window.clearTimeout(nextTurnTimerRef.current)
+      nextTurnTimerRef.current = null
+    }
+  }, [])
 
   const speech = useSpeechToText('de', (text) => {
     const spoken = text.trim()
@@ -117,6 +125,7 @@ export function StudioSession({ config, onBack }: Props) {
     void runTurn()
     return () => {
       isMountedRef.current = false
+      clearNextTurnTimer()
       runningRef.current = false
       isContinuousModeRef.current = false
       if (currentAudioRef.current) {
@@ -126,6 +135,23 @@ export function StudioSession({ config, onBack }: Props) {
       speech.setPlaybackActive(false)
       speech.stopContinuous()
     }
+  }, [clearNextTurnTimer])
+
+  const getInterSpeakerPauseMs = useCallback((speakerId: string) => {
+    const baseByPersona: Record<string, number> = {
+      maya: 320,
+      luna: 460,
+      orion: 360,
+      lilith: 240,
+      stella: 340,
+      kael: 420,
+      lian: 360,
+      sibyl: 390,
+      amara: 410,
+    }
+    const base = baseByPersona[speakerId] ?? 340
+    const jitter = Math.floor(Math.random() * 90) - 30
+    return Math.max(180, base + jitter)
   }, [])
 
   useEffect(() => {
@@ -204,12 +230,20 @@ export function StudioSession({ config, onBack }: Props) {
   async function callDiscuss(userMessage?: string) {
     const isAutoTurn = typeof userMessage !== 'string'
     const allowUserCheckIn = isAutoTurn && turnRef.current > 0 && turnRef.current % 4 === 0
+    const cadencePhase = turnRef.current % 3
+
+    const cadenceInstruction = cadencePhase === 0
+      ? 'Maya setzt den Frame und verteilt klar das Wort.'
+      : cadencePhase === 1
+      ? 'Maya bringt zwei Positionen in Kontrast und hält die Diskussion fokussiert.'
+      : 'Maya liefert ein kurzes Zwischenfazit und eröffnet den nächsten Gedankenschritt.'
+
     const message = userMessage
       ?? (turnRef.current === 0
         ? `Studio-Diskussion starten. Thema: ${config.topic}. Maya moderiert. Der User beobachtet nur.`
         : allowUserCheckIn
-        ? `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". Maya moderiert und fragt am Ende dieser Runde den User genau einmal kurz nach seiner Sicht.`
-        : `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". Maya moderiert.`)
+        ? `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". ${cadenceInstruction} Maya fragt am Ende dieser Runde den User genau einmal kurz nach seiner Sicht.`
+        : `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". ${cadenceInstruction}`)
 
     const body = {
       personas: discussPersonas,
@@ -245,10 +279,20 @@ export function StudioSession({ config, onBack }: Props) {
 
   const generateReport = useCallback(async () => {
     if (isGeneratingReport) return
+    if (isLoading) {
+      setReportText('Bitte kurz warten, bis die aktuelle Runde abgeschlossen ist.')
+      return
+    }
     setIsGeneratingReport(true)
     setReportText('Report wird generiert...')
 
     try {
+      console.info('[StudioSession] report: request started', {
+        topic: config.topic,
+        mode: config.mode,
+        turn: turnRef.current,
+      })
+
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,11 +314,15 @@ export function StudioSession({ config, onBack }: Props) {
         }),
       })
 
-      if (!res.ok) throw new Error(`API ${res.status}`)
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(`API ${res.status}${body ? `: ${body.slice(0, 120)}` : ''}`)
+      }
       const data = await res.json() as { responses?: PersonaResponse[] }
       const maya = (data.responses ?? []).find((r) => r.persona === 'maya') ?? data.responses?.[0]
       if (!maya) {
         setReportText('Kein Report verfügbar.')
+        console.warn('[StudioSession] report: maya response missing', data)
         return
       }
 
@@ -284,11 +332,12 @@ export function StudioSession({ config, onBack }: Props) {
         void playPersonaAudio(reportAudio)
       }
     } catch (err) {
+      console.warn('[StudioSession] report failed', err)
       setReportText(err instanceof Error ? err.message : 'Report konnte nicht erzeugt werden.')
     } finally {
       setIsGeneratingReport(false)
     }
-  }, [config.mode, config.topic, isGeneratingReport, messages, playPersonaAudio, speech.isContinuousMode])
+  }, [config.mode, config.topic, isGeneratingReport, isLoading, messages, playPersonaAudio, speech.isContinuousMode])
 
   async function runTurn(userMessage?: string) {
     if (runningRef.current) return
@@ -345,7 +394,7 @@ export function StudioSession({ config, onBack }: Props) {
         if (speech.isContinuousMode) {
           await playPersonaAudio(audioUrl)
         }
-        await sleep(320)
+        await sleep(getInterSpeakerPauseMs(speakerId))
       }
 
       turnRef.current++
@@ -359,7 +408,10 @@ export function StudioSession({ config, onBack }: Props) {
       runningRef.current = false
 
       if (autoRoundsSinceUserRef.current < MAX_AUTO_ROUNDS) {
-        setTimeout(() => {
+        clearNextTurnTimer()
+        nextTurnTimerRef.current = window.setTimeout(() => {
+          nextTurnTimerRef.current = null
+          if (!isMountedRef.current) return
           void runTurn()
         }, speech.isContinuousMode ? 2100 : 2600)
       }
@@ -460,30 +512,35 @@ export function StudioSession({ config, onBack }: Props) {
             {isGeneratingReport ? '⏳ Report...' : '📋 Report'}
           </button>
           {speech.isSupported && (
-            <button
-              className="studio-session__ctrl-btn"
-              onClick={handleToggleLiveTalk}
-              style={{
-                border: speech.isContinuousMode
-                  ? '2px solid rgba(34,197,94,0.65)'
-                  : speech.micBlocked
-                  ? '1px solid rgba(239,68,68,0.65)'
-                  : '1px solid rgba(255,255,255,0.1)',
-                background: speech.isContinuousMode
-                  ? 'rgba(34,197,94,0.16)'
-                  : speech.micBlocked
-                  ? 'rgba(239,68,68,0.12)'
-                  : 'rgba(255,255,255,0.04)',
-                color: speech.isContinuousMode
-                  ? '#22c55e'
-                  : speech.micBlocked
-                  ? '#f87171'
-                  : '#d8c69f',
-                fontWeight: speech.isContinuousMode ? 700 : 500,
-              }}
-            >
-              🎙️ Live Talk
-            </button>
+            <>
+              <button
+                className="studio-session__ctrl-btn"
+                onClick={handleToggleLiveTalk}
+                style={{
+                  border: speech.isContinuousMode
+                    ? '2px solid rgba(34,197,94,0.65)'
+                    : speech.micBlocked
+                    ? '1px solid rgba(239,68,68,0.65)'
+                    : '1px solid rgba(255,255,255,0.1)',
+                  background: speech.isContinuousMode
+                    ? 'rgba(34,197,94,0.16)'
+                    : speech.micBlocked
+                    ? 'rgba(239,68,68,0.12)'
+                    : 'rgba(255,255,255,0.04)',
+                  color: speech.isContinuousMode
+                    ? '#22c55e'
+                    : speech.micBlocked
+                    ? '#f87171'
+                    : '#d8c69f',
+                  fontWeight: speech.isContinuousMode ? 700 : 500,
+                }}
+              >
+                🎙️ Live Talk
+              </button>
+              <span style={{ fontSize: 11, color: speech.isContinuousMode ? '#7be4a3' : 'rgba(240,236,224,0.55)' }}>
+                {speech.isContinuousMode ? 'Audio aktiv' : 'Text-only'}
+              </span>
+            </>
           )}
         </div>
       </div>
