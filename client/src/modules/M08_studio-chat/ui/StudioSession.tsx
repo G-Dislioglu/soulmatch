@@ -40,6 +40,11 @@ interface PersonaResponse {
   model?: string
 }
 
+interface DiscussResult {
+  responses: PersonaResponse[]
+  creditsUsed: number
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
@@ -78,6 +83,7 @@ export function StudioSession({ config, onBack }: Props) {
   const shouldResumeSpeechAfterAudioRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const nextTurnTimerRef = useRef<number | null>(null)
+  const prefetchedAutoTurnRef = useRef<{ turn: number; promise: Promise<DiscussResult> } | null>(null)
   const autoRoundsSinceUserRef = useRef(0)
   const errorCountRef = useRef(0)
   const MAX_ERRORS = 2
@@ -96,7 +102,7 @@ export function StudioSession({ config, onBack }: Props) {
     void handleSend(spoken)
   })
 
-  const discussPersonas = Array.from(new Set(['maya', ...config.selectedPersonaIds.filter((id) => id !== 'maya')])).slice(0, 3)
+  const discussPersonas = Array.from(new Set(['maya', ...config.selectedPersonaIds.filter((id) => id !== 'maya')])).slice(0, 4)
   const activeIds = discussPersonas
   const initPersonas = activeIds.map((id) => ({
     id,
@@ -141,6 +147,7 @@ export function StudioSession({ config, onBack }: Props) {
       clearNextTurnTimer()
       runningRef.current = false
       isContinuousModeRef.current = false
+      prefetchedAutoTurnRef.current = null
       if (currentAudioRef.current) {
         currentAudioRef.current.pause()
         currentAudioRef.current.currentTime = 0
@@ -255,7 +262,7 @@ export function StudioSession({ config, onBack }: Props) {
     ])
   }
 
-  async function callDiscuss(userMessage?: string) {
+  async function callDiscuss(userMessage?: string, turnOverride = turnRef.current, historyOverride = messages) {
     const personaSettings = Object.fromEntries(
       discussPersonas.map((id) => [
         id,
@@ -267,8 +274,8 @@ export function StudioSession({ config, onBack }: Props) {
     )
 
     const isAutoTurn = typeof userMessage !== 'string'
-    const allowUserCheckIn = isAutoTurn && turnRef.current > 0 && turnRef.current % 4 === 0
-    const cadencePhase = turnRef.current % 3
+    const allowUserCheckIn = isAutoTurn && turnOverride > 0 && turnOverride % 4 === 0
+    const cadencePhase = turnOverride % 3
 
     const cadenceInstruction = cadencePhase === 0
       ? 'Maya setzt den Frame und verteilt klar das Wort.'
@@ -277,7 +284,7 @@ export function StudioSession({ config, onBack }: Props) {
       : 'Maya liefert ein kurzes Zwischenfazit und eröffnet den nächsten Gedankenschritt.'
 
     const message = userMessage
-      ?? (turnRef.current === 0
+      ?? (turnOverride === 0
         ? `Studio-Diskussion starten. Thema: ${config.topic}. Maya moderiert. Der User beobachtet nur.`
         : allowUserCheckIn
         ? `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". ${cadenceInstruction} Maya fragt am Ende dieser Runde den User genau einmal kurz nach seiner Sicht.`
@@ -286,7 +293,7 @@ export function StudioSession({ config, onBack }: Props) {
     const body = {
       personas: discussPersonas,
       message,
-      conversationHistory: messages.slice(-12).map((m) => ({
+      conversationHistory: historyOverride.slice(-12).map((m) => ({
         role: m.speakerId === 'user' ? 'user' : 'assistant',
         content: `${m.speakerName}: ${m.text}`,
       })),
@@ -298,7 +305,7 @@ export function StudioSession({ config, onBack }: Props) {
       studioMode: true,
       topic: config.topic,
       debateMode: config.mode,
-      turn: turnRef.current,
+      turn: turnOverride,
       autoTurn: isAutoTurn,
       allowUserCheckIn,
     }
@@ -310,10 +317,7 @@ export function StudioSession({ config, onBack }: Props) {
     })
 
     if (!res.ok) throw new Error('API ' + res.status)
-    return res.json() as Promise<{
-      responses: PersonaResponse[]
-      creditsUsed: number
-    }>
+    return res.json() as Promise<DiscussResult>
   }
 
   const generateReport = useCallback(async () => {
@@ -388,12 +392,60 @@ export function StudioSession({ config, onBack }: Props) {
     if (runningRef.current) return
     if (errorCountRef.current >= MAX_ERRORS && !userMessage) return
 
+    clearNextTurnTimer()
     runningRef.current = true
     setIsLoading(true)
 
     try {
-      const data = await callDiscuss(userMessage)
+      const currentTurn = turnRef.current
+      const baseHistory: Message[] = userMessage
+        ? [
+            ...messages,
+            {
+              id: `user_${Date.now().toString(36)}`,
+              speakerId: 'user',
+              speakerName: 'Du',
+              speakerColor: '#ffffff',
+              text: userMessage,
+              role: 'user',
+            },
+          ]
+        : messages
+      const prefetched = typeof userMessage === 'string'
+        ? null
+        : prefetchedAutoTurnRef.current?.turn === currentTurn
+        ? prefetchedAutoTurnRef.current
+        : null
+      if (prefetched) {
+        prefetchedAutoTurnRef.current = null
+      }
+
+      const data = prefetched
+        ? await prefetched.promise
+        : await callDiscuss(userMessage, currentTurn, baseHistory)
       const responses = data.responses ?? []
+
+      const shouldContinueAuto = (userMessage ? 0 : autoRoundsSinceUserRef.current + 1) < MAX_AUTO_ROUNDS
+      if (shouldContinueAuto && isMountedRef.current) {
+        const stitchedHistory = [
+          ...baseHistory,
+          ...responses.map((resp) => ({
+            id: `prefetch_${resp.persona}_${Date.now().toString(36)}`,
+            speakerId: resp.persona,
+            speakerName: PERSONA_NAMES[resp.persona] ?? resp.persona,
+            speakerColor: PERSONA_COLORS[resp.persona] ?? resp.color ?? '#888',
+            text: resp.text ?? '',
+            role: (resp.persona === 'maya' ? 'moderator' : 'persona') as Message['role'],
+          })),
+        ]
+
+        prefetchedAutoTurnRef.current = {
+          turn: currentTurn + 1,
+          promise: callDiscuss(undefined, currentTurn + 1, stitchedHistory),
+        }
+      } else {
+        prefetchedAutoTurnRef.current = null
+      }
 
       errorCountRef.current = 0
 
@@ -492,8 +544,10 @@ export function StudioSession({ config, onBack }: Props) {
 
     setUserInput('')
     speech.resetTranscript()
+    clearNextTurnTimer()
+    prefetchedAutoTurnRef.current = null
     await runTurn(text)
-  }, [isLoading, runTurn, speech, userInput])
+  }, [clearNextTurnTimer, isLoading, runTurn, speech, userInput])
 
   function handleSetTextTalk() {
     setTalkMode('text')
@@ -547,7 +601,7 @@ export function StudioSession({ config, onBack }: Props) {
             onClick={() => void generateReport()}
             disabled={isGeneratingReport}
           >
-            {isGeneratingReport ? '⏳ Report...' : '� Report'}
+            {isGeneratingReport ? '⏳ Report...' : '📋 Report'}
           </button>
           <button
             className="studio-session__ctrl-btn"

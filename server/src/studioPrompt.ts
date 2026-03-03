@@ -650,10 +650,12 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
   const personaTune = context.personaSettings?.[personaId];
   const humorLevel = typeof personaTune?.humor === 'number' ? Math.max(0, Math.min(1, personaTune.humor)) : 0.35;
   const humorStyle = humorLevel < 0.25
-    ? 'kaum Humor; klar und nüchtern'
-    : humorLevel < 0.6
-    ? 'subtiler, trockener Humor in einzelnen Momenten'
-    : 'spürbarer, warmer Humor, aber nie albern';
+    ? 'Humor fast aus: nüchtern, klar, ernst.'
+    : humorLevel < 0.5
+    ? 'Leichter Humor: nur gelegentlich trockene Ironie (etwa 1x pro 3 Antworten).'
+    : humorLevel < 0.8
+    ? 'Deutlich mehr Witz: in vielen Antworten ein kurzer cleverer Twist, ohne vom Thema abzulenken.'
+    : 'Hoher Witz-Level: fast jede Antwort enthält eine kurze, scharfe Pointe oder ein spielerisches Bild, respektvoll und nie clownesk.';
   const accentProfile = personaTune?.accentProfile === 'off' || personaTune?.accentProfile === 'strict'
     ? personaTune.accentProfile
     : 'subtle';
@@ -662,7 +664,7 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     : accentProfile === 'strict'
     ? 'Akzent-Hinweise deutlich, aber respektvoll und nie karikierend.'
     : 'Akzent-Hinweise nur sehr subtil und respektvoll.';
-  const tuningBlock = `\nPERSONA-TUNING:\n- Humor-Level: ${humorStyle}\n- Accent-Profile: ${accentProfile} (${accentPrompt})\n`;
+  const tuningBlock = `\nPERSONA-TUNING:\n- Humor-Level: ${humorStyle}\n- Bei hohem Humor (>=0.5): nutze kurze humorvolle Einschübe aktiv als Stilmittel, ohne Informationsverlust.\n- Accent-Profile: ${accentProfile} (${accentPrompt})\n`;
 
   const firstContactBlock = context.isFirstUserMessage
     ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
