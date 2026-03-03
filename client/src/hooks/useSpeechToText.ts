@@ -48,6 +48,7 @@ export function useSpeechToText(
   const lastStartAtRef = useRef(0);       // timestamp of last recognition.start() call
   const startAttemptRef = useRef(0);     // consecutive restart attempts (for backoff)
   const abortLoopGuardRef = useRef(false);
+  const noSpeechStreakRef = useRef(0);
 
   // Keep refs in sync
   useEffect(() => { onAutoSendRef.current = onAutoSend; }, [onAutoSend]);
@@ -72,6 +73,8 @@ export function useSpeechToText(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       if (isPlaybackActiveRef.current) return;
+
+      noSpeechStreakRef.current = 0;
 
       let interimText = '';
 
@@ -147,7 +150,7 @@ export function useSpeechToText(
     recognition.onend = () => {
       runningRef.current = false;
       setIsListening(false);
-      console.log('[speech] onend, shouldRun:', isContinuousModeRef.current);
+      console.log('[speech] onend, shouldRun:', isContinuousModeRef.current, 'noSpeechStreak:', noSpeechStreakRef.current);
 
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
@@ -176,7 +179,11 @@ export function useSpeechToText(
 
       // Restart only if continuous mode is still active and audio is not playing
       if (isContinuousModeRef.current && !isPlaybackActiveRef.current) {
-        const delay = Math.min(300 + startAttemptRef.current * 150, 1000);
+        const baseDelay = Math.min(300 + startAttemptRef.current * 150, 1000);
+        const noSpeechDelay = noSpeechStreakRef.current > 0
+          ? Math.min(1200 + noSpeechStreakRef.current * 400, 5000)
+          : 0;
+        const delay = Math.max(baseDelay, noSpeechDelay);
         restartTimerRef.current = window.setTimeout(safeStart, delay);
       }
     };
@@ -185,6 +192,7 @@ export function useSpeechToText(
     recognition.onerror = (event: any) => {
       console.log('[speech] error:', event.error);
       if (event.error === 'no-speech') {
+        noSpeechStreakRef.current += 1;
         return; // silence during continuous — recognition keeps running
       }
       if (event.error === 'aborted') {

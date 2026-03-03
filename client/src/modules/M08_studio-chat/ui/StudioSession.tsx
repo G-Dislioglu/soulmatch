@@ -97,7 +97,7 @@ export function StudioSession({ config, onBack }: Props) {
       })),
       end_session: false,
       stream: false,
-      audioMode: false,
+      audioMode: true,
 
       studioMode: true,
       topic: config.topic,
