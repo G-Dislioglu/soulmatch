@@ -97,7 +97,7 @@ const LIVE_INSIGHTS: Array<{ type: string; text: string; category: InsightCard['
   { type: 'Energie-Shift', text: 'Tonfall: Abwehr → Neugier. Wichtige Verschiebung.', category: 'new' },
 ];
 
-const LIVE_AUDIO_ENABLED = import.meta.env.VITE_ENABLE_LIVE_AUDIO === 'true';
+const LIVE_AUDIO_ENABLED = import.meta.env.VITE_DISABLE_LIVE_AUDIO !== 'true';
 const AUDIO_DEVTOOLS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_AUDIO_DEVTOOLS === 'true';
 
 function ts(): string {
