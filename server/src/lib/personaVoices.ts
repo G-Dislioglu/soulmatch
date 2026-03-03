@@ -15,9 +15,9 @@ export function getPersonaVoice(personaId: string): string {
   return voices[key] ?? 'Kore';
 }
 
-function getAccentGuidance(personaId: string): string {
+function getAccentGuidance(personaId: string, accentProfileOverride?: 'off' | 'subtle' | 'strict'): string {
   const key = (personaId ?? '').trim().toLowerCase();
-  const accentProfile = (process.env.ACCENT_PROFILE ?? 'subtle').trim().toLowerCase();
+  const accentProfile = (accentProfileOverride ?? process.env.ACCENT_PROFILE ?? 'subtle').trim().toLowerCase();
   if (accentProfile === 'off') return '';
 
   const subtle = accentProfile !== 'strict';
@@ -32,10 +32,10 @@ function getAccentGuidance(personaId: string): string {
   return map[key] ?? '';
 }
 
-export function getPersonaVoiceDirector(personaId: string): string {
+export function getPersonaVoiceDirector(personaId: string, accentProfileOverride?: 'off' | 'subtle' | 'strict'): string {
   const key = (personaId ?? '').trim().toLowerCase();
   const baseStyle = 'Speak like a real live conversation, not like reading. Vary rhythm and sentence stress naturally. Use subtle emotional color that matches the text. Keep pauses short and human.';
-  const accentGuidance = getAccentGuidance(key);
+  const accentGuidance = getAccentGuidance(key, accentProfileOverride);
   const directors: Record<string, string> = {
     maya: `Audio Profile: Weise Astrologin, Mitte 40, warm und einfühlsam.
 Scene: Stilles Beratungszimmer, Kerzenlicht.

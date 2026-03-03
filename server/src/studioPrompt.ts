@@ -538,6 +538,7 @@ export interface DiscussPromptContext {
   autoTurn?: boolean;
   allowUserCheckIn?: boolean;
   turn?: number;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict' }>;
   isFirstSpeaker: boolean;
   isFirstUserMessage?: boolean;
   lilithIntensity?: LilithIntensity;
@@ -646,6 +647,23 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? `\nLilith Intensity: ${context.lilithIntensity.toUpperCase()}\n`
     : '';
 
+  const personaTune = context.personaSettings?.[personaId];
+  const humorLevel = typeof personaTune?.humor === 'number' ? Math.max(0, Math.min(1, personaTune.humor)) : 0.35;
+  const humorStyle = humorLevel < 0.25
+    ? 'kaum Humor; klar und nüchtern'
+    : humorLevel < 0.6
+    ? 'subtiler, trockener Humor in einzelnen Momenten'
+    : 'spürbarer, warmer Humor, aber nie albern';
+  const accentProfile = personaTune?.accentProfile === 'off' || personaTune?.accentProfile === 'strict'
+    ? personaTune.accentProfile
+    : 'subtle';
+  const accentPrompt = accentProfile === 'off'
+    ? 'Akzent-Hinweise AUS (neutral sprechen).'
+    : accentProfile === 'strict'
+    ? 'Akzent-Hinweise deutlich, aber respektvoll und nie karikierend.'
+    : 'Akzent-Hinweise nur sehr subtil und respektvoll.';
+  const tuningBlock = `\nPERSONA-TUNING:\n- Humor-Level: ${humorStyle}\n- Accent-Profile: ${accentProfile} (${accentPrompt})\n`;
+
   const firstContactBlock = context.isFirstUserMessage
     ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
     : '';
@@ -684,7 +702,7 @@ ${APP_CONTEXT_BLOCK}
 
 ${COMMON_PERSONA_GUIDANCE}
 
-${personaDesc}${lilithBlock}
+${personaDesc}${lilithBlock}${tuningBlock}
 
 ${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}
 

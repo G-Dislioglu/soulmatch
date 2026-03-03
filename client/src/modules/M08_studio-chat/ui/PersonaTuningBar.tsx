@@ -1,5 +1,4 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import type { StudioSeat } from '../../../shared/types/studio';
 
 const SPEECH_RATE_KEY_PREFIX = 'soulmatch_voice_rate_';
 const MIN_SPEECH_RATE = 0.75;
@@ -22,22 +21,36 @@ export interface MoodParameters {
   mysticism: number;
   provocation: number;
   intellect: number;
+  humor: number;
+  accentProfile: AccentProfile;
 }
+
+export type AccentProfile = 'off' | 'subtle' | 'strict';
 
 export const DEFAULT_MOOD: MoodParameters = {
   empathy: 0.5,
   mysticism: 0.5,
   provocation: 0.5,
   intellect: 0.5,
+  humor: 0.35,
+  accentProfile: 'subtle',
 };
 
 // Hook for managing Persona Tuning State
-export function usePersonaTuning(seat: StudioSeat) {
-  const storageKey = `soulmatch_tuning_${seat}`;
+export function usePersonaTuning(personaId: string) {
+  const storageKey = `soulmatch_tuning_${personaId}`;
   const [mood, setMood] = useState<MoodParameters>(() => {
     try {
       const stored = localStorage.getItem(storageKey);
-      if (stored) return JSON.parse(stored) as MoodParameters;
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<MoodParameters>;
+        return {
+          ...DEFAULT_MOOD,
+          ...parsed,
+          accentProfile: parsed.accentProfile === 'off' || parsed.accentProfile === 'strict' ? parsed.accentProfile : 'subtle',
+          humor: typeof parsed.humor === 'number' ? Math.max(0, Math.min(1, parsed.humor)) : DEFAULT_MOOD.humor,
+        };
+      }
     } catch {}
     return DEFAULT_MOOD;
   });
@@ -49,12 +62,34 @@ export function usePersonaTuning(seat: StudioSeat) {
   return { mood, setMood };
 }
 
+export function getPersonaHumorLevel(personaId: string): number {
+  try {
+    const raw = localStorage.getItem(`soulmatch_tuning_${personaId}`);
+    const parsed = raw ? (JSON.parse(raw) as Partial<MoodParameters>) : null;
+    const value = typeof parsed?.humor === 'number' ? parsed.humor : DEFAULT_MOOD.humor;
+    return Math.max(0, Math.min(1, value));
+  } catch {
+    return DEFAULT_MOOD.humor;
+  }
+}
+
+export function getPersonaAccentProfile(personaId: string): AccentProfile {
+  try {
+    const raw = localStorage.getItem(`soulmatch_tuning_${personaId}`);
+    const parsed = raw ? (JSON.parse(raw) as Partial<MoodParameters>) : null;
+    if (parsed?.accentProfile === 'off' || parsed?.accentProfile === 'strict') return parsed.accentProfile;
+    return 'subtle';
+  } catch {
+    return 'subtle';
+  }
+}
+
 interface PersonaTuningBarProps {
-  seat: StudioSeat;
+  seat: string;
   accentColor: string;
 }
 
-const TUNING_LABELS: Record<keyof MoodParameters, { icon: string; left: string; right: string }> = {
+const TUNING_LABELS: Record<'empathy' | 'mysticism' | 'provocation' | 'intellect', { icon: string; left: string; right: string }> = {
   empathy: { icon: '🤍', left: 'Analytisch', right: 'Warmherzig' },
   mysticism: { icon: '🔮', left: 'Direkt', right: 'Orakelhaft' },
   provocation: { icon: '🔥', left: 'Zustimmend', right: 'Herausfordernd' },
@@ -183,7 +218,7 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
             Soul-Tuning
           </div>
 
-          {(Object.keys(TUNING_LABELS) as Array<keyof MoodParameters>).map((key) => (
+          {(Object.keys(TUNING_LABELS) as Array<'empathy' | 'mysticism' | 'provocation' | 'intellect'>).map((key) => (
             <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#a8a298' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -216,6 +251,67 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
               />
             </div>
           ))}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#a8a298' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>😄</span>
+                Ernst
+              </span>
+              <span>Humor · {Math.round(mood.humor * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={mood.humor}
+              onChange={(e) => setMood({ ...mood, humor: parseFloat(e.target.value) })}
+              style={{
+                width: '100%',
+                appearance: 'none',
+                height: 4,
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: 2,
+                outline: 'none',
+                cursor: 'pointer',
+                backgroundImage: `linear-gradient(${accentColor}, ${accentColor})`,
+                backgroundSize: `${mood.humor * 100}% 100%`,
+                backgroundRepeat: 'no-repeat',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: '#a8a298', display: 'flex', justifyContent: 'space-between' }}>
+              <span>🗣️ Akzent</span>
+              <span>{mood.accentProfile}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+              {(['off', 'subtle', 'strict'] as AccentProfile[]).map((option) => {
+                const active = mood.accentProfile === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setMood({ ...mood, accentProfile: option })}
+                    style={{
+                      border: `1px solid ${active ? accentColor : 'rgba(255,255,255,0.18)'}`,
+                      background: active ? `${accentColor}25` : 'rgba(255,255,255,0.04)',
+                      color: active ? '#fff' : '#c7c2b5',
+                      borderRadius: 8,
+                      padding: '6px 4px',
+                      fontSize: 11,
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#a8a298' }}>

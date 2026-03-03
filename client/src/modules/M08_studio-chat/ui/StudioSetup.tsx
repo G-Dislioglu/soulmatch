@@ -6,11 +6,13 @@ import {
 } from '../lib/personaColors'
 
 export type DebateMode = 'kontrovers' | 'sokratisch' | 'offen'
+export type TalkMode = 'live' | 'text'
 
 export interface StudioConfig {
   topic: string
   selectedPersonaIds: string[] // 2–3, ohne Maya
   mode: DebateMode
+  talkMode: TalkMode
 }
 
 interface Props {
@@ -45,6 +47,7 @@ export function StudioSetup({ onStart }: Props) {
   const [topic, setTopic] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [mode, setMode] = useState<DebateMode>('kontrovers')
+  const [talkMode, setTalkMode] = useState<TalkMode>('text')
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -136,6 +139,30 @@ export function StudioSetup({ onStart }: Props) {
       </div>
 
       <div className="ss__section">
+        <div className="ss__label">Gesprächsmodus vor Start</div>
+        <div className="ss__modes" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <button
+            type="button"
+            className={`ss__mode ${talkMode === 'text' ? 'ss__mode--selected' : ''}`}
+            onClick={() => setTalkMode('text')}
+          >
+            <span className="ss__mode-icon">⌨️</span>
+            <span className="ss__mode-label">Text Talk</span>
+            <span className="ss__mode-desc">Ohne Mikrofon, ohne Audio</span>
+          </button>
+          <button
+            type="button"
+            className={`ss__mode ${talkMode === 'live' ? 'ss__mode--selected' : ''}`}
+            onClick={() => setTalkMode('live')}
+          >
+            <span className="ss__mode-icon">🎙️</span>
+            <span className="ss__mode-label">Live Talk</span>
+            <span className="ss__mode-desc">Mit Mikrofon + Audioausgabe</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="ss__section">
         <div className="ss__label">Diskussions-Modus</div>
         <div className="ss__modes">
           {DEBATE_MODES.map((m) => (
@@ -155,7 +182,7 @@ export function StudioSetup({ onStart }: Props) {
       <button
         className={`ss__start ${!canStart ? 'ss__start--disabled' : ''}`}
         disabled={!canStart}
-        onClick={() => canStart && onStart({ topic: topic.trim(), selectedPersonaIds: selected, mode })}
+        onClick={() => canStart && onStart({ topic: topic.trim(), selectedPersonaIds: selected, mode, talkMode })}
       >
         ✦ Studio starten
       </button>

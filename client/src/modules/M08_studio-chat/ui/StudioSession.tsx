@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { StudioConfig } from './StudioSetup'
+import { StudioConfig, TalkMode } from './StudioSetup'
 import { PersonaTensionCard } from './PersonaTensionCard'
 import { RelationshipLines } from './RelationshipLines'
 import { useSpeechToText } from '../../../hooks/useSpeechToText'
 import { SpeechConsentDialog } from './SpeechConsentDialog'
 import { usePersonaTension } from '../../../hooks/usePersonaTension'
+import { PersonaTuningBar, getPersonaAccentProfile, getPersonaHumorLevel } from './PersonaTuningBar'
 import {
   EMOTION_CONFIG,
   inferAudienceEvent,
@@ -12,10 +13,6 @@ import {
   dissensLabel,
   type EmotionState,
 } from '../../../lib/emotionEngine'
-import {
-  playAudienceEvent,
-  setAudienceEnabled,
-} from '../../../lib/audienceEngine'
 import {
   PERSONA_COLORS,
   PERSONA_ICONS,
@@ -66,7 +63,8 @@ interface Props {
 export function StudioSession({ config, onBack }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [userInput, setUserInput] = useState('')
-  const [audienceOn, setAudienceOn] = useState(true)
+  const [talkMode, setTalkMode] = useState<TalkMode>(config.talkMode ?? 'text')
+  const [sessionStarted, setSessionStarted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [reportText, setReportText] = useState<string | null>(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
@@ -122,7 +120,22 @@ export function StudioSession({ config, onBack }: Props) {
 
   useEffect(() => {
     isMountedRef.current = true
-    void runTurn()
+    if (config.talkMode === 'live') {
+      if (speech.hasConsent) {
+        setTalkMode('live')
+        isContinuousModeRef.current = true
+        speech.startContinuous()
+        setSessionStarted(true)
+      } else {
+        setShowConsent(true)
+      }
+    } else {
+      setTalkMode('text')
+      isContinuousModeRef.current = false
+      speech.stopContinuous()
+      setSessionStarted(true)
+    }
+
     return () => {
       isMountedRef.current = false
       clearNextTurnTimer()
@@ -135,7 +148,14 @@ export function StudioSession({ config, onBack }: Props) {
       speech.setPlaybackActive(false)
       speech.stopContinuous()
     }
-  }, [clearNextTurnTimer])
+  }, [clearNextTurnTimer, config.talkMode])
+
+  useEffect(() => {
+    if (!sessionStarted) return
+    if (turnRef.current > 0) return
+    if (runningRef.current) return
+    void runTurn()
+  }, [sessionStarted])
 
   const getInterSpeakerPauseMs = useCallback((speakerId: string) => {
     const baseByPersona: Record<string, number> = {
@@ -163,6 +183,10 @@ export function StudioSession({ config, onBack }: Props) {
   useEffect(() => {
     isContinuousModeRef.current = speech.isContinuousMode
   }, [speech.isContinuousMode])
+
+  useEffect(() => {
+    isContinuousModeRef.current = talkMode === 'live'
+  }, [talkMode])
 
   const pauseSpeechForAudio = useCallback(() => {
     if (speech.isContinuousMode) {
@@ -232,6 +256,16 @@ export function StudioSession({ config, onBack }: Props) {
   }
 
   async function callDiscuss(userMessage?: string) {
+    const personaSettings = Object.fromEntries(
+      discussPersonas.map((id) => [
+        id,
+        {
+          humor: getPersonaHumorLevel(id),
+          accentProfile: getPersonaAccentProfile(id),
+        },
+      ]),
+    )
+
     const isAutoTurn = typeof userMessage !== 'string'
     const allowUserCheckIn = isAutoTurn && turnRef.current > 0 && turnRef.current % 4 === 0
     const cadencePhase = turnRef.current % 3
@@ -259,6 +293,7 @@ export function StudioSession({ config, onBack }: Props) {
       end_session: false,
       stream: false,
       audioMode: isContinuousModeRef.current,
+      personaSettings,
 
       studioMode: true,
       topic: config.topic,
@@ -310,6 +345,12 @@ export function StudioSession({ config, onBack }: Props) {
           end_session: false,
           stream: false,
           audioMode: isContinuousModeRef.current,
+          personaSettings: {
+            maya: {
+              humor: getPersonaHumorLevel('maya'),
+              accentProfile: getPersonaAccentProfile('maya'),
+            },
+          },
           studioMode: true,
           topic: config.topic,
           debateMode: config.mode,
@@ -390,9 +431,7 @@ export function StudioSession({ config, onBack }: Props) {
               speakerId === 'maya' && text.length > 100,
             )
 
-          if (evt && audienceOn) {
-            setTimeout(() => playAudienceEvent(evt as Parameters<typeof playAudienceEvent>[0]), 700)
-          }
+          void evt
         }
 
         if (isContinuousModeRef.current) {
@@ -456,32 +495,37 @@ export function StudioSession({ config, onBack }: Props) {
     await runTurn(text)
   }, [isLoading, runTurn, speech, userInput])
 
-  function handleToggleLiveTalk() {
-    if (speech.isContinuousMode) {
-      isContinuousModeRef.current = false
-      shouldResumeSpeechAfterAudioRef.current = false
-      speech.stopContinuous()
-      return
-    }
+  function handleSetTextTalk() {
+    setTalkMode('text')
+    isContinuousModeRef.current = false
+    shouldResumeSpeechAfterAudioRef.current = false
+    speech.stopContinuous()
+    if (!sessionStarted) setSessionStarted(true)
+  }
 
+  function handleSetLiveTalk() {
     if (!speech.hasConsent) {
       setShowConsent(true)
       return
     }
-
+    setTalkMode('live')
     isContinuousModeRef.current = true
     speech.startContinuous()
+    if (!sessionStarted) setSessionStarted(true)
   }
 
   function handleConsentAccept() {
     speech.grantConsent()
     setShowConsent(false)
+    setTalkMode('live')
     isContinuousModeRef.current = true
     speech.startContinuous()
+    if (!sessionStarted) setSessionStarted(true)
   }
 
   function handleConsentCancel() {
     setShowConsent(false)
+    handleSetTextTalk()
   }
 
   const active = personas.find((p) => p.speaking)
@@ -500,49 +544,51 @@ export function StudioSession({ config, onBack }: Props) {
         <div className="studio-session__top-controls">
           <button
             className="studio-session__ctrl-btn"
-            onClick={() => {
-              const n = !audienceOn
-              setAudienceOn(n)
-              setAudienceEnabled(n)
-            }}
-          >
-            {audienceOn ? '🔊' : '🔇'} Publikum
-          </button>
-          <button
-            className="studio-session__ctrl-btn"
             onClick={() => void generateReport()}
             disabled={isGeneratingReport}
           >
-            {isGeneratingReport ? '⏳ Report...' : '📋 Report'}
+            {isGeneratingReport ? '⏳ Report...' : '� Report'}
+          </button>
+          <button
+            className="studio-session__ctrl-btn"
+            onClick={handleSetTextTalk}
+            style={{
+              border: talkMode === 'text' ? '2px solid rgba(34,197,94,0.65)' : '1px solid rgba(255,255,255,0.1)',
+              background: talkMode === 'text' ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.04)',
+              color: talkMode === 'text' ? '#22c55e' : '#d8c69f',
+              fontWeight: talkMode === 'text' ? 700 : 500,
+            }}
+          >
+            ⌨️ Text Talk
           </button>
           {speech.isSupported && (
             <>
               <button
                 className="studio-session__ctrl-btn"
-                onClick={handleToggleLiveTalk}
+                onClick={handleSetLiveTalk}
                 style={{
-                  border: speech.isContinuousMode
+                  border: talkMode === 'live'
                     ? '2px solid rgba(34,197,94,0.65)'
                     : speech.micBlocked
                     ? '1px solid rgba(239,68,68,0.65)'
                     : '1px solid rgba(255,255,255,0.1)',
-                  background: speech.isContinuousMode
+                  background: talkMode === 'live'
                     ? 'rgba(34,197,94,0.16)'
                     : speech.micBlocked
                     ? 'rgba(239,68,68,0.12)'
                     : 'rgba(255,255,255,0.04)',
-                  color: speech.isContinuousMode
+                  color: talkMode === 'live'
                     ? '#22c55e'
                     : speech.micBlocked
                     ? '#f87171'
                     : '#d8c69f',
-                  fontWeight: speech.isContinuousMode ? 700 : 500,
+                  fontWeight: talkMode === 'live' ? 700 : 500,
                 }}
               >
                 🎙️ Live Talk
               </button>
-              <span style={{ fontSize: 11, color: speech.isContinuousMode ? '#7be4a3' : 'rgba(240,236,224,0.55)' }}>
-                {speech.isContinuousMode ? 'Audio aktiv' : 'Text-only'}
+              <span style={{ fontSize: 11, color: talkMode === 'live' ? '#7be4a3' : 'rgba(240,236,224,0.55)' }}>
+                {talkMode === 'live' ? 'Audio aktiv' : 'Text-only'}
               </span>
             </>
           )}
@@ -571,11 +617,15 @@ export function StudioSession({ config, onBack }: Props) {
           />
           <div className="studio-session__cards">
             {personas.map((p) => (
-              <PersonaTensionCard
-                key={p.id}
-                persona={p}
-                onMicroReactionExpired={clearMicroReaction}
-              />
+              <div key={p.id} style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 6 }}>
+                  <PersonaTuningBar seat={p.id} accentColor={PERSONA_COLORS[p.id] ?? '#c8a45a'} />
+                </div>
+                <PersonaTensionCard
+                  persona={p}
+                  onMicroReactionExpired={clearMicroReaction}
+                />
+              </div>
             ))}
           </div>
         </div>

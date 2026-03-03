@@ -675,6 +675,7 @@ interface DiscussRequestBody {
   turn?: number;
   autoTurn?: boolean;
   allowUserCheckIn?: boolean;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict' }>;
 }
 
 type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
@@ -1108,6 +1109,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       autoTurn: body.autoTurn === true,
       allowUserCheckIn: body.allowUserCheckIn === true,
       turn: typeof body.turn === 'number' ? body.turn : 0,
+      personaSettings: body.personaSettings,
       isFirstSpeaker: index === 0,
       isFirstUserMessage,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',
@@ -1173,7 +1175,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
             ttsPromise = (async () => {
               try {
                 const ttsResult = await withTimeout(
-                  generateTTS(text, personaId, geminiApiKey, openaiApiKey),
+                  generateTTS(
+                    text,
+                    personaId,
+                    geminiApiKey,
+                    openaiApiKey,
+                    body.personaSettings?.[personaId],
+                  ),
                   20000,
                 );
                 ttsEngineUsed = ttsResult.engine;
@@ -1201,7 +1209,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
             // Non-stream: await TTS before returning response
             try {
               const ttsResult = await withTimeout(
-                generateTTS(text, personaId, geminiApiKey, openaiApiKey),
+                generateTTS(
+                  text,
+                  personaId,
+                  geminiApiKey,
+                  openaiApiKey,
+                  body.personaSettings?.[personaId],
+                ),
                 20000,
               );
               ttsEngineUsed = ttsResult.engine;
@@ -1276,12 +1290,6 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       // Stream mode already sent a 'text' event from inside the promise.
       if (!wantsStream) {
         sendSseEvent({ type: 'persona', response });
-      }
-
-      // BUG 2: Sequenzielle Wartepflicht, wenn weitere Personas antworten sollen,
-      // damit die Audios im Client nicht kollidieren.
-      if (personasToCall.length > 1 && responses.length < personasToCall.length) {
-        await sleep(800);
       }
 
       if (isRoundCanceled()) {

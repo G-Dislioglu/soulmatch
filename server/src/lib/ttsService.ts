@@ -61,6 +61,7 @@ export async function generateTTS(
   personaId: string,
   geminiApiKey: string,
   openaiApiKey: string,
+  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict' },
 ): Promise<TTSResult> {
   const geminiVoice = getPersonaVoice(personaId);
   const disableGeminiTts = process.env.DISABLE_GEMINI_TTS === 'true';
@@ -84,7 +85,12 @@ export async function generateTTS(
         continue;
       }
       try {
-        const result = await geminiPreviewTTS(text, geminiVoice, geminiApiKey, getPersonaVoiceDirector(personaId));
+        const result = await geminiPreviewTTS(
+          text,
+          geminiVoice,
+          geminiApiKey,
+          getPersonaVoiceDirector(personaId, personaSettings?.accentProfile),
+        );
         console.log('[TTS Engine]', {
           engine: priority === 'gemini-first' ? 'gemini-primary' : 'gemini-fallback',
           personaId,
