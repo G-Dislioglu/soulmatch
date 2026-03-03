@@ -63,60 +63,81 @@ export async function generateTTS(
 ): Promise<TTSResult> {
   const geminiVoice = getPersonaVoice(personaId);
   const disableGeminiTts = process.env.DISABLE_GEMINI_TTS === 'true';
+  const configuredPriority = (process.env.TTS_ENGINE_PRIORITY ?? 'gemini-first').toLowerCase();
+  const priority: 'gemini-first' | 'openai-first' = configuredPriority === 'openai-first' ? 'openai-first' : 'gemini-first';
+  const engineOrder: Array<'gemini' | 'openai'> = priority === 'gemini-first' ? ['gemini', 'openai'] : ['openai', 'gemini'];
+  const errors: string[] = [];
 
-  try {
-    const result = await openaiTTS(text, getOpenAiVoiceForPersona(personaId), openaiApiKey);
-    console.log('[TTS Engine]', {
-      engine: 'openai-default',
-      personaId,
-      textLength: text.length,
-      success: true,
-      timestamp: new Date().toISOString(),
-    });
-    return result;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.log('[TTS Engine]', {
-      engine: 'openai-default',
-      personaId,
-      error: message,
-      success: false,
-      timestamp: new Date().toISOString(),
-    });
+  for (const engine of engineOrder) {
+    if (engine === 'gemini') {
+      if (disableGeminiTts) {
+        const msg = 'Gemini TTS disabled via DISABLE_GEMINI_TTS=true';
+        errors.push(msg);
+        console.log('[TTS Engine]', {
+          engine: 'gemini-preview',
+          personaId,
+          success: false,
+          error: msg,
+          timestamp: new Date().toISOString(),
+        });
+        continue;
+      }
+      try {
+        const result = await geminiPreviewTTS(text, geminiVoice, geminiApiKey, getPersonaVoiceDirector(personaId));
+        console.log('[TTS Engine]', {
+          engine: priority === 'gemini-first' ? 'gemini-primary' : 'gemini-fallback',
+          personaId,
+          textLength: text.length,
+          success: true,
+          timestamp: new Date().toISOString(),
+        });
+        return result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(`gemini: ${message}`);
+        console.log('[TTS Engine]', {
+          engine: priority === 'gemini-first' ? 'gemini-primary' : 'gemini-fallback',
+          personaId,
+          error: message,
+          success: false,
+          timestamp: new Date().toISOString(),
+        });
+        continue;
+      }
+    }
+
+    try {
+      const result = await openaiTTS(text, getOpenAiVoiceForPersona(personaId), openaiApiKey);
+      console.log('[TTS Engine]', {
+        engine: priority === 'openai-first' ? 'openai-primary' : 'openai-fallback',
+        personaId,
+        textLength: text.length,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`openai: ${message}`);
+      console.log('[TTS Engine]', {
+        engine: priority === 'openai-first' ? 'openai-primary' : 'openai-fallback',
+        personaId,
+        error: message,
+        success: false,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
-  if (disableGeminiTts) {
-    console.log('[TTS Engine]', {
-      engine: 'gemini-preview',
-      personaId,
-      success: false,
-      error: 'Gemini TTS disabled via DISABLE_GEMINI_TTS=true',
-      timestamp: new Date().toISOString(),
-    });
-    throw new Error('OpenAI TTS fehlgeschlagen und Gemini TTS ist deaktiviert');
-  }
-
-  try {
-    const result = await geminiPreviewTTS(text, geminiVoice, geminiApiKey, getPersonaVoiceDirector(personaId));
-    console.log('[TTS Engine]', {
-      engine: 'gemini-fallback',
-      personaId,
-      textLength: text.length,
-      success: true,
-      timestamp: new Date().toISOString(),
-    });
-    return result;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.log('[TTS Engine]', {
-      engine: 'failed',
-      personaId,
-      error: message,
-      success: false,
-      timestamp: new Date().toISOString(),
-    });
-    throw new Error('Alle TTS Engines fehlgeschlagen');
-  }
+  console.log('[TTS Engine]', {
+    engine: 'failed',
+    personaId,
+    success: false,
+    priority,
+    error: errors.join(' | '),
+    timestamp: new Date().toISOString(),
+  });
+  throw new Error(`Alle TTS Engines fehlgeschlagen (${priority})`);
 }
 
 async function geminiPreviewTTS(text: string, voiceName: string, apiKey: string, directorPrompt: string): Promise<TTSResult> {
