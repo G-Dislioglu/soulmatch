@@ -106,6 +106,7 @@ export function useSpeechToText(
 
     // safeStart: only start if shouldRun=true AND not already running (no stale closure)
     const safeStart = () => {
+      if (isPlaybackActiveRef.current) return;
       if (!isContinuousModeRef.current || !recognitionRef.current || runningRef.current) return;
       if (restartTimerRef.current) { window.clearTimeout(restartTimerRef.current); restartTimerRef.current = null; }
       // Throttle: prevent start() spam closer than 200ms
@@ -301,6 +302,10 @@ export function useSpeechToText(
 
   const setPlaybackActive = useCallback((active: boolean) => {
     isPlaybackActiveRef.current = active;
+    if (active && restartTimerRef.current) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     if (active && recognitionRef.current && runningRef.current) {
       try {
         recognitionRef.current.stop(); // use stop() not abort() to avoid error loop
