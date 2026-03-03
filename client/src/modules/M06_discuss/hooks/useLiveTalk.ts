@@ -134,13 +134,24 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       speech.stopContinuous();
     }
 
-    await new Promise<void>((resolve) => {
-      let playbackUrl = audioUrl;
-      let objectUrlToRevoke: string | undefined;
+    let playbackUrl = audioUrl;
+    let objectUrlToRevoke: string | undefined;
+    if (audioUrl.startsWith('data:')) {
+      try {
+        const response = await fetch(audioUrl);
+        const blob = await response.blob();
+        objectUrlToRevoke = URL.createObjectURL(blob);
+        playbackUrl = objectUrlToRevoke;
+        console.log('[LiveTalk] data URL normalized via fetch->blob', {
+          mimeType: blob.type,
+          byteLength: blob.size,
+        });
+      } catch (err) {
+        console.error('[LiveTalk] data URL normalization failed, fallback to original URL', err);
+      }
+    }
 
-      // Use server-provided URL directly (data/blob/http). Manual base64->Blob
-      // conversion can introduce decode edge cases across browsers.
-      playbackUrl = audioUrl;
+    await new Promise<void>((resolve) => {
 
       const audio = new Audio(playbackUrl);
       currentAudioRef.current = audio;
