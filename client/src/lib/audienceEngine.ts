@@ -61,26 +61,27 @@ function playMurmur() {
   const ctx = getCtx()
   const now = ctx.currentTime
 
-  // Leises Murmeln: tiefer Bandpass + langsame Welle
-  const noise = createNoise(ctx, 3.5)
+  // Leises Murmeln: mittlere Sprachfrequenzen statt tiefer "Meereswelle"
+  const noise = createNoise(ctx, 2.2)
   const filter = ctx.createBiquadFilter()
   filter.type = 'bandpass'
-  filter.frequency.value = 320
-  filter.Q.value = 2.5
+  filter.frequency.value = 720
+  filter.Q.value = 3.2
 
-  // Leichte Frequenz-Bewegung simuliert mehrere Stimmen
-  filter.frequency.setValueAtTime(300, now)
-  filter.frequency.linearRampToValueAtTime(380, now + 1.5)
-  filter.frequency.linearRampToValueAtTime(280, now + 3.0)
+  // Kürzere, lebendigere Bewegung in Sprachbereichen
+  filter.frequency.setValueAtTime(640, now)
+  filter.frequency.linearRampToValueAtTime(900, now + 0.8)
+  filter.frequency.linearRampToValueAtTime(760, now + 1.6)
+  filter.frequency.linearRampToValueAtTime(680, now + 2.1)
 
   const gain = ctx.createGain()
   noise.connect(filter)
   filter.connect(gain)
   gain.connect(masterGain!)
 
-  envelope(gain, now, 0.4, 2.0, 1.0, 0.9)
+  envelope(gain, now, 0.08, 1.55, 0.55, 0.7)
   noise.start(now)
-  noise.stop(now + 3.5)
+  noise.stop(now + 2.2)
 }
 
 function playLaughter() {
@@ -136,25 +137,28 @@ function playUnrest() {
   const ctx = getCtx()
   const now = ctx.currentTime
 
-  // Unruhe: zwei überlagerte Rauschquellen mit unterschiedlicher Frequenz
-  for (let i = 0; i < 2; i++) {
-    const noise = createNoise(ctx, 4.0)
+  // Unruhe: kürzere, nervösere Sprachcluster statt langes Low-End-Rauschen
+  for (let i = 0; i < 3; i++) {
+    const noise = createNoise(ctx, 1.4)
     const filter = ctx.createBiquadFilter()
     filter.type = 'bandpass'
-    filter.frequency.value = i === 0 ? 280 : 520
-    filter.Q.value = 1.8
+    filter.frequency.value = i === 0 ? 620 : i === 1 ? 980 : 1320
+    filter.Q.value = 3.0
 
-    // Frequenz wandert – simuliert aufgeregte Stimmen
-    filter.frequency.linearRampToValueAtTime(i === 0 ? 350 : 460, now + 2.0)
+    // Leichte, schnelle Schwankungen simulieren aufgeregte Zwischenrufe
+    const start = now + i * 0.12
+    filter.frequency.setValueAtTime(filter.frequency.value, start)
+    filter.frequency.linearRampToValueAtTime(filter.frequency.value + 140, start + 0.45)
+    filter.frequency.linearRampToValueAtTime(filter.frequency.value - 90, start + 0.9)
 
     const gain = ctx.createGain()
     noise.connect(filter)
     filter.connect(gain)
     gain.connect(masterGain!)
 
-    envelope(gain, now, 0.3, 2.5, 1.0, i === 0 ? 0.8 : 0.6)
-    noise.start(now)
-    noise.stop(now + 4.0)
+    envelope(gain, start, 0.04, 0.85, 0.45, i === 0 ? 0.6 : i === 1 ? 0.48 : 0.4)
+    noise.start(start)
+    noise.stop(start + 1.35)
   }
 }
 

@@ -79,8 +79,10 @@ export function StudioSession({ config, onBack }: Props) {
   const isContinuousModeRef = useRef(false)
   const shouldResumeSpeechAfterAudioRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const autoRoundsSinceUserRef = useRef(0)
   const errorCountRef = useRef(0)
   const MAX_ERRORS = 2
+  const MAX_AUTO_ROUNDS = 10
 
   const speech = useSpeechToText('de', (text) => {
     const spoken = text.trim()
@@ -88,7 +90,8 @@ export function StudioSession({ config, onBack }: Props) {
     void handleSend(spoken)
   })
 
-  const activeIds = ['maya', ...config.selectedPersonaIds]
+  const discussPersonas = Array.from(new Set(['maya', ...config.selectedPersonaIds.filter((id) => id !== 'maya')])).slice(0, 3)
+  const activeIds = discussPersonas
   const initPersonas = activeIds.map((id) => ({
     id,
     name: PERSONA_NAMES[id] ?? id,
@@ -200,13 +203,16 @@ export function StudioSession({ config, onBack }: Props) {
 
   async function callDiscuss(userMessage?: string) {
     const isAutoTurn = typeof userMessage !== 'string'
+    const allowUserCheckIn = isAutoTurn && turnRef.current > 0 && turnRef.current % 4 === 0
     const message = userMessage
       ?? (turnRef.current === 0
         ? `Studio-Diskussion starten. Thema: ${config.topic}. Maya moderiert. Der User beobachtet nur.`
+        : allowUserCheckIn
+        ? `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". Maya moderiert und fragt am Ende dieser Runde den User genau einmal kurz nach seiner Sicht.`
         : `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". Maya moderiert.`)
 
     const body = {
-      personas: ['maya', ...config.selectedPersonaIds],
+      personas: discussPersonas,
       message,
       conversationHistory: messages.slice(-12).map((m) => ({
         role: m.speakerId === 'user' ? 'user' : 'assistant',
@@ -214,13 +220,14 @@ export function StudioSession({ config, onBack }: Props) {
       })),
       end_session: false,
       stream: false,
-      audioMode: true,
+      audioMode: speech.isContinuousMode,
 
       studioMode: true,
       topic: config.topic,
       debateMode: config.mode,
       turn: turnRef.current,
       autoTurn: isAutoTurn,
+      allowUserCheckIn,
     }
 
     const res = await fetch('/api/discuss', {
@@ -254,7 +261,7 @@ export function StudioSession({ config, onBack }: Props) {
           })),
           end_session: false,
           stream: false,
-          audioMode: true,
+          audioMode: speech.isContinuousMode,
           studioMode: true,
           topic: config.topic,
           debateMode: config.mode,
@@ -273,7 +280,7 @@ export function StudioSession({ config, onBack }: Props) {
 
       setReportText(maya.text)
       const reportAudio = getAudioUrlFromResponse(maya)
-      if (reportAudio) {
+      if (reportAudio && speech.isContinuousMode) {
         void playPersonaAudio(reportAudio)
       }
     } catch (err) {
@@ -281,7 +288,7 @@ export function StudioSession({ config, onBack }: Props) {
     } finally {
       setIsGeneratingReport(false)
     }
-  }, [config.mode, config.topic, isGeneratingReport, messages, playPersonaAudio])
+  }, [config.mode, config.topic, isGeneratingReport, messages, playPersonaAudio, speech.isContinuousMode])
 
   async function runTurn(userMessage?: string) {
     if (runningRef.current) return
@@ -335,19 +342,26 @@ export function StudioSession({ config, onBack }: Props) {
           }
         }
 
-        await playPersonaAudio(audioUrl)
+        if (speech.isContinuousMode) {
+          await playPersonaAudio(audioUrl)
+        }
         await sleep(320)
       }
 
       turnRef.current++
+      if (userMessage) {
+        autoRoundsSinceUserRef.current = 0
+      } else {
+        autoRoundsSinceUserRef.current += 1
+      }
       setIsLoading(false)
       clearSpeaking()
       runningRef.current = false
 
-      if (!isContinuousModeRef.current) {
+      if (autoRoundsSinceUserRef.current < MAX_AUTO_ROUNDS) {
         setTimeout(() => {
           void runTurn()
-        }, 3000)
+        }, speech.isContinuousMode ? 2100 : 2600)
       }
     } catch (err) {
       console.error('[StudioSession]', err)

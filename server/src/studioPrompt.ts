@@ -530,6 +530,7 @@ export interface DiscussPromptContext {
   debateMode?: string;
   studioMode?: boolean;
   autoTurn?: boolean;
+  allowUserCheckIn?: boolean;
   isFirstSpeaker: boolean;
   isFirstUserMessage?: boolean;
   lilithIntensity?: LilithIntensity;
@@ -642,10 +643,11 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
     : '';
 
+  const canAskUserNow = personaId === 'maya' && context.allowUserCheckIn === true;
   const studioObserverBlock = context.studioMode
     ? `\nSTUDIO-BEOBACHTER-MODUS (SEHR WICHTIG):\n- Der User beobachtet primär die Runde. Du führst KEIN Interview mit dem User.\n- Diskutiert miteinander über das Thema: argumentieren, widersprechen, aufgreifen, vertiefen.\n- Nur gelegentlich (max 1x alle 3-4 Antworten) darf eine kurze Frage an den User kommen.\n- Fokussiert strikt auf das angesetzte Thema und driftet nicht in allgemeine Begrüßungsfloskeln ab.\n- Vermeide wiederholte Startfloskeln vollständig. Starte NICHT mit "Mmh", "Hmm", "Also" als Automatismus.\n- Jede Antwort muss inhaltlich neu sein: kein Rephrasing von "Weiter"/"Willkommen"/"Was bewegt dich".\n${personaId === 'maya'
   ? '- Als Maya moderierst du aktiv: eröffnen, Wort weitergeben, Konflikt glätten, Zwischenfazit ziehen, nächste Leitfrage setzen.'
-  : '- Antworte als Persona auf Maya oder andere Personas. Reagiere auf deren Argumente statt auf den User.'}\n${context.autoTurn ? '- AUTO-TURN aktiv: Stelle dem User in dieser Antwort KEINE direkte Frage.' : ''}\n`
+  : '- Antworte als Persona auf Maya oder andere Personas. Reagiere auf deren Argumente statt auf den User.'}\n${context.autoTurn && !canAskUserNow ? '- AUTO-TURN aktiv: Stelle dem User in dieser Antwort KEINE direkte Frage.' : ''}\n${canAskUserNow ? '- CHECK-IN TURN: Stelle GENAU EINE kurze, offene Frage an den User (max 12 Wörter), nachdem du kurz zusammengefasst hast.' : ''}\n`
     : '';
 
   const studioFirstContactBlock = context.studioMode
@@ -694,6 +696,7 @@ REGELN:
 - Adressiere mindestens eine andere Persona direkt, wenn es inhaltlich passt
 - Maya moderiert aktiv und verteilt das Wort sichtbar
 - Wenn studioMode aktiv ist: User ist Beobachter, Fokus liegt auf Inter-Persona-Diskussion
+- Wenn allowUserCheckIn aktiv ist und du Maya bist: genau eine kurze Frage an den User ist erlaubt
 
 Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
 Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.
