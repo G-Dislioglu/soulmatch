@@ -74,6 +74,9 @@ const STUDIO_MODE_INSTRUCTIONS: Record<string, string> = {
   freeform: 'Freies Gespräch: Folgt dem natürlichen Gesprächsfluss.',
   roleplay: 'Bleibt vollständig in euren Rollen, auch wenn es dramatisch wird.',
   oracle: 'Gebt prophetische, rätselhafte Antworten – keine klaren Ja/Nein.',
+  kontrovers: 'Kontrovers: klare Gegensätze, echte Reibung, aber respektvoll und thematisch fokussiert.',
+  sokratisch: 'Sokratisch: baut aufeinander auf, prüft Annahmen und arbeitet euch schrittweise zur Essenz vor.',
+  offen: 'Offen: freier, organischer Fluss – bleibt dennoch beim Kernthema und bringt konkrete Perspektiven ein.',
 };
 
 export function buildSystemPrompt(lilithIntensity: LilithIntensity = 'ehrlich', mood?: MoodParameters): string {
@@ -357,7 +360,7 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
 - Antworte IMMER in der Sprache des Users (DE/EN/TR automatisch erkennen)
 - Max 2-3 Sätze pro Antwort – nie mehr
 - VARIETY RULE: Beginne nie zwei Antworten mit demselben Wort
-- Natürliche Füllwörter erlaubt: "Hmm...", "Also...", "Interessant..."
+- Nutze natürliche Sprache ohne Standard-Füllwort-Reflexe
 - Schreibe Gesprächs-Prosa, KEINE Info-Prosa
 - Schlecht: "Das ist eine interessante Frage. Lass mich erklären..."
 - Gut: "Hmm... dein Mars in Skorpion. Das erklärt einiges."
@@ -525,6 +528,8 @@ export interface DiscussPromptContext {
   userChart: string;
   topic?: string;
   debateMode?: string;
+  studioMode?: boolean;
+  autoTurn?: boolean;
   isFirstSpeaker: boolean;
   isFirstUserMessage?: boolean;
   lilithIntensity?: LilithIntensity;
@@ -637,6 +642,16 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? `\nERSTKONTAKT (WICHTIG):\nDies ist dein erstes Gespräch mit dem User. Biete NICHT sofort Dienste/Analysen an.\nStarte mit echter Wärme, zeige Interesse wie es dem User geht, und lass das Gespräch natürlich entstehen.\nErst nach 2-3 Nachrichten gleitest du langsam in deine Rolle und Tiefe.\n`
     : '';
 
+  const studioObserverBlock = context.studioMode
+    ? `\nSTUDIO-BEOBACHTER-MODUS (SEHR WICHTIG):\n- Der User beobachtet primär die Runde. Du führst KEIN Interview mit dem User.\n- Diskutiert miteinander über das Thema: argumentieren, widersprechen, aufgreifen, vertiefen.\n- Nur gelegentlich (max 1x alle 3-4 Antworten) darf eine kurze Frage an den User kommen.\n- Fokussiert strikt auf das angesetzte Thema und driftet nicht in allgemeine Begrüßungsfloskeln ab.\n- Vermeide wiederholte Startfloskeln vollständig. Starte NICHT mit "Mmh", "Hmm", "Also" als Automatismus.\n- Jede Antwort muss inhaltlich neu sein: kein Rephrasing von "Weiter"/"Willkommen"/"Was bewegt dich".\n${personaId === 'maya'
+  ? '- Als Maya moderierst du aktiv: eröffnen, Wort weitergeben, Konflikt glätten, Zwischenfazit ziehen, nächste Leitfrage setzen.'
+  : '- Antworte als Persona auf Maya oder andere Personas. Reagiere auf deren Argumente statt auf den User.'}\n${context.autoTurn ? '- AUTO-TURN aktiv: Stelle dem User in dieser Antwort KEINE direkte Frage.' : ''}\n`
+    : '';
+
+  const studioFirstContactBlock = context.studioMode
+    ? ''
+    : firstContactBlock;
+
   return `## SPRACHE & STIL (höchste Priorität)
 - Antworte IMMER in der Sprache des Users (DE/EN/TR automatisch erkennen)
 - Max 2-3 Sätze pro Antwort – nie mehr
@@ -656,7 +671,7 @@ ${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}
 
 Du bist in einer Studio-Diskussionsrunde mit ${activePersonaNames}.
 ${topicLine}${modeLine}
-${userProfileBlock}${memoryBlock}${firstContactBlock}${roundTableBlock}
+${userProfileBlock}${memoryBlock}${studioFirstContactBlock}${roundTableBlock}${studioObserverBlock}
 AKTUELLE USER-DATEN / CHAT-KONTEXT:
 ${context.userChart || 'Keine Profildaten vorhanden.'}
 
@@ -668,6 +683,7 @@ REGELN:
 - Sprache: Deutsch
 - Stelle niemals mehr als EINE Frage pro Antwort
 - BACKCHANNELS: Beginne gelegentlich mit kurzen Reaktionen ("Ah interessant.", "Verstehe.", "Mmh.") – aber sparsam
+- STARTVERBOT: Beginne NICHT mit "Mmh", "Hmm", "Also" oder "Interessant" als Standard-Einstieg
 - CONVERSATION REPAIR: Wenn unklar, nutze "Meinst du [Interpretation]?" statt "Ich habe das nicht verstanden"
 - KEIN SELBST-VORSTELLEN nach der ersten Begrüßung (nicht wieder "Ich bin Maya, deine...")
 - NATÜRLICHE PAUSEN: gelegentlich "Lass mich kurz nachdenken..." / "Gute Frage..." – maximal 1x pro 5 Nachrichten
@@ -677,6 +693,7 @@ REGELN:
 - Keine Wiederholungen von dem was andere bereits gesagt haben
 - Adressiere mindestens eine andere Persona direkt, wenn es inhaltlich passt
 - Maya moderiert aktiv und verteilt das Wort sichtbar
+- Wenn studioMode aktiv ist: User ist Beobachter, Fokus liegt auf Inter-Persona-Diskussion
 
 Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
 Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.

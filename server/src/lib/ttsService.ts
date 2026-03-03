@@ -20,6 +20,7 @@ type OpenAiTtsVoice =
   | 'coral';
 
 function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
+  const key = (personaId ?? '').trim().toLowerCase();
   const map: Record<string, OpenAiTtsVoice> = {
     maya: 'nova',
     lilith: 'shimmer',
@@ -31,7 +32,7 @@ function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
     sibyl: 'fable',
     amara: 'coral',
   };
-  return map[personaId] ?? 'nova';
+  return map[key] ?? 'nova';
 }
 
 function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {

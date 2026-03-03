@@ -1,4 +1,5 @@
 export function getPersonaVoice(personaId: string): string {
+  const key = (personaId ?? '').trim().toLowerCase();
   const voices: Record<string, string> = {
     maya:       'Aoede',
     luna:       'Leda',
@@ -11,10 +12,11 @@ export function getPersonaVoice(personaId: string): string {
     amara:      'Achernar',
     echo_prism: 'Puck',
   };
-  return voices[personaId] ?? 'Kore';
+  return voices[key] ?? 'Kore';
 }
 
 export function getPersonaVoiceDirector(personaId: string): string {
+  const key = (personaId ?? '').trim().toLowerCase();
   const baseStyle = 'Speak at a natural, conversational pace. Not slow, not rushed. Like a real person talking.';
   const directors: Record<string, string> = {
     maya: `Audio Profile: Weise Astrologin, Mitte 40, warm und einfühlsam.
@@ -57,5 +59,5 @@ Director's Notes: ${baseStyle}`,
 Scene: Zwischen allen Welten.
 Director's Notes: ${baseStyle}`,
   };
-  return directors[personaId] ?? directors.maya;
+  return directors[key] ?? directors.maya;
 }

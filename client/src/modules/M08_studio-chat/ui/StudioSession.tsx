@@ -39,6 +39,8 @@ interface PersonaResponse {
   audio_url?: string
   audio?: string
   mimeType?: string
+  provider?: string
+  model?: string
 }
 
 function sleep(ms: number): Promise<void> {
@@ -67,6 +69,7 @@ export function StudioSession({ config, onBack }: Props) {
   const [audienceOn, setAudienceOn] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [reportText, setReportText] = useState<string | null>(null)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
 
   const feedRef = useRef<HTMLDivElement>(null)
@@ -196,13 +199,14 @@ export function StudioSession({ config, onBack }: Props) {
   }
 
   async function callDiscuss(userMessage?: string) {
+    const isAutoTurn = typeof userMessage !== 'string'
     const message = userMessage
       ?? (turnRef.current === 0
-        ? `Studio-Diskussion starten. Thema: ${config.topic}`
-        : 'Weiter')
+        ? `Studio-Diskussion starten. Thema: ${config.topic}. Maya moderiert. Der User beobachtet nur.`
+        : `Setzt die Studio-Diskussion intern fort. Fokus bleibt strikt auf dem Thema "${config.topic}". Maya moderiert.`)
 
     const body = {
-      personas: config.selectedPersonaIds,
+      personas: ['maya', ...config.selectedPersonaIds],
       message,
       conversationHistory: messages.slice(-12).map((m) => ({
         role: m.speakerId === 'user' ? 'user' : 'assistant',
@@ -216,6 +220,7 @@ export function StudioSession({ config, onBack }: Props) {
       topic: config.topic,
       debateMode: config.mode,
       turn: turnRef.current,
+      autoTurn: isAutoTurn,
     }
 
     const res = await fetch('/api/discuss', {
@@ -230,6 +235,53 @@ export function StudioSession({ config, onBack }: Props) {
       creditsUsed: number
     }>
   }
+
+  const generateReport = useCallback(async () => {
+    if (isGeneratingReport) return
+    setIsGeneratingReport(true)
+    setReportText('Report wird generiert...')
+
+    try {
+      const res = await fetch('/api/discuss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personas: ['maya'],
+          message: `Erstelle einen Studio-Report zum Thema "${config.topic}". Der User ist Beobachter. Gib 5-8 Sätze: kurze Zusammenfassung der Positionen, Hauptkonflikte, Schnittmengen und klaren Ausblick für die nächste Runde.`,
+          conversationHistory: messages.slice(-24).map((m) => ({
+            role: m.speakerId === 'user' ? 'user' : 'assistant',
+            content: `${m.speakerName}: ${m.text}`,
+          })),
+          end_session: false,
+          stream: false,
+          audioMode: true,
+          studioMode: true,
+          topic: config.topic,
+          debateMode: config.mode,
+          turn: turnRef.current,
+          autoTurn: true,
+        }),
+      })
+
+      if (!res.ok) throw new Error(`API ${res.status}`)
+      const data = await res.json() as { responses?: PersonaResponse[] }
+      const maya = (data.responses ?? []).find((r) => r.persona === 'maya') ?? data.responses?.[0]
+      if (!maya) {
+        setReportText('Kein Report verfügbar.')
+        return
+      }
+
+      setReportText(maya.text)
+      const reportAudio = getAudioUrlFromResponse(maya)
+      if (reportAudio) {
+        void playPersonaAudio(reportAudio)
+      }
+    } catch (err) {
+      setReportText(err instanceof Error ? err.message : 'Report konnte nicht erzeugt werden.')
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }, [config.mode, config.topic, isGeneratingReport, messages, playPersonaAudio])
 
   async function runTurn(userMessage?: string) {
     if (runningRef.current) return
@@ -388,9 +440,10 @@ export function StudioSession({ config, onBack }: Props) {
           </button>
           <button
             className="studio-session__ctrl-btn"
-            onClick={() => setReportText('Report wird generiert...')}
+            onClick={() => void generateReport()}
+            disabled={isGeneratingReport}
           >
-            📋 Report
+            {isGeneratingReport ? '⏳ Report...' : '📋 Report'}
           </button>
           {speech.isSupported && (
             <button

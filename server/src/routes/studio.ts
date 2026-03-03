@@ -669,6 +669,11 @@ interface DiscussRequestBody {
   userId?: string;
   end_session?: boolean;
   stream?: boolean;
+  studioMode?: boolean;
+  topic?: string;
+  debateMode?: string;
+  turn?: number;
+  autoTurn?: boolean;
 }
 
 type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
@@ -1062,7 +1067,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     return priorUserCount === 0;
   })();
 
-  const addressedPersonaId = detectAddressedPersonaId(body.message);
+  const isStudioRound = body.studioMode === true;
+  const addressedPersonaId = isStudioRound ? undefined : detectAddressedPersonaId(body.message);
   const personasToCall = addressedPersonaId && body.personas.includes(addressedPersonaId)
     ? [addressedPersonaId]
     : body.personas;
@@ -1095,6 +1101,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       otherPersonas: personasToCall.filter((p) => p !== personaId),
       previousResponses: currentAccumulatedContext,
       userChart: body.userChart ?? '',
+      topic: body.topic,
+      debateMode: body.debateMode,
+      studioMode: isStudioRound,
+      autoTurn: body.autoTurn === true,
       isFirstSpeaker: index === 0,
       isFirstUserMessage,
       lilithIntensity: body.lilithIntensity ?? 'ehrlich',
