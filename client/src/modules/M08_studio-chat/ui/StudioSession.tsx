@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { StudioConfig } from './StudioSetup'
 import { PersonaTensionCard } from './PersonaTensionCard'
 import { RelationshipLines } from './RelationshipLines'
+import { useSpeechToText } from '../../../hooks/useSpeechToText'
+import { SpeechConsentDialog } from './SpeechConsentDialog'
 import { usePersonaTension } from '../../../hooks/usePersonaTension'
 import {
   EMOTION_CONFIG,
   inferAudienceEvent,
   calcDissensScore,
   dissensLabel,
+  type EmotionState,
 } from '../../../lib/emotionEngine'
 import {
   playAudienceEvent,
@@ -28,6 +31,31 @@ interface Message {
   role: 'moderator' | 'persona' | 'user'
 }
 
+interface PersonaResponse {
+  persona: string
+  text: string
+  color: string
+  meta?: Record<string, unknown> | null
+  audio_url?: string
+  audio?: string
+  mimeType?: string
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function getAudioUrlFromResponse(response: PersonaResponse): string | undefined {
+  if (typeof response.audio_url === 'string' && response.audio_url.length > 0) return response.audio_url
+  if (typeof response.audio === 'string' && response.audio.length > 0) {
+    if (response.audio.startsWith('data:') || response.audio.startsWith('http://') || response.audio.startsWith('https://')) {
+      return response.audio
+    }
+    return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`
+  }
+  return undefined
+}
+
 interface Props {
   config: StudioConfig
   onBack: () => void
@@ -36,16 +64,26 @@ interface Props {
 export function StudioSession({ config, onBack }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [userInput, setUserInput] = useState('')
-  const [userHasWord, setUserHasWord] = useState(false)
   const [audienceOn, setAudienceOn] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [reportText, setReportText] = useState<string | null>(null)
+  const [showConsent, setShowConsent] = useState(false)
 
   const feedRef = useRef<HTMLDivElement>(null)
   const turnRef = useRef(0)
   const runningRef = useRef(false)
+  const isMountedRef = useRef(true)
+  const isContinuousModeRef = useRef(false)
+  const shouldResumeSpeechAfterAudioRef = useRef(false)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const errorCountRef = useRef(0)
   const MAX_ERRORS = 2
+
+  const speech = useSpeechToText('de', (text) => {
+    const spoken = text.trim()
+    if (!spoken) return
+    void handleSend(spoken)
+  })
 
   const activeIds = ['maya', ...config.selectedPersonaIds]
   const initPersonas = activeIds.map((id) => ({
@@ -69,11 +107,86 @@ export function StudioSession({ config, onBack }: Props) {
   }, [messages])
 
   useEffect(() => {
+    isMountedRef.current = true
     void runTurn()
     return () => {
+      isMountedRef.current = false
       runningRef.current = false
+      isContinuousModeRef.current = false
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause()
+        currentAudioRef.current.currentTime = 0
+      }
+      speech.setPlaybackActive(false)
+      speech.stopContinuous()
     }
   }, [])
+
+  useEffect(() => {
+    if (speech.transcript.length > 0) {
+      setUserInput(speech.transcript)
+    }
+  }, [speech.transcript])
+
+  const pauseSpeechForAudio = useCallback(() => {
+    if (speech.isContinuousMode) {
+      shouldResumeSpeechAfterAudioRef.current = true
+      speech.stopContinuous()
+      return
+    }
+    shouldResumeSpeechAfterAudioRef.current = false
+  }, [speech])
+
+  const resumeSpeechAfterAudioIfNeeded = useCallback(() => {
+    if (!isMountedRef.current) return
+    if (!shouldResumeSpeechAfterAudioRef.current) return
+    shouldResumeSpeechAfterAudioRef.current = false
+    if (!speech.micBlocked) {
+      speech.startContinuous()
+      isContinuousModeRef.current = true
+    }
+  }, [speech])
+
+  const playPersonaAudio = useCallback(async (audioUrl: string | undefined): Promise<void> => {
+    if (!audioUrl) return
+
+    try {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause()
+        currentAudioRef.current.currentTime = 0
+      }
+
+      const audio = new Audio(audioUrl)
+      currentAudioRef.current = audio
+      audio.preload = 'auto'
+
+      speech.setPlaybackActive(true)
+      pauseSpeechForAudio()
+
+      await new Promise<void>((resolve) => {
+        let done = false
+        const finish = () => {
+          if (done) return
+          done = true
+          resolve()
+        }
+
+        audio.onended = finish
+        audio.onerror = finish
+
+        const p = audio.play()
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => finish())
+        }
+      })
+    } finally {
+      if (currentAudioRef.current) {
+        currentAudioRef.current = null
+      }
+      speech.setPlaybackActive(false)
+      resumeSpeechAfterAudioIfNeeded()
+    }
+  }, [pauseSpeechForAudio, resumeSpeechAfterAudioIfNeeded, speech])
 
   function addMessage(msg: Omit<Message, 'id'>) {
     setMessages((prev) => [
@@ -113,7 +226,7 @@ export function StudioSession({ config, onBack }: Props) {
 
     if (!res.ok) throw new Error('API ' + res.status)
     return res.json() as Promise<{
-      responses: Array<{ persona: string; text: string; color: string; meta?: any }>
+      responses: PersonaResponse[]
       creditsUsed: number
     }>
   }
@@ -132,11 +245,14 @@ export function StudioSession({ config, onBack }: Props) {
       errorCountRef.current = 0
 
       for (const resp of responses) {
+        if (!isMountedRef.current) break
+
         const speakerId = resp.persona
         const speakerName = PERSONA_NAMES[speakerId] ?? speakerId
         const speakerColor = PERSONA_COLORS[speakerId] ?? resp.color ?? '#888'
         const text = resp.text ?? ''
         const meta = resp.meta ?? null
+        const audioUrl = getAudioUrlFromResponse(resp)
 
         addMessage({
           speakerId,
@@ -147,21 +263,28 @@ export function StudioSession({ config, onBack }: Props) {
         })
 
         if (meta) {
+          const emotion: EmotionState = ['calm', 'neutral', 'engaged', 'heated', 'angry'].includes(String(meta.emotion))
+            ? (meta.emotion as EmotionState)
+            : 'neutral'
+
           applyTurn({ ...meta, speakerId: meta.speakerId ?? speakerId })
 
           const evt =
             meta.audienceEvent ??
             inferAudienceEvent(
               calcDissensScore(personas),
-              meta.emotion ?? 'neutral',
+              emotion,
               text,
               speakerId === 'maya' && text.length > 100,
             )
 
           if (evt && audienceOn) {
-            setTimeout(() => playAudienceEvent(evt), 700)
+            setTimeout(() => playAudienceEvent(evt as Parameters<typeof playAudienceEvent>[0]), 700)
           }
         }
+
+        await playPersonaAudio(audioUrl)
+        await sleep(320)
       }
 
       turnRef.current++
@@ -169,7 +292,7 @@ export function StudioSession({ config, onBack }: Props) {
       clearSpeaking()
       runningRef.current = false
 
-      if (!userHasWord) {
+      if (!isContinuousModeRef.current) {
         setTimeout(() => {
           void runTurn()
         }, 3000)
@@ -194,8 +317,8 @@ export function StudioSession({ config, onBack }: Props) {
     }
   }
 
-  function handleSend() {
-    const text = userInput.trim()
+  const handleSend = useCallback(async (textRaw?: string) => {
+    const text = (textRaw ?? userInput).trim()
     if (!text || isLoading) return
 
     addMessage({
@@ -207,8 +330,36 @@ export function StudioSession({ config, onBack }: Props) {
     })
 
     setUserInput('')
-    setUserHasWord(false)
-    void runTurn(text)
+    speech.resetTranscript()
+    await runTurn(text)
+  }, [isLoading, runTurn, speech, userInput])
+
+  function handleToggleLiveTalk() {
+    if (speech.isContinuousMode) {
+      isContinuousModeRef.current = false
+      shouldResumeSpeechAfterAudioRef.current = false
+      speech.stopContinuous()
+      return
+    }
+
+    if (!speech.hasConsent) {
+      setShowConsent(true)
+      return
+    }
+
+    isContinuousModeRef.current = true
+    speech.startContinuous()
+  }
+
+  function handleConsentAccept() {
+    speech.grantConsent()
+    setShowConsent(false)
+    isContinuousModeRef.current = true
+    speech.startContinuous()
+  }
+
+  function handleConsentCancel() {
+    setShowConsent(false)
   }
 
   const active = personas.find((p) => p.speaking)
@@ -241,6 +392,32 @@ export function StudioSession({ config, onBack }: Props) {
           >
             📋 Report
           </button>
+          {speech.isSupported && (
+            <button
+              className="studio-session__ctrl-btn"
+              onClick={handleToggleLiveTalk}
+              style={{
+                border: speech.isContinuousMode
+                  ? '2px solid rgba(34,197,94,0.65)'
+                  : speech.micBlocked
+                  ? '1px solid rgba(239,68,68,0.65)'
+                  : '1px solid rgba(255,255,255,0.1)',
+                background: speech.isContinuousMode
+                  ? 'rgba(34,197,94,0.16)'
+                  : speech.micBlocked
+                  ? 'rgba(239,68,68,0.12)'
+                  : 'rgba(255,255,255,0.04)',
+                color: speech.isContinuousMode
+                  ? '#22c55e'
+                  : speech.micBlocked
+                  ? '#f87171'
+                  : '#d8c69f',
+                fontWeight: speech.isContinuousMode ? 700 : 500,
+              }}
+            >
+              🎙️ Live Talk
+            </button>
+          )}
         </div>
       </div>
 
@@ -298,43 +475,26 @@ export function StudioSession({ config, onBack }: Props) {
           </div>
 
           <div className="studio-session__input-wrap">
-            {userHasWord ? (
-              <>
-                <textarea
-                  className="studio-session__textarea"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="Dein Beitrag zur Diskussion..."
-                  rows={2}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend()
-                    }
-                  }}
-                />
-                <button
-                  className="studio-session__send-btn"
-                  onClick={handleSend}
-                  disabled={!userInput.trim() || isLoading}
-                >
-                  Senden
-                </button>
-                <button
-                  className="studio-session__cancel-btn"
-                  onClick={() => setUserHasWord(false)}
-                >
-                  Abbrechen
-                </button>
-              </>
-            ) : (
-              <button
-                className="studio-session__wort-btn"
-                onClick={() => setUserHasWord(true)}
-              >
-                ✋ Wort ergreifen
-              </button>
-            )}
+            <textarea
+              className="studio-session__textarea"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder={speech.isListening ? 'Spreche oder tippe...' : 'Dein Beitrag zur Diskussion...'}
+              rows={2}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
+            />
+            <button
+              className="studio-session__send-btn"
+              onClick={() => void handleSend()}
+              disabled={!userInput.trim() || isLoading}
+            >
+              Senden
+            </button>
           </div>
         </div>
       </div>
@@ -351,6 +511,13 @@ export function StudioSession({ config, onBack }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {showConsent && (
+        <SpeechConsentDialog
+          onAccept={handleConsentAccept}
+          onCancel={handleConsentCancel}
+        />
       )}
     </div>
   )
