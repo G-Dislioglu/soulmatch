@@ -15,6 +15,52 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
   deepseek: { apiUrl: 'https://api.deepseek.com/chat/completions',   envKey: 'DEEPSEEK_API_KEY' },
 };
 
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRY_DELAY_MS = [250, 800];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableTransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /wsasend|forcibly closed|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|unreachable|network|fetch failed|unavailable/i.test(message);
+}
+
+async function fetchWithRetries(url: string, init: RequestInit, provider: string): Promise<Response> {
+  const maxAttempts = RETRY_DELAY_MS.length + 1;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      if (RETRYABLE_HTTP_STATUS.has(response.status) && attempt < maxAttempts) {
+        const delayMs = RETRY_DELAY_MS[attempt - 1] ?? RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1] ?? 250;
+        console.warn(`[providers] ${provider} transient HTTP ${response.status}, retrying`, { attempt, maxAttempts, delayMs });
+        await sleep(delayMs);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts && isRetryableTransportError(error)) {
+        const delayMs = RETRY_DELAY_MS[attempt - 1] ?? RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1] ?? 250;
+        console.warn(`[providers] ${provider} transport error, retrying`, {
+          attempt,
+          maxAttempts,
+          delayMs,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await sleep(delayMs);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw (lastError instanceof Error ? lastError : new Error(`${provider} API request failed after retries`));
+}
+
 export interface CallProviderParams {
   system: string;
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
@@ -44,7 +90,7 @@ export async function callProvider(
       parts: [{ text: m.content }],
     }));
 
-    const resp = await fetch(url, {
+    const resp = await fetchWithRetries(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -57,7 +103,7 @@ export async function callProvider(
           temperature: params.temperature ?? 0.85,
         },
       }),
-    });
+    }, 'gemini');
 
     if (!resp.ok) {
       const errText = await resp.text();
@@ -82,7 +128,7 @@ export async function callProvider(
   const apiKey = process.env[endpoint.envKey] || clientApiKey;
   if (!apiKey) throw new Error(`No API key for ${provider}. Set ${endpoint.envKey} on server.`);
 
-  const resp = await fetch(endpoint.apiUrl, {
+  const resp = await fetchWithRetries(endpoint.apiUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -112,7 +158,7 @@ export async function callProvider(
             max_tokens: params.maxTokens ?? 2000,
           },
     ),
-  });
+  }, provider);
 
   if (!resp.ok) {
     const errText = await resp.text();
