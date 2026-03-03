@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadProfile } from '../../M03_profile';
 import { SpeechConsentDialog } from '../../M08_studio-chat/ui/SpeechConsentDialog';
 import { useDiscussApi } from '../hooks/useDiscussApi';
@@ -97,6 +97,9 @@ const LIVE_INSIGHTS: Array<{ type: string; text: string; category: InsightCard['
   { type: 'Energie-Shift', text: 'Tonfall: Abwehr → Neugier. Wichtige Verschiebung.', category: 'new' },
 ];
 
+const LIVE_AUDIO_ENABLED = import.meta.env.VITE_ENABLE_LIVE_AUDIO === 'true';
+const AUDIO_DEVTOOLS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_AUDIO_DEVTOOLS === 'true';
+
 function ts(): string {
   return new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
 }
@@ -133,6 +136,7 @@ export function DiscussionChat({ onBack }: Props) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [lastPersonaAudioUrl, setLastPersonaAudioUrl] = useState<string | null>(null);
   const [focusCompanionToken, setFocusCompanionToken] = useState(0);
   const [insightIdx, setInsightIdx] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
@@ -149,6 +153,43 @@ export function DiscussionChat({ onBack }: Props) {
   } });
 
   const profile = useMemo(() => loadProfile(), []);
+  const showAudioDevTools = useMemo(() => {
+    if (!AUDIO_DEVTOOLS_ENABLED || typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('devAudio') === '1' || window.localStorage.getItem('sm.devAudio') === '1';
+  }, []);
+
+  const playTestTone = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const AudioContextCtor = window.AudioContext
+      ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) {
+      console.warn('[AudioDev] AudioContext not supported');
+      return;
+    }
+    const ctx = new AudioContextCtor();
+    await ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.value = 0.06;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    window.setTimeout(() => {
+      osc.stop();
+      void ctx.close();
+    }, 350);
+  }, []);
+
+  const playLastPersonaAudio = useCallback(async () => {
+    await personaLiveTalk.playAudio(lastPersonaAudioUrl ?? undefined);
+  }, [lastPersonaAudioUrl, personaLiveTalk]);
+
+  const noopPlayAudio = useCallback(async (_audioUrl: string | undefined): Promise<void> => {
+    return Promise.resolve();
+  }, []);
 
   useEffect(() => {
     if (personaLiveTalk.transcript) {
@@ -206,12 +247,13 @@ export function DiscussionChat({ onBack }: Props) {
       content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
     }));
 
+    const shouldRequestAudio = personaLiveTalk.isActive && LIVE_AUDIO_ENABLED;
     const response = await call({
       personas: [persona.id],
       message: text,
       conversationHistory: historyForCall,
       userId: profile?.id,
-      audioMode: personaLiveTalk.isActive,
+      audioMode: shouldRequestAudio,
       stream: false,
     });
 
@@ -228,6 +270,7 @@ export function DiscussionChat({ onBack }: Props) {
         hasAudioUrlField: typeof first?.audio_url === 'string' && first.audio_url.length > 0,
         hasAudioField: typeof first?.audio === 'string' && first.audio.length > 0,
       });
+      setLastPersonaAudioUrl(audioUrl ?? null);
       setMessages((prev) => [
         ...prev,
         makeMessage({
@@ -238,7 +281,9 @@ export function DiscussionChat({ onBack }: Props) {
           text: personaText,
         }),
       ]);
-      await personaLiveTalk.playAudio(audioUrl);
+      if (shouldRequestAudio) {
+        await personaLiveTalk.playAudio(audioUrl);
+      }
     } else {
       const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
       const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
@@ -300,6 +345,7 @@ export function DiscussionChat({ onBack }: Props) {
     setCompanionMessages((prev) => [...prev, userMessage]);
 
     setIsAnalyzing(true);
+    const shouldRequestAudio = companionLiveTalk.isActive && LIVE_AUDIO_ENABLED;
     const response = await call({
       personas: [companion.id],
       message: context ? `[Kontext: ${context}] ${message}` : message,
@@ -308,7 +354,7 @@ export function DiscussionChat({ onBack }: Props) {
         content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
       })),
       userId: profile?.id,
-      audioMode: companionLiveTalk.isActive,
+      audioMode: shouldRequestAudio,
     });
     setIsAnalyzing(false);
 
@@ -330,7 +376,9 @@ export function DiscussionChat({ onBack }: Props) {
   useEffect(() => {
     sendToCompanionRef.current = async (textRaw: string) => {
       const audioUrl = await sendToCompanion(textRaw);
-      await companionLiveTalk.playAudio(audioUrl);
+      if (LIVE_AUDIO_ENABLED) {
+        await companionLiveTalk.playAudio(audioUrl);
+      }
     };
   }, [companionLiveTalk, sendToCompanion]);
 
@@ -382,7 +430,7 @@ export function DiscussionChat({ onBack }: Props) {
               {personaLiveTalk.micBlocked
                 ? 'Mikrofon gesperrt'
                 : personaLiveTalk.isActive
-                  ? '🎙 Live aktiv'
+                  ? (LIVE_AUDIO_ENABLED ? '🎙 Live aktiv' : '🎙 Live aktiv · Audio Safe-Off')
                   : 'online · bereit'}
             </div>
           </div>
@@ -445,6 +493,19 @@ export function DiscussionChat({ onBack }: Props) {
             ↑
           </button>
         </div>
+
+        {showAudioDevTools ? (
+          <div style={{ marginTop: 10, border: '1px dashed rgba(212,175,55,0.35)', borderRadius: 10, padding: 10 }}>
+            <div style={{ fontSize: 11, color: '#d4af37', marginBottom: 8, letterSpacing: '0.08em' }}>AUDIO DEV TOOLS</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="sm-settings-btn" onClick={() => { void playTestTone(); }}>Test Ton (440Hz)</button>
+              <button type="button" className="sm-settings-btn" onClick={() => { void playLastPersonaAudio(); }} disabled={!lastPersonaAudioUrl}>Letzte TTS abspielen</button>
+            </div>
+            {lastPersonaAudioUrl ? (
+              <audio controls src={lastPersonaAudioUrl} style={{ width: '100%', marginTop: 8 }} />
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <CompanionPanel
@@ -456,7 +517,7 @@ export function DiscussionChat({ onBack }: Props) {
         focusInputToken={focusCompanionToken}
         liveActive={companionLiveTalk.isActive}
         onLiveToggle={toggleCompanionLive}
-        onPlayAudio={companionLiveTalk.playAudio}
+        onPlayAudio={LIVE_AUDIO_ENABLED ? companionLiveTalk.playAudio : noopPlayAudio}
       />
 
       <PersonaSettingsModal persona={persona} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
