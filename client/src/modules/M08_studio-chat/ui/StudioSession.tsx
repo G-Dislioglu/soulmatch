@@ -160,6 +160,10 @@ export function StudioSession({ config, onBack }: Props) {
     }
   }, [speech.transcript])
 
+  useEffect(() => {
+    isContinuousModeRef.current = speech.isContinuousMode
+  }, [speech.isContinuousMode])
+
   const pauseSpeechForAudio = useCallback(() => {
     if (speech.isContinuousMode) {
       shouldResumeSpeechAfterAudioRef.current = true
@@ -254,7 +258,7 @@ export function StudioSession({ config, onBack }: Props) {
       })),
       end_session: false,
       stream: false,
-      audioMode: speech.isContinuousMode,
+      audioMode: isContinuousModeRef.current,
 
       studioMode: true,
       topic: config.topic,
@@ -305,7 +309,7 @@ export function StudioSession({ config, onBack }: Props) {
           })),
           end_session: false,
           stream: false,
-          audioMode: speech.isContinuousMode,
+          audioMode: isContinuousModeRef.current,
           studioMode: true,
           topic: config.topic,
           debateMode: config.mode,
@@ -328,7 +332,7 @@ export function StudioSession({ config, onBack }: Props) {
 
       setReportText(maya.text)
       const reportAudio = getAudioUrlFromResponse(maya)
-      if (reportAudio && speech.isContinuousMode) {
+      if (reportAudio && isContinuousModeRef.current) {
         void playPersonaAudio(reportAudio)
       }
     } catch (err) {
@@ -337,7 +341,7 @@ export function StudioSession({ config, onBack }: Props) {
     } finally {
       setIsGeneratingReport(false)
     }
-  }, [config.mode, config.topic, isGeneratingReport, isLoading, messages, playPersonaAudio, speech.isContinuousMode])
+  }, [config.mode, config.topic, isGeneratingReport, isLoading, messages, playPersonaAudio])
 
   async function runTurn(userMessage?: string) {
     if (runningRef.current) return
@@ -391,7 +395,7 @@ export function StudioSession({ config, onBack }: Props) {
           }
         }
 
-        if (speech.isContinuousMode) {
+        if (isContinuousModeRef.current) {
           await playPersonaAudio(audioUrl)
         }
         await sleep(getInterSpeakerPauseMs(speakerId))
@@ -413,7 +417,7 @@ export function StudioSession({ config, onBack }: Props) {
           nextTurnTimerRef.current = null
           if (!isMountedRef.current) return
           void runTurn()
-        }, speech.isContinuousMode ? 2100 : 2600)
+        }, isContinuousModeRef.current ? 2100 : 2600)
       }
     } catch (err) {
       console.error('[StudioSession]', err)
