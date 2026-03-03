@@ -221,6 +221,13 @@ export function DiscussionChat({ onBack }: Props) {
       const first = response.responses[0];
       const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
       const audioUrl = getAudioUrlFromResponse(first);
+      console.log('[Discuss] response audio diagnostics', {
+        personaId: persona.id,
+        hasAudioUrl: Boolean(audioUrl),
+        audioUrlPrefix: audioUrl ? audioUrl.slice(0, 40) : null,
+        hasAudioUrlField: typeof first?.audio_url === 'string' && first.audio_url.length > 0,
+        hasAudioField: typeof first?.audio === 'string' && first.audio.length > 0,
+      });
       setMessages((prev) => [
         ...prev,
         makeMessage({

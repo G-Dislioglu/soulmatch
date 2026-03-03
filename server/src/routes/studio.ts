@@ -1160,6 +1160,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                   20000,
                 );
                 const audioBase64 = ttsResult.audioBuffer.toString('base64');
+                devLogger.info('llm', 'Discuss: stream audio ready', {
+                  personaId,
+                  mimeType: ttsResult.mimeType,
+                  audioBytes: ttsResult.audioBuffer.length,
+                  base64Length: audioBase64.length,
+                });
                 sendSseEvent({ type: 'audio', persona: personaId, audio_url: `data:${ttsResult.mimeType};base64,${audioBase64}` });
               } catch (e) {
                 devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
@@ -1173,6 +1179,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 20000,
               );
               const audioBase64 = ttsResult.audioBuffer.toString('base64');
+              devLogger.info('llm', 'Discuss: non-stream audio ready', {
+                personaId,
+                mimeType: ttsResult.mimeType,
+                audioBytes: ttsResult.audioBuffer.length,
+                base64Length: audioBase64.length,
+              });
               audio_url = `data:${ttsResult.mimeType};base64,${audioBase64}`;
             } catch (e) {
               devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });

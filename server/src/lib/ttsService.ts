@@ -12,6 +12,7 @@ type OpenAiTtsVoice =
   | 'shimmer'
   | 'onyx'
   | 'alloy'
+  | 'ash'
   | 'ballad'
   | 'echo'
   | 'sage'
@@ -24,7 +25,7 @@ function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
     lilith: 'shimmer',
     kael: 'onyx',
     stella: 'alloy',
-    luna: 'ballad',
+    luna: 'ash',
     orion: 'echo',
     lian: 'sage',
     sibyl: 'fable',
