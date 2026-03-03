@@ -18,6 +18,8 @@ interface DiscussResponse {
     audio_url?: string;
     audio?: string;
     mimeType?: string;
+    tts_engine_used?: string;
+    tts_mime_type?: string;
   }>;
   creditsUsed?: number;
 }

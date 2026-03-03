@@ -873,6 +873,8 @@ interface PersonaResponse {
   provider: string;
   model: string;
   audio_url?: string;
+  tts_engine_used?: string;
+  tts_mime_type?: string;
   meta?: Record<string, unknown> | null;
 }
 
@@ -1138,6 +1140,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       }
 
       let audio_url: string | undefined;
+      let ttsEngineUsed: string | undefined;
+      let ttsMimeType: string | undefined;
       let ttsPromise: Promise<void> = Promise.resolve();
       if (body.audioMode) {
         const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -1159,14 +1163,23 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                   generateTTS(text, personaId, geminiApiKey, openaiApiKey),
                   20000,
                 );
+                ttsEngineUsed = ttsResult.engine;
+                ttsMimeType = ttsResult.mimeType;
                 const audioBase64 = ttsResult.audioBuffer.toString('base64');
                 devLogger.info('llm', 'Discuss: stream audio ready', {
                   personaId,
+                  ttsEngineUsed,
                   mimeType: ttsResult.mimeType,
                   audioBytes: ttsResult.audioBuffer.length,
                   base64Length: audioBase64.length,
                 });
-                sendSseEvent({ type: 'audio', persona: personaId, audio_url: `data:${ttsResult.mimeType};base64,${audioBase64}` });
+                sendSseEvent({
+                  type: 'audio',
+                  persona: personaId,
+                  audio_url: `data:${ttsResult.mimeType};base64,${audioBase64}`,
+                  tts_engine_used: ttsEngineUsed,
+                  tts_mime_type: ttsMimeType,
+                });
               } catch (e) {
                 devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
               }
@@ -1178,9 +1191,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 generateTTS(text, personaId, geminiApiKey, openaiApiKey),
                 20000,
               );
+              ttsEngineUsed = ttsResult.engine;
+              ttsMimeType = ttsResult.mimeType;
               const audioBase64 = ttsResult.audioBuffer.toString('base64');
               devLogger.info('llm', 'Discuss: non-stream audio ready', {
                 personaId,
+                ttsEngineUsed,
                 mimeType: ttsResult.mimeType,
                 audioBytes: ttsResult.audioBuffer.length,
                 base64Length: audioBase64.length,
@@ -1200,6 +1216,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         provider: providerConfig.provider,
         model: providerConfig.model,
         audio_url,
+        tts_engine_used: ttsEngineUsed,
+        tts_mime_type: ttsMimeType,
         meta,
       };
 

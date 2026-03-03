@@ -139,6 +139,9 @@ export function DiscussionChat({ onBack }: Props) {
   const [forceAudioRequest, setForceAudioRequest] = useState(false);
   const [lastRequestedAudioMode, setLastRequestedAudioMode] = useState(false);
   const [lastPersonaAudioUrl, setLastPersonaAudioUrl] = useState<string | null>(null);
+  const [lastServerTtsEngine, setLastServerTtsEngine] = useState<string | null>(null);
+  const [lastServerTtsMimeType, setLastServerTtsMimeType] = useState<string | null>(null);
+  const [ttsTelemetryStatus, setTtsTelemetryStatus] = useState<'idle' | 'ok' | 'missing'>('idle');
   const [audioDiag, setAudioDiag] = useState('idle');
   const [audioDiagError, setAudioDiagError] = useState<string | null>(null);
   const [focusCompanionToken, setFocusCompanionToken] = useState(0);
@@ -280,14 +283,25 @@ export function DiscussionChat({ onBack }: Props) {
       const first = response.responses[0];
       const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
       const audioUrl = getAudioUrlFromResponse(first);
+      const serverTtsEngine = typeof first?.tts_engine_used === 'string' && first.tts_engine_used.trim().length > 0
+        ? first.tts_engine_used.trim()
+        : null;
+      const serverTtsMimeType = typeof first?.tts_mime_type === 'string' && first.tts_mime_type.trim().length > 0
+        ? first.tts_mime_type.trim()
+        : null;
       console.log('[Discuss] response audio diagnostics', {
         personaId: persona.id,
         hasAudioUrl: Boolean(audioUrl),
         audioUrlPrefix: audioUrl ? audioUrl.slice(0, 40) : null,
         hasAudioUrlField: typeof first?.audio_url === 'string' && first.audio_url.length > 0,
         hasAudioField: typeof first?.audio === 'string' && first.audio.length > 0,
+        ttsEngineUsed: serverTtsEngine,
+        ttsMimeType: serverTtsMimeType,
       });
       setLastPersonaAudioUrl(audioUrl ?? null);
+      setLastServerTtsEngine(serverTtsEngine);
+      setLastServerTtsMimeType(serverTtsMimeType);
+      setTtsTelemetryStatus(audioUrl && !serverTtsEngine ? 'missing' : serverTtsEngine ? 'ok' : 'idle');
       setMessages((prev) => [
         ...prev,
         makeMessage({
@@ -530,6 +544,14 @@ export function DiscussionChat({ onBack }: Props) {
             <div style={{ marginTop: 8, fontSize: 11, opacity: 0.9 }}>
               <div>audioMode (last request): <strong>{String(lastRequestedAudioMode)}</strong></div>
               <div>audio_url prefix: <strong>{lastPersonaAudioUrl ? lastPersonaAudioUrl.slice(0, 28) : 'none'}</strong></div>
+              <div>server tts_engine_used: <strong>{lastServerTtsEngine ?? 'none'}</strong></div>
+              <div>server tts_mime_type: <strong>{lastServerTtsMimeType ?? 'none'}</strong></div>
+              <div>
+                server telemetry status:{' '}
+                <strong style={{ color: ttsTelemetryStatus === 'missing' ? '#f97316' : '#d4af37' }}>
+                  {ttsTelemetryStatus === 'missing' ? 'missing (contract bug)' : ttsTelemetryStatus}
+                </strong>
+              </div>
               <div>audio element state: <strong>{audioDiag}</strong></div>
               {audioDiagError ? <div>audio error: <strong>{audioDiagError}</strong></div> : null}
             </div>
