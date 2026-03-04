@@ -1111,7 +1111,7 @@ function HomePage() {
         className="app-content-main"
         style={{
           flex: 1,
-          overflowY: 'auto',
+          overflowY: activePage === PAGE_STUDIO ? 'hidden' : 'auto',
           overflowX: 'hidden',
           position: 'relative',
           zIndex: 10,

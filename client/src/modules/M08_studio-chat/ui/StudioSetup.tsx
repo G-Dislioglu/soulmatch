@@ -4,6 +4,7 @@ import {
   PERSONA_ICONS,
   PERSONA_NAMES,
 } from '../lib/personaColors'
+import { PersonaTuningBar } from './PersonaTuningBar'
 
 export type DebateMode = 'kontrovers' | 'sokratisch' | 'offen'
 export type TalkMode = 'live' | 'text'
@@ -91,7 +92,16 @@ export function StudioSetup({ onStart }: Props) {
           <span className="ss__hint">{selected.length}/3 · Maya moderiert immer</span>
         </div>
         <div className="ss__personas">
-          <div className="ss__persona ss__persona--fixed">
+          <div className="ss__persona ss__persona--fixed" style={{ position: 'relative' }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: 'absolute', top: 6, left: 6, zIndex: 10 }}
+            >
+              <PersonaTuningBar
+                seat="maya"
+                accentColor={PERSONA_COLORS.maya ?? '#c8a45a'}
+              />
+            </div>
             <div
               className="ss__persona-avatar"
               style={{
@@ -120,6 +130,12 @@ export function StudioSetup({ onStart }: Props) {
                 style={sel ? { borderColor: p.color + '60', background: p.color + '12' } : {}}
                 onClick={() => toggle(p.id)}
               >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ position: 'absolute', top: 6, left: 6, zIndex: 10 }}
+                >
+                  <PersonaTuningBar seat={p.id} accentColor={p.color} />
+                </div>
                 {sel && (
                   <div className="ss__persona-check" style={{ background: p.color }}>✓</div>
                 )}
