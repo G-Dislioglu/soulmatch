@@ -121,6 +121,7 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
       if (!triggerRect || !popupRect) return;
 
       const gap = 8;
+      const topSafeArea = 72;
       let left = triggerRect.right + gap;
       let top = triggerRect.bottom + gap;
 
@@ -135,7 +136,7 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
       if (top + popupRect.height > window.innerHeight - gap) {
         top = triggerRect.top - popupRect.height - gap;
       }
-      if (top < gap) top = gap;
+      if (top < topSafeArea + gap) top = topSafeArea + gap;
 
       setPopupPosition({ top, left });
     };
@@ -202,6 +203,8 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
             left: popupPosition.left,
             width: 260,
             zIndex: 9999,
+            maxHeight: `calc(100vh - ${72 + 16}px)`,
+            overflowY: 'auto',
             background: 'rgba(15, 12, 25, 0.65)',
             backdropFilter: 'blur(16px)',
             border: `1px solid ${accentColor}40`,

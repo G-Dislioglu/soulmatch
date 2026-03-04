@@ -9,7 +9,7 @@ export function StudioPage() {
   const [config, setConfig] = useState<StudioConfig | null>(null)
 
   return (
-    <div className="studio-page">
+    <div className={`studio-page ${view === 'session' ? 'studio-page--session' : 'studio-page--setup'}`}>
       {view === 'setup' && (
         <StudioSetup
           onStart={(cfg) => {
