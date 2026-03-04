@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { PersonaVisualizer } from './PersonaVisualizer';
 import { PersonaBar } from './PersonaBar';
 import { PersonaTuningBar } from './PersonaTuningBar';
 import { getPersonaSpeechRate } from './PersonaTuningBar';
@@ -106,6 +107,33 @@ export function DiscussionChat({
   const isPlayingQueueRef = useRef(false);
   const messagePersonaRef = useRef<Map<string, string>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const connectedElsRef = useRef<Set<HTMLAudioElement>>(new Set());
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
+
+  const connectAudioEl = useCallback((el: HTMLAudioElement) => {
+    if (connectedElsRef.current.has(el)) return;
+    connectedElsRef.current.add(el);
+    try {
+      if (!audioCtxRef.current) {
+        const ctx = new AudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.connect(ctx.destination);
+        audioCtxRef.current = ctx;
+        analyserNodeRef.current = analyser;
+        setAnalyserNode(analyser);
+      }
+      const ctx = audioCtxRef.current!;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const src = ctx.createMediaElementSource(el);
+      src.connect(analyserNodeRef.current!);
+    } catch {
+      // element may already have a source node — safe to ignore
+    }
+  }, []);
 
   const {
     personas, relations, applyTurn,
@@ -249,6 +277,7 @@ export function DiscussionChat({
         if (audioSessionRef.current !== session) return;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
+        connectAudioEl(a);
       };
       
       const handleEndOrError = () => {
@@ -278,7 +307,7 @@ export function DiscussionChat({
       console.error('[audio] sync error in queue', err);
       playNextInQueue();
     }
-  }, [activePersonaId, speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+  }, [activePersonaId, speech, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio, connectAudioEl]);
 
   const playAudioOnce = useCallback((id: string, url: string) => {
     if (!url || typeof url !== 'string') return;
@@ -316,6 +345,7 @@ export function DiscussionChat({
         if (audioSessionRef.current !== session) return;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
+        connectAudioEl(a);
       };
 
       a.onended = () => {
@@ -351,7 +381,7 @@ export function DiscussionChat({
     } catch {
       // ignore
     }
-  }, [activePersonaId, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio]);
+  }, [activePersonaId, pauseSpeechForAudio, scheduleResumeSpeechAfterAudio, connectAudioEl]);
 
   const sendMessage = useCallback(async (textRaw: string) => {
     const text = textRaw.trim();
@@ -699,8 +729,26 @@ export function DiscussionChat({
           <aside className="analyst-sidebar">
             <button className="back-to-oracle" onClick={onBack}>←</button>
             <div className="analyst-portrait-wrap">
-              <div className="analyst-portrait" style={{ background: `${activePersonaColor}18`, borderColor: activePersonaColor }}>
-                {activePersonaIcon}
+              <div style={{ position: 'relative', width: 80, height: 80 }}>
+                <PersonaVisualizer
+                  analyserNode={analyserNode}
+                  isActive={isSpeaking}
+                  color={activePersonaColor}
+                  size={80}
+                />
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 30,
+                  borderRadius: '50%',
+                  border: `1px solid ${activePersonaColor}50`,
+                  background: `${activePersonaColor}14`,
+                }}>
+                  {activePersonaIcon}
+                </div>
               </div>
               {isSpeaking && <div className="speaking-ring" style={{ borderColor: activePersonaColor }} />}
             </div>
@@ -1064,6 +1112,8 @@ export function DiscussionChat({
                     key={p.id}
                     persona={p}
                     onMicroReactionExpired={clearMicroReaction}
+                    analyserNode={analyserNode}
+                    isSpeaking={speakingPersona === p.id}
                   />
                 ))}
               </div>

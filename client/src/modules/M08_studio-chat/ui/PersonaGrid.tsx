@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PERSONA_COLORS, PERSONA_ICONS, PERSONA_NAMES, PERSONA_TITLES } from '../lib/personaColors';
 import { PersonaTuningBar } from './PersonaTuningBar';
+import { PersonaVisualizer } from './PersonaVisualizer';
 import type { StudioSeat } from '../../../shared/types/studio';
 
 interface PersonaGridProps {
@@ -126,20 +127,22 @@ function PersonaCard({
           {isSelected ? '✓' : ''}
         </div>
 
-        {/* Icon circle */}
-        <div style={{
-          width: 56,
-          height: 56,
-          borderRadius: '50%',
-          border: `2px solid ${color}50`,
-          background: `${color}12`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 24,
-          flexShrink: 0,
-        }}>
-          {icon}
+        {/* Visualizer + icon overlay */}
+        <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+          <PersonaVisualizer analyserNode={null} isActive={false} color={color} size={80} />
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 26,
+            borderRadius: '50%',
+            border: `1px solid ${color}30`,
+            background: `${color}10`,
+          }}>
+            {icon}
+          </div>
         </div>
         {/* Name */}
         <div style={{
@@ -162,8 +165,8 @@ function PersonaCard({
         </div>
       </button>
       
-      {/* Tuning Bar at the top right of the card */}
-      <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+      {/* Tuning Bar at the bottom right of the card */}
+      <div style={{ position: 'absolute', bottom: 6, right: 6, zIndex: 10 }}>
         <PersonaTuningBar seat={id as StudioSeat} accentColor={color} />
       </div>
     </div>
