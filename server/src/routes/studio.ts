@@ -657,7 +657,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
   }
 });
 
-// POST /discuss — Multi-persona sequential discussion (1-3 personas, different providers)
+// POST /discuss — Multi-persona sequential discussion (1-4 personas, different providers)
 interface DiscussRequestBody {
   personas: string[];
   message: string;
@@ -974,11 +974,11 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
   const body = req.body as DiscussRequestBody;
 
   if (!body.personas || !Array.isArray(body.personas) || body.personas.length === 0) {
-    res.status(400).json({ error: 'personas array required (1-3 items)' });
+    res.status(400).json({ error: 'personas array required (1-4 items)' });
     return;
   }
-  if (body.personas.length > 3) {
-    res.status(400).json({ error: 'Maximal 3 Personas pro Diskussion' });
+  if (body.personas.length > 4) {
+    res.status(400).json({ error: 'Maximal 4 Personas pro Diskussion' });
     return;
   }
   if (!body.message) {
