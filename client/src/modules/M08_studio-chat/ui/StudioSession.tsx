@@ -45,6 +45,11 @@ interface DiscussResult {
   creditsUsed: number
 }
 
+interface PrefetchedAutoTurn {
+  turn: number
+  promise: Promise<DiscussResult | null>
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
@@ -83,7 +88,7 @@ export function StudioSession({ config, onBack }: Props) {
   const shouldResumeSpeechAfterAudioRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const nextTurnTimerRef = useRef<number | null>(null)
-  const prefetchedAutoTurnRef = useRef<{ turn: number; promise: Promise<DiscussResult> } | null>(null)
+  const prefetchedAutoTurnRef = useRef<PrefetchedAutoTurn | null>(null)
   const autoRoundsSinceUserRef = useRef(0)
   const errorCountRef = useRef(0)
   const MAX_ERRORS = 2
@@ -262,6 +267,13 @@ export function StudioSession({ config, onBack }: Props) {
     ])
   }
 
+  function getNextAutoTurnDelayMs() {
+    if (prefetchedAutoTurnRef.current?.turn === turnRef.current) {
+      return isContinuousModeRef.current ? 280 : 420
+    }
+    return isContinuousModeRef.current ? 1350 : 1650
+  }
+
   async function callDiscuss(userMessage?: string, turnOverride = turnRef.current, historyOverride = messages) {
     const personaSettings = Object.fromEntries(
       discussPersonas.map((id) => [
@@ -420,9 +432,8 @@ export function StudioSession({ config, onBack }: Props) {
         prefetchedAutoTurnRef.current = null
       }
 
-      const data = prefetched
-        ? await prefetched.promise
-        : await callDiscuss(userMessage, currentTurn, baseHistory)
+      const prefetchedData = prefetched ? await prefetched.promise : null
+      const data = prefetchedData ?? await callDiscuss(userMessage, currentTurn, baseHistory)
       const responses = data.responses ?? []
 
       const shouldContinueAuto = (userMessage ? 0 : autoRoundsSinceUserRef.current + 1) < MAX_AUTO_ROUNDS
@@ -441,7 +452,10 @@ export function StudioSession({ config, onBack }: Props) {
 
         prefetchedAutoTurnRef.current = {
           turn: currentTurn + 1,
-          promise: callDiscuss(undefined, currentTurn + 1, stitchedHistory),
+          promise: callDiscuss(undefined, currentTurn + 1, stitchedHistory).catch((err) => {
+            console.warn('[StudioSession] prefetch failed', err)
+            return null
+          }),
         }
       } else {
         prefetchedAutoTurnRef.current = null
@@ -508,7 +522,7 @@ export function StudioSession({ config, onBack }: Props) {
           nextTurnTimerRef.current = null
           if (!isMountedRef.current) return
           void runTurn()
-        }, isContinuousModeRef.current ? 2100 : 2600)
+        }, getNextAutoTurnDelayMs())
       }
     } catch (err) {
       console.error('[StudioSession]', err)
