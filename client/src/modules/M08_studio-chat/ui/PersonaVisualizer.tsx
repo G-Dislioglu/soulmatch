@@ -92,5 +92,5 @@ export function PersonaVisualizer({ analyserNode, isActive, color, size = 80 }: 
     return () => cancelAnimationFrame(rafRef.current)
   }, [analyserNode, isActive, color, size])
 
-  return <canvas ref={canvasRef} width={size} height={size} style={{ display: 'block' }} />
+  return <canvas ref={canvasRef} width={size} height={size} style={{ display: 'block', width: size, height: size }} />
 }

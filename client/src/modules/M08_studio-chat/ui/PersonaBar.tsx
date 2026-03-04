@@ -8,6 +8,7 @@ interface PersonaBarProps {
   audioMode: boolean;
   onToggleAudio: () => void;
   onBack: () => void;
+  onEnd?: () => void;
   continuousMode?: boolean;
   onToggleContinuous?: () => void;
   isSpeechSupported?: boolean;
@@ -21,6 +22,7 @@ export function PersonaBar({
   audioMode,
   onToggleAudio,
   onBack,
+  onEnd,
   continuousMode = false,
   onToggleContinuous,
   isSpeechSupported = false,
@@ -56,6 +58,28 @@ export function PersonaBar({
       >
         ← Zurück
       </button>
+
+      {/* Beenden-Button */}
+      {onEnd && (
+        <button
+          onClick={onEnd}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(255,107,107,0.35)',
+            borderRadius: 8,
+            color: 'rgba(255,107,107,0.7)',
+            cursor: 'pointer',
+            fontSize: 12,
+            padding: '6px 14px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          ⏹ Beenden
+        </button>
+      )}
 
       {/* Persona Chips */}
       <div style={{ display: 'flex', gap: 6, flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>

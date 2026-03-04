@@ -22,8 +22,8 @@ export function PersonaTensionCard({ persona, onMicroReactionExpired, analyserNo
         border: `1px solid ${em.color}66`,
         borderRadius: 12,
         background: `${em.color}14`,
-        padding: '10px 10px 8px',
-        minWidth: 90,
+        padding: '6px 4px 6px',
+        minWidth: 80,
         textAlign: 'center',
         zIndex: 1,
       }}
@@ -34,12 +34,12 @@ export function PersonaTensionCard({ persona, onMicroReactionExpired, analyserNo
         onExpired={() => onMicroReactionExpired(persona.id)}
       />
 
-      <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto' }}>
+      <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto' }}>
         <PersonaVisualizer
           analyserNode={analyserNode ?? null}
           isActive={!!isSpeaking}
           color={em.color}
-          size={52}
+          size={80}
         />
         <div style={{
           position: 'absolute',

@@ -88,6 +88,7 @@ export function getPersonaAccentProfile(personaId: string): AccentProfile {
 interface PersonaTuningBarProps {
   seat: string;
   accentColor: string;
+  compact?: boolean;
 }
 
 const TUNING_LABELS: Record<'empathy' | 'mysticism' | 'provocation' | 'intellect', { icon: string; left: string; right: string }> = {
@@ -97,7 +98,7 @@ const TUNING_LABELS: Record<'empathy' | 'mysticism' | 'provocation' | 'intellect
   intellect: { icon: '🧠', left: 'Leicht', right: 'Philosophisch' },
 };
 
-export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
+export function PersonaTuningBar({ seat, accentColor, compact }: PersonaTuningBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { mood, setMood } = usePersonaTuning(seat);
   const [speechRate, setSpeechRate] = useState<number>(() => getPersonaSpeechRate(seat));
@@ -369,12 +370,12 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
         }}
         title="Soul-Tuning anpassen"
         style={{
-          background: isOpen ? `${accentColor}30` : 'rgba(0,0,0,0.55)',
+          background: isOpen ? `${accentColor}30` : 'rgba(0,0,0,0.5)',
           border: `1px solid ${isOpen ? accentColor : 'rgba(255,255,255,0.2)'}`,
           color: isOpen ? '#fff' : 'rgba(255,255,255,0.85)',
-          borderRadius: '50%',
-          width: 34,
-          height: 34,
+          borderRadius: compact ? 6 : '50%',
+          width: compact ? 24 : 34,
+          height: compact ? 24 : 34,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -382,6 +383,7 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
           backdropFilter: 'blur(6px)',
           transition: 'all 0.2s ease',
           boxShadow: isOpen ? `0 0 10px ${accentColor}40` : 'none',
+          flexShrink: 0,
         }}
         onMouseEnter={(e) => {
           if (!isOpen) {
@@ -396,7 +398,7 @@ export function PersonaTuningBar({ seat, accentColor }: PersonaTuningBarProps) {
           }
         }}
       >
-        <span style={{ fontSize: 16 }}>⚙️</span>
+        <span style={{ fontSize: compact ? 12 : 16 }}>⚙️</span>
       </button>
 
       {/* Glassmorphism Dropdown/Overlay */}

@@ -167,7 +167,7 @@ function PersonaCard({
       
       {/* Tuning Bar at the bottom right of the card */}
       <div style={{ position: 'absolute', bottom: 6, right: 6, zIndex: 10 }}>
-        <PersonaTuningBar seat={id as StudioSeat} accentColor={color} />
+        <PersonaTuningBar seat={id as StudioSeat} accentColor={color} compact />
       </div>
     </div>
   );

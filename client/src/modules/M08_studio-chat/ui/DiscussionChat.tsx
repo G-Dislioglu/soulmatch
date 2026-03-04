@@ -107,6 +107,7 @@ export function DiscussionChat({
   const isPlayingQueueRef = useRef(false);
   const messagePersonaRef = useRef<Map<string, string>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
+  const ttsPlayingRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const connectedElsRef = useRef<Set<HTMLAudioElement>>(new Set());
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
@@ -201,6 +202,7 @@ export function DiscussionChat({
   }, []);
 
   const speech = useSpeechToText('de', (text) => {
+    if (ttsPlayingRef.current) return;
     const spoken = text.trim();
     if (!spoken) return;
     console.log('[STT] auto-send:', spoken);
@@ -275,12 +277,14 @@ export function DiscussionChat({
 
       a.onplay = () => {
         if (audioSessionRef.current !== session) return;
+        ttsPlayingRef.current = true;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
         connectAudioEl(a);
       };
       
       const handleEndOrError = () => {
+        ttsPlayingRef.current = false;
         if (audioSessionRef.current !== session) return;
         currentAudioRef.current = null;
         setSpeakingPersona(null);
@@ -343,12 +347,14 @@ export function DiscussionChat({
 
       a.onplay = () => {
         if (audioSessionRef.current !== session) return;
+        ttsPlayingRef.current = true;
         speech.setPlaybackActive(true);
         pauseSpeechForAudio();
         connectAudioEl(a);
       };
 
       a.onended = () => {
+        ttsPlayingRef.current = false;
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
@@ -358,6 +364,7 @@ export function DiscussionChat({
       };
 
       a.onerror = () => {
+        ttsPlayingRef.current = false;
         if (currentAudioRef.current === a) {
           currentAudioRef.current = null;
         }
@@ -595,6 +602,24 @@ export function DiscussionChat({
     }
   }
 
+  const handleEnd = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    audioQueueRef.current = [];
+    isPlayingQueueRef.current = false;
+    ttsPlayingRef.current = false;
+    speech.setPlaybackActive(false);
+    setSpeakingPersona(null);
+    setLoading(false);
+    loadingRef.current = false;
+    onBack();
+  }, [speech, onBack]);
+
   const activePersonaColor = PERSONA_COLORS[activePersonaId] ?? '#d4af37';
   const activePersonaName = PERSONA_NAMES[activePersonaId] ?? activePersonaId;
   const activePersonaIcon = PERSONA_ICONS[activePersonaId] ?? '◇';
@@ -718,6 +743,7 @@ export function DiscussionChat({
           audioMode={audioMode}
           onToggleAudio={() => setAudioMode((v) => !v)}
           onBack={onBack}
+          onEnd={handleEnd}
           continuousMode={speech.isContinuousMode}
           onToggleContinuous={handleToggleContinuous}
           isSpeechSupported={speech.isSupported}
