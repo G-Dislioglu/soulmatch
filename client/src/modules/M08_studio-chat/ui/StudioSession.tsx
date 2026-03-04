@@ -132,19 +132,13 @@ export function StudioSession({ config, onBack }: Props) {
   useEffect(() => {
     isMountedRef.current = true
     if (config.talkMode === 'live') {
-      if (speech.hasConsent) {
-        setTalkMode('live')
-        isContinuousModeRef.current = true
-        speech.startContinuous()
-        setSessionStarted(true)
-      } else {
-        setShowConsent(true)
-      }
+      setTalkMode('live')
+      isContinuousModeRef.current = false
+      speech.stopContinuous()
     } else {
       setTalkMode('text')
       isContinuousModeRef.current = false
       speech.stopContinuous()
-      setSessionStarted(true)
     }
 
     return () => {
@@ -161,13 +155,6 @@ export function StudioSession({ config, onBack }: Props) {
       speech.stopContinuous()
     }
   }, [clearNextTurnTimer, config.talkMode])
-
-  useEffect(() => {
-    if (!sessionStarted) return
-    if (turnRef.current > 0) return
-    if (runningRef.current) return
-    void runTurn()
-  }, [sessionStarted])
 
   const getInterSpeakerPauseMs = useCallback((speakerId: string) => {
     const baseByPersona: Record<string, number> = {
@@ -568,10 +555,13 @@ export function StudioSession({ config, onBack }: Props) {
     isContinuousModeRef.current = false
     shouldResumeSpeechAfterAudioRef.current = false
     speech.stopContinuous()
-    if (!sessionStarted) setSessionStarted(true)
   }
 
   function handleSetLiveTalk() {
+    if (!sessionStarted) {
+      setTalkMode('live')
+      return
+    }
     if (!speech.hasConsent) {
       setShowConsent(true)
       return
@@ -579,7 +569,23 @@ export function StudioSession({ config, onBack }: Props) {
     setTalkMode('live')
     isContinuousModeRef.current = true
     speech.startContinuous()
-    if (!sessionStarted) setSessionStarted(true)
+  }
+
+  function handleStartTalk() {
+    if (sessionStarted || isLoading) return
+    if (talkMode === 'live') {
+      if (!speech.hasConsent) {
+        setShowConsent(true)
+        return
+      }
+      isContinuousModeRef.current = true
+      speech.startContinuous()
+    } else {
+      isContinuousModeRef.current = false
+      speech.stopContinuous()
+    }
+    setSessionStarted(true)
+    void runTurn()
   }
 
   function handleConsentAccept() {
@@ -588,7 +594,10 @@ export function StudioSession({ config, onBack }: Props) {
     setTalkMode('live')
     isContinuousModeRef.current = true
     speech.startContinuous()
-    if (!sessionStarted) setSessionStarted(true)
+    if (!sessionStarted) {
+      setSessionStarted(true)
+      void runTurn()
+    }
   }
 
   function handleConsentCancel() {
@@ -612,8 +621,21 @@ export function StudioSession({ config, onBack }: Props) {
         <div className="studio-session__top-controls">
           <button
             className="studio-session__ctrl-btn"
+            onClick={handleStartTalk}
+            disabled={sessionStarted || isLoading}
+            style={{
+              border: sessionStarted ? '1px solid rgba(34,197,94,0.55)' : '2px solid rgba(245,158,11,0.65)',
+              background: sessionStarted ? 'rgba(34,197,94,0.16)' : 'rgba(245,158,11,0.14)',
+              color: sessionStarted ? '#7be4a3' : '#fbbf24',
+              fontWeight: 700,
+            }}
+          >
+            {sessionStarted ? '✅ Talk läuft' : '▶ Start Talk'}
+          </button>
+          <button
+            className="studio-session__ctrl-btn"
             onClick={() => void generateReport()}
-            disabled={isGeneratingReport}
+            disabled={isGeneratingReport || !sessionStarted}
           >
             {isGeneratingReport ? '⏳ Report...' : '📋 Report'}
           </button>
@@ -656,7 +678,7 @@ export function StudioSession({ config, onBack }: Props) {
                 🎙️ Live Talk
               </button>
               <span style={{ fontSize: 11, color: talkMode === 'live' ? '#7be4a3' : 'rgba(240,236,224,0.55)' }}>
-                {talkMode === 'live' ? 'Audio aktiv' : 'Text-only'}
+                {sessionStarted ? (talkMode === 'live' ? 'Audio aktiv' : 'Text-only') : 'Noch nicht gestartet'}
               </span>
             </>
           )}
@@ -724,8 +746,9 @@ export function StudioSession({ config, onBack }: Props) {
             <textarea
               className="studio-session__textarea"
               value={userInput}
+              disabled={!sessionStarted}
               onChange={(e) => setUserInput(e.target.value)}
-              placeholder={speech.isListening ? 'Spreche oder tippe...' : 'Dein Beitrag zur Diskussion...'}
+              placeholder={!sessionStarted ? 'Konfiguriere Personas und starte mit "Start Talk"...' : speech.isListening ? 'Spreche oder tippe...' : 'Dein Beitrag zur Diskussion...'}
               rows={2}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -737,7 +760,7 @@ export function StudioSession({ config, onBack }: Props) {
             <button
               className="studio-session__send-btn"
               onClick={() => void handleSend()}
-              disabled={!userInput.trim() || isLoading}
+              disabled={!sessionStarted || !userInput.trim() || isLoading}
             >
               Senden
             </button>
