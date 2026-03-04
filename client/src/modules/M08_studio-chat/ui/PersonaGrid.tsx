@@ -76,7 +76,7 @@ function PersonaCard({
   const title = PERSONA_TITLES[id] ?? '';
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div data-testid="persona-card" style={{ position: 'relative', width: '100%' }}>
       <button
         onClick={onToggle}
         style={{
