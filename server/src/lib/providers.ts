@@ -66,6 +66,7 @@ export interface CallProviderParams {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   temperature?: number;
   maxTokens?: number;
+  forceJsonObject?: boolean;
 }
 
 /**
@@ -153,7 +154,7 @@ export async function callProvider(
               { role: 'system', content: params.system },
               ...params.messages,
             ],
-            response_format: { type: 'json_object' },
+            ...(params.forceJsonObject === false ? {} : { response_format: { type: 'json_object' } }),
             temperature: params.temperature ?? 0.85,
             max_tokens: params.maxTokens ?? 2000,
             ...(provider === 'deepseek' && model.includes('reasoner')

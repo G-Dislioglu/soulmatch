@@ -678,6 +678,35 @@ Bleibe in deinem Charakter und deiner Persönlichkeit, aber beschränke dich NIC
 Du darfst Meinungen haben, kreativ sein, und frei diskutieren — immer in deinem Persona-Stil.`
     : 'Du befindest dich in einem Solo-Chat. Der User spricht nur mit dir. Freie Themen sind erlaubt — du musst nicht auf Profil-Daten bestehen.';
 
+  const soloResponseFormatBlock = seat === 'sri'
+    ? `Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
+
+Einfach nur deinen Text. Deine Antwort.`
+    : `Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
+
+{
+  "turns": [
+    { "seat": "${seat}", "text": "Deine Antwort auf Deutsch. 1-5 Sätze." }
+  ],
+  "nextSteps": [
+    "Optionaler Vorschlag 1",
+    "Optionaler Vorschlag 2",
+    "Optionaler Vorschlag 3"
+  ],
+  "watchOut": "Ein optionaler Hinweis oder leerer String.",
+  "anchorsUsed": ["A1", "A2"]
+}
+
+Regeln:
+- "turns": Array mit genau 1 Eintrag. seat MUSS "${seat}" sein.
+- "nextSteps": Array mit genau 3 Strings.
+- "watchOut": Ein String.
+- "anchorsUsed": optionales Array von Anchor-IDs (z. B. A1, A2), wenn DATA ANCHORS im User-Prompt vorhanden sind.
+- KEIN "meta" Feld.
+- Sprache: Deutsch.`;
+
+  const soloMetaBlock = seat === 'sri' ? '' : `\n\n${STUDIO_META_OUTPUT_BLOCK}`;
+
   const APP_CONTEXT_BLOCK = `Du bist Teil der Soulmatch-App. Soulmatch ist eine spirituelle Kompatibilitäts- und Selbstkenntnis-App.
 Wir kombinieren Astrologie (inkl. Lilith & Chiron), Numerologie, Vedische Astrologie, BaZi und Human Design.
 WICHTIGES APP-WISSEN FÜR DICH:
@@ -731,28 +760,7 @@ Verboten:
 - Mehr als 3 Sätze am Stück ohne "Atemholen" (z.B. Punkt oder kurze Pause)
 - Zwei Fragen in einer Antwort
 
-Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
-
-{
-  "turns": [
-    { "seat": "${seat}", "text": "Deine Antwort auf Deutsch. 1-5 Sätze." }
-  ],
-  "nextSteps": [
-    "Optionaler Vorschlag 1",
-    "Optionaler Vorschlag 2",
-    "Optionaler Vorschlag 3"
-  ],
-  "watchOut": "Ein optionaler Hinweis oder leerer String.",
-  "anchorsUsed": ["A1", "A2"]
-}
-
-Regeln:
-- "turns": Array mit genau 1 Eintrag. seat MUSS "${seat}" sein.
-- "nextSteps": Array mit genau 3 Strings.
-- "watchOut": Ein String.
-- "anchorsUsed": optionales Array von Anchor-IDs (z. B. A1, A2), wenn DATA ANCHORS im User-Prompt vorhanden sind.
-- KEIN "meta" Feld.
-- Sprache: Deutsch.
+${soloResponseFormatBlock}
 
 UI-COMMAND SYSTEM:
 Du kannst optional UI-Aktionen im "text"-Feld deiner Antwort einbetten. Format:
@@ -792,7 +800,7 @@ Soul Card Regeln:
 - Formuliere so, dass der User sich wiedererkennt.
 - Schlage die Card NUR vor, wenn du eine echte Erkenntnis destillieren kannst.
 
-${STUDIO_META_OUTPUT_BLOCK}`;
+${soloMetaBlock}`;
 }
 
 export function buildUserPrompt(params: {
@@ -1017,6 +1025,8 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? ''
     : firstContactBlock;
 
+  const discussMetaBlock = personaId === 'sri' ? '' : `\n\n${STUDIO_META_OUTPUT_BLOCK}`;
+
   return `## SPRACHE & STIL (höchste Priorität)
 - Antworte IMMER in der Sprache des Users (DE/EN/TR automatisch erkennen)
 - Max 2-3 Sätze pro Antwort – nie mehr
@@ -1064,7 +1074,7 @@ REGELN:
 Antworte NUR mit reinem Text. GIB KEIN JSON ZURÜCK. Keine Codeblöcke. Keine Struktur.
 Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.
 
-${STUDIO_META_OUTPUT_BLOCK}`;
+${discussMetaBlock}`;
 }
 
 export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {

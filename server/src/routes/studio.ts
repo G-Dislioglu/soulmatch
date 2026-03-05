@@ -1174,7 +1174,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       const rawText = await callProvider(
         providerConfig.provider,
         providerConfig.model,
-        { system: systemPrompt, messages: currentProviderMessages, temperature: 0.85 },
+        {
+          system: systemPrompt,
+          messages: currentProviderMessages,
+          temperature: 0.85,
+          forceJsonObject: personaId !== 'sri',
+        },
         body.clientApiKey,
       );
 

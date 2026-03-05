@@ -30,6 +30,7 @@ export const PERSONAS: PersonaInfo[] = [
   { id: 'amara', name: 'Amara', icon: '💎', color: '#34d399', role: 'Heilerin', trait: 'Heilend · Sanft' },
   { id: 'orion', name: 'Orion', icon: '△', color: '#38bdf8', role: 'Sternenwächter', trait: 'Ruhig · Weitblick' },
   { id: 'lilith', name: 'Lilith', icon: '🔥', color: '#f97316', role: 'Schattenwesen', trait: 'Direkt · Provokativ' },
+  { id: 'sri', name: 'Sri', icon: '∞', color: '#7eb8c9', role: 'Der Träumer der Zahlen', trait: 'Muster · Reihen · Strukturen' },
   { id: 'sibyl', name: 'Sibyl', icon: '🔮', color: '#8b5cf6', role: 'Prophetin', trait: 'Visionär · Mystisch' },
   { id: 'kael', name: 'Kael', icon: '𝌆', color: '#a78bfa', role: 'Seelenwanderer', trait: 'Philosophisch · Weise' },
   { id: 'stella', name: 'Stella', icon: '🔭', color: '#f59e0b', role: 'Himmelsforscherin', trait: 'Präzise · Analytisch' },
