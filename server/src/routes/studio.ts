@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
-import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt, buildDiscussPrompt } from '../studioPrompt.js';
+import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt, buildDiscussPrompt, SRI_CONFIG } from '../studioPrompt.js';
 import type { LilithIntensity, OracleQuestionType } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
@@ -288,7 +288,7 @@ async function callChatCompletions(
   model: string,
   systemPrompt: string,
   userPrompt: string,
-  opts?: { temperature?: number; extraUserInstruction?: string }
+  opts?: { temperature?: number; extraUserInstruction?: string; maxTokens?: number }
 ) {
   const resp = await fetch(config.apiUrl, {
     method: 'POST',
@@ -306,6 +306,10 @@ async function callChatCompletions(
       ],
       response_format: { type: 'json_object' },
       temperature: opts?.temperature ?? 0.7,
+      ...(typeof opts?.maxTokens === 'number' ? { max_tokens: opts.maxTokens } : {}),
+      ...(typeof opts?.maxTokens === 'number' && config.apiUrl.includes('deepseek') && model.includes('reasoner')
+        ? { max_completion_tokens: opts.maxTokens }
+        : {}),
     }),
   });
 
@@ -445,12 +449,39 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       messageLength: studioRequest.userMessage.length,
     });
 
+    const isSriSoloReasoner = body.soloPersona === 'sri'
+      && providerName === 'deepseek'
+      && model === SRI_CONFIG.model;
+
     if (providerName === 'openai') {
       parsed = await callOpenAI(apiKey, model, systemPrompt, userPrompt);
     } else if (providerName === 'gemini') {
       parsed = await callGemini(apiKey, model, systemPrompt, userPrompt);
     } else {
-      parsed = await callChatCompletions(config, apiKey, model, systemPrompt, userPrompt);
+      const invokeChatCompletion = () => callChatCompletions(
+        config,
+        apiKey,
+        model,
+        systemPrompt,
+        userPrompt,
+        { maxTokens: isSriSoloReasoner ? SRI_CONFIG.max_tokens : undefined },
+      );
+
+      if (isSriSoloReasoner) {
+        try {
+          parsed = await withTimeout(invokeChatCompletion(), SRI_CONFIG.timeout);
+        } catch (error) {
+          const errMessage = error instanceof Error ? error.message : String(error);
+          if (SRI_CONFIG.retries > 0 && errMessage.includes('No content in chat completion response')) {
+            await sleep(2000);
+            parsed = await withTimeout(invokeChatCompletion(), SRI_CONFIG.timeout);
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        parsed = await callChatCompletions(config, apiKey, model, systemPrompt, userPrompt);
+      }
     }
 
     const durationMs = Date.now() - startTime;
@@ -522,7 +553,11 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
             model,
             systemPrompt,
             userPrompt,
-            { temperature: 0.0, extraUserInstruction: repairInstruction }
+            {
+              temperature: 0.0,
+              extraUserInstruction: repairInstruction,
+              maxTokens: isSriSoloReasoner ? SRI_CONFIG.max_tokens : undefined,
+            }
           );
         }
 
