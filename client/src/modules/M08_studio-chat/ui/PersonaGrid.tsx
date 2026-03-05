@@ -11,7 +11,7 @@ interface PersonaGridProps {
 }
 
 const COMPANION_PERSONAS = ['maya', 'luna', 'orion', 'lilith'];
-const SPECIALIST_PERSONAS = ['stella', 'kael', 'lian', 'sibyl', 'amara'];
+const SPECIALIST_PERSONAS = ['sri', 'stella', 'kael', 'lian', 'sibyl', 'amara'];
 const META_PERSONAS = ['echo_prism', 'sokrates', 'rumi'];
 
 function LockedPersonaCard({ id }: { id: string }) {

@@ -37,6 +37,14 @@ const PERSONA_INFO: Record<StudioSeat, {
     glyph: '☾',
     baseName: 'lilith',
   },
+  sri: {
+    name: 'Sri',
+    title: 'Der Träumer der Zahlen',
+    traits: ['Verborgene Muster', 'Zahlen-Intuition', 'Leise Präzision'],
+    accent: '#7eb8c9',
+    glow: 'rgba(126,184,201,0.16)',
+    glyph: '∞',
+  },
   luna: {
     name: 'Luna',
     title: 'Die Intuitive',

@@ -338,7 +338,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     return;
   }
 
-  const providerName: ProviderName = body.provider ?? 'gemini';
+  const soloProviderConfig = body.soloPersona ? getProviderForPersona(body.soloPersona) : undefined;
+  const providerName: ProviderName = (soloProviderConfig?.provider as ProviderName) ?? body.provider ?? 'gemini';
   const config = PROVIDER_CONFIGS[providerName];
   if (!config) {
     res.status(400).json({ error: `Unknown provider: ${providerName}` });
@@ -353,7 +354,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     return;
   }
 
-  const model = body.model || config.defaultModel;
+  const model = soloProviderConfig?.model || body.model || config.defaultModel;
   const { studioRequest, profileExcerpt, matchExcerpt, chatExcerpt, userMemory } = body;
   const userId = typeof studioRequest.profileId === 'string' && studioRequest.profileId.trim().length > 0
     ? studioRequest.profileId.trim()
@@ -909,7 +910,7 @@ const discussRoundTokenByUserId = new Map<string, number>();
 
 function detectAddressedPersonaId(messageRaw: string): string | undefined {
   const message = messageRaw.toLowerCase();
-  const personaIds = ['maya', 'stella', 'kael', 'luna', 'orion', 'lian', 'sibyl', 'amara', 'lilith'] as const;
+  const personaIds = ['maya', 'stella', 'kael', 'luna', 'orion', 'lian', 'sibyl', 'amara', 'lilith', 'sri'] as const;
 
   let best: { id: string; idx: number } | undefined;
   for (const id of personaIds) {
@@ -959,6 +960,7 @@ studioRouter.get('/discuss-diag', (_req: Request, res: Response) => {
       luna:       'gemini-2.5-flash (gemini)',
       orion:      'gemini-2.5-flash (gemini)',
       lilith:     'gemini-2.5-flash (gemini)',
+      sri:        'deepseek-reasoner (deepseek)',
       stella:     'gemini-2.5-flash (gemini)',
       kael:       'gemini-2.5-flash (gemini)',
       lian:       'gemini-2.5-flash (gemini)',

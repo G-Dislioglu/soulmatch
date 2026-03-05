@@ -10,6 +10,7 @@ interface LiveSigilProps {
 
 const MAYA_RUNES = ['◇', '⊹', '✦', '⟡', '◈'];
 const LILITH_RUNES = ['☾', '⚶', '♄', '✧', '⛧'];
+const SRI_RUNES = ['∞', '11', '24', '28', '1729'];
 const CHAKRA_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#a855f7'];
 
 function getMayaSigil(state: SigilState) {
@@ -37,9 +38,10 @@ function getLilithSigil(state: SigilState) {
 export function LiveSigil({ seat, state, height = 320 }: LiveSigilProps) {
   const isLilith = seat === 'lilith';
   const isMaya = seat === 'maya';
+  const isSri = seat === 'sri';
   const sigil = isLilith ? getLilithSigil(state) : getMayaSigil(state);
-  const runes = isLilith ? LILITH_RUNES : isMaya ? MAYA_RUNES : ['☽', '◇', '△'];
-  const accentColor = isLilith ? '#d49137' : isMaya ? '#a855f7' : seat === 'luna' ? '#c084fc' : '#38bdf8';
+  const runes = isLilith ? LILITH_RUNES : isMaya ? MAYA_RUNES : isSri ? SRI_RUNES : ['☽', '◇', '△'];
+  const accentColor = isLilith ? '#d49137' : isMaya ? '#a855f7' : isSri ? '#7eb8c9' : seat === 'luna' ? '#c084fc' : '#38bdf8';
 
   const isActive = state !== 'idle';
   const glowOpacity = state === 'truth' ? 0.5 : state === 'speaking' ? 0.3 : state === 'typing' ? 0.2 : 0.05;
@@ -67,7 +69,7 @@ export function LiveSigil({ seat, state, height = 320 }: LiveSigilProps) {
         textShadow: isActive ? `0 0 12px ${accentColor}80, 0 0 24px ${accentColor}40` : 'none',
         zIndex: 1,
       }}>
-        {isLilith ? '☾' : isMaya ? '◇' : seat === 'luna' ? '☽' : '△'}
+        {isLilith ? '☾' : isMaya ? '◇' : isSri ? '∞' : seat === 'luna' ? '☽' : '△'}
       </div>
 
       {/* Floating runes */}

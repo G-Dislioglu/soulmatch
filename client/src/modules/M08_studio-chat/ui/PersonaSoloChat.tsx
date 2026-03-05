@@ -24,11 +24,12 @@ import type { CommandBus } from '../lib/commandBus';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import { SpeechConsentDialog } from './SpeechConsentDialog';
 
-const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string }> = {
-  maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin' },
-  luna: { bg: 'bg-purple-950/20', accent: 'text-purple-300', headerBg: 'bg-purple-900/30', title: 'Luna — Die Intuitive' },
-  orion: { bg: 'bg-sky-950/20', accent: 'text-sky-300', headerBg: 'bg-sky-900/30', title: 'Orion — Der Analytiker' },
-  lilith: { bg: 'bg-orange-950/30', accent: 'text-orange-400', headerBg: 'bg-orange-900/40', title: "Lilith's Shadow Chamber" },
+const SEAT_THEMES: Record<StudioSeat, { bg: string; accent: string; headerBg: string; title: string; tuningAccent: string; loadingText: string }> = {
+  maya: { bg: 'bg-amber-950/20', accent: 'text-amber-300', headerBg: 'bg-amber-900/30', title: 'Maya — Die Strukturgeberin', tuningAccent: '#fbbf24', loadingText: 'Maya ordnet...' },
+  luna: { bg: 'bg-purple-950/20', accent: 'text-purple-300', headerBg: 'bg-purple-900/30', title: 'Luna — Die Intuitive', tuningAccent: '#c084fc', loadingText: 'Luna lauscht...' },
+  orion: { bg: 'bg-sky-950/20', accent: 'text-sky-300', headerBg: 'bg-sky-900/30', title: 'Orion — Der Analytiker', tuningAccent: '#38bdf8', loadingText: 'Orion analysiert...' },
+  lilith: { bg: 'bg-orange-950/30', accent: 'text-orange-400', headerBg: 'bg-orange-900/40', title: "Lilith's Shadow Chamber", tuningAccent: '#f97316', loadingText: 'Lilith schärft den Blick...' },
+  sri: { bg: 'bg-cyan-950/25', accent: 'text-cyan-300', headerBg: 'bg-cyan-900/35', title: 'Sri — Der Träumer der Zahlen', tuningAccent: '#7eb8c9', loadingText: 'Namagiri flüstert...' },
 };
 
 const INTENSITY_LABELS: Record<LilithIntensity, string> = {
@@ -99,6 +100,23 @@ interface PersonaSoloChatProps {
   commandCallbacks?: MayaCommandCallbacks;
 }
 
+function renderSriMessage(text: string) {
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return text;
+
+  const first = lines[0] ?? '';
+  const firstLooksNumeric = /^[-+]?\d[\d.,/³²^+\-x×=\s]*$/.test(first);
+  if (!firstLooksNumeric) return text;
+
+  const rest = lines.slice(1).join(' ');
+  return (
+    <>
+      <span className="num-flash">{first}</span>
+      {rest && <span style={{ display: 'block', marginTop: 6 }}>{rest}</span>}
+    </>
+  );
+}
+
 function formatBlockRemaining(ms: number): string {
   const hours = Math.floor(ms / 3600000);
   const mins = Math.floor((ms % 3600000) / 60000);
@@ -135,6 +153,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
 
   const theme = SEAT_THEMES[seat];
   const isLilith = seat === 'lilith';
+  const seatGlyph = seat === 'luna' ? '☽' : seat === 'orion' ? '△' : seat === 'sri' ? '∞' : '◇';
 
   // ── Command Executor ──
   const executeCommand = useCallback(async (cmd: MayaCommand) => {
@@ -611,7 +630,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                 width: 48, height: 48 * 1.5, background: 'rgba(255,255,255,0.05)',
                 borderRadius: 8, fontSize: 22,
               }}>
-                {seat === 'luna' ? '☽' : '△'}
+                {seatGlyph}
               </div>
             )}
             <div>
@@ -646,7 +665,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
             >
               ✕
             </button>
-            <PersonaTuningBar seat={seat} accentColor={theme.accent.replace('text-', '')} />
+            <PersonaTuningBar seat={seat} accentColor={theme.tuningAccent} />
           </div>
         </div>
 
@@ -772,7 +791,7 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                     <div className="w-full h-full rounded-md flex items-center justify-center" style={{
                       background: 'rgba(255,255,255,0.06)', fontSize: 14,
                     }}>
-                      {seat === 'luna' ? '☽' : '△'}
+                      {seatGlyph}
                     </div>
                   )}
                 </div>
@@ -791,14 +810,14 @@ export function PersonaSoloChat({ seat, profileId, onClose, commandCallbacks }: 
                     {seat}
                   </span>
                 )}
-                {msg.text}
+                {seat === 'sri' && msg.role === 'persona' ? renderSriMessage(msg.text) : msg.text}
               </div>
             </div>
           ))}
           {loading && (
             <div className="flex justify-start">
               <div className={`rounded-lg px-3 py-2 text-sm ${isLilith ? 'bg-orange-900/20 text-orange-400' : 'bg-zinc-800/60 text-zinc-400'}`}>
-                <span className="animate-pulse">Denke…</span>
+                <span className="animate-pulse">{theme.loadingText}</span>
               </div>
             </div>
           )}

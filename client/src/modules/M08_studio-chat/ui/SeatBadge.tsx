@@ -5,6 +5,7 @@ const LABELS: Record<StudioSeat, string> = {
   luna: 'Luna',
   orion: 'Orion',
   lilith: 'Lilith',
+  sri: 'Sri',
 };
 
 const SEAT_COLORS: Record<StudioSeat, { border: string; text: string; bg: string }> = {
@@ -12,6 +13,7 @@ const SEAT_COLORS: Record<StudioSeat, { border: string; text: string; bg: string
   luna: { border: 'border-purple-500/30', text: 'text-purple-300', bg: 'bg-purple-500/5' },
   orion: { border: 'border-sky-500/30', text: 'text-sky-300', bg: 'bg-sky-500/5' },
   lilith: { border: 'border-orange-600/40', text: 'text-orange-400', bg: 'bg-orange-600/5' },
+  sri: { border: 'border-cyan-500/35', text: 'text-cyan-300', bg: 'bg-cyan-500/10' },
 };
 
 interface SeatBadgeProps {

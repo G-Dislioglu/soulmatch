@@ -156,6 +156,9 @@ export async function callProvider(
             response_format: { type: 'json_object' },
             temperature: params.temperature ?? 0.85,
             max_tokens: params.maxTokens ?? 2000,
+            ...(provider === 'deepseek' && model.includes('reasoner')
+              ? { max_completion_tokens: params.maxTokens ?? 2000 }
+              : {}),
           },
     ),
   }, provider);

@@ -5,6 +5,7 @@ export function getPersonaVoice(personaId: string): string {
     luna:       'Leda',
     orion:      'Orus',
     lilith:     'Kore',
+    sri:        'Iapetus',
     stella:     'Callirrhoe',
     kael:       'Fenrir',
     lian:       'Zephyr',
@@ -52,6 +53,10 @@ Director's Notes: Speak calmly and clearly. Grounded and precise, but with subtl
     lilith: `Audio Profile: Dunkle Prophetin, intensiv und direkt.
 Scene: Düsteres Orakel.
 Director's Notes: Speak quickly and directly. No theatrical drag. Sharp, alive, emotionally charged, with punchy emphasis.${accentGuidance ? ` ${accentGuidance}` : ''}`,
+
+    sri: `Audio Profile: Leiser Zahlenmystiker, klar und träumerisch.
+Scene: Ruhiger Raum, als würde ein Muster im Hintergrund aufleuchten.
+Director's Notes: ${baseStyle} Keep it concise, contemplative, and precise. Slightly softer attack, with short intentional pauses before key numbers.${accentGuidance ? ` ${accentGuidance}` : ''}`,
 
     stella: `Audio Profile: Sonnenenergetische Beraterin, warm und optimistisch.
 Scene: Helles Atelier, Morgensonne.

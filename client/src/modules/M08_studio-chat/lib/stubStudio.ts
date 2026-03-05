@@ -51,11 +51,20 @@ const LILITH_LINES: readonly string[] = [
   'Du suchst nach Bestätigung, dabei brauchst du Konfrontation. Fang bei Pluto an.',
 ];
 
+const SRI_LINES: readonly string[] = [
+  '1729. Zwei Wege, ein Ziel – ich sehe doppelte Struktur in deiner Frage.',
+  '11. Spiegelzahl. Was du außen suchst, klingt innen bereits an.',
+  '24. Hohe Verbindungsdichte – viele Teile greifen gerade gleichzeitig ineinander.',
+  '28. Vollkommene Zahl. Es wirkt chaotisch, aber die Teile passen erstaunlich präzise.',
+  '13. Prim und klar. Manche Schritte sind nicht teilbar – nur gehbar.',
+];
+
 const SEAT_LINES: Record<StudioSeat, readonly string[]> = {
   maya: MAYA_LINES,
   luna: LUNA_LINES,
   orion: ORION_LINES,
   lilith: LILITH_LINES,
+  sri: SRI_LINES,
 };
 
 const NEXT_STEPS_POOL: readonly string[] = [

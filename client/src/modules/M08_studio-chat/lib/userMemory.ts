@@ -51,10 +51,10 @@ const DSL_TO_TYPE: Record<string, MemoryEntryType> = {
 
 type PersonaKey = StudioSeat | 'system';
 const PERSONA_TO_DSL: Record<PersonaKey, string> = {
-  maya: 'm', lilith: 'l', luna: 'u', orion: 'o', system: 's',
+  maya: 'm', lilith: 'l', luna: 'u', orion: 'o', sri: 'r', system: 's',
 };
 const DSL_TO_PERSONA: Record<string, PersonaKey> = {
-  m: 'maya', l: 'lilith', u: 'luna', o: 'orion', s: 'system',
+  m: 'maya', l: 'lilith', u: 'luna', o: 'orion', r: 'sri', s: 'system',
 };
 
 const SENT_TO_DSL: Record<Sentiment, string> = {

@@ -1,4 +1,4 @@
-export type StudioSeat = 'maya' | 'luna' | 'orion' | 'lilith';
+export type StudioSeat = 'maya' | 'luna' | 'orion' | 'lilith' | 'sri';
 
 export interface StudioTurn {
   seat: StudioSeat;

@@ -24,6 +24,7 @@ function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
   const map: Record<string, OpenAiTtsVoice> = {
     maya: 'nova',
     lilith: 'shimmer',
+    sri: 'sage',
     kael: 'onyx',
     stella: 'alloy',
     luna: 'ash',

@@ -8,6 +8,7 @@ export type TimelineEntryType =
   | 'chat_lilith'
   | 'chat_luna'
   | 'chat_orion'
+  | 'chat_sri'
   | 'insight'
   | 'crossing'
   | 'soul_card';

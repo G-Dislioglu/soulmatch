@@ -46,6 +46,24 @@ function getAudioUrlFromResponse(response: PersonaResponseRaw): string | undefin
   return undefined;
 }
 
+function renderPersonaText(personaId: string | undefined, text: string) {
+  if (personaId !== 'sri') return text;
+
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return text;
+  const first = lines[0] ?? '';
+  const firstLooksNumeric = /^[-+]?\d[\d.,/³²^+\-x×=\s]*$/.test(first);
+  if (!firstLooksNumeric) return text;
+
+  const rest = lines.slice(1).join(' ');
+  return (
+    <>
+      <span className="num-flash">{first}</span>
+      {rest && <span style={{ display: 'block', marginTop: 6 }}>{rest}</span>}
+    </>
+  );
+}
+
 interface DiscussionChatProps {
   initialPersonas?: string[];
   selectedPersonas?: string[];
@@ -140,7 +158,7 @@ export function DiscussionChat({
     personas, relations, applyTurn,
     setInterrupt, clearSpeaking, clearMicroReaction,
   } = usePersonaTension(
-    ['maya', 'luna', 'orion', 'lilith', 'stella', 'kael', 'lian', 'sibyl', 'amara'].map((id) => ({
+    ['maya', 'luna', 'orion', 'lilith', 'sri', 'stella', 'kael', 'lian', 'sibyl', 'amara'].map((id) => ({
       id,
       name: PERSONA_NAMES[id] ?? id,
       icon: PERSONA_ICONS[id] ?? '◇',
@@ -630,7 +648,7 @@ export function DiscussionChat({
   const interruptQ = stagePersonas.filter((p) => p.wantsInterrupt).map((p) => p.id);
   const profile = loadProfile();
 
-  const otherRealms = ['maya', 'luna', 'orion', 'lilith', 'stella', 'kael', 'lian', 'sibyl', 'amara']
+  const otherRealms = ['maya', 'luna', 'orion', 'lilith', 'sri', 'stella', 'kael', 'lian', 'sibyl', 'amara']
     .filter((id) => id !== activePersonaId)
     .map((id) => ({
       id,
@@ -873,9 +891,10 @@ export function DiscussionChat({
               const color = PERSONA_COLORS[msg.persona ?? ''] ?? '#d4af37';
               const icon = PERSONA_ICONS[msg.persona ?? ''] ?? '◇';
               const name = PERSONA_NAMES[msg.persona ?? ''] ?? msg.persona ?? '';
+              const isSri = msg.persona === 'sri';
 
               return (
-                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: '85%' }}>
+                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: '85%', marginLeft: isSri ? 16 : 0 }}>
                   <div style={{
                     fontSize: 10,
                     color,
@@ -918,11 +937,11 @@ export function DiscussionChat({
                     borderRadius: '4px 16px 16px 16px',
                     background: `${color}1a`,
                     border: `1px solid ${color}55`,
-                    fontSize: 13,
+                    fontSize: isSri ? 12.35 : 13,
                     color: '#d4cfc8',
                     lineHeight: 1.7,
                   }}>
-                    {msg.text}
+                    {renderPersonaText(msg.persona, msg.text)}
                   </div>
                 </div>
               );

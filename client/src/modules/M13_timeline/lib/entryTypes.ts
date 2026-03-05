@@ -42,6 +42,12 @@ export const ENTRY_TYPES: Record<TimelineEntryType, EntryTypeMeta> = {
     glowColor: 'rgba(56,189,248,0.08)',
     label: 'Orion Chat',
   },
+  chat_sri: {
+    icon: '∞',
+    color: '#7eb8c9',
+    glowColor: 'rgba(126,184,201,0.12)',
+    label: 'Sri Chat',
+  },
   insight: {
     icon: '✦',
     color: '#10b981',

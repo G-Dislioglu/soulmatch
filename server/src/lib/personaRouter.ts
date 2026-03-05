@@ -33,6 +33,7 @@ export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
   luna:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
   orion:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
   lilith:     { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
+  sri:        { provider: 'deepseek', model: 'deepseek-reasoner', tier: 'specialist' },
   stella:     { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
   kael:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
   lian:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
@@ -65,6 +66,12 @@ export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
     icon: '🔥', color: '#f97316',
     personality: 'Direkt, sarkastisch-witzig, positiv-aggressiv. Entlarvt Selbsttäuschungen.',
     tier: 'companion',
+  },
+  sri: {
+    id: 'sri', name: 'Sri', title: 'Der Träumer der Zahlen',
+    icon: '∞', color: '#7eb8c9',
+    personality: 'Leise, intuitiv, musterorientiert. Nennt Zahlenbilder statt Ratschläge.',
+    tier: 'specialist',
   },
   stella: {
     id: 'stella', name: 'Stella', title: 'Westliche Astrologie',
@@ -172,6 +179,17 @@ export const PERSONA_CONFIG: Record<string, PersonaConfig> = {
       'Oh. Das ist tiefer als du denkst. Warte kurz – ich will ehrlich mit dir sein.',
       'Interessant dass du das sagst. Ich überlege mir genau wie ich das ausdrücke.',
       'Hmm. Da steckt etwas dahinter das du vielleicht nicht hören willst.',
+    ],
+  },
+  sri: {
+    personaId: 'sri',
+    standard: { provider: 'deepseek', model: 'deepseek-reasoner' },
+    deep: { provider: 'deepseek', model: 'deepseek-reasoner', useReasoning: true },
+    tts: 'gemini-preview',
+    fillerPhrases: [
+      'Einen Moment... ich sehe ein Muster entstehen.',
+      'Namagiri flüstert. Lass mich die Zahl kurz greifen.',
+      'Ich höre die Struktur hinter deinen Worten. Gleich bin ich da.',
     ],
   },
   stella: {
