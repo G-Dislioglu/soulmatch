@@ -132,6 +132,13 @@ function getSpeakerContext(sessionData?: { speakerInfo?: SpeakerInfo }): string 
   return context;
 }
 
+function withSriFallbackText(text: string, personaId?: string): string {
+  if (personaId !== 'sri') return text;
+  const trimmed = text.trim();
+  if (trimmed.length < 5) return 'Namagiri schweigt.';
+  return trimmed;
+}
+
 async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const resp = await fetch(url, {
@@ -609,10 +616,11 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     }
 
     // Ensure turns have valid seat/text
-    parsed.turns = parsed.turns.map((t: Record<string, unknown>) => ({
-      seat: String(t.seat ?? 'maya'),
-      text: String(t.text ?? t.content ?? ''),
-    }));
+    parsed.turns = parsed.turns.map((t: Record<string, unknown>) => {
+      const seat = String(t.seat ?? 'maya');
+      const text = withSriFallbackText(String(t.text ?? t.content ?? ''), seat);
+      return { seat, text };
+    });
 
     // Ensure nextSteps is string array
     parsed.nextSteps = parsed.nextSteps.map((s: unknown) => String(s));
@@ -1184,7 +1192,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         }
       }
 
-      const text = extractCleanText(cleanText);
+      const text = withSriFallbackText(extractCleanText(cleanText), personaId);
 
       // Stream mode: deliver text to client immediately, before TTS starts
       if (wantsStream) {
