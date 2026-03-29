@@ -1,80 +1,96 @@
-// ═══ SOULMATCH DESIGN TOKENS ═══
-// DIESE WERTE SIND VERBINDLICH. NICHT ÄNDERN.
+// Soulmatch design tokens.
+// This file is the canonical token surface for the redesign foundation.
 
 export const TOKENS = {
-  // Farben
-  bg:         "#08060e",
-  bg2:        "#0e0b18",
-  bg3:        "#140f22",
-  cardBg:     "rgba(22,17,36,0.72)",
-  border:     "rgba(255,255,255,0.10)",
-  borderHover:"rgba(255,255,255,0.18)",
-  text:       "rgba(255,255,255,0.90)",
-  text2:      "rgba(255,255,255,0.50)",
-  text3:      "rgba(255,255,255,0.25)",
-  gold:       "#d4af37",
-  goldSoft:   "rgba(212,175,55,0.20)",
-  goldGlow:   "rgba(212,175,55,0.12)",
+  // Backgrounds
+  bg: "#08060e",
+  bg2: "#0d0a1a",
+  bg3: "#13102a",
+  card: "rgba(18,14,32,0.97)",
+  card2: "rgba(22,17,42,0.95)",
 
-  // Akzentfarben
+  // Borders
+  b1: "rgba(255,255,255,0.22)",
+  b2: "rgba(255,255,255,0.14)",
+  b3: "rgba(255,255,255,0.08)",
+
+  // Text
+  text: "rgba(255,255,255,0.92)",
+  text2: "rgba(255,255,255,0.55)",
+  text3: "rgba(255,255,255,0.28)",
+
+  // Accents
+  gold: "#d4af37",
+  goldSoft: "rgba(212,175,55,0.25)",
+  goldGlow: "rgba(212,175,55,0.10)",
+  green: "#4ade80",
+  greenSoft: "rgba(74,222,128,0.25)",
+  purple: "#a78bfa",
+  cyan: "#22d3ee",
+  rose: "#f472b6",
+
+  // Backward-compatible aliases used by current components
+  cardBg: "rgba(18,14,32,0.97)",
+  border: "rgba(255,255,255,0.14)",
+  borderHover: "rgba(255,255,255,0.22)",
+
   accent: {
-    gold:   "#d4af37",
+    gold: "#d4af37",
     purple: "#a78bfa",
-    cyan:   "#22d3ee",
-    rose:   "#f472b6",
-    green:  "#4ade80",
-    blue:   "#7eb8da",
+    cyan: "#22d3ee",
+    rose: "#f472b6",
+    green: "#4ade80",
+    blue: "#22d3ee",
   },
 
-  // Glasmorphism (Hybrid: nicht voll transparent, nicht voll solid)
   glass: {
-    blur:    14,       // px
-    opacity: 0.72,     // cardBg alpha — 72% solid, 28% durchsichtig
+    blur: 14,
+    opacity: 0.95,
   },
 
-  // Radien
-  radius:  18,  // px — Standard für Karten
-  radius2: 22,  // px — für große Container
-  radiusSm: 10, // px — für Buttons, Tags
+  radius: 18,
+  radius2: 18,
+  radiusSm: 12,
+  radiusPill: 20,
+  radiusRound: 24,
 
-  // Tilt-Effekt (Subtle Preset)
   tilt: {
-    maxDeg:         6,    // Maximaler Kipp-Winkel in Grad
-    glowStrength:   0.2,  // 0-1 Stärke des farbigen Leuchtens
-    borderStrength: 0.08, // Basis-Border-Opacity
-    scale:          1.015,// Leichte Vergrößerung beim Hover
+    maxDeg: 6,
+    glowStrength: 0.2,
+    borderStrength: 0.14,
+    scale: 1.015,
   },
 
-  // Transitions
   transition: {
-    page:  "0.5s cubic-bezier(0.4, 0, 0.2, 1)",   // Seitenwechsel
-    card:  "0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",  // Karten-Hover
-    tiltReturn: "0.5s cubic-bezier(0.2, 0.8, 0.2, 1)", // Tilt zurück auf 0
-    fast:  "0.25s ease",                             // Buttons, kleine Elemente
+    page: "0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+    card: "0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
+    tiltReturn: "0.5s cubic-bezier(0.2, 0.8, 0.2, 1)",
+    fast: "0.25s ease",
   },
 
-  // Schatten
   shadow: {
-    card:     "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
-    cardHover:"0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+    sidebar: "3px 0 30px rgba(0,0,0,0.6)",
+    topbar: "0 2px 20px rgba(0,0,0,0.4)",
+    panel: "-4px 0 40px rgba(0,0,0,0.7)",
+    dropdown: "0 8px 40px rgba(0,0,0,0.7)",
+    card: "0 12px 36px rgba(0,0,0,0.45)",
+    cardHover: "0 18px 48px rgba(0,0,0,0.55)",
   },
 
-  // Fonts
   font: {
-    body:    "'DM Sans', sans-serif",
-    serif:   "'Cormorant Garamond', serif",
+    body: "'Outfit', sans-serif",
+    serif: "'Cormorant Garamond', serif",
     display: "'Cinzel', serif",
   },
 
-  // Layout
   layout: {
-    topbarH:  56,  // px
-    bottomNavH: 70, // px
-    maxWidth: 430, // px — Mobile-First
+    sidebarW: 248,
+    topbarH: 58,
+    bottomNavH: 70,
+    maxWidth: 430,
   },
 } as const;
 
-// Akzentfarbe für eine Karte abrufen
 export function accentColor(color: string): string {
   return TOKENS.accent[color as keyof typeof TOKENS.accent] || TOKENS.accent.gold;
 }

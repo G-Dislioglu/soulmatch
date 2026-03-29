@@ -4,6 +4,7 @@ interface DiscussPayload {
   personas: string[];
   message: string;
   conversationHistory?: Array<{ role: string; content: string }>;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string }>;
   userId?: string;
   stream?: boolean;
   audioMode?: boolean;
@@ -26,7 +27,8 @@ interface DiscussResponse {
 
 interface StreamCallbacks {
   onText: (persona: string, text: string, color: string) => void;
-  onAudio: (persona: string, audioUrl: string) => void;
+  onAudio: (persona: string, audioUrl: string, meta?: { ttsEngineUsed?: string; ttsMimeType?: string }) => void;
+  onDone?: (creditsUsed?: number) => void;
 }
 
 export function useDiscussApi() {
@@ -45,6 +47,7 @@ export function useDiscussApi() {
           personas: payload.personas,
           message: payload.message,
           conversationHistory: payload.conversationHistory ?? [],
+          personaSettings: payload.personaSettings,
           stream: false,
           audioMode: payload.audioMode ?? false,
         }),
@@ -77,6 +80,7 @@ export function useDiscussApi() {
         body: JSON.stringify({
           ...payload,
           conversationHistory: payload.conversationHistory ?? [],
+          personaSettings: payload.personaSettings,
           stream: true,
           audioMode: payload.audioMode ?? false,
         }),
@@ -111,8 +115,13 @@ export function useDiscussApi() {
                 ?? (typeof event.audio === 'string' ? event.audio : undefined);
               if (audioUrl) {
                 console.log('[LiveTalk] onAudio received');
-                callbacks.onAudio(event.persona, audioUrl);
+                callbacks.onAudio(event.persona, audioUrl, {
+                  ttsEngineUsed: typeof event.tts_engine_used === 'string' ? event.tts_engine_used : undefined,
+                  ttsMimeType: typeof event.tts_mime_type === 'string' ? event.tts_mime_type : undefined,
+                });
               }
+            } else if (event.type === 'done') {
+              callbacks.onDone?.(typeof event.creditsUsed === 'number' ? event.creditsUsed : undefined);
             }
           } catch {
             // ignore parse errors on individual SSE lines

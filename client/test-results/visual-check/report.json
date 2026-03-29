@@ -1,0 +1,29 @@
+{
+  "home": {
+    "rendersWithoutBlankScreen": true,
+    "greetingCardVisible": true,
+    "guideChipsVisible": {
+      "Maya": true,
+      "Luna": true,
+      "Orion": true,
+      "Lilith": true
+    },
+    "scoreRingRendering": true
+  },
+  "sidebar": {
+    "liveTalkVisible": true,
+    "liveTalkBefore": "rgba(255, 255, 255, 0.05)",
+    "liveTalkAfter": "rgba(74, 222, 128, 0.12)",
+    "liveTalkTurnedGreen": true,
+    "mayaContextRowVisible": true
+  },
+  "chat": {
+    "opensFromNav": true,
+    "mayaAtTop": true,
+    "spezialistenDividerVisible": true,
+    "personaClickChangesHeader": true,
+    "gearVisibleBeforeHover": false,
+    "gearVisibleAfterHover": true,
+    "gearAppearsOnHover": true
+  }
+}

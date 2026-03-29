@@ -28,6 +28,7 @@ function getAudioUrl(response: AudioLikeResponse | undefined): string | undefine
 export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
   const [showConsent, setShowConsent] = useState(false);
   const [isActive, setIsActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const isActiveRef = useRef(false);
   const isPlayingRef = useRef(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -62,6 +63,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
         audio.pause();
         audio.currentTime = 0;
       }
+      setIsSpeaking(false);
       // Drive the finish callback so isPlayingRef and mic state are always
       // reset, even when audio was stopped before it finished loading.
       pendingFinish?.();
@@ -93,6 +95,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     speech.stopContinuous();
     speech.setPlaybackActive(false);
     isPlayingRef.current = false;
+    setIsSpeaking(false);
     stopAudio();
   }, [speech, stopAudio]);
 
@@ -129,6 +132,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     // Stop any currently-playing or still-loading audio before starting new.
     stopAudio();
     isPlayingRef.current = true;
+    setIsSpeaking(true);
     if (shouldManageSpeech) {
       speech.setPlaybackActive(true);
       speech.stopContinuous();
@@ -183,6 +187,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
           objectUrlToRevoke = undefined;
         }
         isPlayingRef.current = false;
+        setIsSpeaking(false);
         if (shouldManageSpeech) {
           speech.setPlaybackActive(false);
           if (isActiveRef.current && !speech.micBlocked) {
@@ -247,6 +252,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     return () => {
       speech.setPlaybackActive(false);
       isPlayingRef.current = false;
+      setIsSpeaking(false);
       stopAudio();
     };
   }, [speech, stopAudio]);
@@ -257,6 +263,7 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
     isSupported: speech.isSupported,
     hasConsent: speech.hasConsent,
     micBlocked: speech.micBlocked,
+    isSpeaking,
     transcript: speech.transcript,
     showConsent,
     toggle,

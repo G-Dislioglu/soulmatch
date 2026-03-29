@@ -157,8 +157,9 @@ export function useSpeechToText(
         debounceTimerRef.current = null;
       }
 
-      // Auto-send accumulated text
-      const text = accumulatedFinalTextRef.current.trim();
+      // Fallback to the visible transcript when the browser ends recognition
+      // without ever promoting the utterance to a final segment.
+      const text = accumulatedFinalTextRef.current.trim() || transcriptRef.current.trim();
       if (text.length > 0 && (isContinuousModeRef.current || shouldAutoSendOnEndRef.current) && onAutoSendRef.current) {
         console.log('[speech] auto-sending:', text);
         onAutoSendRef.current(text);

@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LiveTalkController } from '../../../hooks/useLiveTalk';
+import { TOKENS } from '../../../design/tokens';
 import { loadProfile } from '../../M03_profile';
 import { SpeechConsentDialog } from '../../M08_studio-chat/ui/SpeechConsentDialog';
 import { useDiscussApi } from '../hooks/useDiscussApi';
-import { useLiveTalk } from '../hooks/useLiveTalk';
-import { ChatSidebar } from './ChatSidebar';
-import { CompanionPanel } from './CompanionPanel';
-import { CompanionSelectScreen } from './CompanionSelectScreen';
-import { LiveTalkButton } from './LiveTalkButton';
-import { PersonaSelectScreen } from './PersonaSelectScreen';
-import { PersonaSettingsModal } from './PersonaSettingsModal';
-import { type ChatMessage, type InsightCard, type PersonaInfo } from '../types';
+import { useLiveTalk as useDiscussLiveTalk } from '../hooks/useLiveTalk';
+import { GearDropdown } from './GearDropdown';
+import { LiveTalkBanner } from './LiveTalkBanner';
+import { MayaChips } from './MayaChips';
+import { MayaOverlay } from './MayaOverlay';
+import { PersonaList } from './PersonaList';
+import { type PersonaPanelSettings, PersonaSettingsPanel } from './PersonaSettingsPanel';
+import { PERSONAS, type ChatMessage, type PersonaInfo } from '../types';
 
 interface Props {
   onBack?: () => void;
+  liveTalk: LiveTalkController;
 }
-
-type Step = 'companion-select' | 'persona-select' | 'chat';
 
 const REPLIES: Record<string, string[]> = {
   luna: [
@@ -81,24 +82,23 @@ const INTROS: Record<string, string> = {
   lian: 'Das I-Ging flüstert schon. Wo beginnt dein Wandel?',
 };
 
-const COMPANION_REMARKS = [
-  'Ich bemerke dass du ausweichst. Das Thema sitzt tiefer als du zugibst.',
-  'Dieser Moment war wichtig. Ich habe ihn archiviert.',
-  'Du hast gerade etwas sehr Mutiges gesagt. Bemerkst du das?',
-  'Ein Muster das ich schon öfter beobachtet habe. Sprechen wir später darüber?',
-  'Die Energie in diesem Gespräch hat sich gerade verändert.',
-];
-
-const LIVE_INSIGHTS: Array<{ type: string; text: string; category: InsightCard['category'] }> = [
-  { type: 'Schlüsselmoment', text: 'Erste Öffnung erkannt – emotionaler Kanal aktiv.', category: 'new' },
-  { type: 'Tension', text: 'Widerstand spürbar. Schutzreaktion aktiv.', category: 'tension' },
-  { type: 'Harmonie', text: 'Resonanz gestiegen. Gespräch fließt authentisch.', category: 'harmony' },
-  { type: 'Durchbruch', text: 'Tiefe Selbstreflexion – seltener und wichtiger Moment.', category: 'key' },
-  { type: 'Energie-Shift', text: 'Tonfall: Abwehr → Neugier. Wichtige Verschiebung.', category: 'new' },
-];
-
 const LIVE_AUDIO_ENABLED = import.meta.env.VITE_DISABLE_LIVE_AUDIO !== 'true';
 const AUDIO_DEVTOOLS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_AUDIO_DEVTOOLS === 'true';
+const FALLBACK_PERSONA = PERSONAS[0]!;
+
+function getDefaultLiveTalkVoice(personaId: string): string {
+  switch (personaId) {
+    case 'maya':
+      return 'Aoede';
+    case 'lilith':
+    case 'sibyl':
+      return 'Kore';
+    case 'kael':
+      return 'Fenrir';
+    default:
+      return 'Puck';
+  }
+}
 
 function ts(): string {
   return new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
@@ -125,17 +125,22 @@ function getAudioUrlFromResponse(response: { audio_url?: string; audio?: string;
   return undefined;
 }
 
-export function DiscussionChat({ onBack }: Props) {
-  const [step, setStep] = useState<Step>('companion-select');
-  const [companion, setCompanion] = useState<PersonaInfo | null>(null);
-  const [persona, setPersona] = useState<PersonaInfo | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [companionMessages, setCompanionMessages] = useState<ChatMessage[]>([]);
-  const [insights, setInsights] = useState<InsightCard[]>([]);
-  const [companionQuote, setCompanionQuote] = useState('Ich beobachte dein Gespräch still mit. Wenn etwas Wichtiges passiert, melde ich mich.');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+export function DiscussionChat({ onBack, liveTalk }: Props) {
+  const [selectedPersonaId, setSelectedPersonaId] = useState('maya');
+  const [panelPersonaId, setPanelPersonaId] = useState('maya');
+  const [messagesByPersona, setMessagesByPersona] = useState<Record<string, ChatMessage[]>>(() =>
+    Object.fromEntries(PERSONAS.map((persona) => [persona.id, [buildIntroMessage(persona)]])),
+  );
+  const [personaSettings, setPersonaSettings] = useState<Record<string, PersonaPanelSettings>>(() =>
+    Object.fromEntries(PERSONAS.map((persona) => [persona.id, buildDefaultSettings(persona)])),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gearOpen, setGearOpen] = useState(false);
+  const [mayaOverlayOpen, setMayaOverlayOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isPersonaSpeaking, setIsPersonaSpeaking] = useState(false);
   const [forceAudioRequest, setForceAudioRequest] = useState(false);
   const [lastRequestedAudioMode, setLastRequestedAudioMode] = useState(false);
   const [lastPersonaAudioUrl, setLastPersonaAudioUrl] = useState<string | null>(null);
@@ -144,37 +149,46 @@ export function DiscussionChat({ onBack }: Props) {
   const [ttsTelemetryStatus, setTtsTelemetryStatus] = useState<'idle' | 'ok' | 'missing'>('idle');
   const [audioDiag, setAudioDiag] = useState('idle');
   const [audioDiagError, setAudioDiagError] = useState<string | null>(null);
-  const [focusCompanionToken, setFocusCompanionToken] = useState(0);
-  const [insightIdx, setInsightIdx] = useState(0);
-  const [messageCount, setMessageCount] = useState(0);
+  const feedRef = useRef<HTMLDivElement | null>(null);
+  const sendMessageRef = useRef<(textRaw: string, personaId?: string) => Promise<void>>(async () => {});
+  const requestIdRef = useRef(0);
   const forceAudioRequestRef = useRef(false);
-  const sendMessageRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
-  const sendToCompanionRef = useRef<(textRaw: string) => Promise<void>>(async () => {});
-  const personaRequestIdRef = useRef(0);
-  const { call } = useDiscussApi();
-  const personaLiveTalk = useLiveTalk({ onTranscript: (text) => {
-    setInput(text);
-    void sendMessageRef.current(text);
-  } });
-  const companionLiveTalk = useLiveTalk({ onTranscript: (text) => {
-    void sendToCompanionRef.current(text);
-  } });
+  const speechDraftRef = useRef('');
+  const { call, callStream } = useDiscussApi();
+  const runtimeLiveTalk = useDiscussLiveTalk({
+    onTranscript: (text) => {
+      setInput(text);
+      if (liveTalk.autoSend) {
+        void sendMessageRef.current(text);
+      }
+    },
+  });
 
   const profile = useMemo(() => loadProfile(), []);
+  const selectedPersona = PERSONAS.find((persona) => persona.id === selectedPersonaId) ?? FALLBACK_PERSONA;
+  const panelPersona = PERSONAS.find((persona) => persona.id === panelPersonaId) ?? selectedPersona;
+  const activeMessages = messagesByPersona[selectedPersona.id] ?? [buildIntroMessage(selectedPersona)];
   const showAudioDevTools = useMemo(() => {
-    if (!AUDIO_DEVTOOLS_ENABLED || typeof window === 'undefined') return false;
+    if (!AUDIO_DEVTOOLS_ENABLED || typeof window === 'undefined') {
+      return false;
+    }
+
     const params = new URLSearchParams(window.location.search);
     return params.get('devAudio') === '1' || window.localStorage.getItem('sm.devAudio') === '1';
   }, []);
 
   const playTestTone = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const AudioContextCtor = window.AudioContext
-      ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) {
-      console.warn('[AudioDev] AudioContext not supported');
+    if (typeof window === 'undefined') {
       return;
     }
+
+    const AudioContextCtor = window.AudioContext
+      ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextCtor) {
+      return;
+    }
+
     const ctx = new AudioContextCtor();
     await ctx.resume();
     const osc = ctx.createOscillator();
@@ -192,414 +206,838 @@ export function DiscussionChat({ onBack }: Props) {
   }, []);
 
   const playLastPersonaAudio = useCallback(async () => {
-    await personaLiveTalk.playAudio(lastPersonaAudioUrl ?? undefined);
-  }, [lastPersonaAudioUrl, personaLiveTalk]);
+    await runtimeLiveTalk.playAudio(lastPersonaAudioUrl ?? undefined);
+  }, [lastPersonaAudioUrl, runtimeLiveTalk]);
 
-  const noopPlayAudio = useCallback(async (_audioUrl: string | undefined): Promise<void> => {
-    return Promise.resolve();
-  }, []);
+  const sendMessage = useCallback(async (textRaw: string, personaId = selectedPersonaId) => {
+    const persona = PERSONAS.find((entry) => entry.id === personaId);
+    const text = textRaw.trim();
+    if (!persona || !text) {
+      return;
+    }
 
-  const sendDevAudioProbe = useCallback(async () => {
-    if (!showAudioDevTools) return;
-    forceAudioRequestRef.current = true;
-    setForceAudioRequest(true);
-    await sendMessageRef.current('Audio Dev Probe');
-  }, [showAudioDevTools]);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    const userMessage = makeMessage({
+      role: 'user',
+      senderName: 'Du',
+      senderIcon: '✦',
+      senderColor: TOKENS.gold,
+      text,
+    });
+
+    let nextMessages: ChatMessage[] = [];
+    setMessagesByPersona((current) => {
+      const base = current[persona.id] ?? [buildIntroMessage(persona)];
+      nextMessages = [...base, userMessage];
+      return {
+        ...current,
+        [persona.id]: nextMessages,
+      };
+    });
+    setInput('');
+    setIsAnalyzing(true);
+
+    const historyForCall = nextMessages.slice(-12).map((message) => ({
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: message.role === 'user' ? message.text : `${message.senderName}: ${message.text}`,
+    }));
+
+    const shouldRequestAudio = ((liveTalk.liveTalkActive && liveTalk.ttsEnabled && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current));
+    setLastRequestedAudioMode(shouldRequestAudio);
+
+    const personaSettings = {
+      [persona.id]: {
+        voice: liveTalk.selectedVoice,
+      },
+    };
+
+    if (shouldRequestAudio) {
+      void callStream(
+        {
+          personas: [persona.id],
+          message: text,
+          conversationHistory: historyForCall,
+          personaSettings,
+          userId: profile?.id,
+          audioMode: true,
+          stream: true,
+        },
+        {
+          onText: (streamPersonaId, streamText, color) => {
+            if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+              return;
+            }
+
+            setMessagesByPersona((current) => ({
+              ...current,
+              [persona.id]: [
+                ...(current[persona.id] ?? [buildIntroMessage(persona)]),
+                makeMessage({
+                  role: 'persona',
+                  senderName: persona.name,
+                  senderIcon: persona.icon,
+                  senderColor: color || persona.color,
+                  text: streamText,
+                }),
+              ],
+            }));
+            setIsAnalyzing(false);
+            setForceAudioRequest(false);
+            forceAudioRequestRef.current = false;
+          },
+          onAudio: (streamPersonaId, audioUrl, meta) => {
+            if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+              return;
+            }
+
+            setLastPersonaAudioUrl(audioUrl);
+            setLastServerTtsEngine(meta?.ttsEngineUsed ?? null);
+            setLastServerTtsMimeType(meta?.ttsMimeType ?? null);
+            setTtsTelemetryStatus(meta?.ttsEngineUsed ? 'ok' : audioUrl ? 'missing' : 'idle');
+            setIsPersonaSpeaking(true);
+            void runtimeLiveTalk.playAudio(audioUrl)
+              .catch((error: unknown) => {
+                console.error('[LiveTalk] autoplay failed', error);
+              })
+              .finally(() => {
+                setIsPersonaSpeaking(false);
+              });
+          },
+          onDone: () => {
+            if (requestId !== requestIdRef.current) {
+              return;
+            }
+            setIsAnalyzing(false);
+            setForceAudioRequest(false);
+            forceAudioRequestRef.current = false;
+          },
+        },
+      );
+
+      return;
+    }
+
+    const response = await call({
+      personas: [persona.id],
+      message: text,
+      conversationHistory: historyForCall,
+      personaSettings,
+      userId: profile?.id,
+      audioMode: false,
+      stream: false,
+    });
+
+    if (requestId !== requestIdRef.current) {
+      return;
+    }
+
+    const first = response?.responses?.[0];
+    const replyText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich hoere dich.';
+    const audioUrl = getAudioUrlFromResponse(first);
+    const serverTtsEngine = typeof first?.tts_engine_used === 'string' && first.tts_engine_used.trim().length > 0
+      ? first.tts_engine_used.trim()
+      : null;
+    const serverTtsMimeType = typeof first?.tts_mime_type === 'string' && first.tts_mime_type.trim().length > 0
+      ? first.tts_mime_type.trim()
+      : null;
+
+    setLastPersonaAudioUrl(audioUrl ?? null);
+    setLastServerTtsEngine(serverTtsEngine);
+    setLastServerTtsMimeType(serverTtsMimeType);
+    setTtsTelemetryStatus(audioUrl && !serverTtsEngine ? 'missing' : serverTtsEngine ? 'ok' : 'idle');
+    setMessagesByPersona((current) => ({
+      ...current,
+      [persona.id]: [
+        ...(current[persona.id] ?? [buildIntroMessage(persona)]),
+        makeMessage({
+          role: 'persona',
+          senderName: persona.name,
+          senderIcon: persona.icon,
+          senderColor: persona.color,
+          text: replyText,
+        }),
+      ],
+    }));
+
+    if (requestId === requestIdRef.current) {
+      setIsAnalyzing(false);
+      forceAudioRequestRef.current = false;
+    }
+
+  }, [call, callStream, liveTalk.selectedVoice, profile?.id, runtimeLiveTalk, selectedPersonaId, showAudioDevTools]);
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
+
+  useEffect(() => {
+    const speechDraft = runtimeLiveTalk.transcript.trim();
+
+    if (!liveTalk.liveTalkActive || !liveTalk.micEnabled) {
+      speechDraftRef.current = '';
+      return;
+    }
+
+    setInput((current) => {
+      const previousSpeechDraft = speechDraftRef.current.trim();
+      const currentText = current.trim();
+
+      if (!speechDraft) {
+        speechDraftRef.current = '';
+        return currentText === previousSpeechDraft ? '' : current;
+      }
+
+      if (currentText.length > 0 && currentText !== previousSpeechDraft) {
+        return current;
+      }
+
+      speechDraftRef.current = speechDraft;
+      return speechDraft;
+    });
+  }, [liveTalk.liveTalkActive, liveTalk.micEnabled, runtimeLiveTalk.transcript]);
 
   useEffect(() => {
     forceAudioRequestRef.current = forceAudioRequest;
   }, [forceAudioRequest]);
 
   useEffect(() => {
-    if (personaLiveTalk.transcript) {
-      setInput(personaLiveTalk.transcript);
+    if (liveTalk.liveTalkActive && liveTalk.micEnabled) {
+      if (!runtimeLiveTalk.isActive) {
+        runtimeLiveTalk.activate();
+      }
+      return;
     }
-  }, [personaLiveTalk.transcript]);
 
-  const handleCompanionSelect = (selected: PersonaInfo) => {
-    setCompanion(selected);
-    document.documentElement.style.setProperty('--sm-cc', selected.color);
-    document.documentElement.style.setProperty('--sm-cg', `${selected.color}38`);
-    setStep('persona-select');
+    if (runtimeLiveTalk.isActive) {
+      runtimeLiveTalk.deactivate();
+    }
+  }, [liveTalk.liveTalkActive, liveTalk.micEnabled, runtimeLiveTalk]);
+
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (feed) {
+      feed.scrollTop = feed.scrollHeight;
+    }
+  }, [activeMessages.length, isAnalyzing, selectedPersona.id]);
+
+  const openSettingsForPersona = (persona: PersonaInfo) => {
+    setPanelPersonaId(persona.id);
+    setSettingsOpen(true);
+    setGearOpen(false);
   };
 
-  const handlePersonaSelect = (selected: PersonaInfo) => {
-    setPersona(selected);
-    setMessages([
-      makeMessage({
-        role: 'persona',
-        senderName: selected.name,
-        senderIcon: selected.icon,
-        senderColor: selected.color,
-        text: INTROS[selected.id] ?? 'Willkommen in dieser Nacht. Ich bin bereit zu lauschen – was bewegt dich gerade?',
-      }),
-    ]);
-    setCompanionMessages([]);
-    setInsights([]);
-    setInsightIdx(0);
-    setMessageCount(0);
-    setStep('chat');
-  };
-
-  const sendMessage = async (textRaw: string) => {
-    if (!persona || !companion) return;
-    const text = textRaw.trim();
-    if (!text) return;
-    const requestId = personaRequestIdRef.current + 1;
-    personaRequestIdRef.current = requestId;
-
-    const userMessage = makeMessage({
-      role: 'user',
-      senderName: 'Du',
-      senderIcon: '🌟',
-      senderColor: 'var(--sm-gold)',
-      text,
-    });
-
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
-    setInput('');
-    setIsAnalyzing(true);
-
-    const historyForCall = nextMessages.slice(-12).map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
+  const resetCurrentConversation = () => {
+    setMessagesByPersona((current) => ({
+      ...current,
+      [selectedPersona.id]: [buildIntroMessage(selectedPersona)],
     }));
-
-    const shouldRequestAudio = (personaLiveTalk.isActive && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current);
-    setLastRequestedAudioMode(shouldRequestAudio);
-    const response = await call({
-      personas: [persona.id],
-      message: text,
-      conversationHistory: historyForCall,
-      userId: profile?.id,
-      audioMode: shouldRequestAudio,
-      stream: false,
-    });
-
-    if (requestId !== personaRequestIdRef.current) return;
-
-    if (response?.responses?.length) {
-      const first = response.responses[0];
-      const personaText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich höre dich.';
-      const audioUrl = getAudioUrlFromResponse(first);
-      const serverTtsEngine = typeof first?.tts_engine_used === 'string' && first.tts_engine_used.trim().length > 0
-        ? first.tts_engine_used.trim()
-        : null;
-      const serverTtsMimeType = typeof first?.tts_mime_type === 'string' && first.tts_mime_type.trim().length > 0
-        ? first.tts_mime_type.trim()
-        : null;
-      console.log('[Discuss] response audio diagnostics', {
-        personaId: persona.id,
-        hasAudioUrl: Boolean(audioUrl),
-        audioUrlPrefix: audioUrl ? audioUrl.slice(0, 40) : null,
-        hasAudioUrlField: typeof first?.audio_url === 'string' && first.audio_url.length > 0,
-        hasAudioField: typeof first?.audio === 'string' && first.audio.length > 0,
-        ttsEngineUsed: serverTtsEngine,
-        ttsMimeType: serverTtsMimeType,
-      });
-      setLastPersonaAudioUrl(audioUrl ?? null);
-      setLastServerTtsEngine(serverTtsEngine);
-      setLastServerTtsMimeType(serverTtsMimeType);
-      setTtsTelemetryStatus(audioUrl && !serverTtsEngine ? 'missing' : serverTtsEngine ? 'ok' : 'idle');
-      setMessages((prev) => [
-        ...prev,
-        makeMessage({
-          role: 'persona',
-          senderName: persona.name,
-          senderIcon: persona.icon,
-          senderColor: persona.color,
-          text: personaText,
-        }),
-      ]);
-      if (shouldRequestAudio) {
-        await personaLiveTalk.playAudio(audioUrl);
-      }
-    } else {
-      const fallbackList = REPLIES[persona.id] ?? REPLIES.luna ?? ['Ich höre dich.'];
-      const fallbackText = fallbackList[Math.floor(Math.random() * fallbackList.length)] ?? 'Ich höre dich.';
-      setMessages((prev) => [
-        ...prev,
-        makeMessage({
-          role: 'persona',
-          senderName: persona.name,
-          senderIcon: persona.icon,
-          senderColor: persona.color,
-          text: fallbackText,
-        }),
-      ]);
-    }
-
-    if (requestId !== personaRequestIdRef.current) return;
-
-    const nextCount = messageCount + 1;
-    setMessageCount(nextCount);
-    setIsAnalyzing(false);
-
-    if (insightIdx < LIVE_INSIGHTS.length) {
-      const ins = LIVE_INSIGHTS[insightIdx];
-      if (ins) {
-        setInsights((prev) => [{ type: ins.type, text: ins.text, category: ins.category, timestamp: ts() }, ...prev]);
-        setInsightIdx((idx) => idx + 1);
-      }
-    }
-
-    if (nextCount % 3 === 0) {
-      const remark = COMPANION_REMARKS[Math.floor(nextCount / 3) % COMPANION_REMARKS.length] ?? COMPANION_REMARKS[0] ?? 'Ich beobachte weiter.';
-      setCompanionQuote(remark);
-      setMessages((prev) => [
-        ...prev,
-        makeMessage({
-          role: 'companion',
-          senderName: `${companion.name} · Begleitung`,
-          senderIcon: companion.icon,
-          senderColor: companion.color,
-          text: remark,
-        }),
-      ]);
-    }
+    setInput('');
+    setHistoryOpen(false);
   };
 
-  useEffect(() => {
-    sendMessageRef.current = sendMessage;
-  }, [sendMessage]);
-
-  const sendToCompanion = async (message: string, context?: string): Promise<string | undefined> => {
-    if (!companion) return;
-    const userMessage = makeMessage({
-      role: 'user',
-      senderName: 'Du',
-      senderIcon: '🌟',
-      senderColor: 'var(--sm-gold)',
-      text: message,
-    });
-    setCompanionMessages((prev) => [...prev, userMessage]);
-
-    setIsAnalyzing(true);
-    const shouldRequestAudio = (companionLiveTalk.isActive && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current);
-    const response = await call({
-      personas: [companion.id],
-      message: context ? `[Kontext: ${context}] ${message}` : message,
-      conversationHistory: companionMessages.slice(-12).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.role === 'user' ? m.text : `${m.senderName}: ${m.text}`,
-      })),
-      userId: profile?.id,
-      audioMode: shouldRequestAudio,
-    });
-    setIsAnalyzing(false);
-
-    const first = response?.responses?.[0];
-    const replyText = first?.text?.trim() || `${companion.name} ist hier. Ich höre dir weiter zu.`;
-    setCompanionMessages((prev) => [
-      ...prev,
-      makeMessage({
-        role: 'companion',
-        senderName: companion.name,
-        senderIcon: companion.icon,
-        senderColor: companion.color,
-        text: replyText,
-      }),
-    ]);
-    return getAudioUrlFromResponse(first);
-  };
-
-  useEffect(() => {
-    sendToCompanionRef.current = async (textRaw: string) => {
-      const audioUrl = await sendToCompanion(textRaw);
-      if (LIVE_AUDIO_ENABLED) {
-        await companionLiveTalk.playAudio(audioUrl);
-      }
-    };
-  }, [companionLiveTalk, sendToCompanion]);
-
-  const togglePersonaLive = () => {
-    if (companionLiveTalk.isActive) {
-      companionLiveTalk.deactivate();
+  const sendDevAudioProbe = useCallback(async () => {
+    if (!showAudioDevTools) {
+      return;
     }
-    personaLiveTalk.toggle();
-  };
+    forceAudioRequestRef.current = true;
+    setForceAudioRequest(true);
+    await sendMessageRef.current('Audio Dev Probe');
+  }, [showAudioDevTools]);
 
-  const toggleCompanionLive = () => {
-    if (personaLiveTalk.isActive) {
-      personaLiveTalk.deactivate();
+  const handleQuickCommand = (command: string) => {
+    const lower = command.toLowerCase();
+    const targetPersona = PERSONAS.find((persona) => lower.includes(persona.name.toLowerCase()));
+
+    if (targetPersona) {
+      setSelectedPersonaId(targetPersona.id);
     }
-    companionLiveTalk.toggle();
+
+    if (lower.includes('livetalk')) {
+      liveTalk.toggleLiveTalk();
+    }
+    if (lower.includes('mikrofon')) {
+      liveTalk.toggleMic();
+    }
+    if (lower.includes('tts')) {
+      liveTalk.toggleTTS();
+    }
+
+    if (!targetPersona || targetPersona.id === 'maya') {
+      setSelectedPersonaId('maya');
+      void sendMessage(command, 'maya');
+    }
+
+    setMayaOverlayOpen(false);
   };
 
-  if (step === 'companion-select') {
-    return <CompanionSelectScreen onSelect={handleCompanionSelect} />;
-  }
-
-  if (step === 'persona-select' && companion) {
-    return <PersonaSelectScreen companion={companion} onSelect={handlePersonaSelect} onBack={() => setStep('companion-select')} />;
-  }
-
-  if (!companion || !persona) {
-    return null;
-  }
-
-  const personaLiveActive = personaLiveTalk.isActive;
+  const historySummary = PERSONAS.filter((persona) => (messagesByPersona[persona.id]?.length ?? 0) > 1);
+  const notificationCount = historySummary.length;
+  const mayaState = personaSettings.maya ?? buildDefaultSettings(FALLBACK_PERSONA);
+  const mayaChips = [
+    profile?.name ? `Profil: ${profile.name}` : null,
+    profile?.birthDate ? `Geburt: ${profile.birthDate}` : null,
+    liveTalk.liveTalkActive ? 'LiveTalk aktiv' : null,
+    mayaState.proactiveInsights ? 'Proaktive Insights an' : null,
+    mayaState.mayaCoreSync ? 'Maya Core Sync an' : null,
+    `${Math.max(0, (messagesByPersona.maya?.length ?? 1) - 1)} Maya-Spuren im Verlauf`,
+  ].filter((chip): chip is string => Boolean(chip)).slice(0, 4);
 
   return (
-    <div className="sm-chat-root" id="s-chat" style={{ overflow: 'hidden' }}>
-      <ChatSidebar
-        companion={companion}
-        persona={persona}
-        companionQuote={companionQuote}
-        onNewChat={() => setStep('persona-select')}
-        onCompanionChatClick={() => setFocusCompanionToken((t) => t + 1)}
-      />
+    <>
+      <style>{`
+        .discussion-redesign-root {
+          display: grid;
+          grid-template-columns: 210px minmax(0, 1fr);
+          min-height: calc(100vh - ${TOKENS.layout.topbarH}px);
+          background: ${TOKENS.bg};
+          color: ${TOKENS.text};
+        }
+        @media (max-width: 920px) {
+          .discussion-redesign-root {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
 
-      <div className="sm-chat-col">
-        <div className="sm-chat-top">
-          <button className="sm-back-btn" onClick={() => setStep('persona-select')} type="button">← Zurück</button>
-          <div className="sm-ap-av" style={{ borderColor: persona.color }}>{persona.icon}</div>
-          <div>
-            <div className="sm-ap-name" style={{ color: persona.color }}>{persona.name}</div>
-            <div className="sm-ap-status">
-              {personaLiveTalk.micBlocked
-                ? 'Mikrofon gesperrt'
-                : personaLiveTalk.isActive
-                  ? (LIVE_AUDIO_ENABLED ? '🎙 Live aktiv' : '🎙 Live aktiv · Audio Safe-Off')
-                  : 'online · bereit'}
-            </div>
-          </div>
-          <div className="sm-live-controls">
-            {personaLiveTalk.isSupported ? <LiveTalkButton isActive={personaLiveActive} onClick={togglePersonaLive} /> : null}
-            <button className="sm-settings-btn" onClick={() => setSettingsOpen(true)} type="button" title="Persona-Einstellungen">⚙</button>
-          </div>
+      <div className="discussion-redesign-root" id="s-chat">
+        <div>
+          <PersonaList
+            activePersonaId={selectedPersona.id}
+            liveTalkActive={liveTalk.liveTalkActive}
+            onOpenMayaOverlay={() => setMayaOverlayOpen(true)}
+            onOpenSettings={openSettingsForPersona}
+            onSelect={(persona) => {
+              setSelectedPersonaId(persona.id);
+              setHistoryOpen(false);
+            }}
+            personas={PERSONAS}
+          />
         </div>
 
-        <div className="sm-chat-feed">
-          {messages.map((msg) => {
-            if (msg.role === 'companion') {
+        <div style={styles.main}>
+          <div style={styles.topActions}>
+            {onBack ? (
+              <button onClick={onBack} style={styles.utilityButton} type="button">
+                Zurueck
+              </button>
+            ) : null}
+            <button
+              onClick={liveTalk.toggleLiveTalk}
+              style={{
+                ...styles.primaryButton,
+                ...(liveTalk.liveTalkActive ? styles.primaryButtonActive : null),
+              }}
+              type="button"
+            >
+              {liveTalk.liveTalkActive ? 'LiveTalk aktiv' : 'LiveTalk'}
+            </button>
+            <button onClick={resetCurrentConversation} style={styles.utilityButton} type="button">
+              Neue Session
+            </button>
+            <button
+              onClick={() => setHistoryOpen((current) => !current)}
+              style={{
+                ...styles.utilityButton,
+                ...(historyOpen ? styles.utilityButtonActive : null),
+              }}
+              type="button"
+            >
+              Verlauf
+            </button>
+            <div style={styles.gearWrap}>
+              <button
+                onClick={() => setGearOpen((current) => !current)}
+                style={{
+                  ...styles.utilityButton,
+                  ...(gearOpen ? styles.utilityButtonActive : null),
+                }}
+                type="button"
+              >
+                Gear
+              </button>
+              <GearDropdown
+                liveTalk={liveTalk}
+                onOpenSettings={() => openSettingsForPersona(selectedPersona)}
+                open={gearOpen}
+              />
+            </div>
+            <button style={styles.utilityButton} type="button">
+              Benachrichtigungen {notificationCount > 0 ? `(${notificationCount})` : ''}
+            </button>
+          </div>
+
+          <LiveTalkBanner
+            active={liveTalk.liveTalkActive}
+            micEnabled={liveTalk.micEnabled}
+            selectedVoice={liveTalk.selectedVoice}
+            ttsEnabled={liveTalk.ttsEnabled}
+          />
+
+          <MayaChips chips={mayaChips} visible={selectedPersona.id === 'maya'} />
+
+          {historyOpen ? (
+            <div style={styles.historyStrip}>
+              {historySummary.length > 0 ? historySummary.map((persona) => (
+                <button
+                  key={persona.id}
+                  onClick={() => setSelectedPersonaId(persona.id)}
+                  style={{
+                    ...styles.historyChip,
+                    borderColor: selectedPersona.id === persona.id ? persona.color : TOKENS.b1,
+                    color: selectedPersona.id === persona.id ? persona.color : TOKENS.text2,
+                  }}
+                  type="button"
+                >
+                  {persona.name} · {(messagesByPersona[persona.id]?.length ?? 0) - 1} Antworten
+                </button>
+              )) : <div style={styles.historyEmpty}>Noch kein Verlauf ausserhalb des Intros.</div>}
+            </div>
+          ) : null}
+
+          <div style={styles.chatHeader}>
+            <div style={{ ...styles.avatar, borderColor: selectedPersona.id === 'maya' ? TOKENS.gold : selectedPersona.color }}>
+              {selectedPersona.icon}
+            </div>
+            <div>
+              <div style={{ ...styles.headerName, color: selectedPersona.id === 'maya' ? TOKENS.gold : selectedPersona.color }}>
+                {selectedPersona.name}
+              </div>
+              <div style={styles.headerSub}>
+                {isPersonaSpeaking || runtimeLiveTalk.isSpeaking
+                  ? `spricht gerade · ${liveTalk.selectedVoice}`
+                  : runtimeLiveTalk.micBlocked
+                  ? 'Mikrofon gesperrt'
+                  : liveTalk.liveTalkActive
+                    ? (liveTalk.micEnabled ? 'LiveTalk hoert zu' : 'LiveTalk aktiv · Mikrofon pausiert')
+                    : 'online · bereit'}
+              </div>
+            </div>
+            <button onClick={() => openSettingsForPersona(selectedPersona)} style={styles.utilityButton} type="button">
+              Persona Settings
+            </button>
+          </div>
+
+          <div ref={feedRef} style={styles.feed}>
+            {activeMessages.map((message) => {
+              const isUser = message.role === 'user';
+              const isMayaMessage = !isUser && selectedPersona.id === 'maya';
+
               return (
-                <div className="sm-comp-remark" key={msg.id}>
-                  <div className="sm-cr-av" style={{ borderColor: companion.color, boxShadow: `0 0 10px ${companion.color}40` }}>{companion.icon}</div>
-                  <div className="sm-cr-bub">
-                    <div className="sm-cr-who" style={{ color: companion.color }}>{companion.icon} {companion.name} · Begleitung</div>
-                    {msg.text}
+                <div
+                  key={message.id}
+                  style={{
+                    ...styles.messageRow,
+                    justifyContent: isUser ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  {!isUser ? (
+                    <div style={{ ...styles.messageAvatar, borderColor: isMayaMessage ? TOKENS.gold : selectedPersona.color }}>
+                      {message.senderIcon}
+                    </div>
+                  ) : null}
+                  <div
+                    style={{
+                      ...styles.messageBubble,
+                      ...(isUser ? styles.userBubble : styles.personaBubble),
+                      ...(isMayaMessage ? styles.mayaBubble : null),
+                    }}
+                  >
+                    <div style={{ ...styles.messageName, color: message.senderColor, textAlign: isUser ? 'right' : 'left' }}>
+                      {message.senderName}
+                    </div>
+                    <div style={styles.messageText}>{message.text}</div>
+                    <div style={{ ...styles.messageTime, textAlign: isUser ? 'right' : 'left' }}>{message.timestamp}</div>
                   </div>
                 </div>
               );
-            }
+            })}
 
-            return (
-              <div className={`sm-msg ${msg.role === 'user' ? 'user' : 'persona'}`} key={msg.id}>
-                <div className="sm-m-av" style={msg.role === 'persona' ? { borderColor: persona.color, boxShadow: `0 0 10px ${persona.color}40` } : {}}>{msg.senderIcon}</div>
-                <div className="sm-m-bub">
-                  <div className="sm-m-who" style={{ color: msg.senderColor, textAlign: msg.role === 'user' ? 'right' : 'left' }}>{msg.senderName}</div>
-                  {msg.text}
-                  <div className="sm-m-time" style={{ textAlign: msg.role === 'user' ? 'right' : 'left' }}>{msg.timestamp}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="sm-chat-in-row">
-          <textarea
-            className="sm-chat-ta"
-            placeholder="Schreibe eine Nachricht…"
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                personaLiveTalk.resetTranscript();
-                void sendMessage(input);
-              }
-            }}
-          />
-          <button
-            className="sm-send-btn"
-            onClick={() => {
-              personaLiveTalk.resetTranscript();
-              void sendMessage(input);
-            }}
-            type="button"
-          >
-            ↑
-          </button>
-        </div>
-
-        {showAudioDevTools ? (
-          <div style={{ marginTop: 10, border: '1px dashed rgba(212,175,55,0.35)', borderRadius: 10, padding: 10 }}>
-            <div style={{ fontSize: 11, color: '#d4af37', marginBottom: 8, letterSpacing: '0.08em' }}>AUDIO DEV TOOLS</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={forceAudioRequest}
-                onChange={(e) => setForceAudioRequest(e.target.checked)}
-              />
-              Request TTS Audio (audioMode=true)
-            </label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className="sm-settings-btn" onClick={() => { void playTestTone(); }}>Test Ton (440Hz)</button>
-              <button type="button" className="sm-settings-btn" onClick={() => { void playLastPersonaAudio(); }} disabled={!lastPersonaAudioUrl}>Letzte TTS abspielen</button>
-              <button type="button" className="sm-settings-btn" onClick={() => { void sendDevAudioProbe(); }}>Send test message with audioMode=true</button>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 11, opacity: 0.9 }}>
-              <div>audioMode (last request): <strong>{String(lastRequestedAudioMode)}</strong></div>
-              <div>audio_url prefix: <strong>{lastPersonaAudioUrl ? lastPersonaAudioUrl.slice(0, 28) : 'none'}</strong></div>
-              <div>server tts_engine_used: <strong>{lastServerTtsEngine ?? 'none'}</strong></div>
-              <div>server tts_mime_type: <strong>{lastServerTtsMimeType ?? 'none'}</strong></div>
-              <div>
-                server telemetry status:{' '}
-                <strong style={{ color: ttsTelemetryStatus === 'missing' ? '#f97316' : '#d4af37' }}>
-                  {ttsTelemetryStatus === 'missing' ? 'missing (contract bug)' : ttsTelemetryStatus}
-                </strong>
-              </div>
-              <div>audio element state: <strong>{audioDiag}</strong></div>
-              {audioDiagError ? <div>audio error: <strong>{audioDiagError}</strong></div> : null}
-            </div>
-            {lastPersonaAudioUrl ? (
-              <audio
-                controls
-                src={lastPersonaAudioUrl}
-                style={{ width: '100%', marginTop: 8 }}
-                onLoadedMetadata={(e) => {
-                  setAudioDiag(`loadedmetadata rs=${e.currentTarget.readyState} ns=${e.currentTarget.networkState}`);
-                  setAudioDiagError(null);
-                }}
-                onCanPlay={(e) => {
-                  setAudioDiag(`canplay rs=${e.currentTarget.readyState} ns=${e.currentTarget.networkState}`);
-                }}
-                onPlay={() => {
-                  setAudioDiag('play');
-                }}
-                onError={(e) => {
-                  const code = e.currentTarget.error?.code;
-                  const message = code ? `MediaError code=${code}` : 'MediaError unknown';
-                  setAudioDiag('error');
-                  setAudioDiagError(message);
-                }}
-              />
-            ) : null}
+            {isAnalyzing ? <div style={styles.analyzing}>Antwort wird aufgebaut…</div> : null}
           </div>
-        ) : null}
+
+          <div style={{ ...styles.inputWrap, borderColor: liveTalk.liveTalkActive ? 'rgba(74,222,128,0.55)' : TOKENS.b1 }}>
+            <button
+              onClick={liveTalk.toggleLiveTalk}
+              style={{
+                ...styles.micButton,
+                ...(liveTalk.liveTalkActive ? styles.micButtonActive : null),
+              }}
+              type="button"
+            >
+              {liveTalk.liveTalkActive ? 'Stop' : 'Mic'}
+            </button>
+            <textarea
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  runtimeLiveTalk.resetTranscript();
+                  void sendMessage(input);
+                }
+              }}
+              placeholder={liveTalk.liveTalkActive
+                ? (liveTalk.micEnabled ? 'Sprich frei oder schreibe weiter…' : 'LiveTalk aktiv · Mikrofon pausiert, tippen bleibt moeglich…')
+                : 'Schreibe eine Nachricht…'}
+              rows={1}
+              style={styles.textarea}
+              value={input}
+            />
+            <button
+              onClick={() => {
+                runtimeLiveTalk.resetTranscript();
+                void sendMessage(input);
+              }}
+              style={styles.sendButton}
+              type="button"
+            >
+              Senden
+            </button>
+          </div>
+
+          {showAudioDevTools ? (
+            <div style={styles.devTools}>
+              <div style={styles.devTitle}>Audio Dev Tools</div>
+              <label style={styles.devCheckRow}>
+                <input checked={forceAudioRequest} onChange={(event) => setForceAudioRequest(event.target.checked)} type="checkbox" />
+                Request TTS Audio (audioMode=true)
+              </label>
+              <div style={styles.devButtonRow}>
+                <button onClick={() => { void playTestTone(); }} style={styles.utilityButton} type="button">Test Ton</button>
+                <button disabled={!lastPersonaAudioUrl} onClick={() => { void playLastPersonaAudio(); }} style={styles.utilityButton} type="button">Letzte TTS</button>
+                <button onClick={() => { void sendDevAudioProbe(); }} style={styles.utilityButton} type="button">Probe senden</button>
+              </div>
+              <div style={styles.devMeta}>
+                <div>audioMode: {String(lastRequestedAudioMode)}</div>
+                <div>audio_url: {lastPersonaAudioUrl ? lastPersonaAudioUrl.slice(0, 28) : 'none'}</div>
+                <div>tts_engine_used: {lastServerTtsEngine ?? 'none'}</div>
+                <div>tts_mime_type: {lastServerTtsMimeType ?? 'none'}</div>
+                <div>telemetry: {ttsTelemetryStatus}</div>
+                <div>audio state: {audioDiag}</div>
+                {audioDiagError ? <div>audio error: {audioDiagError}</div> : null}
+              </div>
+              {lastPersonaAudioUrl ? (
+                <audio
+                  controls
+                  onCanPlay={(event) => setAudioDiag(`canplay rs=${event.currentTarget.readyState} ns=${event.currentTarget.networkState}`)}
+                  onError={(event) => {
+                    const code = event.currentTarget.error?.code;
+                    setAudioDiag('error');
+                    setAudioDiagError(code ? `MediaError code=${code}` : 'MediaError unknown');
+                  }}
+                  onLoadedMetadata={(event) => {
+                    setAudioDiag(`loadedmetadata rs=${event.currentTarget.readyState} ns=${event.currentTarget.networkState}`);
+                    setAudioDiagError(null);
+                  }}
+                  onPlay={() => setAudioDiag('play')}
+                  src={lastPersonaAudioUrl}
+                  style={{ width: '100%' }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      <CompanionPanel
-        companion={companion}
-        insights={insights}
-        isAnalyzing={isAnalyzing}
-        onSendToCompanion={sendToCompanion}
-        companionMessages={companionMessages}
-        focusInputToken={focusCompanionToken}
-        liveActive={companionLiveTalk.isActive}
-        onLiveToggle={toggleCompanionLive}
-        onPlayAudio={LIVE_AUDIO_ENABLED ? companionLiveTalk.playAudio : noopPlayAudio}
+      <PersonaSettingsPanel
+        liveTalk={liveTalk}
+        onChange={(next) => setPersonaSettings((current) => ({
+          ...current,
+          [panelPersona.id]: next,
+        }))}
+        onClose={() => setSettingsOpen(false)}
+        open={settingsOpen}
+        persona={panelPersona}
+        settings={personaSettings[panelPersona.id] ?? buildDefaultSettings(panelPersona)}
       />
 
-      <PersonaSettingsModal persona={persona} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <MayaOverlay
+        liveTalkActive={liveTalk.liveTalkActive}
+        onClose={() => setMayaOverlayOpen(false)}
+        onQuickCommand={handleQuickCommand}
+        open={mayaOverlayOpen}
+      />
 
-      {personaLiveTalk.showConsent ? <SpeechConsentDialog onAccept={personaLiveTalk.acceptConsent} onCancel={personaLiveTalk.cancelConsent} /> : null}
-      {companionLiveTalk.showConsent ? <SpeechConsentDialog onAccept={companionLiveTalk.acceptConsent} onCancel={companionLiveTalk.cancelConsent} /> : null}
-
-      {onBack ? <button className="sm-hidden-exit" type="button" onClick={onBack} aria-hidden="true" tabIndex={-1} /> : null}
-    </div>
+      {runtimeLiveTalk.showConsent ? (
+        <SpeechConsentDialog onAccept={runtimeLiveTalk.acceptConsent} onCancel={runtimeLiveTalk.cancelConsent} />
+      ) : null}
+    </>
   );
 }
+
+function buildIntroMessage(persona: PersonaInfo): ChatMessage {
+  return makeMessage({
+    role: 'persona',
+    senderName: persona.name,
+    senderIcon: persona.icon,
+    senderColor: persona.color,
+    text: INTROS[persona.id] ?? 'Willkommen. Was moechtest du heute klaeren?',
+  });
+}
+
+function buildDefaultSettings(persona: PersonaInfo): PersonaPanelSettings {
+  return {
+    signatureQuirks: persona.id === 'maya' ? ['Poetisch', 'Spiegelnd'] : ['Direkt'],
+    characterTuning: persona.id === 'lilith' ? 4 : 3,
+    toneMode: persona.id === 'maya' ? 'Ruhig' : 'Klar',
+    voice: getDefaultLiveTalkVoice(persona.id),
+    preview: REPLIES[persona.id]?.[0] ?? `${persona.name} antwortet klar und praesent.`,
+    mayaSpecialFunction: persona.id === 'maya'
+      ? 'Maya verbindet Chat, Verlauf und App-Kontext, ohne zur verdeckten Wahrheitsinstanz zu werden.'
+      : `Maya rahmt ${persona.name}, bleibt aber als Begleiterin getrennt sichtbar.`,
+    appControl: persona.id === 'maya',
+    proactiveInsights: persona.id === 'maya',
+    mayaCoreSync: persona.id === 'maya',
+  };
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  main: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    background: TOKENS.bg,
+  },
+  topActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+    padding: '18px 22px 12px',
+    borderBottom: `2px solid ${TOKENS.b1}`,
+    background: TOKENS.bg2,
+  },
+  primaryButton: {
+    padding: '10px 14px',
+    borderRadius: 24,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: 'rgba(255,255,255,0.05)',
+    color: TOKENS.text,
+    cursor: 'pointer',
+    fontFamily: TOKENS.font.body,
+  },
+  primaryButtonActive: {
+    borderColor: 'rgba(74,222,128,0.55)',
+    background: 'rgba(74,222,128,0.12)',
+    boxShadow: '0 0 24px rgba(74,222,128,0.15)',
+  },
+  utilityButton: {
+    padding: '10px 12px',
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: 'rgba(255,255,255,0.03)',
+    color: TOKENS.text2,
+    cursor: 'pointer',
+    fontFamily: TOKENS.font.body,
+  },
+  utilityButtonActive: {
+    borderColor: TOKENS.goldSoft,
+    color: TOKENS.gold,
+  },
+  gearWrap: {
+    position: 'relative',
+  },
+  historyStrip: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 10,
+    padding: '12px 22px 0',
+  },
+  historyChip: {
+    padding: '8px 12px',
+    borderRadius: 20,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.card2,
+    cursor: 'pointer',
+    fontFamily: TOKENS.font.body,
+  },
+  historyEmpty: {
+    color: TOKENS.text2,
+    fontSize: 12,
+    fontFamily: TOKENS.font.body,
+  },
+  chatHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '18px 22px 16px',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: '50%',
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.bg3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 22,
+    flexShrink: 0,
+  },
+  headerName: {
+    fontFamily: TOKENS.font.display,
+    fontSize: 24,
+  },
+  headerSub: {
+    marginTop: 4,
+    color: TOKENS.text2,
+    fontSize: 13,
+    fontFamily: TOKENS.font.body,
+  },
+  feed: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: '0 22px 18px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 14,
+  },
+  messageRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  messageAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.bg3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  messageBubble: {
+    maxWidth: '72%',
+    padding: '14px 16px',
+    borderRadius: 18,
+  },
+  personaBubble: {
+    background: TOKENS.card2,
+    border: `1.5px solid ${TOKENS.b2}`,
+  },
+  mayaBubble: {
+    borderLeft: `2px solid ${TOKENS.gold}`,
+    background: 'rgba(212,175,55,0.08)',
+  },
+  userBubble: {
+    background: 'rgba(212,175,55,0.08)',
+    border: '1.5px solid rgba(212,175,55,0.28)',
+  },
+  messageName: {
+    fontFamily: TOKENS.font.serif,
+    fontSize: 13,
+    letterSpacing: '0.04em',
+    marginBottom: 6,
+  },
+  messageText: {
+    color: TOKENS.text,
+    fontFamily: TOKENS.font.body,
+    fontSize: 14,
+    lineHeight: 1.7,
+    whiteSpace: 'pre-wrap',
+  },
+  messageTime: {
+    marginTop: 8,
+    color: TOKENS.text3,
+    fontSize: 11,
+    fontFamily: TOKENS.font.body,
+  },
+  analyzing: {
+    color: TOKENS.gold,
+    fontFamily: TOKENS.font.serif,
+    fontSize: 15,
+    padding: '4px 2px 0',
+  },
+  inputWrap: {
+    margin: '0 22px 18px',
+    padding: 12,
+    borderRadius: 18,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.bg2,
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  micButton: {
+    width: 54,
+    height: 46,
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: 'rgba(255,255,255,0.03)',
+    color: TOKENS.text2,
+    cursor: 'pointer',
+    flexShrink: 0,
+    fontFamily: TOKENS.font.body,
+  },
+  micButtonActive: {
+    borderColor: 'rgba(74,222,128,0.55)',
+    background: 'rgba(74,222,128,0.12)',
+    color: TOKENS.text,
+  },
+  textarea: {
+    flex: 1,
+    minHeight: 46,
+    maxHeight: 140,
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.card2,
+    color: TOKENS.text,
+    padding: '12px 14px',
+    resize: 'vertical',
+    fontFamily: TOKENS.font.body,
+    fontSize: 14,
+  },
+  sendButton: {
+    padding: '0 18px',
+    height: 46,
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.goldSoft}`,
+    background: TOKENS.gold,
+    color: TOKENS.bg,
+    cursor: 'pointer',
+    flexShrink: 0,
+    fontFamily: TOKENS.font.body,
+    fontWeight: 600,
+  },
+  devTools: {
+    margin: '0 22px 22px',
+    padding: 14,
+    borderRadius: 16,
+    border: `1px dashed ${TOKENS.goldSoft}`,
+    background: TOKENS.card2,
+  },
+  devTitle: {
+    color: TOKENS.gold,
+    marginBottom: 8,
+    fontSize: 11,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    fontFamily: TOKENS.font.body,
+  },
+  devCheckRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 12,
+    color: TOKENS.text2,
+    marginBottom: 10,
+    fontFamily: TOKENS.font.body,
+  },
+  devButtonRow: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  devMeta: {
+    marginTop: 10,
+    color: TOKENS.text2,
+    fontSize: 11,
+    display: 'grid',
+    gap: 4,
+    fontFamily: TOKENS.font.body,
+  },
+};

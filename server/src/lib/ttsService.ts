@@ -7,6 +7,8 @@ interface TTSResult {
   durationEstimate?: number;
 }
 
+type GeminiTtsVoice = 'Aoede' | 'Kore' | 'Puck' | 'Fenrir' | 'Leda' | 'Orus' | 'Iapetus' | 'Callirrhoe' | 'Zephyr' | 'Achernar';
+
 type OpenAiTtsVoice =
   | 'nova'
   | 'shimmer'
@@ -36,6 +38,18 @@ function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
   return map[key] ?? 'nova';
 }
 
+function isGeminiVoice(value: string): value is GeminiTtsVoice {
+  return ['Aoede', 'Kore', 'Puck', 'Fenrir', 'Leda', 'Orus', 'Iapetus', 'Callirrhoe', 'Zephyr', 'Achernar'].includes(value);
+}
+
+function getGeminiVoice(personaId: string, voiceOverride?: string): GeminiTtsVoice {
+  if (voiceOverride && isGeminiVoice(voiceOverride)) {
+    return voiceOverride;
+  }
+
+  return getPersonaVoice(personaId) as GeminiTtsVoice;
+}
+
 function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {
   const dataSize = pcmBuffer.length;
   const header = Buffer.alloc(44);
@@ -60,11 +74,11 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth 
 export async function generateTTS(
   text: string,
   personaId: string,
-  geminiApiKey: string,
-  openaiApiKey: string,
-  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict' },
+  geminiApiKey: string | undefined,
+  openaiApiKey: string | undefined,
+  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string },
 ): Promise<TTSResult> {
-  const geminiVoice = getPersonaVoice(personaId);
+  const geminiVoice = getGeminiVoice(personaId, personaSettings?.voice);
   const disableGeminiTts = process.env.DISABLE_GEMINI_TTS === 'true';
   const configuredPriority = (process.env.TTS_ENGINE_PRIORITY ?? 'gemini-first').toLowerCase();
   const priority: 'gemini-first' | 'openai-first' = configuredPriority === 'openai-first' ? 'openai-first' : 'gemini-first';
@@ -73,6 +87,10 @@ export async function generateTTS(
 
   for (const engine of engineOrder) {
     if (engine === 'gemini') {
+      if (!geminiApiKey) {
+        errors.push('gemini: missing api key');
+        continue;
+      }
       if (disableGeminiTts) {
         const msg = 'Gemini TTS disabled via DISABLE_GEMINI_TTS=true';
         errors.push(msg);
@@ -112,6 +130,11 @@ export async function generateTTS(
         });
         continue;
       }
+    }
+
+    if (!openaiApiKey) {
+      errors.push('openai: missing api key');
+      continue;
     }
 
     try {

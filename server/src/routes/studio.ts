@@ -1219,7 +1219,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           devLogger.error('system', 'OPENAI_API_KEY not set (audioMode requested)', { personaId });
         }
 
-        if (geminiApiKey && openaiApiKey && !isRoundCanceled()) {
+        if ((geminiApiKey || openaiApiKey) && !isRoundCanceled()) {
           if (wantsStream) {
             // Fire-and-forget TTS — send audio SSE event when ready
             ttsPromise = (async () => {

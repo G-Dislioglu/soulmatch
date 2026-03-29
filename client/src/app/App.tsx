@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { Route, Switch } from 'wouter';
 import type { UserProfile } from '../shared/types/profile';
 import type { ScoreResult } from '../shared/types/scoring';
@@ -25,7 +26,6 @@ import {
   CosmicTrail,
   AuraAvatar,
   EnergyDivider,
-  PageTransition,
   ControlsDropdown,
   CosmicButton,
   ScoreSkeleton,
@@ -35,32 +35,43 @@ import {
 } from '../modules/M02_ui-kit';
 import type { PageDef, CardSettings } from '../modules/M02_ui-kit';
 import { SCard } from '../design';
-import { Sidebar, SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
-import type { SidebarCallbacks, SoulCard } from '../modules/M13_timeline';
+import { TOKENS } from '../design/tokens';
+import { SoulCardDetail, CrossingModal, timelineService, soulCardService, ScoreHistoryChart, TopMatchesCard } from '../modules/M13_timeline';
+import type { SoulCard } from '../modules/M13_timeline';
 import { GuideProvider } from '../modules/M14_guide';
-import { AetheriaScreen, AetheriaImageGen } from '../modules/M15_aetheria';
-import type { AetheriaLocation } from '../modules/M15_aetheria';
-import { DisclaimerModal } from '../modules/M01_app-shell';
+import { AetheriaImageGen } from '../modules/M15_aetheria';
+import {
+  DisclaimerModal,
+  Sidebar,
+  Topbar,
+  SHELL_SIDEBAR_WIDTH,
+  SHELL_SIDEBAR_COLLAPSED_WIDTH,
+} from '../modules/M01_app-shell';
+import { HomePage as StartPage } from '../modules/M00_home';
+import { useLiveTalk } from '../hooks/useLiveTalk';
 
 const ACCENT = '#d4af37';
+const HOME_PAGE = 'home' as const;
 const PAGE_PROFILE = 0;
 const PAGE_REPORT = 1;
 const PAGE_CHAT = 2;
-const PAGE_EXPLORE = 3;
-const PAGE_ASTRO = 4;
-const PAGE_JOURNEY = 5;
-const PAGE_SOULS = 6;
-const PAGE_STUDIO = 7;
+const PAGE_ASTRO = 3;
+const PAGE_JOURNEY = 4;
+const PAGE_SOULS = 5;
+const PAGE_STUDIO = 6;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '👤', color: ACCENT },
   { label: 'Match', icon: '🔥', color: '#c084fc' },
   { label: 'Chat', icon: '💬', color: '#f472b6' },
-  { label: 'Explore', icon: '✨', color: '#7eb8da' },
   { label: 'Astro', icon: '✶', color: '#38bdf8' },
   { label: 'Reise', icon: '✧', color: '#34d399' },
   { label: 'Seelen', icon: '♥', color: '#f472b6' },
   { label: 'Studio', icon: '◈', color: ACCENT },
 ];
+
+const HOME_PAGE_DEF: PageDef = { label: 'Start', icon: '✦', color: ACCENT };
+
+type ActivePage = typeof HOME_PAGE | number;
 
 type Overlay = 'settings' | 'edit' | 'match-select' | 'match' | 'new-profile' | null;
 
@@ -126,11 +137,105 @@ function isAstroCalcResponse(data: unknown): data is AstroCalcResponse {
   return (data as { status?: string }).status === 'ok';
 }
 
+interface TabPageShellProps {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  accent: string;
+  maxWidth?: number;
+  children: ReactNode;
+}
+
+function TabPageShell({ eyebrow, title, subtitle, accent, maxWidth = 1220, children }: TabPageShellProps) {
+  return (
+    <div className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth, margin: '0 auto' }}>
+      <section
+        style={{
+          border: `1.5px solid ${TOKENS.b2}`,
+          borderRadius: 24,
+          background: TOKENS.card,
+          padding: '22px 24px',
+          marginBottom: 20,
+          boxShadow: TOKENS.shadow.card,
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: accent,
+            boxShadow: `0 0 18px ${accent}33`,
+          }}
+        />
+        <div style={{ fontSize: 11, color: TOKENS.text2, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
+          {eyebrow}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: 28, color: TOKENS.text, letterSpacing: '0.05em' }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: TOKENS.font.body, fontSize: 13, lineHeight: 1.7, color: TOKENS.text2, maxWidth: 760 }}>
+          {subtitle}
+        </div>
+      </section>
+
+      {children}
+    </div>
+  );
+}
+
+interface TabSectionFrameProps {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  children: ReactNode;
+}
+
+function TabSectionFrame({ title, subtitle, accent, children }: TabSectionFrameProps) {
+  return (
+    <section
+      style={{
+        border: `1.5px solid ${TOKENS.b2}`,
+        borderRadius: 22,
+        background: TOKENS.card,
+        boxShadow: TOKENS.shadow.card,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          padding: '18px 20px 16px',
+          borderBottom: `2px solid ${TOKENS.b1}`,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+        }}
+      >
+        <div style={{ fontSize: 11, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
+          {title}
+        </div>
+        {subtitle ? (
+          <div style={{ marginTop: 6, fontSize: 13, color: TOKENS.text2, lineHeight: 1.6, fontFamily: TOKENS.font.body }}>
+            {subtitle}
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ padding: '18px 18px 20px' }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRequestIdRef = useRef(0);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activePage, setActivePage] = useState(0);
+  const [activePage, setActivePage] = useState<ActivePage>(HOME_PAGE);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [showImageGen, setShowImageGen] = useState(false);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
@@ -145,6 +250,7 @@ function HomePage() {
   const [showCrossing, setShowCrossing] = useState(false);
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
+  const liveTalk = useLiveTalk();
 
   // ── Maya Command System state ──
   const [highlightedCard] = useState<string | null>(null);
@@ -354,15 +460,12 @@ function HomePage() {
 
   const toggleCollapse = useCallback(() => setSidebarCollapsed((p) => !p), []);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
-
-  // ── Sidebar Callbacks ──
-  const sidebarCallbacks: SidebarCallbacks = useMemo(() => ({
-    onNavigateScore: () => setActivePage(PAGE_REPORT),
-    onNavigateChat: (_personaId: string) => setActivePage(PAGE_CHAT),
-    onNavigateInsight: () => setActivePage(PAGE_REPORT),
-    onOpenSettings: () => setOverlay('settings'),
-    onOpenSoulCard: (card) => setActiveSoulCard(card),
-  }), []);
+  const shellOffset = sidebarCollapsed ? SHELL_SIDEBAR_COLLAPSED_WIDTH : SHELL_SIDEBAR_WIDTH;
+  const currentShellPage: PageDef = activePage === HOME_PAGE ? HOME_PAGE_DEF : (APP_PAGES[activePage] ?? APP_PAGES[0]!);
+  const handleShellPageChange = useCallback((page: number) => {
+    setActivePage(page);
+    setMobileDrawerOpen(false);
+  }, []);
 
   /* ── Overlay content (rendered inside global shell) ── */
   function renderOverlay() {
@@ -1041,12 +1144,16 @@ function HomePage() {
 
       {/* Sidebar */}
       <Sidebar
+        pages={APP_PAGES}
+        activePage={activePage === HOME_PAGE ? -1 : activePage}
+        onPageChange={handleShellPageChange}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleCollapse}
         mobileOpen={mobileDrawerOpen}
         onMobileClose={closeMobileDrawer}
-        lastScore={scoreResult?.scoreOverall ?? null}
-        callbacks={sidebarCallbacks}
+        profile={profile}
+        onOpenSettings={() => setOverlay('settings')}
+        liveTalk={liveTalk}
       />
 
       {/* ── Sticky header shell (never scrolls away) ── */}
@@ -1056,54 +1163,17 @@ function HomePage() {
           top: 0,
           zIndex: 50,
           flexShrink: 0,
-          background: 'rgba(8,6,15,0.92)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(212,175,55,0.08)',
-          marginLeft: sidebarCollapsed ? 56 : 280,
+          marginLeft: shellOffset,
           transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-        <div style={{ padding: '16px 28px 0', maxWidth: 1100, marginRight: 'auto' }}>
-          {/* Header */}
-          <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Mobile-only hamburger */}
-            <button
-              className="mobile-hamburger"
-              onClick={() => setMobileDrawerOpen(true)}
-              style={{
-                display: 'none',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#5a5550', fontSize: 20, padding: '4px 6px',
-                borderRadius: 6, lineHeight: 1,
-                alignItems: 'center', justifyContent: 'center',
-              }}
-              aria-label="Sidebar öffnen"
-            >
-              ☰
-            </button>
-            <div>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 700, color: '#f0eadc', margin: '0 0 4px' }}>
-                Soulmatch
-              </h1>
-              <p style={{ fontSize: 12, color: '#6b6560', margin: 0 }}>
-                {cardSettings.cosmicTrail ? 'Goldene Aura aktiv' : 'Hover über Karten'} · Effekt-Steuerung →
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <CosmicButton variant="ghost" onClick={() => setOverlay('settings')} style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>
-              ⚙ Einstellungen
-            </CosmicButton>
-            <ControlsDropdown settings={cardSettings} setSettings={setCardSettings} />
-          </div>
-        </div>
-
-          {/* Page navigation */}
-          <PageTransition pages={APP_PAGES} activePage={activePage} onPageChange={setActivePage} />
-        </div>
-        <EnergyDivider color={APP_PAGES[activePage]?.color ?? ACCENT} speed={3} />
+        <Topbar
+          page={currentShellPage}
+          liveTalk={liveTalk}
+          onOpenMobileSidebar={() => setMobileDrawerOpen(true)}
+          onOpenSettings={() => setOverlay('settings')}
+          extraActions={<ControlsDropdown settings={cardSettings} setSettings={setCardSettings} />}
+        />
       </div>
 
       {/* ── Scrollable content area ── */}
@@ -1115,10 +1185,27 @@ function HomePage() {
           overflowX: 'hidden',
           position: 'relative',
           zIndex: 10,
-          marginLeft: sidebarCollapsed ? 56 : 280,
+          marginLeft: shellOffset,
           transition: 'margin-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+
+        {activePage === HOME_PAGE && (
+          <StartPage
+            profile={profile}
+            scoreResult={scoreResult}
+            computing={computing}
+            onComputeScore={handleComputeScore}
+            onOpenProfile={() => setActivePage(PAGE_PROFILE)}
+            onOpenExplore={() => setActivePage(PAGE_ASTRO)}
+            onOpenChat={() => setActivePage(PAGE_CHAT)}
+            onOpenAstro={() => setActivePage(PAGE_ASTRO)}
+            onOpenSouls={() => setActivePage(PAGE_SOULS)}
+            onOpenJourney={() => setActivePage(PAGE_JOURNEY)}
+            onOpenMatch={() => setActivePage(PAGE_REPORT)}
+            onOpenSoulCard={(card) => setActiveSoulCard(card)}
+          />
+        )}
 
         {/* ═══ PAGE 0: PROFIL ═══ */}
         {activePage === PAGE_PROFILE && (
@@ -1537,14 +1624,21 @@ function HomePage() {
 
         {/* ═══ PAGE 1: REPORT ═══ */}
         {activePage === PAGE_REPORT && (
-          <div key="report" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
-            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
-              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                Soulmatch Report
-              </div>
-            </div>
-            {/* Seelen-Dossier */}
-            <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
+          <TabPageShell
+            key="report"
+            eyebrow="Soulmatch Report"
+            title={profile.name}
+            subtitle="Match, Score und Deutungsbausteine bleiben wie bisher bestehen. Dieser Block richtet nur die vorhandenen Report-Elemente in der neuen Page-Hierarchie aus."
+            accent="#c084fc"
+            maxWidth={1100}
+          >
+            <TabSectionFrame
+              title="Auswertung und Resonanz"
+              subtitle="Score, Dossier, Verlauf und Insight-Karten laufen weiter ueber die bestehende Report-Logik."
+              accent="#c084fc"
+            >
+              {/* Seelen-Dossier */}
+              <div style={{ maxWidth: 600, margin: '0 auto 16px' }}>
               <SCard accentHex={ACCENT}>
                 <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seelen-Dossier</div>
                 <SoulDossier name={profile.name} birthDate={profile.birthDate} />
@@ -1577,13 +1671,7 @@ function HomePage() {
               </SCard>
             </div>
 
-            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
-                {profile.name}
-              </div>
-            </div>
-
-            <div style={{ maxWidth: 600, margin: '0 auto' }}>
+              <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {computing ? (
                 <SCard accentHex={ACCENT}>
                   <ScoreSkeleton />
@@ -1657,7 +1745,8 @@ function HomePage() {
                   </div>
                 </SCard>
               )}
-            </div>
+              </div>
+            </TabSectionFrame>
 
             {/* Maya Tour overlay tooltip */}
             {tourTarget && tourText && (
@@ -1672,12 +1761,12 @@ function HomePage() {
                 <div style={{ fontSize: 13, color: '#b0a898', lineHeight: 1.6 }}>{tourText}</div>
               </div>
             )}
-          </div>
+          </TabPageShell>
         )}
 
         {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_CHAT && (
-          <DiscussionChat onBack={() => setActivePage(PAGE_PROFILE)} />
+          <DiscussionChat liveTalk={liveTalk} onBack={() => setActivePage(PAGE_PROFILE)} />
         )}
 
         {/* ═══ PAGE 7: STUDIO ═══ */}
@@ -1700,53 +1789,22 @@ function HomePage() {
           </div>
         )}
 
-        {/* ═══ PAGE 3: EXPLORE (Aetheria) ═══ */}
-        {activePage === PAGE_EXPLORE && (
-          <div key="explore" className="portal-enter" style={{ width: '100%', height: '100%' }}>
-            <AetheriaScreen
-              onAction={(action: string, _loc: AetheriaLocation) => {
-                // Rat der Meister → Studio
-                if (action === 'roundtable' || action === 'solo-chat' || action === 'match-mode' || action === 'soul-cards') {
-                  setActivePage(PAGE_STUDIO);
-                }
-                // Sternenwarte → Astro
-                else if (action === 'birth-chart' || action === 'transits' || action === 'aspects' || action === 'synastry') {
-                  setActivePage(PAGE_ASTRO);
-                }
-                // Hall of Souls → Seelen-Seite
-                else if (action === 'soul-gallery' || action === 'crossing' || action === 'score-timeline' || action === 'crossing-ritual') {
-                  setActivePage(PAGE_SOULS);
-                }
-                // Turm der Zahlen → Report (Numerologie)
-                else if (action === 'life-path' || action === 'soul-urge' || action === 'personality' || action === 'karmic-debt') {
-                  setActivePage(PAGE_REPORT);
-                }
-                // Mondlichtung → Report (Tarot)
-                else if (action === 'daily-card' || action === 'three-card' || action === 'celtic-cross' || action === 'love-spread') {
-                  setActivePage(PAGE_REPORT);
-                }
-                // Kristallgarten → Report (Chakra)
-                else if (action === 'chakra-scan' || action === 'energy-body' || action === 'blockages' || action === 'meditation') {
-                  setActivePage(PAGE_REPORT);
-                }
-              }}
-            />
-          </div>
-        )}
-
         {/* ═══ PAGE 4: ASTRO ═══ */}
         {activePage === PAGE_ASTRO && (
-          <div key="astro" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
-            <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
-              <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                {profile?.name ?? 'Profil'}
-              </div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 700, color: '#f0eadc', marginTop: 4 }}>
-                Geburtshoroskop
-              </div>
-            </div>
-
-            <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <TabPageShell
+            key="astro"
+            eyebrow={profile?.name ?? 'Profil'}
+            title="Geburtshoroskop"
+            subtitle="Astro bleibt inhaltlich wie bisher, bekommt hier aber eine klarere Seitenfuehrung, neue Hauptkante und einen ruhigeren Rahmen fuer die vorhandenen Module."
+            accent="#38bdf8"
+            maxWidth={1100}
+          >
+            <TabSectionFrame
+              title="Kosmische Uebersicht"
+              subtitle="Bestehende Horoskop-, Transit- und Tagesmodule bleiben unveraendert und werden nur in die neue Shell-Sprache eingepasst."
+              accent="#38bdf8"
+            >
+              <div style={{ maxWidth: 600, margin: '0 auto' }}>
               {/* Wochenschnellblick */}
               <SCard accentHex="#fbbf24">
                 <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, marginBottom: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Wochenschnellblick</div>
@@ -2090,8 +2148,9 @@ function HomePage() {
                   </CosmicButton>
                 </div>
               )}
-            </div>
-          </div>
+              </div>
+            </TabSectionFrame>
+          </TabPageShell>
         )}
 
         {/* ═══ PAGE 4: JOURNEY PLANNER ═══ */}
@@ -2212,16 +2271,24 @@ function HomePage() {
 
         {/* ═══ PAGE 5: HALL OF SOULS ═══ */}
         {activePage === PAGE_SOULS && (
-          <div key="souls" className="portal-enter" style={{ padding: '24px 28px 60px', maxWidth: 1100, marginRight: 'auto' }}>
-            <div style={{ maxWidth: 600, margin: '0 auto' }}>
-              <div style={{ textAlign: 'center', margin: '20px 0 24px' }}>
-                <div style={{ fontSize: 10, color: '#7a7468', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Kosmische Verbindungen</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: '#f0eadc', lineHeight: 1.1 }}>Hall of Souls</div>
-                <div style={{ fontSize: 11, color: '#f472b6', marginTop: 4 }}>Entdecke deine Verbindung zu historischen Geistern</div>
+          <TabPageShell
+            key="souls"
+            eyebrow="Kosmische Verbindungen"
+            title="Hall of Souls"
+            subtitle="Die bestehende Souls-Ansicht bleibt funktional gleich und wird nur ueber den neuen Seitenkopf und Frame an den Rest der App angeschlossen."
+            accent="#f472b6"
+            maxWidth={1100}
+          >
+            <TabSectionFrame
+              title="Begegnungen und Spiegelungen"
+              subtitle="Historische Geister, Verbindungen und Profilbezug laufen weiter ueber die vorhandene Hall-of-Souls-Logik."
+              accent="#f472b6"
+            >
+              <div style={{ maxWidth: 600, margin: '0 auto' }}>
+                <HallOfSouls profile={profile} />
               </div>
-              <HallOfSouls profile={profile} />
-            </div>
-          </div>
+            </TabSectionFrame>
+          </TabPageShell>
         )}
 
         {/* Version stamp */}

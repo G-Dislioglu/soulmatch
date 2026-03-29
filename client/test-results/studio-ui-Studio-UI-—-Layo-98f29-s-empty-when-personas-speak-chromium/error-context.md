@@ -1,0 +1,67 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: ✦
+      - generic [ref=e7]: Soulmatch
+      - generic [ref=e8]: Spirituelle Analyse · Kein Ersatz für Beratung
+    - generic [ref=e9]:
+      - paragraph [ref=e10]:
+        - text: Soulmatch bietet astrologische und numerologische Analysen zur
+        - strong [ref=e11]: persönlichen Reflexion
+        - text: . Die Inhalte ersetzen keine psychologische, medizinische oder rechtliche Beratung.
+      - paragraph [ref=e12]: "Bei seelischen Krisen oder Notfällen stehen dir diese Anlaufstellen zur Verfügung:"
+    - generic [ref=e13]:
+      - generic [ref=e14]: Krisenhotlines (Deutschland)
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: TelefonSeelsorge
+          - generic [ref=e18]: kostenlos · 24/7
+        - generic [ref=e19]:
+          - link "0800 111 0 111" [ref=e20] [cursor=pointer]:
+            - /url: tel:08001110111
+          - link "0800 111 0 222" [ref=e21] [cursor=pointer]:
+            - /url: tel:08001110222
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: Internationale Seelsorge
+          - generic [ref=e25]: kostenlos · täglich
+        - link "116 123" [ref=e27] [cursor=pointer]:
+          - /url: tel:116123
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]: Notruf
+          - generic [ref=e31]: Notfälle
+        - link "112" [ref=e33] [cursor=pointer]:
+          - /url: tel:112
+    - button "Verstanden & Fortfahren" [ref=e34] [cursor=pointer]
+    - generic [ref=e35]: Diese Meldung erscheint einmalig · Soulmatch v2
+  - generic [ref=e38]:
+    - generic [ref=e40]:
+      - heading "Willkommen bei Soulmatch" [level=1] [ref=e41]
+      - paragraph [ref=e42]: Erstelle dein Profil für kosmische Einblicke
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - generic [ref=e49]: Name
+        - textbox "Name" [ref=e50]:
+          - /placeholder: Dein Name
+      - generic [ref=e52]:
+        - generic [ref=e53]: Geburtsdatum
+        - textbox "Geburtsdatum" [ref=e54]
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]: Geburtszeit (optional)
+          - textbox "Geburtszeit (optional)" [ref=e58]
+        - paragraph [ref=e59]: Aktiv in PR3 (Häuser/Angles) – aktuell nur Profil-Daten.
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]: Geburtsort (optional)
+          - textbox "Geburtsort (optional)" [ref=e63]:
+            - /placeholder: z.B. Berlin
+        - paragraph [ref=e64]: Ort wählen für Koordinaten (Geo Autocomplete).
+      - generic [ref=e65]:
+        - button "Speichern & Weiter" [disabled]
+        - button "Zurücksetzen" [ref=e66] [cursor=pointer]
+```
