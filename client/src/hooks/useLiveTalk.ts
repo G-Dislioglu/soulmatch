@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { stopGlobalMedia } from '../lib/globalMediaController';
 
 const STORAGE_KEY = 'soulmatch_shell_livetalk';
 
@@ -63,6 +64,7 @@ export function useLiveTalk(): LiveTalkController {
     setState((current) => {
       const nextActive = !current.liveTalkActive;
       if (!nextActive) {
+        stopGlobalMedia();
         return {
           ...current,
           liveTalkActive: false,
@@ -107,6 +109,9 @@ export function useLiveTalk(): LiveTalkController {
   }, []);
 
   const setLiveTalkActive = useCallback((active: boolean) => {
+    if (!active) {
+      stopGlobalMedia();
+    }
     setState((current) => ({
       ...current,
       liveTalkActive: active,

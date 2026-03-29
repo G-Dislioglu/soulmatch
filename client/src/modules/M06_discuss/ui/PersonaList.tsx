@@ -40,21 +40,23 @@ export function PersonaList({
           key={maya.id}
           onClick={() => onSelect(maya)}
           style={{
+            ...styles.card,
             ...styles.mayaCard,
             ...(activePersonaId === maya.id ? styles.activeCard : null),
           }}
           type="button"
         >
-          <div style={styles.goldLine} />
+          <div style={{ ...styles.accentLine, background: maya.color ?? TOKENS.gold }} />
           <div style={styles.personaRow}>
             <div style={styles.personaMeta}>
-              <div style={{ ...styles.avatar, borderColor: TOKENS.gold, boxShadow: `0 0 18px ${TOKENS.goldGlow}` }}>{maya.icon}</div>
-              <div>
+              <div style={{ ...styles.avatar, borderColor: maya.color ?? TOKENS.gold, boxShadow: `0 0 18px ${TOKENS.goldGlow}`, color: maya.color ?? TOKENS.gold }}>{maya.icon}</div>
+              <div style={styles.personaTextBlock}>
                 <div style={styles.nameRow}>
                   <span style={{ ...styles.name, color: TOKENS.gold }}>{maya.name}</span>
                   <span style={styles.aiBadge}>AI</span>
                 </div>
-                <div style={styles.subRow}>
+                <div style={styles.roleRow}>{maya.role}</div>
+                <div style={styles.statusRow}>
                   <span style={{ ...styles.liveDot, opacity: liveTalkActive ? 1 : 0.45 }} />
                   <span>{liveTalkActive ? 'Maya Core live verbunden' : 'Maya Core bereit'}</span>
                 </div>
@@ -105,12 +107,13 @@ export function PersonaList({
               }}
               type="button"
             >
+              <div style={{ ...styles.accentLine, background: persona.color }} />
               <div style={styles.personaRow}>
                 <div style={styles.personaMeta}>
-                  <div style={{ ...styles.avatar, borderColor: isActive ? persona.color : TOKENS.b1 }}>{persona.icon}</div>
-                  <div>
+                  <div style={{ ...styles.avatar, borderColor: persona.color, color: persona.color, boxShadow: isActive ? `0 0 16px ${persona.color}33` : 'none' }}>{persona.icon}</div>
+                  <div style={styles.personaTextBlock}>
                     <div style={{ ...styles.name, color: isActive ? persona.color : TOKENS.text }}>{persona.name}</div>
-                    <div style={styles.subtle}>{persona.role}</div>
+                    <div style={styles.roleRow}>{persona.role}</div>
                   </div>
                 </div>
                 <button
@@ -200,15 +203,16 @@ const styles: Record<string, React.CSSProperties> = {
   activeCard: {
     boxShadow: `0 0 0 1px ${TOKENS.goldSoft} inset, 0 16px 36px rgba(0,0,0,0.34)`,
   },
-  goldLine: {
+  accentLine: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
     height: 2,
-    background: TOKENS.gold,
   },
   card: {
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: 16,
     border: `1.5px solid ${TOKENS.b2}`,
     background: 'rgba(255,255,255,0.02)',
@@ -233,6 +237,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     minWidth: 0,
   },
+  personaTextBlock: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -241,7 +251,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: TOKENS.bg3,
+    background: 'rgba(8,6,14,0.92)',
     color: TOKENS.text,
     fontSize: 18,
     flexShrink: 0,
@@ -267,7 +277,13 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'uppercase',
     fontFamily: TOKENS.font.body,
   },
-  subRow: {
+  roleRow: {
+    color: TOKENS.text2,
+    fontFamily: TOKENS.font.body,
+    fontSize: 12,
+    lineHeight: 1.35,
+  },
+  statusRow: {
     marginTop: 4,
     display: 'flex',
     alignItems: 'center',
@@ -282,12 +298,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     background: TOKENS.gold,
     boxShadow: `0 0 12px ${TOKENS.gold}`,
-  },
-  subtle: {
-    marginTop: 4,
-    color: TOKENS.text2,
-    fontFamily: TOKENS.font.body,
-    fontSize: 12,
   },
   trait: {
     marginTop: 12,

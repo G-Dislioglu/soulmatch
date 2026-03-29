@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `f6457a4`
+- `current_repo_head`: `aacc932`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-03-29`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `TTS Crush Audit und LiveTalk Hardening`
-- `next_recommended_block`: `Real-Provider-Verifikation fuer LiveTalk TTS`
+- `last_completed_block`: `Crush v1.1 Discuss UX Hardening`
+- `next_recommended_block`: `Real-Provider-Verifikation fuer SSE- und TTS-Latenz`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -84,13 +84,15 @@ SpeechRecognition-Segmente. Darauf aufbauend ist jetzt auch die LiveTalk-nahe
 Gemini-TTS-Integration fuer `/api/discuss` verdrahtet: Die Gear-Voice-Auswahl
 geht als Persona-Setting in den Request, TTS spielt asynchron ohne Chat-Blockade,
 und waehrend der Wiedergabe erscheint ein sichtbarer Speaking-Status im Chat.
-Der anschliessende Crush-Audit hat zwei operative Brueche direkt im Bestand
-sichtbar gemacht und minimal korrigiert: LiveTalk-Audio nutzt fuer M06 jetzt den
-SSE-Pfad, damit Persona-Text nicht bis zum fertigen TTS blockiert, und die
-TTS-Fallback-Kette haengt nicht mehr faelschlich von gleichzeitig gesetzten
-Gemini- und OpenAI-Keys ab. Die kanonische Spezifikation dafuer liegt weiter in
-`REDESIGN.md`. Der naechste saubere Produktblock ist damit weniger Neubau als
-echte Provider-Verifikation und Fehlerpfad-Haertung unter Real-Keys.
+Der danach geschnittene Crush-v1.1-Block haertet die drei sichtbarsten Discuss-
+Naehte direkt im Bestand: M06 nutzt den SSE-Pfad jetzt auch fuer normale Chat-
+Antworten mit fruehem Typing-Signal, Chat und Studio haengen ueber einen kleinen
+globalen Media-Controller an demselben Stop-/Abort-Pfad, und der Discuss-Prompt
+bekommt jetzt den expliziten App-Modus statt still immer Studio zu behaupten.
+Die Provider-Schicht streamt dabei weiterhin nicht tokenweise aus dem Modell,
+sondern sendet Text erst nach fertiger Provider-Antwort ins SSE. Der naechste
+saubere Produktblock ist damit weniger UI als ehrliche Real-Provider-
+Verifikation der Restlatenz und der TTS-/Abort-Fehlerpfade unter echten Keys.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -136,13 +138,22 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
   `studioRouter` kommt; `DiscussionChat.tsx` sendet die gewaehlte Stimme als
   `personaSettings[personaId].voice` mit, und `server/src/lib/ttsService.ts`
   uebernimmt diese Voice als Gemini-Override.
-- Wenn LiveTalk-Audio aktiv ist, nutzt `DiscussionChat.tsx` fuer M06 jetzt den
-  Streaming-Pfad von `/api/discuss`, damit Persona-Text sofort sichtbar wird und
-  Audio spaeter separat nachkommen kann.
+- `client/src/modules/M06_discuss/hooks/useDiscussApi.ts` nutzt jetzt einen
+  abortierbaren Request-Pfad mit globalem Stop-Handler; `DiscussionChat.tsx`
+  schickt M06-Antworten immer ueber SSE, zeigt ein fruehes Typing-Signal und
+  laesst Audio separat nachkommen.
 - Persona-Antworten werden bei aktivem LiveTalk jetzt asynchron vorgelesen,
   ohne dass der Chat bis zum Ende der Wiedergabe im Loading-Zustand bleibt.
 - Waehrend eine Antwort abgespielt wird, zeigt der Chat sichtbar
   `spricht gerade · <Voice>` an.
+- `client/src/lib/globalMediaController.ts` ist jetzt die kleine gemeinsame
+  Client-Wahrheit fuer laufende Audio-/Request-Aktivitaet; Topbar-Stop, Shell-
+  LiveTalk-Off, M06 und `M08_studio-chat/ui/StudioSession.tsx` nutzen denselben
+  Stop-/Abort-Pfad.
+- `server/src/routes/studio.ts` akzeptiert fuer `/api/discuss` jetzt `appMode`
+  und sendet im Stream-Modus ein fruehes `typing`-Event vor dem Text-Event.
+- `server/src/studioPrompt.ts` injiziert jetzt einen expliziten App-Modus-Block,
+  damit Maya im Chat nicht mehr still Studio-Kontext behauptet.
 - `client/src/app/App.tsx` haengt jetzt `PAGE_ASTRO`, `PAGE_REPORT` und
   `PAGE_SOULS` ueber gemeinsame `TabPageShell`- und `TabSectionFrame`-Wrapper in
   die neue Shell-Sprache ein, ohne ihre bestehende Fachlogik umzuschreiben.
@@ -219,10 +230,14 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
   auf mehrere Konfigurationsstellen verteilt.
 - `server/src/lib/personaRouter.ts` enthaelt sowohl allgemeine Persona-Provider
   als auch tiefere Persona-Konfiguration fuer Standard, Deep und TTS.
-- Discuss kann Text sofort streamen und Audio spaeter per SSE nachliefern.
+- Discuss kann Text ueber SSE sofort sichtbar machen, ein fruehes Typing-Signal
+  senden und Audio spaeter nachliefern.
 - Der globale Shell-LiveTalk-State steuert jetzt auch den Chat-Tab fuer Banner,
   Gear-Dropdown und Persona-Settings; die M06-Runtime nutzt weiter einen lokalen
   Audio-/STT-Hook fuer Aufnahme und Playback.
+- Chat und Studio haben jetzt zusaetzlich einen kleinen gemeinsamen
+  Global-Stop-Pfad fuer laufende Requests und Playback, ohne dass dafuer eine
+  neue globale State-Architektur eingezogen wurde.
 - Der konkrete Freisprechen-Bruch lag in der letzten Meile der Eventkette:
   sichtbarer Speech-Entwurf und Silence-Auto-Send waren nicht robust genug an
   das Chat-Input bzw. an Interim-only-Ergebnisse gekoppelt.
@@ -235,6 +250,9 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
 - Es existieren weiterhin mehrere Client-Playback-Pfade im Repo
   (`M06_discuss`, `M02_ui-kit`, Teile von M08); das ist derzeit eher ein
   `relocate`-/`biegt`-Thema als ein akuter Laufzeitbruch.
+- Die Provider-Schicht in `server/src/lib/providers.ts` streamt weiterhin nicht
+  tokenweise; die aktuelle Latenzverbesserung ist daher ein frueheres SSE-
+  Sichtbarkeitssignal, kein echtes Delta-Streaming aus dem Modell.
 
 ### Persistenzrealitaet
 

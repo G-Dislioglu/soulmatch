@@ -1,4 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { clearGlobalMediaSource, registerGlobalStopHandler, setGlobalRequestRunning } from '../../../lib/globalMediaController';
+
+const DISCUSS_REQUEST_SOURCE = 'm06-discuss-request';
 
 interface DiscussPayload {
   personas: string[];
@@ -6,6 +9,7 @@ interface DiscussPayload {
   conversationHistory?: Array<{ role: string; content: string }>;
   personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string }>;
   userId?: string;
+  appMode?: string;
   stream?: boolean;
   audioMode?: boolean;
 }
@@ -26,6 +30,7 @@ interface DiscussResponse {
 }
 
 interface StreamCallbacks {
+  onTyping?: (persona: string, color: string) => void;
   onText: (persona: string, text: string, color: string) => void;
   onAudio: (persona: string, audioUrl: string, meta?: { ttsEngineUsed?: string; ttsMimeType?: string }) => void;
   onDone?: (creditsUsed?: number) => void;
@@ -34,20 +39,37 @@ interface StreamCallbacks {
 export function useDiscussApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const cancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setLoading(false);
+    setGlobalRequestRunning(DISCUSS_REQUEST_SOURCE, false);
+  }, []);
+
+  useEffect(() => registerGlobalStopHandler(DISCUSS_REQUEST_SOURCE, cancel), [cancel]);
+  useEffect(() => () => clearGlobalMediaSource(DISCUSS_REQUEST_SOURCE), []);
 
   const call = useCallback(async (payload: DiscussPayload): Promise<DiscussResponse | null> => {
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setLoading(true);
     setError(null);
+    setGlobalRequestRunning(DISCUSS_REQUEST_SOURCE, true);
     try {
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           ...payload,
           personas: payload.personas,
           message: payload.message,
           conversationHistory: payload.conversationHistory ?? [],
           personaSettings: payload.personaSettings,
+          appMode: payload.appMode,
           stream: false,
           audioMode: payload.audioMode ?? false,
         }),
@@ -60,10 +82,17 @@ export function useDiscussApi() {
       const data = await res.json();
       return data as DiscussResponse;
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return null;
+      }
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
       return null;
     } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
       setLoading(false);
+      setGlobalRequestRunning(DISCUSS_REQUEST_SOURCE, false);
     }
   }, []);
 
@@ -71,16 +100,22 @@ export function useDiscussApi() {
     payload: DiscussPayload,
     callbacks: StreamCallbacks,
   ): Promise<void> => {
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setLoading(true);
     setError(null);
+    setGlobalRequestRunning(DISCUSS_REQUEST_SOURCE, true);
     try {
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           ...payload,
           conversationHistory: payload.conversationHistory ?? [],
           personaSettings: payload.personaSettings,
+          appMode: payload.appMode,
           stream: true,
           audioMode: payload.audioMode ?? false,
         }),
@@ -106,7 +141,9 @@ export function useDiscussApi() {
           if (!line.startsWith('data:')) continue;
           try {
             const event = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
-            if (event.type === 'text' && typeof event.persona === 'string' && typeof event.text === 'string') {
+            if (event.type === 'typing' && typeof event.persona === 'string') {
+              callbacks.onTyping?.(event.persona, typeof event.color === 'string' ? event.color : '');
+            } else if (event.type === 'text' && typeof event.persona === 'string' && typeof event.text === 'string') {
               callbacks.onText(event.persona, event.text, typeof event.color === 'string' ? event.color : '');
             } else if (event.type === 'audio' && typeof event.persona === 'string') {
               const audioUrl =
@@ -129,11 +166,18 @@ export function useDiscussApi() {
         }
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
       setLoading(false);
+      setGlobalRequestRunning(DISCUSS_REQUEST_SOURCE, false);
     }
   }, []);
 
-  return { call, callStream, loading, error };
+  return { call, callStream, cancel, loading, error };
 }

@@ -16,6 +16,7 @@ import { PERSONAS, type ChatMessage, type PersonaInfo } from '../types';
 interface Props {
   onBack?: () => void;
   liveTalk: LiveTalkController;
+  appMode: string;
 }
 
 const REPLIES: Record<string, string[]> = {
@@ -112,20 +113,7 @@ function makeMessage(partial: Omit<ChatMessage, 'id' | 'timestamp'>): ChatMessag
   };
 }
 
-function getAudioUrlFromResponse(response: { audio_url?: string; audio?: string; mimeType?: string } | undefined): string | undefined {
-  if (!response) return undefined;
-  if ((response as { audioUrl?: string }).audioUrl) return (response as { audioUrl?: string }).audioUrl;
-  if (response.audio_url) return response.audio_url;
-  if (response.audio && response.audio.trim().length > 0) {
-    if (response.audio.startsWith('http://') || response.audio.startsWith('https://') || response.audio.startsWith('data:')) {
-      return response.audio;
-    }
-    return `data:${response.mimeType ?? 'audio/wav'};base64,${response.audio}`;
-  }
-  return undefined;
-}
-
-export function DiscussionChat({ onBack, liveTalk }: Props) {
+export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
   const [selectedPersonaId, setSelectedPersonaId] = useState('maya');
   const [panelPersonaId, setPanelPersonaId] = useState('maya');
   const [messagesByPersona, setMessagesByPersona] = useState<Record<string, ChatMessage[]>>(() =>
@@ -149,12 +137,14 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
   const [ttsTelemetryStatus, setTtsTelemetryStatus] = useState<'idle' | 'ok' | 'missing'>('idle');
   const [audioDiag, setAudioDiag] = useState('idle');
   const [audioDiagError, setAudioDiagError] = useState<string | null>(null);
+  const [typingPersonaId, setTypingPersonaId] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
   const sendMessageRef = useRef<(textRaw: string, personaId?: string) => Promise<void>>(async () => {});
   const requestIdRef = useRef(0);
   const forceAudioRequestRef = useRef(false);
   const speechDraftRef = useRef('');
-  const { call, callStream } = useDiscussApi();
+  const typingTimeoutRef = useRef<number | null>(null);
+  const { callStream, cancel } = useDiscussApi();
   const runtimeLiveTalk = useDiscussLiveTalk({
     onTranscript: (text) => {
       setInput(text);
@@ -209,6 +199,24 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
     await runtimeLiveTalk.playAudio(lastPersonaAudioUrl ?? undefined);
   }, [lastPersonaAudioUrl, runtimeLiveTalk]);
 
+  const clearTypingTimeout = useCallback(() => {
+    if (typingTimeoutRef.current !== null) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showTyping = useCallback((personaId: string | null) => {
+    clearTypingTimeout();
+    setTypingPersonaId(personaId);
+    if (personaId) {
+      typingTimeoutRef.current = window.setTimeout(() => {
+        setTypingPersonaId((current) => (current === personaId ? null : current));
+        typingTimeoutRef.current = null;
+      }, 2000);
+    }
+  }, [clearTypingTimeout]);
+
   const sendMessage = useCallback(async (textRaw: string, personaId = selectedPersonaId) => {
     const persona = PERSONAS.find((entry) => entry.id === personaId);
     const text = textRaw.trim();
@@ -246,6 +254,7 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
 
     const shouldRequestAudio = ((liveTalk.liveTalkActive && liveTalk.ttsEnabled && LIVE_AUDIO_ENABLED) || (showAudioDevTools && forceAudioRequestRef.current));
     setLastRequestedAudioMode(shouldRequestAudio);
+    showTyping(persona.id);
 
     const personaSettings = {
       [persona.id]: {
@@ -253,120 +262,97 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
       },
     };
 
-    if (shouldRequestAudio) {
-      void callStream(
-        {
-          personas: [persona.id],
-          message: text,
-          conversationHistory: historyForCall,
-          personaSettings,
-          userId: profile?.id,
-          audioMode: true,
-          stream: true,
+    const streamMessageId = `stream-${requestId}-${persona.id}`;
+    await callStream(
+      {
+        personas: [persona.id],
+        message: text,
+        conversationHistory: historyForCall,
+        personaSettings,
+        userId: profile?.id,
+        appMode,
+        audioMode: shouldRequestAudio,
+        stream: true,
+      },
+      {
+        onTyping: (streamPersonaId) => {
+          if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+            return;
+          }
+          showTyping(streamPersonaId);
         },
-        {
-          onText: (streamPersonaId, streamText, color) => {
-            if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
-              return;
+        onText: (streamPersonaId, streamText, color) => {
+          if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+            return;
+          }
+
+          showTyping(null);
+          setMessagesByPersona((current) => {
+            const base = current[persona.id] ?? [buildIntroMessage(persona)];
+            const existingIndex = base.findIndex((message) => message.id === streamMessageId);
+            const streamedMessage = {
+              id: streamMessageId,
+              role: 'persona' as const,
+              senderName: persona.name,
+              senderIcon: persona.icon,
+              senderColor: color || persona.color,
+              text: streamText,
+              timestamp: ts(),
+            };
+
+            if (existingIndex >= 0) {
+              const next = [...base];
+              next[existingIndex] = streamedMessage;
+              return {
+                ...current,
+                [persona.id]: next,
+              };
             }
 
-            setMessagesByPersona((current) => ({
+            return {
               ...current,
-              [persona.id]: [
-                ...(current[persona.id] ?? [buildIntroMessage(persona)]),
-                makeMessage({
-                  role: 'persona',
-                  senderName: persona.name,
-                  senderIcon: persona.icon,
-                  senderColor: color || persona.color,
-                  text: streamText,
-                }),
-              ],
-            }));
-            setIsAnalyzing(false);
-            setForceAudioRequest(false);
-            forceAudioRequestRef.current = false;
-          },
-          onAudio: (streamPersonaId, audioUrl, meta) => {
-            if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
-              return;
-            }
-
-            setLastPersonaAudioUrl(audioUrl);
-            setLastServerTtsEngine(meta?.ttsEngineUsed ?? null);
-            setLastServerTtsMimeType(meta?.ttsMimeType ?? null);
-            setTtsTelemetryStatus(meta?.ttsEngineUsed ? 'ok' : audioUrl ? 'missing' : 'idle');
-            setIsPersonaSpeaking(true);
-            void runtimeLiveTalk.playAudio(audioUrl)
-              .catch((error: unknown) => {
-                console.error('[LiveTalk] autoplay failed', error);
-              })
-              .finally(() => {
-                setIsPersonaSpeaking(false);
-              });
-          },
-          onDone: () => {
-            if (requestId !== requestIdRef.current) {
-              return;
-            }
-            setIsAnalyzing(false);
-            setForceAudioRequest(false);
-            forceAudioRequestRef.current = false;
-          },
+              [persona.id]: [...base, streamedMessage],
+            };
+          });
+          setIsAnalyzing(false);
+          setForceAudioRequest(false);
+          forceAudioRequestRef.current = false;
         },
-      );
+        onAudio: (streamPersonaId, audioUrl, meta) => {
+          if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+            return;
+          }
 
-      return;
-    }
-
-    const response = await call({
-      personas: [persona.id],
-      message: text,
-      conversationHistory: historyForCall,
-      personaSettings,
-      userId: profile?.id,
-      audioMode: false,
-      stream: false,
-    });
-
-    if (requestId !== requestIdRef.current) {
-      return;
-    }
-
-    const first = response?.responses?.[0];
-    const replyText = first?.text?.trim() || REPLIES[persona.id]?.[0] || 'Ich hoere dich.';
-    const audioUrl = getAudioUrlFromResponse(first);
-    const serverTtsEngine = typeof first?.tts_engine_used === 'string' && first.tts_engine_used.trim().length > 0
-      ? first.tts_engine_used.trim()
-      : null;
-    const serverTtsMimeType = typeof first?.tts_mime_type === 'string' && first.tts_mime_type.trim().length > 0
-      ? first.tts_mime_type.trim()
-      : null;
-
-    setLastPersonaAudioUrl(audioUrl ?? null);
-    setLastServerTtsEngine(serverTtsEngine);
-    setLastServerTtsMimeType(serverTtsMimeType);
-    setTtsTelemetryStatus(audioUrl && !serverTtsEngine ? 'missing' : serverTtsEngine ? 'ok' : 'idle');
-    setMessagesByPersona((current) => ({
-      ...current,
-      [persona.id]: [
-        ...(current[persona.id] ?? [buildIntroMessage(persona)]),
-        makeMessage({
-          role: 'persona',
-          senderName: persona.name,
-          senderIcon: persona.icon,
-          senderColor: persona.color,
-          text: replyText,
-        }),
-      ],
-    }));
+          setLastPersonaAudioUrl(audioUrl);
+          setLastServerTtsEngine(meta?.ttsEngineUsed ?? null);
+          setLastServerTtsMimeType(meta?.ttsMimeType ?? null);
+          setTtsTelemetryStatus(meta?.ttsEngineUsed ? 'ok' : audioUrl ? 'missing' : 'idle');
+          setIsPersonaSpeaking(true);
+          void runtimeLiveTalk.playAudio(audioUrl)
+            .catch((error: unknown) => {
+              console.error('[LiveTalk] autoplay failed', error);
+            })
+            .finally(() => {
+              setIsPersonaSpeaking(false);
+            });
+        },
+        onDone: () => {
+          if (requestId !== requestIdRef.current) {
+            return;
+          }
+          showTyping(null);
+          setIsAnalyzing(false);
+          setForceAudioRequest(false);
+          forceAudioRequestRef.current = false;
+        },
+      },
+    );
 
     if (requestId === requestIdRef.current) {
+      showTyping(null);
       setIsAnalyzing(false);
-      forceAudioRequestRef.current = false;
     }
-
-  }, [call, callStream, liveTalk.selectedVoice, profile?.id, runtimeLiveTalk, selectedPersonaId, showAudioDevTools]);
+  }, [appMode, callStream, liveTalk.selectedVoice, profile?.id, runtimeLiveTalk, selectedPersonaId, showAudioDevTools, showTyping]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -414,6 +400,16 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
       runtimeLiveTalk.deactivate();
     }
   }, [liveTalk.liveTalkActive, liveTalk.micEnabled, runtimeLiveTalk]);
+
+  useEffect(() => {
+    if (!liveTalk.liveTalkActive) {
+      cancel();
+      showTyping(null);
+      setIsAnalyzing(false);
+    }
+  }, [cancel, liveTalk.liveTalkActive, showTyping]);
+
+  useEffect(() => () => clearTypingTimeout(), [clearTypingTimeout]);
 
   useEffect(() => {
     const feed = feedRef.current;
@@ -654,7 +650,11 @@ export function DiscussionChat({ onBack, liveTalk }: Props) {
               );
             })}
 
-            {isAnalyzing ? <div style={styles.analyzing}>Antwort wird aufgebaut…</div> : null}
+            {typingPersonaId ? (
+              <div style={styles.analyzing}>
+                {(PERSONAS.find((persona) => persona.id === typingPersonaId)?.name ?? 'Persona')} tippt gerade…
+              </div>
+            ) : isAnalyzing ? <div style={styles.analyzing}>Antwort wird aufgebaut…</div> : null}
           </div>
 
           <div style={{ ...styles.inputWrap, borderColor: liveTalk.liveTalkActive ? 'rgba(74,222,128,0.55)' : TOKENS.b1 }}>

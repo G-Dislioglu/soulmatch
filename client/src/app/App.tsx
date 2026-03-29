@@ -49,6 +49,7 @@ import {
 } from '../modules/M01_app-shell';
 import { HomePage as StartPage } from '../modules/M00_home';
 import { useLiveTalk } from '../hooks/useLiveTalk';
+import { stopGlobalMedia, useGlobalMediaState } from '../lib/globalMediaController';
 
 const ACCENT = '#d4af37';
 const HOME_PAGE = 'home' as const;
@@ -251,6 +252,7 @@ function HomePage() {
   const [matchRecomputeIds, setMatchRecomputeIds] = useState<{ aId: string; bId: string } | null>(null);
   const [matchEditFocusField, setMatchEditFocusField] = useState<'birthTime' | 'birthLocation' | undefined>(undefined);
   const liveTalk = useLiveTalk();
+  const globalMedia = useGlobalMediaState();
 
   // ── Maya Command System state ──
   const [highlightedCard] = useState<string | null>(null);
@@ -1172,6 +1174,10 @@ function HomePage() {
           liveTalk={liveTalk}
           onOpenMobileSidebar={() => setMobileDrawerOpen(true)}
           onOpenSettings={() => setOverlay('settings')}
+          mediaControl={{
+            active: globalMedia.audioPlaying || globalMedia.requestRunning,
+            onStop: stopGlobalMedia,
+          }}
           extraActions={<ControlsDropdown settings={cardSettings} setSettings={setCardSettings} />}
         />
       </div>
@@ -1766,7 +1772,7 @@ function HomePage() {
 
         {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_CHAT && (
-          <DiscussionChat liveTalk={liveTalk} onBack={() => setActivePage(PAGE_PROFILE)} />
+          <DiscussionChat liveTalk={liveTalk} appMode="chat" onBack={() => setActivePage(PAGE_PROFILE)} />
         )}
 
         {/* ═══ PAGE 7: STUDIO ═══ */}

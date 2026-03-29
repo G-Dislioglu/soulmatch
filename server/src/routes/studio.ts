@@ -707,6 +707,7 @@ interface DiscussRequestBody {
   message: string;
   conversationHistory?: Array<{ role: string; content: string }>;
   userChart?: string;
+  appMode?: string;
   audioMode?: boolean;
   lilithIntensity?: LilithIntensity;
   clientApiKey?: string;
@@ -719,7 +720,7 @@ interface DiscussRequestBody {
   turn?: number;
   autoTurn?: boolean;
   allowUserCheckIn?: boolean;
-  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict' }>;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string }>;
 }
 
 type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
@@ -1148,6 +1149,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       otherPersonas: personasToCall.filter((p) => p !== personaId),
       previousResponses: currentAccumulatedContext,
       userChart: body.userChart ?? '',
+      appMode: body.appMode,
       topic: body.topic,
       debateMode: body.debateMode,
       studioMode: isStudioRound,
@@ -1170,6 +1172,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         model: providerConfig.model,
         persona: personaId,
       });
+
+      if (wantsStream) {
+        sendSseEvent({ type: 'typing', persona: personaId, color: personaDef.color });
+      }
 
       const rawText = await callProvider(
         providerConfig.provider,

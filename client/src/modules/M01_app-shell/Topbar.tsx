@@ -9,10 +9,14 @@ interface TopbarProps {
   liveTalk: LiveTalkController;
   onOpenMobileSidebar: () => void;
   onOpenSettings: () => void;
+  mediaControl?: {
+    active: boolean;
+    onStop: () => void;
+  };
   extraActions?: ReactNode;
 }
 
-export function Topbar({ page, liveTalk, onOpenMobileSidebar, onOpenSettings, extraActions }: TopbarProps) {
+export function Topbar({ page, liveTalk, onOpenMobileSidebar, onOpenSettings, mediaControl, extraActions }: TopbarProps) {
   return (
     <div className="sm-topbar-shell" style={{ position: 'sticky', top: 0, zIndex: 40, background: 'rgba(8,6,14,0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
       <div
@@ -66,6 +70,25 @@ export function Topbar({ page, liveTalk, onOpenMobileSidebar, onOpenSettings, ex
           <div style={{ minWidth: 220, flex: '0 1 280px' }}>
             <LiveTalkButton variant="topbar" liveTalk={liveTalk} />
           </div>
+
+          {mediaControl?.active ? (
+            <button
+              type="button"
+              onClick={mediaControl.onStop}
+              style={{
+                height: 42,
+                padding: '0 14px',
+                borderRadius: 24,
+                border: `1.5px solid ${TOKENS.goldSoft}`,
+                background: 'rgba(212,175,55,0.12)',
+                color: TOKENS.gold,
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Stop
+            </button>
+          ) : null}
 
           {extraActions}
 

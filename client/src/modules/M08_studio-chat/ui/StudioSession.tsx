@@ -3,6 +3,7 @@ import { StudioConfig, TalkMode } from './StudioSetup'
 import { PersonaTensionCard } from './PersonaTensionCard'
 import { RelationshipLines } from './RelationshipLines'
 import { useSpeechToText } from '../../../hooks/useSpeechToText'
+import { clearGlobalMediaSource, registerGlobalStopHandler, setGlobalAudioPlaying, setGlobalRequestRunning } from '../../../lib/globalMediaController'
 import { SpeechConsentDialog } from './SpeechConsentDialog'
 import { usePersonaTension } from '../../../hooks/usePersonaTension'
 import { PersonaTuningBar, getPersonaAccentProfile, getPersonaHumorLevel } from './PersonaTuningBar'
@@ -70,6 +71,9 @@ interface Props {
   onBack: () => void
 }
 
+const STUDIO_AUDIO_SOURCE = 'm08-studio-audio'
+const STUDIO_REQUEST_SOURCE = 'm08-studio-request'
+
 export function StudioSession({ config, onBack }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [userInput, setUserInput] = useState('')
@@ -87,6 +91,7 @@ export function StudioSession({ config, onBack }: Props) {
   const isContinuousModeRef = useRef(false)
   const shouldResumeSpeechAfterAudioRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const currentRequestAbortRef = useRef<AbortController | null>(null)
   const nextTurnTimerRef = useRef<number | null>(null)
   const prefetchedAutoTurnRef = useRef<PrefetchedAutoTurn | null>(null)
   const autoRoundsSinceUserRef = useRef(0)
@@ -125,6 +130,25 @@ export function StudioSession({ config, onBack }: Props) {
     clearMicroReaction,
   } = usePersonaTension(initPersonas)
 
+  const stopPlayback = useCallback(() => {
+    clearNextTurnTimer()
+    prefetchedAutoTurnRef.current = null
+    currentRequestAbortRef.current?.abort()
+    currentRequestAbortRef.current = null
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current.currentTime = 0
+      currentAudioRef.current = null
+    }
+    setGlobalAudioPlaying(STUDIO_AUDIO_SOURCE, false)
+    setGlobalRequestRunning(STUDIO_REQUEST_SOURCE, false)
+    speech.setPlaybackActive(false)
+    shouldResumeSpeechAfterAudioRef.current = false
+    runningRef.current = false
+    setIsLoading(false)
+    clearSpeaking()
+  }, [clearNextTurnTimer, clearSpeaking, speech])
+
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
@@ -143,18 +167,16 @@ export function StudioSession({ config, onBack }: Props) {
 
     return () => {
       isMountedRef.current = false
-      clearNextTurnTimer()
-      runningRef.current = false
+      stopPlayback()
       isContinuousModeRef.current = false
-      prefetchedAutoTurnRef.current = null
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause()
-        currentAudioRef.current.currentTime = 0
-      }
-      speech.setPlaybackActive(false)
       speech.stopContinuous()
+      clearGlobalMediaSource(STUDIO_AUDIO_SOURCE)
+      clearGlobalMediaSource(STUDIO_REQUEST_SOURCE)
     }
-  }, [clearNextTurnTimer, config.talkMode])
+  }, [config.talkMode, speech, stopPlayback])
+
+  useEffect(() => registerGlobalStopHandler(STUDIO_AUDIO_SOURCE, stopPlayback), [stopPlayback])
+  useEffect(() => registerGlobalStopHandler(STUDIO_REQUEST_SOURCE, stopPlayback), [stopPlayback])
 
   const getInterSpeakerPauseMs = useCallback((speakerId: string) => {
     const baseByPersona: Record<string, number> = {
@@ -218,6 +240,7 @@ export function StudioSession({ config, onBack }: Props) {
       const audio = new Audio(audioUrl)
       currentAudioRef.current = audio
       audio.preload = 'auto'
+      setGlobalAudioPlaying(STUDIO_AUDIO_SOURCE, true)
 
       speech.setPlaybackActive(true)
       pauseSpeechForAudio()
@@ -242,6 +265,7 @@ export function StudioSession({ config, onBack }: Props) {
       if (currentAudioRef.current) {
         currentAudioRef.current = null
       }
+      setGlobalAudioPlaying(STUDIO_AUDIO_SOURCE, false)
       speech.setPlaybackActive(false)
       resumeSpeechAfterAudioIfNeeded()
     }
@@ -262,6 +286,11 @@ export function StudioSession({ config, onBack }: Props) {
   }
 
   async function callDiscuss(userMessage?: string, turnOverride = turnRef.current, historyOverride = messages) {
+    currentRequestAbortRef.current?.abort()
+    const abortController = new AbortController()
+    currentRequestAbortRef.current = abortController
+    setGlobalRequestRunning(STUDIO_REQUEST_SOURCE, true)
+
     const personaSettings = Object.fromEntries(
       discussPersonas.map((id) => [
         id,
@@ -300,6 +329,7 @@ export function StudioSession({ config, onBack }: Props) {
       stream: false,
       audioMode: isContinuousModeRef.current,
       personaSettings,
+      appMode: 'studio',
 
       studioMode: true,
       topic: config.topic,
@@ -312,11 +342,20 @@ export function StudioSession({ config, onBack }: Props) {
     const res = await fetch('/api/discuss', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: abortController.signal,
       body: JSON.stringify(body),
     })
 
     if (!res.ok) throw new Error('API ' + res.status)
-    return res.json() as Promise<DiscussResult>
+
+    try {
+      return await res.json() as DiscussResult
+    } finally {
+      if (currentRequestAbortRef.current === abortController) {
+        currentRequestAbortRef.current = null
+      }
+      setGlobalRequestRunning(STUDIO_REQUEST_SOURCE, false)
+    }
   }
 
   const generateReport = useCallback(async () => {
@@ -335,9 +374,15 @@ export function StudioSession({ config, onBack }: Props) {
         turn: turnRef.current,
       })
 
+      currentRequestAbortRef.current?.abort()
+      const abortController = new AbortController()
+      currentRequestAbortRef.current = abortController
+      setGlobalRequestRunning(STUDIO_REQUEST_SOURCE, true)
+
       const res = await fetch('/api/discuss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           personas: ['maya'],
           message: `Erstelle einen Studio-Report zum Thema "${config.topic}". Der User ist Beobachter. Gib 5-8 Sätze: kurze Zusammenfassung der Positionen, Hauptkonflikte, Schnittmengen und klaren Ausblick für die nächste Runde.`,
@@ -348,6 +393,7 @@ export function StudioSession({ config, onBack }: Props) {
           end_session: false,
           stream: false,
           audioMode: isContinuousModeRef.current,
+          appMode: 'studio',
           personaSettings: {
             maya: {
               humor: getPersonaHumorLevel('maya'),
@@ -380,9 +426,15 @@ export function StudioSession({ config, onBack }: Props) {
         void playPersonaAudio(reportAudio)
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setReportText('Report gestoppt.')
+        return
+      }
       console.warn('[StudioSession] report failed', err)
       setReportText(err instanceof Error ? err.message : 'Report konnte nicht erzeugt werden.')
     } finally {
+      currentRequestAbortRef.current = null
+      setGlobalRequestRunning(STUDIO_REQUEST_SOURCE, false)
       setIsGeneratingReport(false)
     }
   }, [config.mode, config.topic, isGeneratingReport, isLoading, messages, playPersonaAudio])
@@ -512,6 +564,11 @@ export function StudioSession({ config, onBack }: Props) {
         }, getNextAutoTurnDelayMs())
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setIsLoading(false)
+        runningRef.current = false
+        return
+      }
       console.error('[StudioSession]', err)
       errorCountRef.current++
 

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import { clearGlobalMediaSource, registerGlobalStopHandler, setGlobalAudioPlaying } from '../../../lib/globalMediaController';
+
+const DISCUSS_AUDIO_SOURCE = 'm06-discuss-audio';
 
 interface UseLiveTalkOptions {
   onTranscript: (text: string) => void;
@@ -256,6 +259,14 @@ export function useLiveTalk({ onTranscript }: UseLiveTalkOptions) {
       stopAudio();
     };
   }, [speech, stopAudio]);
+
+  useEffect(() => registerGlobalStopHandler(DISCUSS_AUDIO_SOURCE, stopAudio), [stopAudio]);
+
+  useEffect(() => {
+    setGlobalAudioPlaying(DISCUSS_AUDIO_SOURCE, isSpeaking);
+  }, [isSpeaking]);
+
+  useEffect(() => () => clearGlobalMediaSource(DISCUSS_AUDIO_SOURCE), []);
 
   return {
     isActive,

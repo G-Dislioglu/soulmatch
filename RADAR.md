@@ -155,16 +155,30 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat D - Freisprechen / Voice Reliability Audit
 
-- `status`: `active`
+- `status`: `adopted`
 - `truth_class`: `derived_from_review`
 - `source_type`: `repo_review`
-- `next_gate`: `proposal`
-- `why_not_now`: UI-Redesign-Block fuer die restlichen Tabs ist jetzt abgeschlossen; der Audit ist damit wieder der naechste enge technische Kandidat.
-- `non_scope`: neue TTS-Engine, Credits-System, grosser Persona-Router-Refactor
-- `risk`: kann bei schlechtem Zuschnitt in generelles Audio-Refactoring kippen
+- `next_gate`: `archive`
+- `absorbed_into`: `client/src/modules/M06_discuss/**`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/lib/globalMediaController.ts`, `server/src/routes/studio.ts`, `server/src/studioPrompt.ts`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
+- `non_scope`: neue TTS-Engine, Credits-System, grosser Persona-Router-Refactor, tokenweises Provider-Streaming
+- `risk`: Restlatenz bleibt, solange `server/src/lib/providers.ts` keine echten Token-Deltas liefert
 - `betroffene_bereiche`: `client/src/hooks/useSpeechToText.ts`, `client/src/modules/M06_discuss/**`, `server/src/routes/studio.ts`, `server/src/lib/ttsService.ts`
-- `kurzurteil`: Bereits gebaute Voice-Funktionalitaet verdient vor neuen Audio-Ideen einen engen Stabilitaetsblock.
-- `evidence`: STT-Loop-Guards im Client, SSE-Text-vor-Audio im Server und TTS-Fallback mit zwei Engines sind repo-sichtbar.
+- `kurzurteil`: Der enge Voice-Hardening-Block ist jetzt repo-sichtbar umgesetzt: frueheres Chat-Feedback, globaler Stop/Abort fuer Chat und Studio und sauberer Moduskontext fuer Maya.
+- `evidence`: `useDiscussApi.ts` ist abortierbar und streamt M06 immer ueber SSE; `Topbar.tsx`, Shell-LiveTalk und `StudioSession.tsx` teilen jetzt einen globalen Stop-Pfad; `studioPrompt.ts` nutzt `appMode`.
+
+### Kandidat I - True Provider Streaming
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `proposal`
+- `why_not_now`: Der aktuelle Crush-Block hat die sichtbare UX-Haerte geliefert; fuer echte weitere Latenzsenkung muesste jetzt gezielt die Provider-Schicht geoeffnet werden.
+- `non_scope`: neuer Persona-Umbau, allgemeiner SSE-Refactor ueber alle Routen
+- `risk`: mittel bis hoch, weil `server/src/lib/providers.ts` heute request/response-zentriert arbeitet und Provider unterschiedlich streamen
+- `betroffene_bereiche`: `server/src/lib/providers.ts`, `server/src/routes/studio.ts`, ggf. Provider-spezifische Adapter
+- `kurzurteil`: Die aktuelle Verbesserung ist fruehes SSE-Feedback, aber noch kein echtes Token-Streaming aus dem Modell.
+- `evidence`: `server/src/routes/studio.ts` sendet `typing` und danach fertigen Text; `server/src/lib/providers.ts` streamt keine Provider-Deltas.
 
 ### Kandidat E - Dev Token Hardening
 

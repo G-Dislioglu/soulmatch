@@ -866,6 +866,7 @@ export interface DiscussPromptContext {
   otherPersonas: string[];
   previousResponses: string;
   userChart: string;
+  appMode?: string;
   topic?: string;
   debateMode?: string;
   studioMode?: boolean;
@@ -897,9 +898,11 @@ WICHTIGES APP-WISSEN FÜR DICH:
 - Es gibt 3 Haupt-Tabs in der App: Profil (♏), Report (◈) und Studio (☽).
 - Profil: Dort sieht der User seine eigene Soulmatch-Card (Kosmischer Bauplan, Sonne, Mond, etc.) und seine Aura.
 - Report: Dort kann man sich mit anderen Personen "matchen" und sieht den Soulmatch-Score (0-100%) sowie Astrologie/Numerologie-Synergien.
-- Studio: Das ist der Bereich, in dem wir uns gerade befinden. Hier kann der User mit uns Personas chatten (Solo oder als Gruppe).
+- Studio: Dort kann der User mit Personas chatten (Solo oder als Gruppe).
 - Sidebar: Dort gibt es eine Timeline mit allen Ereignissen und "Soul Cards" (wichtige Einsichten, die wir als Erinnerung für den User speichern können).
 Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen kurz in deinem eigenen Stil.`;
+
+  const currentModeBlock = `\nDu bist gerade im ${context.appMode ?? 'unknown'}-Modus aktiv.`;
 
   const PERSONA_DISCUSS_DESCRIPTIONS: Record<string, string> = {
     ...PERSONA_DESCRIPTIONS,
@@ -1025,6 +1028,10 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? ''
     : firstContactBlock;
 
+  const conversationFrameBlock = context.studioMode
+    ? `${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}\nDu bist in einer Studio-Diskussionsrunde mit ${activePersonaNames}.`
+    : 'Du bist in einem direkten 1:1-Chat mit dem User.';
+
   const discussMetaBlock = personaId === 'sri' ? '' : `\n\n${STUDIO_META_OUTPUT_BLOCK}`;
 
   return `## SPRACHE & STIL (höchste Priorität)
@@ -1036,15 +1043,13 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
 - Schlecht: "Das ist eine interessante Frage. Lass mich erklären..."
 - Gut: "Hmm... dein Mars in Skorpion. Das erklärt einiges."
 
-${APP_CONTEXT_BLOCK}
+${APP_CONTEXT_BLOCK}${currentModeBlock}
 
 ${COMMON_PERSONA_GUIDANCE}
 
 ${personaDesc}${lilithBlock}${tuningBlock}
 
-${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}
-
-Du bist in einer Studio-Diskussionsrunde mit ${activePersonaNames}.
+${conversationFrameBlock}
 ${topicLine}${modeLine}
 ${userProfileBlock}${memoryBlock}${studioFirstContactBlock}${roundTableBlock}${studioObserverBlock}${mayaCadenceBlock}
 AKTUELLE USER-DATEN / CHAT-KONTEXT:

@@ -30,9 +30,9 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-03-29`
 - `quality`: `foundation_live`
-- `known_gap`: Der globale LiveTalk-Hook treibt jetzt Shell und Chat-Steuerflaechen, aber die M06-Runtime nutzt weiter bewusst einen separaten Hook fuer STT und Playback.
-- `next_recommended_step`: Weitere Tabs nur dann an LiveTalk koppeln, wenn dafuer ein sichtbarer Produktnutzen existiert; Voice-Hardening getrennt halten.
-- `evidence`: `client/src/modules/M01_app-shell/Sidebar.tsx`, `client/src/modules/M01_app-shell/Topbar.tsx`, `client/src/hooks/useLiveTalk.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/app/App.tsx`.
+- `known_gap`: Shell, Chat und Studio teilen jetzt zwar einen kleinen globalen Stop-/Abort-Pfad, aber die eigentlichen Audio-Engines bleiben weiter verteilt.
+- `next_recommended_step`: Nur dann weiter zentralisieren, wenn ein konkreter Audio-Bug mehrere Pfade zugleich betrifft.
+- `evidence`: `client/src/modules/M01_app-shell/Sidebar.tsx`, `client/src/modules/M01_app-shell/Topbar.tsx`, `client/src/hooks/useLiveTalk.ts`, `client/src/lib/globalMediaController.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/app/App.tsx`.
 
 ### Startseite / Home Dashboard
 
@@ -80,8 +80,8 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-03-29`
 - `quality`: `powerful_but_distributed`
-- `known_gap`: Provider- und Modellwahrheit ist ueber mehrere Dateien verteilt und von Docs teils veraltet beschrieben.
-- `next_recommended_step`: Provider-Truth-Sync als eigenen kleinen Block schneiden, nicht nebenbei.
+- `known_gap`: Provider- und Modellwahrheit ist ueber mehrere Dateien verteilt, und echtes Token-Streaming endet weiterhin vor `server/src/lib/providers.ts`.
+- `next_recommended_step`: Provider-Truth-Sync und echtes Provider-Streaming getrennt betrachten; beides nicht still vermischen.
 - `evidence`: `server/src/routes/studio.ts` und `server/src/lib/personaRouter.ts` enthalten aktive Konfiguration fuer Gemini, OpenAI, DeepSeek und xAI/Grok.
 
 ### Persona routing und definitions
@@ -99,10 +99,10 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `status`: `active`
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-03-29`
-- `quality`: `high_value_high_risk`
-- `known_gap`: Mehrere fragile Naehte zwischen Browser-STT, Continuous-Mode, SSE-Streaming und serverseitigem TTS-Fallback.
-- `next_recommended_step`: `Freisprechen / Voice Reliability Audit`.
-- `evidence`: `client/src/hooks/useSpeechToText.ts`, `server/src/routes/studio.ts`, `server/src/lib/ttsService.ts`, vorhandene Audio-E2E-Dateien unter `client/e2e/`.
+- `quality`: `hardened_but_not_fully_streamed`
+- `known_gap`: Chat zeigt jetzt frueher Feedback und laesst Stop/Abort global zu, aber die Provider-Schicht streamt noch keine echten Token-Deltas.
+- `next_recommended_step`: Real-Provider-Verifikation fuer Restlatenz, Abort-Verhalten und TTS-Fehlerpfade unter echten Keys.
+- `evidence`: `client/src/hooks/useSpeechToText.ts`, `client/src/modules/M06_discuss/hooks/useDiscussApi.ts`, `client/src/modules/M06_discuss/hooks/useLiveTalk.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/lib/globalMediaController.ts`, `server/src/routes/studio.ts`, `server/src/studioPrompt.ts`, `server/src/lib/ttsService.ts`, vorhandene Audio-E2E-Dateien unter `client/e2e/`.
 
 ### TTS fallback chain
 
@@ -110,8 +110,8 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-03-29`
 - `quality`: `implemented_not_fully_hardened`
-- `known_gap`: Audio-Mode benoetigt aktuell sowohl Gemini- als auch OpenAI-Key fuer die volle Fallback-Kette; Fehlgrenzen sollten enger verifiziert werden.
-- `next_recommended_step`: Im Voice-Audit klaeren, welche Kombinationen wirklich benoetigt und sauber behandelt werden.
+- `known_gap`: Die Key-Abhaengigkeit ist enger korrigiert, aber unter echten Provider-Keys fehlen weiter belastbare Laufzeitchecks fuer Latenz, Fallback und Abort.
+- `next_recommended_step`: Unter Real-Keys verifizieren, welche Provider-Kombinationen sauber sprechen, abbrechen und fallbacken.
 - `evidence`: `server/src/lib/ttsService.ts` und Audio-Pfad in `server/src/routes/studio.ts`.
 
 ### Session memory

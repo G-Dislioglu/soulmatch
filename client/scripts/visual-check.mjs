@@ -46,8 +46,8 @@ if (await guideEndButton.isVisible().catch(() => false)) {
 
 await page.screenshot({ path: path.join(outDir, 'home.png'), fullPage: true });
 
-const shellSidebar = page.locator('aside').first();
-const sidebarLiveTalk = shellSidebar.getByRole('button', { name: /LiveTalk/i }).first();
+const shellSidebar = page.locator('aside.sm-sidebar-shell').first();
+const sidebarLiveTalk = shellSidebar.locator('button').filter({ hasText: /LiveTalk/i }).first();
 const greetingCard = page.getByRole('button', { name: /Mit Maya starten/i });
 const guides = ['Maya', 'Luna', 'Orion', 'Lilith'];
 const guidesVisible = {};
