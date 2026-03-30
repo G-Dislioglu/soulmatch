@@ -249,7 +249,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 arcanaRouter.get('/arcana/personas', async (req: Request, res: Response) => {
   try {
     const db = getDb();
-    const userId = normalizeUserId((req.body as { userId?: string } | undefined)?.userId);
+    const userId = normalizeUserId(
+      (req.query as { userId?: string } | undefined)?.userId
+      ?? (req.body as { userId?: string } | undefined)?.userId,
+    );
     const systemPersonas = Object.keys(SYSTEM_PERSONA_VOICES).map(buildSystemPersona);
 
     if (!userId) {

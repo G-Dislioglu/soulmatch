@@ -512,3 +512,35 @@ Wenn ein neuer Chat startet oder Kontextverlust droht:
 - server/src/routes/studio.ts nutzt fuer generateTTS() im Discuss-Pfad jetzt
   30s Timeout statt 20s, damit der erste Warmup-/TTS-Call weniger leicht in
   den Timeout kippt
+
+### Filler System Phase F1 - Phrasen-Katalog
+
+- server/src/lib/fillerCatalog.ts: 160 Filler-Phrasen fuer 10 Personas,
+  7 Kategorien (thinking, acknowledging, intrigued, preparing, empathizing,
+  challenging, transitioning) und Hilfsfunktionen fuer Persona-, Kategorie-
+  und Zufallsauswahl
+- server/scripts/generateFillerAudio.ts: Einmal-Skript fuer die lokale Gemini-
+  TTS-Generierung aller Filler-Audios nach server/assets/filler/{personaId}/
+  {fillerId}.pcm; noch nicht ausgefuehrt
+- server/assets/filler/: Asset-Ordner mit .gitkeep als Platzhalter fuer lokal
+  generierte Filler-Clips
+- .gitignore ignoriert generierte PCM-Dateien unter server/assets/filler/**
+- Keine Laufzeit-Integration in Discuss oder Studio; F2/F3 bleiben offen
+
+### Arcana Studio Phase 6.1 - Creator UI Grundstruktur
+
+- client/src/modules/M09_arcana/: neues Arcana-Studio-Modul mit Hook, Persona-
+  Liste, Tuning-Platzhalter und Live-Vorschau-Platzhalter
+- ArcanaStudioPage.tsx: Drei-Spalten-Layout fuer Liste, Tuning und Vorschau
+- ArcanaPersonaList.tsx: System- und User-Personas aus der Arcana-API sowie
+  ein Button fuer neue Persona-Entwuerfe
+- ArcanaPersonaTuning.tsx: Platzhalterflaeche fuer Phase 6.2 mit read-only/
+  disabled Controls
+- ArcanaLivePreview.tsx: Platzhalter mit funktionierendem TTS-Preview-Button
+- useArcanaApi.ts: Client-Hook fuer Personas, Presets und TTS-Preview; nutzt
+  clientseitigen Voice-/Accent-Katalog und einen stabilen lokalen Arcana-User-
+  Fallback
+- client/src/app/App.tsx rendert unter dem bestehenden Studio-Tab jetzt Arcana
+  Studio statt M08 StudioPage; M08-Dateien bleiben unveraendert im Repo
+- server/src/routes/arcana.ts akzeptiert fuer GET /api/arcana/personas jetzt
+  userId ueber Query-Parameter, damit User-Personas im Browser ladbar sind

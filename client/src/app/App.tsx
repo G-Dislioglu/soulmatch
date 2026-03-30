@@ -19,7 +19,7 @@ import { computeMatch, computeMatchNarrative } from '../modules/M11_match';
 import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionTypeCard, NumeroPairTable, CompatibilityStoryCard, MatchActionPlan, PairAffirmation, ProfileCompatMatrix, SynastryAspects, KarmicPairCard, LifePathComparison, CommunicationGuide, PartnerTips, SoulPairNarrative, DailyEnergyMatch, FutureVision, PrayerWheel, GrowthPath, ElementBalance, MoonSynergy, CompatOracle, KarmicArc, SoulColorFusion, DailyRitual, SoulBridge, AuraResonance, TwinFlameCheck, SharedYearForecast, EnergyForecast, SoulGeometry, KarmicResolution, MoonPhaseCompat, SoulContract2, ElementalBalance, FutureVisionCard, KarmicRelease, NodalCompat, AuraFusion2, SharedLifePath, SoulColorMatch } from '../modules/M07_reports';
 import { SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import { DiscussionChat } from '../modules/M06_discuss/ui/DiscussionChat';
-import { StudioPage } from '../modules/M08_studio-chat/ui/StudioPage';
+import { ArcanaStudioPage } from '../modules/M09_arcana';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -1791,7 +1791,7 @@ function HomePage() {
               overflow: 'hidden',
             }}
           >
-            <StudioPage />
+            <ArcanaStudioPage userId={profile?.id ?? null} />
           </div>
         )}
 
