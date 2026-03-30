@@ -9,9 +9,9 @@ export function startKeepAlive(): void {
   const ping = async () => {
     try {
       const response = await fetch(KEEP_ALIVE_URL);
-      console.log(`[keepAlive] ping ${new Date().toISOString()} status=${response.status}`);
+      console.log(`[KeepAlive] ping ${new Date().toISOString()} status=${response.status}`);
     } catch (error) {
-      console.error('[keepAlive] ping failed', new Date().toISOString(), String(error));
+      console.error('[KeepAlive] ping failed', new Date().toISOString(), String(error));
     }
   };
 

@@ -509,3 +509,6 @@ Wenn ein neuer Chat startet oder Kontextverlust droht:
 - server/src/index.ts startet den Keep-Alive-Hook direkt nach app.listen()
 - M06 Discuss brauchte dafuer keine UI-Aenderung; Text wird bereits vor Audio
   aus dem SSE text-Event in den Chat geschrieben
+- server/src/routes/studio.ts nutzt fuer generateTTS() im Discuss-Pfad jetzt
+  30s Timeout statt 20s, damit der erste Warmup-/TTS-Call weniger leicht in
+  den Timeout kippt

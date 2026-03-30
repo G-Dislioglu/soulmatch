@@ -1238,7 +1238,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                     openaiApiKey,
                     body.personaSettings?.[personaId],
                   ),
-                  20000,
+                  30000,
                 );
                 ttsEngineUsed = ttsResult.engine;
                 ttsMimeType = ttsResult.mimeType;
@@ -1277,7 +1277,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                   openaiApiKey,
                   body.personaSettings?.[personaId],
                 ),
-                20000,
+                30000,
               );
               ttsEngineUsed = ttsResult.engine;
               ttsMimeType = ttsResult.mimeType;
