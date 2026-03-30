@@ -6,6 +6,7 @@ import path from 'path';
 dotenv.config();
 
 import { fileURLToPath } from 'url';
+import { startKeepAlive } from './lib/keepAlive.js';
 import { arcanaRouter } from './routes/arcana.js';
 import { studioRouter } from './routes/studio.js';
 import { guideRouter } from './routes/guide.js';
@@ -71,4 +72,5 @@ app.get('*', (req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startKeepAlive();
 });

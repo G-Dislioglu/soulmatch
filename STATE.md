@@ -501,3 +501,11 @@ Wenn ein neuer Chat startet oder Kontextverlust droht:
   client/src/modules/M06_discuss/ui/DiscussionChat.tsx machen diese
   Audio-Ausfaelle jetzt fuer den User sichtbar, statt sie nur im Server-Log zu
   verlieren
+
+### Render Keep-Alive - Cold Start abfedern
+
+- server/src/lib/keepAlive.ts pingt in Produktion alle 10 Minuten
+  https://soulmatch-1.onrender.com/api/health an und loggt Status bzw. Fehler
+- server/src/index.ts startet den Keep-Alive-Hook direkt nach app.listen()
+- M06 Discuss brauchte dafuer keine UI-Aenderung; Text wird bereits vor Audio
+  aus dem SSE text-Event in den Chat geschrieben
