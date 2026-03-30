@@ -180,6 +180,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Die aktuelle Verbesserung ist fruehes SSE-Feedback, aber noch kein echtes Token-Streaming aus dem Modell.
 - `evidence`: `server/src/routes/studio.ts` sendet `typing` und danach fertigen Text; `server/src/lib/providers.ts` streamt keine Provider-Deltas.
 
+### Kandidat J - LiveTalk Real-Provider Probe Execution
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `none`
+- `non_scope`: neuer Provider-Stack, Persona-Router-Refactor, browserweite Audio-Neuarchitektur
+- `risk`: niedrig bis mittel; Kosten und Laufzeit liegen eher in realen Provider-Calls als im Repo-Scope
+- `betroffene_bereiche`: `server/scripts/discuss-audio-probe-check.mjs`, `server/src/routes/studio.ts`, laufende Ziel-Runtime
+- `kurzurteil`: Der Verifikationsblock hat jetzt ein eigenes Probe-Werkzeug und eine geschlossene Cancel-Naht; offen ist vor allem die Ausfuehrung gegen echte Zielumgebungen.
+- `evidence`: `server/scripts/discuss-audio-probe-check.mjs` prueft SSE-Timings, Audio-Telemetrie und Round-Cancel-Verhalten; `server/src/routes/studio.ts` unterdrueckt spaete Events aus ueberholten Runden.
+
 ### Kandidat E - Dev Token Hardening
 
 - `status`: `active`

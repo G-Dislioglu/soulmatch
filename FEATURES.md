@@ -98,21 +98,21 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
+- `last_checked`: `2026-03-30`
 - `quality`: `hardened_but_not_fully_streamed`
-- `known_gap`: Chat zeigt jetzt frueher Feedback und laesst Stop/Abort global zu, aber die Provider-Schicht streamt noch keine echten Token-Deltas.
-- `next_recommended_step`: Real-Provider-Verifikation fuer Restlatenz, Abort-Verhalten und TTS-Fehlerpfade unter echten Keys.
-- `evidence`: `client/src/hooks/useSpeechToText.ts`, `client/src/modules/M06_discuss/hooks/useDiscussApi.ts`, `client/src/modules/M06_discuss/hooks/useLiveTalk.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/lib/globalMediaController.ts`, `server/src/routes/studio.ts`, `server/src/studioPrompt.ts`, `server/src/lib/ttsService.ts`, vorhandene Audio-E2E-Dateien unter `client/e2e/`.
+- `known_gap`: Chat zeigt jetzt frueher Feedback, laesst Stop/Abort global zu und unterdrueckt spaete SSE-Nachlaeufer aus ueberholten Runden, aber die Provider-Schicht streamt noch keine echten Token-Deltas und die Real-Key-Ausfuehrung bleibt ein operativer Check.
+- `next_recommended_step`: `server/scripts/discuss-audio-probe-check.mjs` gegen lokale oder deployte Runtime mit echten Keys laufen lassen und Timing-/Fallback-Befunde festhalten.
+- `evidence`: `client/src/hooks/useSpeechToText.ts`, `client/src/modules/M06_discuss/hooks/useDiscussApi.ts`, `client/src/modules/M06_discuss/hooks/useLiveTalk.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/lib/globalMediaController.ts`, `server/src/routes/studio.ts`, `server/src/studioPrompt.ts`, `server/src/lib/ttsService.ts`, `server/scripts/discuss-audio-probe-check.mjs`, vorhandene Audio-E2E-Dateien unter `client/e2e/`.
 
 ### TTS fallback chain
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
+- `last_checked`: `2026-03-30`
 - `quality`: `implemented_not_fully_hardened`
-- `known_gap`: Die Key-Abhaengigkeit ist enger korrigiert, aber unter echten Provider-Keys fehlen weiter belastbare Laufzeitchecks fuer Latenz, Fallback und Abort.
-- `next_recommended_step`: Unter Real-Keys verifizieren, welche Provider-Kombinationen sauber sprechen, abbrechen und fallbacken.
-- `evidence`: `server/src/lib/ttsService.ts` und Audio-Pfad in `server/src/routes/studio.ts`.
+- `known_gap`: Die Key-Abhaengigkeit ist enger korrigiert, der Repo-seitige Probe-Pfad existiert jetzt, aber unter echten Provider-Keys fehlen weiter belastbare Laufzeitbefunde fuer Latenz und Fallback-Kombinationen.
+- `next_recommended_step`: Probe mit `pnpm discuss:audio:probe` unter den gewuenschten Provider-Flags und Zielumgebungen fahren.
+- `evidence`: `server/src/lib/ttsService.ts`, Audio-Pfad in `server/src/routes/studio.ts` und `server/scripts/discuss-audio-probe-check.mjs`.
 
 ### Session memory
 

@@ -14,6 +14,7 @@
     "match:probe": "node scripts/match-probe-check.mjs",
     "match:narrative:probe": "node scripts/match-narrative-probe-check.mjs",
     "narrative:probe": "node scripts/narrative-probe-check.mjs",
+    "discuss:audio:probe": "node scripts/discuss-audio-probe-check.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

@@ -1205,6 +1205,14 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
       const text = withSriFallbackText(extractCleanText(cleanText), personaId);
 
+      if (isRoundCanceled()) {
+        devLogger.info('llm', 'Discuss: aborted round after provider returned before stream emit', {
+          userId,
+          personaId,
+        });
+        return { canceled: true, personaId };
+      }
+
       // Stream mode: deliver text to client immediately, before TTS starts
       if (wantsStream) {
         sendSseEvent({ type: 'text', persona: personaId, text, color: personaDef.color, meta });
@@ -1250,6 +1258,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                   audioBytes: ttsResult.audioBuffer.length,
                   base64Length: audioBase64.length,
                 });
+                if (isRoundCanceled()) {
+                  devLogger.info('llm', 'Discuss: dropping late audio for canceled round', { userId, personaId });
+                  return;
+                }
                 sendSseEvent({
                   type: 'audio',
                   persona: personaId,
@@ -1259,6 +1271,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 });
               } catch (e) {
                 devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
+                if (isRoundCanceled()) {
+                  devLogger.info('llm', 'Discuss: suppressing audio_error for canceled round', { userId, personaId });
+                  return;
+                }
                 sendSseEvent({
                   type: 'audio_error',
                   persona: personaId,
@@ -1301,6 +1317,11 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
             message: 'Sprachausgabe ist derzeit nicht verfuegbar.',
           });
         }
+      }
+
+      if (isRoundCanceled()) {
+        devLogger.info('llm', 'Discuss: aborted round before response assembly', { userId, personaId });
+        return { canceled: true, personaId };
       }
 
       const response: PersonaResponse = {

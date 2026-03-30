@@ -152,6 +152,10 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
   Stop-/Abort-Pfad.
 - `server/src/routes/studio.ts` akzeptiert fuer `/api/discuss` jetzt `appMode`
   und sendet im Stream-Modus ein fruehes `typing`-Event vor dem Text-Event.
+- `server/src/routes/studio.ts` unterdrueckt fuer `/api/discuss` jetzt spaete
+  `text`-, `audio`- und `audio_error`-Events aus bereits ueberholten Runden,
+  damit ein neuer Request mit derselben `userId` keinen alten SSE-Nachlauf mehr
+  in M06 durchdrueckt.
 - `server/src/studioPrompt.ts` injiziert jetzt einen expliziten App-Modus-Block,
   damit Maya im Chat nicht mehr still Studio-Kontext behauptet.
 - `client/src/app/App.tsx` haengt jetzt `PAGE_ASTRO`, `PAGE_REPORT` und
@@ -247,6 +251,10 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
 - Die TTS-Fallback-Kette in `server/src/lib/ttsService.ts` akzeptiert jetzt auch
   nur einen verfuegbaren Provider-Key; fehlende Engines werden uebersprungen,
   statt den gesamten Audio-Pfad still zu sperren.
+- `server/scripts/discuss-audio-probe-check.mjs` ist jetzt das gezielte
+  Repo-Werkzeug fuer Real-Provider-Verifikation von `/api/discuss`: es prueft
+  `typing -> text -> audio|audio_error -> done`, validiert TTS-Telemetrie,
+  misst Latenzen und deckt Round-Cancel-Leaks ueber dieselbe `userId` auf.
 - Es existieren weiterhin mehrere Client-Playback-Pfade im Repo
   (`M06_discuss`, `M02_ui-kit`, Teile von M08); das ist derzeit eher ein
   `relocate`-/`biegt`-Thema als ein akuter Laufzeitbruch.
@@ -361,11 +369,9 @@ Provider- oder Autoplay-Problemen.
 
 ### Scope
 
-- `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`
-- `client/src/modules/M06_discuss/hooks/useDiscussApi.ts`
+- `server/scripts/discuss-audio-probe-check.mjs`
 - `server/src/routes/studio.ts`
-- `server/src/lib/ttsService.ts`
-- gezielte Browser- oder Probe-Verifikation mit echten Keys
+- gezielte Ausfuehrung gegen lokale oder deployte Runtime mit echten Keys
 
 ### Nicht-Scope
 
@@ -373,6 +379,12 @@ Provider- oder Autoplay-Problemen.
 - Umbau der gesamten Audio-Architektur im Repo
 - Scoring-, Match-, Routing- oder Persistenz-Neudesign
 - broad cleanup aller historischen Voice-Pfade in einem Rutsch
+
+### Fortschritt
+
+- Repo-seitig existiert jetzt ein gezieltes Probe-Skript fuer den Block; die
+  eigentliche Real-Key-Ausfuehrung bleibt bewusst ein operativer Schritt gegen
+  eine laufende Runtime statt nur statischer Code-Aenderung.
 
 ## Alternative Valid Next Blocks
 
