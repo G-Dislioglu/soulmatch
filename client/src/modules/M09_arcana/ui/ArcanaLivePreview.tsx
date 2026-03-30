@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import type { ArcanaPersonaDefinition } from '../hooks/useArcanaApi';
+import { buildClientDirectorPrompt, buildExampleResponse } from '../lib/clientDirectorPrompt';
 
 interface ArcanaLivePreviewProps {
   persona: ArcanaPersonaDefinition | null;
@@ -11,6 +12,10 @@ interface ArcanaLivePreviewProps {
 export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps) {
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  const exampleAnswer = persona ? buildExampleResponse(persona) : '';
+  const directorPrompt = persona ? buildClientDirectorPrompt(persona) : '';
 
   async function handlePreview(): Promise<void> {
     if (!persona) {
@@ -28,8 +33,35 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
     }
   }
 
+  async function handleCopyPrompt(): Promise<void> {
+    if (!directorPrompt) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(directorPrompt);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 1600);
+    } catch {
+      setCopyState('failed');
+      window.setTimeout(() => setCopyState('idle'), 1600);
+    }
+  }
+
+  function renderMiniBar(label: string, value: number) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '68px 1fr', gap: 10, alignItems: 'center' }}>
+        <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text2 }}>{label}</div>
+        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+          <div style={{ width: `${value}%`, height: '100%', background: TOKENS.gold }} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <aside
+      id="arcana-live-preview"
       style={{
         width: 320,
         minWidth: 320,
@@ -66,7 +98,7 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
             lineHeight: 1.7,
           }}
         >
-          Hier erscheinen Persona-Karte, Director Prompt und Antwortvorschau. In Phase 6.1 bleibt diese Spalte bewusst minimal.
+          Hier erscheinen Persona-Karte, Director Prompt und Antwortvorschau. Waehle links eine User-Persona oder starte einen neuen Entwurf.
         </div>
       ) : (
         <>
@@ -79,19 +111,98 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
               boxShadow: TOKENS.shadow.card,
               display: 'flex',
               flexDirection: 'column',
-              gap: 10,
+              gap: 12,
             }}
           >
-            <div style={{ fontFamily: TOKENS.font.serif, fontSize: 30, color: TOKENS.text }}>{persona.name}</div>
+            <div style={{ fontFamily: TOKENS.font.display, fontSize: 22, color: TOKENS.text, lineHeight: 1.2 }}>{persona.name}</div>
             <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>{persona.subtitle || 'Arcana Persona'}</div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2, lineHeight: 1.7 }}>
-              Director Prompt und Beispiel-Antwort werden in Phase 6.2 implementiert. Der Stimmtest nutzt bereits die bestehende Arcana-TTS-Preview-Route.
+            {renderMiniBar('Intensitaet', persona.character.intensity)}
+            {renderMiniBar('Empathie', persona.character.empathy)}
+            {renderMiniBar('Konfront.', persona.character.confrontation)}
+            {renderMiniBar('Tempo', persona.voice.speakingTempo)}
+            {renderMiniBar('Pausen', persona.voice.pauseDramaturgy)}
+            {renderMiniBar('Emotion', persona.voice.emotionalIntensity)}
+            <div
+              style={{
+                alignSelf: 'flex-start',
+                border: `1.5px solid ${TOKENS.gold}`,
+                borderRadius: 999,
+                padding: '6px 10px',
+                fontFamily: TOKENS.font.body,
+                fontSize: 11,
+                color: TOKENS.gold,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {persona.toneMode.mode}-Modus
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text2, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Aktive Quirks
+              </div>
+              {persona.quirks.filter((quirk) => quirk.enabled).length > 0 ? persona.quirks.filter((quirk) => quirk.enabled).map((quirk) => (
+                <div key={quirk.id} style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
+                  • {quirk.label}
+                </div>
+              )) : (
+                <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text3 }}>
+                  Keine aktiven Quirks.
+                </div>
+              )}
             </div>
           </div>
 
           <div
             style={{
-              border: `1.5px dashed ${TOKENS.b2}`,
+              border: `1.5px solid ${TOKENS.b2}`,
+              borderRadius: 20,
+              padding: '16px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                Director Prompt · Auto
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleCopyPrompt()}
+                style={{
+                  border: `1.5px solid ${TOKENS.b1}`,
+                  background: 'rgba(255,255,255,0.03)',
+                  color: copyState === 'copied' ? TOKENS.gold : TOKENS.text,
+                  borderRadius: 12,
+                  padding: '6px 10px',
+                  fontFamily: TOKENS.font.body,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                {copyState === 'copied' ? 'Kopiert' : copyState === 'failed' ? 'Fehler' : '📋'}
+              </button>
+            </div>
+            <pre
+              style={{
+                margin: 0,
+                maxHeight: 240,
+                overflowY: 'auto',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'Consolas, monospace',
+                fontSize: 12,
+                lineHeight: 1.55,
+                color: TOKENS.text2,
+              }}
+            >
+              {directorPrompt}
+            </pre>
+          </div>
+
+          <div
+            style={{
+              border: `1.5px solid ${TOKENS.b2}`,
               borderRadius: 20,
               padding: '16px 14px',
               display: 'flex',
@@ -100,9 +211,33 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
             }}
           >
             <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-              Voice Snapshot
+              Beispiel-Antwort
+            </div>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              User
+            </div>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text, lineHeight: 1.6 }}>
+              Was soll ich mit meinem Leben anfangen?
+            </div>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              {persona.name}
             </div>
             <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
+              {exampleAnswer}
+            </div>
+          </div>
+
+          <div
+            style={{
+              border: `1.5px solid ${TOKENS.b2}`,
+              borderRadius: 20,
+              padding: '16px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>
               Stimme: {persona.voice.voiceName}<br />Akzent: {persona.voice.accent}
             </div>
             <button

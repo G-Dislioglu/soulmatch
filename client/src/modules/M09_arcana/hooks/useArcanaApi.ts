@@ -4,8 +4,35 @@ import { ACCENT_CATALOG, SYSTEM_PERSONA_VOICES, VOICE_CATALOG } from '../../../d
 
 export type ArcanaPersonaTier = 'system' | 'user_created';
 export type ArcanaPersonaStatus = 'draft' | 'active' | 'archived';
+export type ArcanaArchetypeKey =
+  | 'der_visionaer'
+  | 'die_heilerin'
+  | 'der_analytiker'
+  | 'die_mystikerin'
+  | 'der_provokateur'
+  | 'die_begleiterin'
+  | 'der_weise'
+  | 'die_kriegerin'
+  | 'der_poet'
+  | 'die_forscherin'
+  | 'custom';
 export type ArcanaAccentKey = (typeof ACCENT_CATALOG)[number]['key'];
 export type ArcanaVoiceName = (typeof VOICE_CATALOG)[number]['name'];
+export type ArcanaToneModeKey = 'serioes' | 'bissig' | 'satirisch' | 'komisch';
+
+export const ARCANA_ARCHETYPE_OPTIONS: ReadonlyArray<{ key: ArcanaArchetypeKey; label: string }> = [
+  { key: 'der_visionaer', label: 'Der Visionaer' },
+  { key: 'die_heilerin', label: 'Die Heilerin' },
+  { key: 'der_analytiker', label: 'Der Analytiker' },
+  { key: 'die_mystikerin', label: 'Die Mystikerin' },
+  { key: 'der_provokateur', label: 'Der Provokateur' },
+  { key: 'die_begleiterin', label: 'Die Begleiterin' },
+  { key: 'der_weise', label: 'Der Weise' },
+  { key: 'die_kriegerin', label: 'Die Kriegerin' },
+  { key: 'der_poet', label: 'Der Poet' },
+  { key: 'die_forscherin', label: 'Die Forscherin' },
+  { key: 'custom', label: 'Custom' },
+] as const;
 
 export interface ArcanaCharacterTuning {
   intensity: number;
@@ -14,7 +41,7 @@ export interface ArcanaCharacterTuning {
 }
 
 export interface ArcanaToneMode {
-  mode: 'serioes' | 'bissig' | 'satirisch' | 'komisch';
+  mode: ArcanaToneModeKey;
   slider: number;
 }
 
@@ -46,7 +73,7 @@ export interface ArcanaPersonaDefinition {
   id: string;
   name: string;
   subtitle: string;
-  archetype: string;
+  archetype: ArcanaArchetypeKey;
   description: string;
   icon: string;
   color: string;
@@ -67,14 +94,14 @@ export interface ArcanaPersonaDefinition {
 export interface ArcanaPreset {
   id: string;
   name: string;
-  archetype: string;
+  archetype: ArcanaArchetypeKey;
   description: string;
 }
 
-interface PersonaDraftInput {
+export interface PersonaDraftInput {
   name: string;
   subtitle: string;
-  archetype: string;
+  archetype: ArcanaArchetypeKey;
   description: string;
   icon: string;
   color: string;
@@ -103,7 +130,7 @@ interface UseArcanaApiResult {
   createPersona: (input: PersonaDraftInput) => Promise<ArcanaPersonaDefinition>;
   updatePersona: (id: string, input: Partial<PersonaDraftInput>) => Promise<ArcanaPersonaDefinition>;
   deletePersona: (id: string) => Promise<void>;
-  previewTts: (voiceName: ArcanaVoiceName, accent: ArcanaAccentKey, text: string) => Promise<PreviewResponse>;
+  previewTts: (voice: ArcanaVoiceConfig, text: string) => Promise<PreviewResponse>;
 }
 
 const ARCANA_USER_ID_KEY = 'arcana.studio.userId';
@@ -230,11 +257,19 @@ export function useArcanaApi(explicitUserId?: string | null): UseArcanaApiResult
     return parseJsonOrThrow<ArcanaPreset[]>(response);
   }
 
-  async function previewTts(voiceName: ArcanaVoiceName, accent: ArcanaAccentKey, text: string): Promise<PreviewResponse> {
+  async function previewTts(voice: ArcanaVoiceConfig, text: string): Promise<PreviewResponse> {
     const response = await fetch('/api/arcana/tts-preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ voiceName, accent, text }),
+      body: JSON.stringify({
+        voiceName: voice.voiceName,
+        accent: voice.accent,
+        accentIntensity: voice.accentIntensity,
+        speakingTempo: voice.speakingTempo,
+        pauseDramaturgy: voice.pauseDramaturgy,
+        emotionalIntensity: voice.emotionalIntensity,
+        text,
+      }),
     });
 
     return parseJsonOrThrow<PreviewResponse>(response);
