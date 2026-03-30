@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getSystemAccent, getSystemVoiceName } from '../../../data/voiceCatalog';
 import type { LiveTalkController } from '../../../hooks/useLiveTalk';
 import { TOKENS } from '../../../design/tokens';
 import { loadProfile } from '../../M03_profile';
@@ -86,20 +87,6 @@ const INTROS: Record<string, string> = {
 const LIVE_AUDIO_ENABLED = import.meta.env.VITE_DISABLE_LIVE_AUDIO !== 'true';
 const AUDIO_DEVTOOLS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_ENABLE_AUDIO_DEVTOOLS === 'true';
 const FALLBACK_PERSONA = PERSONAS[0]!;
-
-function getDefaultLiveTalkVoice(personaId: string): string {
-  switch (personaId) {
-    case 'maya':
-      return 'Aoede';
-    case 'lilith':
-    case 'sibyl':
-      return 'Kore';
-    case 'kael':
-      return 'Fenrir';
-    default:
-      return 'Puck';
-  }
-}
 
 function ts(): string {
   return new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
@@ -256,9 +243,11 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
     setLastRequestedAudioMode(shouldRequestAudio);
     showTyping(persona.id);
 
-    const personaSettings = {
+    const activePanelSettings = personaSettings[persona.id] ?? buildDefaultSettings(persona);
+    const personaSettingsForRequest = {
       [persona.id]: {
-        voice: liveTalk.selectedVoice,
+        voice: activePanelSettings.voice || liveTalk.selectedVoice || getSystemVoiceName(persona.id),
+        accent: activePanelSettings.accent || getSystemAccent(persona.id),
       },
     };
 
@@ -268,7 +257,7 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
         personas: [persona.id],
         message: text,
         conversationHistory: historyForCall,
-        personaSettings,
+        personaSettings: personaSettingsForRequest,
         userId: profile?.id,
         appMode,
         audioMode: shouldRequestAudio,
@@ -781,7 +770,8 @@ function buildDefaultSettings(persona: PersonaInfo): PersonaPanelSettings {
     signatureQuirks: persona.id === 'maya' ? ['Poetisch', 'Spiegelnd'] : ['Direkt'],
     characterTuning: persona.id === 'lilith' ? 4 : 3,
     toneMode: persona.id === 'maya' ? 'Ruhig' : 'Klar',
-    voice: getDefaultLiveTalkVoice(persona.id),
+    voice: getSystemVoiceName(persona.id),
+    accent: getSystemAccent(persona.id),
     preview: REPLIES[persona.id]?.[0] ?? `${persona.name} antwortet klar und praesent.`,
     mayaSpecialFunction: persona.id === 'maya'
       ? 'Maya verbindet Chat, Verlauf und App-Kontext, ohne zur verdeckten Wahrheitsinstanz zu werden.'

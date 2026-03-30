@@ -6,6 +6,7 @@ import path from 'path';
 dotenv.config();
 
 import { fileURLToPath } from 'url';
+import { arcanaRouter } from './routes/arcana.js';
 import { studioRouter } from './routes/studio.js';
 import { guideRouter } from './routes/guide.js';
 import { devRouter } from './routes/dev.js';
@@ -38,6 +39,7 @@ app.use((req, res, next) => {
 
 // API routes
 app.use('/api', studioRouter);
+app.use('/api', arcanaRouter);
 app.use('/api', guideRouter);
 app.use('/api/dev', devRouter);
 app.use('/api/profile', profileRouter);

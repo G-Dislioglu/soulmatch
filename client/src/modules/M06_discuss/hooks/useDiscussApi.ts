@@ -7,7 +7,7 @@ interface DiscussPayload {
   personas: string[];
   message: string;
   conversationHistory?: Array<{ role: string; content: string }>;
-  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string }>;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string; accent?: string }>;
   userId?: string;
   appMode?: string;
   stream?: boolean;

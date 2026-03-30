@@ -427,3 +427,61 @@ Wenn ein neuer Chat startet oder Kontextverlust droht:
 4. `FEATURES.md` lesen
 5. letzten verifizierten Stand und den naechsten Block benennen
 6. erst dann in Code oder Aenderungen gehen
+
+### Arcana Studio Phase 1 - Datenmodell
+
+- server/src/shared/types/persona.ts: PersonaDefinition, VoiceConfig,
+  CharacterTuning, ToneMode, SignatureQuirk, GeminiVoiceName, AccentKey
+- server/src/lib/voiceCatalog.ts: 30 Stimmen-Katalog, 13 Akzente,
+  System-Persona-Voice-Map, Credit-Tiers
+- arcana_migration.sql: persona_definitions, persona_voice_overrides,
+  persona_presets (noch nicht ausgefuehrt)
+- server/src/lib/voicePromptBuilder.ts: buildTtsPrompt() - VoiceConfig -> TTS-Prompt
+- server/src/lib/directorPromptBuilder.ts: buildDirectorPrompt() - PersonaDefinition -> System-Prompt
+- server/src/lib/__tests__/promptBuilders.smoke.ts: Smoke-Test mit Napoleon-Beispiel
+- Keine bestehenden Dateien veraendert
+
+### Arcana Studio Phase 3 - TTS Integration
+
+- server/src/lib/ttsService.ts nutzt im Gemini-Pfad jetzt bevorzugt
+  personaSettings.voice, danach SYSTEM_PERSONA_VOICES, danach das alte
+  getPersonaVoice()-Fallback
+- System-Personas mit Arcana-VoiceConfig erhalten im Gemini-Pfad jetzt einen
+  buildTtsPrompt()-angereicherten Text statt nur des alten Director-Wrappers
+- Das alte getPersonaVoiceDirector()-Verhalten bleibt als Fallback fuer Personas
+  ohne Arcana-Systemeintrag erhalten
+- OpenAI-TTS-Pfad bleibt unveraendert
+- Signatur und Rueckgabetyp von generateTTS() bleiben unveraendert
+
+### Arcana Studio Phase 4 - API Routes + DB
+
+- arcana_migration.sql wurde als Referenz beibehalten; der Arcana-Block wurde
+  in migration.sql integriert und von dort lokal gegen die DB ausgefuehrt
+- server/src/schema/arcana.ts registriert persona_definitions,
+  persona_voice_overrides und persona_presets fuer Drizzle
+- server/src/routes/arcana.ts liefert CRUD fuer Personas, TTS-Preview sowie
+  Voice-, Accent- und Preset-Katalog-Endpoints
+- server/src/index.ts mountet arcanaRouter unter /api direkt nach studioRouter,
+  wodurch die Routen unter /api/arcana/* erreichbar sind
+- DB-Tabellen: persona_definitions, persona_voice_overrides, persona_presets
+- Kein Credit-Check, keine Moderation, keine UI und keine Aenderung an Studio-
+  oder Discuss-Flow
+
+### Arcana Studio Phase 5 - PersonaSettings Voice & Accent
+
+- client/src/data/voiceCatalog.ts liefert den Client-Katalog fuer 30 Stimmen,
+  13 Akzente und System-Defaults pro Persona
+- client/src/modules/M06_discuss/ui/PersonaSettingsPanel.tsx nutzt jetzt ein
+  gruppiertes Voice-Dropdown, ein Accent-Dropdown und einen dezenten
+  Preview-Button fuer /api/arcana/tts-preview
+- client/src/modules/M06_discuss/ui/GearDropdown.tsx ersetzt die alte
+  4-Stimmen-Buttonleiste durch ein Dropdown im bestehenden Inline-Token-Stil
+- client/src/modules/M06_discuss/ui/DiscussionChat.tsx sendet jetzt die Stimme
+  aus dem Persona-Panel-State, mit Fallback ueber liveTalk.selectedVoice auf den
+  System-Default; Accent wird ebenfalls mitgeschickt
+- client/src/modules/M06_discuss/hooks/useDiscussApi.ts erlaubt accent im
+  personaSettings-Payload
+- server/src/lib/ttsService.ts liest im Gemini-VoiceConfig jetzt auch den
+  Accent-Override aus personaSettings, sonst den System-Akzent
+- Bestehende Controls fuer Quirks, Charakter-Tuning, Ton-Modus und Maya-Extras
+  bleiben erhalten; Server-Flow und Studio-Flow bleiben unveraendert

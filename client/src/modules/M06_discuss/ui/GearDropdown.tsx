@@ -1,3 +1,4 @@
+import { VOICE_CATALOG } from '../../../data/voiceCatalog';
 import type { LiveTalkController } from '../../../hooks/useLiveTalk';
 import { TOKENS } from '../../../design/tokens';
 
@@ -6,8 +7,6 @@ interface Props {
   liveTalk: LiveTalkController;
   onOpenSettings: () => void;
 }
-
-const VOICES = ['Aoede', 'Kore', 'Puck', 'Fenrir'];
 
 export function GearDropdown({ open, liveTalk, onOpenSettings }: Props) {
   if (!open) {
@@ -39,25 +38,33 @@ export function GearDropdown({ open, liveTalk, onOpenSettings }: Props) {
 
       <div style={styles.section}>
         <div style={styles.sectionLabel}>Stimme waehlen</div>
-        <div style={styles.voiceGrid}>
-          {VOICES.map((voice) => {
-            const active = liveTalk.selectedVoice === voice;
-
-            return (
-              <button
-                key={voice}
-                onClick={() => liveTalk.setVoice(voice)}
-                style={{
-                  ...styles.voiceButton,
-                  ...(active ? styles.voiceButtonActive : null),
-                }}
-                type="button"
-              >
-                {voice}
-              </button>
-            );
-          })}
-        </div>
+        <select
+          onChange={(event) => liveTalk.setVoice(event.target.value)}
+          style={styles.select}
+          value={liveTalk.selectedVoice}
+        >
+          <optgroup label="Weiblich">
+            {VOICE_CATALOG.filter((entry) => entry.gender === 'female').map((entry) => (
+              <option key={entry.name} value={entry.name}>
+                {entry.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Maennlich">
+            {VOICE_CATALOG.filter((entry) => entry.gender === 'male').map((entry) => (
+              <option key={entry.name} value={entry.name}>
+                {entry.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Neutral">
+            {VOICE_CATALOG.filter((entry) => entry.gender === 'neutral').map((entry) => (
+              <option key={entry.name} value={entry.name}>
+                {entry.label}
+              </option>
+            ))}
+          </optgroup>
+        </select>
       </div>
 
       <div style={styles.note}>
@@ -185,25 +192,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontFamily: TOKENS.font.body,
   },
-  voiceGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 8,
-  },
-  voiceButton: {
+  select: {
+    width: '100%',
     padding: '10px 12px',
     borderRadius: 12,
     border: `1.5px solid ${TOKENS.b1}`,
-    background: 'rgba(255,255,255,0.02)',
-    color: TOKENS.text2,
-    cursor: 'pointer',
-    textTransform: 'capitalize',
+    background: TOKENS.bg3,
+    color: TOKENS.text,
     fontFamily: TOKENS.font.body,
-  },
-  voiceButtonActive: {
-    borderColor: TOKENS.gold,
-    color: TOKENS.gold,
-    background: 'rgba(212,175,55,0.08)',
+    fontSize: 13,
   },
   note: {
     padding: '10px 12px',

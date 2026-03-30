@@ -1,3 +1,6 @@
+import type { AccentKey, GeminiVoiceName, VoiceConfig } from '../shared/types/persona.js';
+import { buildTtsPrompt } from './voicePromptBuilder.js';
+import { ACCENT_CATALOG, SYSTEM_PERSONA_VOICES, VOICE_CATALOG } from './voiceCatalog.js';
 import { getPersonaVoice, getPersonaVoiceDirector } from './personaVoices.js';
 
 interface TTSResult {
@@ -7,7 +10,7 @@ interface TTSResult {
   durationEstimate?: number;
 }
 
-type GeminiTtsVoice = 'Aoede' | 'Kore' | 'Puck' | 'Fenrir' | 'Leda' | 'Orus' | 'Iapetus' | 'Callirrhoe' | 'Zephyr' | 'Achernar';
+type GeminiTtsVoice = GeminiVoiceName;
 
 type OpenAiTtsVoice =
   | 'nova'
@@ -39,7 +42,7 @@ function getOpenAiVoiceForPersona(personaId: string): OpenAiTtsVoice {
 }
 
 function isGeminiVoice(value: string): value is GeminiTtsVoice {
-  return ['Aoede', 'Kore', 'Puck', 'Fenrir', 'Leda', 'Orus', 'Iapetus', 'Callirrhoe', 'Zephyr', 'Achernar'].includes(value);
+  return VOICE_CATALOG.some((entry) => entry.name === value);
 }
 
 function getGeminiVoice(personaId: string, voiceOverride?: string): GeminiTtsVoice {
@@ -47,7 +50,32 @@ function getGeminiVoice(personaId: string, voiceOverride?: string): GeminiTtsVoi
     return voiceOverride;
   }
 
+  const systemVoice = SYSTEM_PERSONA_VOICES[personaId]?.voiceName;
+  if (systemVoice) {
+    return systemVoice;
+  }
+
   return getPersonaVoice(personaId) as GeminiTtsVoice;
+}
+
+function isAccentKey(value: string): value is AccentKey {
+  return ACCENT_CATALOG.some((entry) => entry.key === value);
+}
+
+function getEffectiveVoiceConfig(personaId: string, voiceOverride?: string, accentOverride?: string): VoiceConfig | undefined {
+  const systemVoice = SYSTEM_PERSONA_VOICES[personaId];
+  if (!systemVoice) {
+    return undefined;
+  }
+
+  return {
+    voiceName: getGeminiVoice(personaId, voiceOverride),
+    accent: accentOverride && isAccentKey(accentOverride) ? accentOverride : systemVoice.accent,
+    accentIntensity: 50,
+    speakingTempo: 50,
+    pauseDramaturgy: 50,
+    emotionalIntensity: 50,
+  };
 }
 
 function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth = 16): Buffer {
@@ -76,9 +104,10 @@ export async function generateTTS(
   personaId: string,
   geminiApiKey: string | undefined,
   openaiApiKey: string | undefined,
-  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string },
+  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string; accent?: string },
 ): Promise<TTSResult> {
   const geminiVoice = getGeminiVoice(personaId, personaSettings?.voice);
+  const effectiveVoiceConfig = getEffectiveVoiceConfig(personaId, personaSettings?.voice, personaSettings?.accent);
   const disableGeminiTts = process.env.DISABLE_GEMINI_TTS === 'true';
   const configuredPriority = (process.env.TTS_ENGINE_PRIORITY ?? 'gemini-first').toLowerCase();
   const priority: 'gemini-first' | 'openai-first' = configuredPriority === 'openai-first' ? 'openai-first' : 'gemini-first';
@@ -105,10 +134,10 @@ export async function generateTTS(
       }
       try {
         const result = await geminiPreviewTTS(
-          text,
+          effectiveVoiceConfig ? buildTtsPrompt(text, effectiveVoiceConfig) : text,
           geminiVoice,
           geminiApiKey,
-          getPersonaVoiceDirector(personaId, personaSettings?.accentProfile),
+          effectiveVoiceConfig ? '' : getPersonaVoiceDirector(personaId, personaSettings?.accentProfile),
         );
         console.log('[TTS Engine]', {
           engine: priority === 'gemini-first' ? 'gemini-primary' : 'gemini-fallback',
@@ -172,13 +201,14 @@ export async function generateTTS(
 }
 
 async function geminiPreviewTTS(text: string, voiceName: string, apiKey: string, directorPrompt: string): Promise<TTSResult> {
+  const promptText = directorPrompt ? `${directorPrompt}\n\nText:\n${text}` : text;
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${directorPrompt}\n\nText:\n${text}` }] }],
+        contents: [{ parts: [{ text: promptText }] }],
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {

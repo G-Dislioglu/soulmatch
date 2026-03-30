@@ -1,3 +1,5 @@
+import { useMemo, useRef, useState } from 'react';
+import { ACCENT_CATALOG, getSystemAccent, getSystemVoiceName, getVoiceEntry, VOICE_CATALOG } from '../../../data/voiceCatalog';
 import type { LiveTalkController } from '../../../hooks/useLiveTalk';
 import { TOKENS } from '../../../design/tokens';
 import type { PersonaInfo } from '../types';
@@ -7,6 +9,7 @@ export interface PersonaPanelSettings {
   characterTuning: number;
   toneMode: string;
   voice: string;
+  accent: string;
   preview: string;
   mayaSpecialFunction: string;
   appControl: boolean;
@@ -25,14 +28,53 @@ interface Props {
 
 const QUIRKS = ['Poetisch', 'Direkt', 'Spiegelnd', 'Visionaer', 'Sanft provokativ'];
 const TONE_MODES = ['Ruhig', 'Klar', 'Mystisch', 'Analytisch'];
-const VOICES = ['Aoede', 'Kore', 'Puck', 'Fenrir'];
 
 export function PersonaSettingsPanel({ open, persona, settings, liveTalk, onClose, onChange }: Props) {
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const selectedVoice = useMemo(() => getVoiceEntry(settings.voice) ?? getVoiceEntry(getSystemVoiceName(persona.id)), [persona.id, settings.voice]);
+
   if (!open) {
     return null;
   }
 
   const isMaya = persona.id === 'maya';
+
+  async function handlePreview() {
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      const response = await fetch('/api/arcana/tts-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voiceName: settings.voice || getSystemVoiceName(persona.id),
+          accent: settings.accent || getSystemAccent(persona.id),
+          text: `Hallo, ich bin ${persona.name}. So klinge ich.`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { audio?: string; mimeType?: string };
+      if (!data.audio || !data.mimeType) {
+        throw new Error('preview_unavailable');
+      }
+
+      const audio = audioRef.current ?? new Audio();
+      audioRef.current = audio;
+      audio.src = `data:${data.mimeType};base64,${data.audio}`;
+      await audio.play();
+    } catch {
+      setPreviewError('Vorschau nicht verfuegbar');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   return (
     <div onClick={onClose} style={styles.backdrop}>
@@ -86,15 +128,55 @@ export function PersonaSettingsPanel({ open, persona, settings, liveTalk, onClos
         </Section>
 
         <Section label="4. Stimme waehlen" sub="Stimme fuer LiveTalk- oder Audio-Naehe.">
-          <ChipGrid
-            active={[settings.voice]}
-            items={VOICES}
-            onToggle={(item) => {
-              onChange({ ...settings, voice: item });
-              liveTalk.setVoice(item);
+          <label style={styles.fieldLabel}>Stimme</label>
+          <select
+            onChange={(event) => {
+              const nextVoice = event.target.value;
+              onChange({ ...settings, voice: nextVoice });
+              liveTalk.setVoice(nextVoice);
             }}
-            singleSelect
-          />
+            style={styles.select}
+            value={settings.voice}
+          >
+            <optgroup label="Weiblich">
+              {VOICE_CATALOG.filter((entry) => entry.gender === 'female').map((entry) => (
+                <option key={entry.name} value={entry.name}>
+                  {entry.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Maennlich">
+              {VOICE_CATALOG.filter((entry) => entry.gender === 'male').map((entry) => (
+                <option key={entry.name} value={entry.name}>
+                  {entry.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Neutral">
+              {VOICE_CATALOG.filter((entry) => entry.gender === 'neutral').map((entry) => (
+                <option key={entry.name} value={entry.name}>
+                  {entry.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <div style={styles.voiceHint}>{selectedVoice?.character ?? 'Neutral, professionell'}</div>
+          <label style={styles.fieldLabel}>Akzent</label>
+          <select
+            onChange={(event) => onChange({ ...settings, accent: event.target.value })}
+            style={styles.select}
+            value={settings.accent}
+          >
+            {ACCENT_CATALOG.map((entry) => (
+              <option key={entry.key} value={entry.key}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
+          <button onClick={() => void handlePreview()} style={styles.previewButton} type="button">
+            {previewLoading ? '...' : 'Probe hoeren'}
+          </button>
+          {previewError ? <div style={styles.previewError}>{previewError}</div> : null}
         </Section>
 
         <Section label="5. Beispielantwort Preview" sub="Antwortvorschau fuer diese Persona.">
@@ -123,12 +205,6 @@ export function PersonaSettingsPanel({ open, persona, settings, liveTalk, onClos
               checked={settings.mayaCoreSync}
               label="Maya Core Sync"
               onToggle={() => onChange({ ...settings, mayaCoreSync: !settings.mayaCoreSync })}
-            />
-            <ChipGrid
-              active={[liveTalk.selectedVoice]}
-              items={VOICES}
-              onToggle={(item) => liveTalk.setVoice(item)}
-              singleSelect
             />
           </Section>
         ) : null}
@@ -299,6 +375,30 @@ const styles: Record<string, React.CSSProperties> = {
     color: TOKENS.gold,
     background: 'rgba(212,175,55,0.08)',
   },
+  fieldLabel: {
+    color: TOKENS.text2,
+    fontFamily: TOKENS.font.body,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  select: {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: TOKENS.bg3,
+    color: TOKENS.text,
+    fontFamily: TOKENS.font.body,
+    fontSize: 13,
+  },
+  voiceHint: {
+    marginTop: -2,
+    color: TOKENS.text2,
+    fontFamily: TOKENS.font.body,
+    fontSize: 12,
+    lineHeight: 1.5,
+  },
   slider: {
     width: '100%',
     accentColor: TOKENS.gold,
@@ -323,6 +423,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: TOKENS.font.body,
     lineHeight: 1.6,
     fontSize: 13,
+  },
+  previewButton: {
+    alignSelf: 'flex-start',
+    padding: '10px 14px',
+    borderRadius: 14,
+    border: `1.5px solid ${TOKENS.b1}`,
+    background: 'rgba(255,255,255,0.03)',
+    color: TOKENS.text,
+    cursor: 'pointer',
+    fontFamily: TOKENS.font.body,
+    fontSize: 13,
+  },
+  previewError: {
+    color: TOKENS.text2,
+    fontFamily: TOKENS.font.body,
+    fontSize: 12,
   },
   toggleRow: {
     display: 'flex',
