@@ -133,7 +133,6 @@ export function PersonaSettingsPanel({ open, persona, settings, liveTalk, onClos
             onChange={(event) => {
               const nextVoice = event.target.value;
               onChange({ ...settings, voice: nextVoice });
-              liveTalk.setVoice(nextVoice);
             }}
             style={styles.select}
             value={settings.voice}

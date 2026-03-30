@@ -720,7 +720,7 @@ interface DiscussRequestBody {
   turn?: number;
   autoTurn?: boolean;
   allowUserCheckIn?: boolean;
-  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string }>;
+  personaSettings?: Record<string, { humor?: number; accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string; accent?: string }>;
 }
 
 type MemoryCategory = 'relationship' | 'career' | 'family' | 'personality' | 'general';
@@ -1259,6 +1259,11 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
                 });
               } catch (e) {
                 devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
+                sendSseEvent({
+                  type: 'audio_error',
+                  persona: personaId,
+                  message: 'Sprachausgabe gerade nicht verfuegbar. Der Text ist trotzdem angekommen.',
+                });
               }
             })();
           } else {
@@ -1289,6 +1294,12 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
               devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
             }
           }
+        } else if (wantsStream && !isRoundCanceled()) {
+          sendSseEvent({
+            type: 'audio_error',
+            persona: personaId,
+            message: 'Sprachausgabe ist derzeit nicht verfuegbar.',
+          });
         }
       }
 

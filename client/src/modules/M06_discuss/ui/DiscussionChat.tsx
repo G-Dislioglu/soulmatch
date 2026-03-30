@@ -121,6 +121,9 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
   const [lastPersonaAudioUrl, setLastPersonaAudioUrl] = useState<string | null>(null);
   const [lastServerTtsEngine, setLastServerTtsEngine] = useState<string | null>(null);
   const [lastServerTtsMimeType, setLastServerTtsMimeType] = useState<string | null>(null);
+  const [lastRequestedVoice, setLastRequestedVoice] = useState<string | null>(null);
+  const [lastRequestedAudioPersonaId, setLastRequestedAudioPersonaId] = useState<string | null>(null);
+  const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [ttsTelemetryStatus, setTtsTelemetryStatus] = useState<'idle' | 'ok' | 'missing'>('idle');
   const [audioDiag, setAudioDiag] = useState('idle');
   const [audioDiagError, setAudioDiagError] = useState<string | null>(null);
@@ -145,6 +148,7 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
   const selectedPersona = PERSONAS.find((persona) => persona.id === selectedPersonaId) ?? FALLBACK_PERSONA;
   const panelPersona = PERSONAS.find((persona) => persona.id === panelPersonaId) ?? selectedPersona;
   const activeMessages = messagesByPersona[selectedPersona.id] ?? [buildIntroMessage(selectedPersona)];
+  const selectedPersonaSettings = personaSettings[selectedPersona.id] ?? buildDefaultSettings(selectedPersona);
   const showAudioDevTools = useMemo(() => {
     if (!AUDIO_DEVTOOLS_ENABLED || typeof window === 'undefined') {
       return false;
@@ -244,12 +248,22 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
     showTyping(persona.id);
 
     const activePanelSettings = personaSettings[persona.id] ?? buildDefaultSettings(persona);
+    const requestedVoice = activePanelSettings.voice || liveTalk.selectedVoice || getSystemVoiceName(persona.id);
+    const requestedAccent = activePanelSettings.accent || getSystemAccent(persona.id);
     const personaSettingsForRequest = {
       [persona.id]: {
-        voice: activePanelSettings.voice || liveTalk.selectedVoice || getSystemVoiceName(persona.id),
-        accent: activePanelSettings.accent || getSystemAccent(persona.id),
+        voice: requestedVoice,
+        accent: requestedAccent,
       },
     };
+    let audioEventSeen = false;
+    setAudioNotice(null);
+    setLastPersonaAudioUrl(null);
+    setLastServerTtsEngine(null);
+    setLastServerTtsMimeType(null);
+    setLastRequestedVoice(requestedVoice);
+    setLastRequestedAudioPersonaId(persona.id);
+    setTtsTelemetryStatus(shouldRequestAudio ? 'missing' : 'idle');
 
     const streamMessageId = `stream-${requestId}-${persona.id}`;
     await callStream(
@@ -312,22 +326,39 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
             return;
           }
 
+          audioEventSeen = true;
           setLastPersonaAudioUrl(audioUrl);
           setLastServerTtsEngine(meta?.ttsEngineUsed ?? null);
           setLastServerTtsMimeType(meta?.ttsMimeType ?? null);
           setTtsTelemetryStatus(meta?.ttsEngineUsed ? 'ok' : audioUrl ? 'missing' : 'idle');
+          setAudioNotice(null);
           setIsPersonaSpeaking(true);
           void runtimeLiveTalk.playAudio(audioUrl)
             .catch((error: unknown) => {
               console.error('[LiveTalk] autoplay failed', error);
+              setAudioNotice('Audio wurde erzeugt, konnte aber im Browser nicht automatisch abgespielt werden.');
             })
             .finally(() => {
               setIsPersonaSpeaking(false);
             });
         },
+        onAudioError: (streamPersonaId, message) => {
+          if (requestId !== requestIdRef.current || streamPersonaId !== persona.id) {
+            return;
+          }
+
+          audioEventSeen = true;
+          setIsPersonaSpeaking(false);
+          setTtsTelemetryStatus('missing');
+          setAudioNotice(message);
+        },
         onDone: () => {
           if (requestId !== requestIdRef.current) {
             return;
+          }
+          if (shouldRequestAudio && !audioEventSeen) {
+            setTtsTelemetryStatus('missing');
+            setAudioNotice('Sprachausgabe gerade nicht verfuegbar. Der Text ist trotzdem angekommen.');
           }
           showTyping(null);
           setIsAnalyzing(false);
@@ -341,7 +372,19 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
       showTyping(null);
       setIsAnalyzing(false);
     }
-  }, [appMode, callStream, liveTalk.selectedVoice, profile?.id, runtimeLiveTalk, selectedPersonaId, showAudioDevTools, showTyping]);
+  }, [
+    appMode,
+    callStream,
+    liveTalk.liveTalkActive,
+    liveTalk.selectedVoice,
+    liveTalk.ttsEnabled,
+    personaSettings,
+    profile?.id,
+    runtimeLiveTalk,
+    selectedPersonaId,
+    showAudioDevTools,
+    showTyping,
+  ]);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -591,13 +634,16 @@ export function DiscussionChat({ onBack, liveTalk, appMode }: Props) {
               </div>
               <div style={styles.headerSub}>
                 {isPersonaSpeaking || runtimeLiveTalk.isSpeaking
-                  ? `spricht gerade · ${liveTalk.selectedVoice}`
+                  ? `spricht gerade · ${(lastRequestedAudioPersonaId === selectedPersona.id ? lastRequestedVoice : selectedPersonaSettings.voice) ?? liveTalk.selectedVoice}`
                   : runtimeLiveTalk.micBlocked
                   ? 'Mikrofon gesperrt'
                   : liveTalk.liveTalkActive
                     ? (liveTalk.micEnabled ? 'LiveTalk hoert zu' : 'LiveTalk aktiv · Mikrofon pausiert')
                     : 'online · bereit'}
               </div>
+              {audioNotice && lastRequestedAudioPersonaId === selectedPersona.id ? (
+                <div style={styles.audioNotice}>{audioNotice}</div>
+              ) : null}
             </div>
             <button onClick={() => openSettingsForPersona(selectedPersona)} style={styles.utilityButton} type="button">
               Persona Settings
@@ -824,6 +870,17 @@ const styles: Record<string, React.CSSProperties> = {
   utilityButtonActive: {
     borderColor: TOKENS.goldSoft,
     color: TOKENS.gold,
+  },
+  audioNotice: {
+    marginTop: 8,
+    padding: '8px 10px',
+    borderRadius: 12,
+    border: `1.5px solid ${TOKENS.goldSoft}`,
+    background: 'rgba(212,175,55,0.06)',
+    color: TOKENS.text2,
+    fontFamily: TOKENS.font.body,
+    fontSize: 12,
+    lineHeight: 1.45,
   },
   gearWrap: {
     position: 'relative',

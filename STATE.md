@@ -485,3 +485,19 @@ Wenn ein neuer Chat startet oder Kontextverlust droht:
   Accent-Override aus personaSettings, sonst den System-Akzent
 - Bestehende Controls fuer Quirks, Charakter-Tuning, Ton-Modus und Maya-Extras
   bleiben erhalten; Server-Flow und Studio-Flow bleiben unveraendert
+
+### M06 Discuss Hardening - Audio Fehler sichtbar
+
+- client/src/modules/M06_discuss/ui/DiscussionChat.tsx nutzt beim Senden keine
+  stale personaSettings-Closure mehr; Panel-Settings haengen jetzt korrekt in
+  den Hook-Dependencies
+- Die Header-Anzeige fuer laufende Wiedergabe zeigt jetzt die tatsaechlich
+  angeforderte Persona-Stimme statt blind liveTalk.selectedVoice
+- client/src/modules/M06_discuss/ui/PersonaSettingsPanel.tsx spiegelt die
+  Panel-Stimmwahl nicht mehr still in den globalen LiveTalk-State
+- server/src/routes/studio.ts sendet im Stream-Modus jetzt audio_error-Events,
+  wenn TTS ausfaellt oder keine Audio-Engine verfuegbar ist
+- client/src/modules/M06_discuss/hooks/useDiscussApi.ts und
+  client/src/modules/M06_discuss/ui/DiscussionChat.tsx machen diese
+  Audio-Ausfaelle jetzt fuer den User sichtbar, statt sie nur im Server-Log zu
+  verlieren

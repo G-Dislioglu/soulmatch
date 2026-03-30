@@ -33,6 +33,7 @@ interface StreamCallbacks {
   onTyping?: (persona: string, color: string) => void;
   onText: (persona: string, text: string, color: string) => void;
   onAudio: (persona: string, audioUrl: string, meta?: { ttsEngineUsed?: string; ttsMimeType?: string }) => void;
+  onAudioError?: (persona: string, message: string) => void;
   onDone?: (creditsUsed?: number) => void;
 }
 
@@ -157,6 +158,11 @@ export function useDiscussApi() {
                   ttsMimeType: typeof event.tts_mime_type === 'string' ? event.tts_mime_type : undefined,
                 });
               }
+            } else if (event.type === 'audio_error' && typeof event.persona === 'string') {
+              callbacks.onAudioError?.(
+                event.persona,
+                typeof event.message === 'string' ? event.message : 'Sprachausgabe gerade nicht verfuegbar.',
+              );
             } else if (event.type === 'done') {
               callbacks.onDone?.(typeof event.creditsUsed === 'number' ? event.creditsUsed : undefined);
             }
