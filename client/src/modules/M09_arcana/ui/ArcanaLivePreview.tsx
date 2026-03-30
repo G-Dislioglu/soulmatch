@@ -4,6 +4,20 @@ import { TOKENS } from '../../../design';
 import type { ArcanaPersonaDefinition } from '../hooks/useArcanaApi';
 import { buildClientDirectorPrompt, buildExampleResponse } from '../lib/clientDirectorPrompt';
 
+const TEAL   = '#4ECECE';
+const VIOLET = '#8A6DB0';
+const RED    = '#FF7070';
+const GREEN  = '#6BD672';
+
+type BadgeStyle = { bg: string; border: string; color: string; icon: string };
+
+function getToneBadge(mode: string): BadgeStyle {
+  if (mode === 'komisch')   return { bg: 'rgba(107,214,114,0.08)', border: 'rgba(107,214,114,0.25)', color: GREEN,     icon: '🎪' };
+  if (mode === 'satirisch') return { bg: 'rgba(255,120,50,0.08)',  border: 'rgba(255,120,50,0.25)',  color: '#FFB080', icon: '🎭' };
+  if (mode === 'bissig')    return { bg: 'rgba(201,168,76,0.08)',  border: 'rgba(201,168,76,0.25)',  color: '#C9A84C', icon: '😏' };
+  return                           { bg: 'rgba(107,79,160,0.1)',   border: 'rgba(107,79,160,0.3)',   color: '#C0A8E0', icon: '📜' };
+}
+
 interface ArcanaLivePreviewProps {
   persona: ArcanaPersonaDefinition | null;
   onPreview: (persona: ArcanaPersonaDefinition) => Promise<void>;
@@ -48,12 +62,12 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
     }
   }
 
-  function renderMiniBar(label: string, value: number) {
+  function renderMiniBar(label: string, value: number, color: string = TOKENS.gold) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '68px 1fr', gap: 10, alignItems: 'center' }}>
         <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text2 }}>{label}</div>
         <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
-          <div style={{ width: `${value}%`, height: '100%', background: TOKENS.gold }} />
+          <div style={{ width: `${value}%`, height: '100%', background: color }} />
         </div>
       </div>
     );
@@ -119,34 +133,44 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
             {renderMiniBar('Intensitaet', persona.character.intensity)}
             {renderMiniBar('Empathie', persona.character.empathy)}
             {renderMiniBar('Konfront.', persona.character.confrontation)}
-            {renderMiniBar('Tempo', persona.voice.speakingTempo)}
-            {renderMiniBar('Pausen', persona.voice.pauseDramaturgy)}
-            {renderMiniBar('Emotion', persona.voice.emotionalIntensity)}
-            <div
-              style={{
-                alignSelf: 'flex-start',
-                border: `1.5px solid ${TOKENS.gold}`,
-                borderRadius: 999,
-                padding: '6px 10px',
-                fontFamily: TOKENS.font.body,
-                fontSize: 11,
-                color: TOKENS.gold,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {persona.toneMode.mode}-Modus
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text2, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                Aktive Quirks
+            {renderMiniBar('Ton-Modus', persona.toneMode.slider, VIOLET)}
+            {renderMiniBar('Tempo', persona.voice.speakingTempo, TEAL)}
+            {renderMiniBar('Pausen', persona.voice.pauseDramaturgy, TEAL)}
+            {renderMiniBar('Emotion', persona.voice.emotionalIntensity, TEAL)}
+            {(() => {
+              const bc = getToneBadge(persona.toneMode.mode);
+              return (
+                <div
+                  style={{
+                    alignSelf: 'flex-start',
+                    border: `1px solid ${bc.border}`,
+                    borderRadius: 7,
+                    padding: '3px 9px',
+                    fontFamily: TOKENS.font.body,
+                    fontSize: 11,
+                    color: bc.color,
+                    background: bc.bg,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  {bc.icon} {persona.toneMode.mode.toUpperCase()}-MODUS
+                </div>
+              );
+            })()}
+            <div style={{ background: TOKENS.bg, border: `1px solid rgba(255,112,112,0.18)`, borderRadius: 9, padding: '11px' }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: RED, textTransform: 'uppercase', marginBottom: 7 }}>
+                AKTIVE QUIRKS
               </div>
               {persona.quirks.filter((quirk) => quirk.enabled).length > 0 ? persona.quirks.filter((quirk) => quirk.enabled).map((quirk) => (
-                <div key={quirk.id} style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
-                  • {quirk.label}
+                <div key={quirk.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text2, marginBottom: 4 }}>
+                  <span>✦</span><span>{quirk.label}</span>
                 </div>
               )) : (
-                <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text3 }}>
+                <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text3, fontStyle: 'italic' }}>
                   Keine aktiven Quirks.
                 </div>
               )}

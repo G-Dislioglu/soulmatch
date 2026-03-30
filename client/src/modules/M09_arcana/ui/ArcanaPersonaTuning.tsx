@@ -6,24 +6,49 @@ import {
 } from '../hooks/useArcanaApi';
 import { getCharacterDisplay, getVoiceDisplay, TONE_MODE_IMPACT_TEXT } from '../lib/clientDirectorPrompt';
 
-interface ArcanaPersonaTuningProps {
-  persona: ArcanaPersonaDefinition | null;
-  onChange: (updated: Partial<ArcanaPersonaDefinition>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete?: () => void;
-  saving: boolean;
-  isSystem: boolean;
+// ── Design constants ──────────────────────────────────────────────────────────
+const TEAL   = '#4ECECE';
+const VIOLET = '#8A6DB0';
+const RED    = '#FF7070';
+const GREEN  = '#6BD672';
+
+// 3 featured voice chips (prototype: Fenrir·rau, Puck·warm, Kore·tief)
+const FEATURED_VOICES = [
+  { name: 'Fenrir', label: 'Fenrir · rau' },
+  { name: 'Puck',   label: 'Puck · warm'  },
+  { name: 'Kore',   label: 'Kore · tief'  },
+] as const;
+
+// 4 tone zones with distinct colors
+const TONE_ZONES = [
+  { key: 'serioes',   label: 'SERIÖS',    bg: 'rgba(107,79,160,0.3)',   color: '#C0A8E0' },
+  { key: 'bissig',    label: 'BISSIG',    bg: 'rgba(201,168,76,0.18)',  color: '#C9A84C' },
+  { key: 'satirisch', label: 'SATIRISCH', bg: 'rgba(255,120,50,0.18)',  color: '#FFB080' },
+  { key: 'komisch',   label: 'KOMISCH',   bg: 'rgba(107,214,114,0.18)', color: GREEN     },
+] as const;
+
+// ── Slider helpers ────────────────────────────────────────────────────────────
+function sliderBg(value: number, color: string): string {
+  return `linear-gradient(90deg, ${color} 0%, ${color} ${value}%, rgba(255,255,255,0.12) ${value}%, rgba(255,255,255,0.12) 100%)`;
 }
 
-function sliderBackground(value: number): string {
-  return `linear-gradient(90deg, ${TOKENS.gold} 0%, ${TOKENS.gold} ${value}%, rgba(255,255,255,0.12) ${value}%, rgba(255,255,255,0.12) 100%)`;
+function rangeStyle(value: number, disabled: boolean, color: string) {
+  return {
+    width: '100%',
+    appearance: 'none' as const,
+    height: 6,
+    borderRadius: 999,
+    background: disabled ? 'rgba(255,255,255,0.08)' : sliderBg(value, color),
+    outline: 'none',
+    opacity: disabled ? 0.6 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  } as const;
 }
 
-function sectionLabel(title: string, subtitle: string) {
+function sectionLabel(title: string, subtitle: string, dotColor: string = TOKENS.gold) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-      <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+      <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: dotColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
         ● {title}
       </div>
       <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>{subtitle}</div>
@@ -45,19 +70,6 @@ function inputWrapStyle(disabled: boolean) {
   } as const;
 }
 
-function rangeStyle(value: number, disabled: boolean) {
-  return {
-    width: '100%',
-    appearance: 'none',
-    height: 6,
-    borderRadius: 999,
-    background: disabled ? 'rgba(255,255,255,0.08)' : sliderBackground(value),
-    outline: 'none',
-    opacity: disabled ? 0.6 : 1,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-  } as const;
-}
-
 function panelStyle() {
   return {
     border: `1.5px solid ${TOKENS.b2}`,
@@ -74,6 +86,17 @@ function labelForAccentIntensity(value: number): string {
   if (value >= 75) return 'Ausgepraegt';
   if (value >= 45) return 'Spuerbar';
   return 'Dezent';
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+interface ArcanaPersonaTuningProps {
+  persona: ArcanaPersonaDefinition | null;
+  onChange: (updated: Partial<ArcanaPersonaDefinition>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+  saving: boolean;
+  isSystem: boolean;
 }
 
 export function ArcanaPersonaTuning({
@@ -125,6 +148,7 @@ export function ArcanaPersonaTuning({
         gap: 18,
       }}
     >
+      {/* ─── Header ─── */}
       <div style={panelStyle()}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
@@ -173,6 +197,7 @@ export function ArcanaPersonaTuning({
         </div>
       </div>
 
+      {/* ─── A. Name · Archetyp ─── */}
       <div style={panelStyle()}>
         {sectionLabel('Name · Archetyp', 'Identitaet')}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
@@ -225,8 +250,72 @@ export function ArcanaPersonaTuning({
         </label>
       </div>
 
+      {/* ─── B. Signature Quirks (vor Charakter) ─── */}
       <div style={panelStyle()}>
-        {sectionLabel('Charakter · Tuning', 'Persoenlichkeit')}
+        {sectionLabel('Signature Quirks', 'Eigenarten', RED)}
+        {persona.quirks.length > 0 ? persona.quirks.map((quirk) => (
+          <div
+            key={quirk.id}
+            style={{
+              border: `1px solid ${quirk.enabled ? 'rgba(255,112,112,0.28)' : 'rgba(255,255,255,0.05)'}`,
+              borderRadius: 8,
+              padding: '9px 11px',
+              background: quirk.enabled ? 'rgba(255,112,112,0.07)' : 'rgba(255,255,255,0.02)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 9,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, fontWeight: 500, color: TOKENS.text, marginBottom: 2 }}>
+                {quirk.label}
+              </div>
+              <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 11, color: TOKENS.text2, lineHeight: 1.4 }}>
+                {quirk.description}
+              </div>
+            </div>
+            {/* CSS toggle switch 32×17px */}
+            <div
+              role="switch"
+              aria-checked={quirk.enabled}
+              onClick={() => !disabled && onChange({
+                quirks: persona.quirks.map((entry) => entry.id === quirk.id ? { ...entry, enabled: !entry.enabled } : entry),
+              })}
+              style={{
+                width: 32,
+                height: 17,
+                borderRadius: 9,
+                background: quirk.enabled ? 'rgba(255,112,112,0.2)' : TOKENS.b3,
+                border: `1px solid ${quirk.enabled ? 'rgba(255,112,112,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                position: 'relative',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+                marginTop: 2,
+                transition: 'background 0.3s, border-color 0.3s',
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                width: 11,
+                height: 11,
+                borderRadius: '50%',
+                background: quirk.enabled ? RED : TOKENS.text2,
+                top: 2,
+                left: quirk.enabled ? 17 : 2,
+                transition: 'left 0.3s, background 0.3s',
+              }} />
+            </div>
+          </div>
+        )) : (
+          <div style={{ border: `1.5px dashed ${TOKENS.b2}`, borderRadius: 18, padding: '14px 12px', fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
+            Diese Persona hat aktuell keine Signature Quirks.
+          </div>
+        )}
+      </div>
+
+      {/* ─── C. Charakter · Tuning (Gold) ─── */}
+      <div style={panelStyle()}>
+        {sectionLabel('Charakter · Tuning', 'Persoenlichkeit', TOKENS.gold)}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Intensitaet</span>
@@ -239,7 +328,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.intensity}
             disabled={disabled}
             onChange={(event) => onChange({ character: { ...persona.character, intensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.intensity, disabled)}
+            style={rangeStyle(persona.character.intensity, disabled, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Sanft</span>
@@ -258,7 +347,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.empathy}
             disabled={disabled}
             onChange={(event) => onChange({ character: { ...persona.character, empathy: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.empathy, disabled)}
+            style={rangeStyle(persona.character.empathy, disabled, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Kuehl analytisch</span>
@@ -277,7 +366,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.confrontation}
             disabled={disabled}
             onChange={(event) => onChange({ character: { ...persona.character, confrontation: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.confrontation, disabled)}
+            style={rangeStyle(persona.character.confrontation, disabled, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Bestaetigend</span>
@@ -286,54 +375,56 @@ export function ArcanaPersonaTuning({
         </label>
       </div>
 
+      {/* ─── D. Ton · Modus (4-Zonen-Balken + Violet-Slider) ─── */}
       <div style={panelStyle()}>
-        {sectionLabel('Ton · Modus', 'Serioes bis Komisch')}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(['serioes', 'bissig', 'satirisch', 'komisch'] as const).map((modeKey) => {
-            const active = persona.toneMode.mode === modeKey;
+        {sectionLabel('Ton · Modus', 'Serioes bis Komisch', GREEN)}
+        {/* 4-zone bar */}
+        <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden' }}>
+          {TONE_ZONES.map((zone) => {
+            const active = persona.toneMode.mode === zone.key;
             return (
               <button
-                key={modeKey}
+                key={zone.key}
                 type="button"
                 disabled={disabled}
-                onClick={() => onChange({ toneMode: { ...persona.toneMode, mode: modeKey } })}
+                onClick={() => onChange({ toneMode: { ...persona.toneMode, mode: zone.key } })}
                 style={{
-                  border: `1.5px solid ${active ? TOKENS.gold : TOKENS.b1}`,
-                  background: active ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.03)',
-                  color: active ? TOKENS.gold : TOKENS.text,
-                  borderRadius: 999,
-                  padding: '10px 14px',
-                  fontFamily: TOKENS.font.body,
-                  fontSize: 12,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: zone.bg,
+                  color: zone.color,
+                  fontSize: 9,
+                  letterSpacing: '0.5px',
+                  opacity: active ? 1 : 0.35,
+                  border: 'none',
+                  borderRight: '1px solid rgba(255,255,255,0.05)',
                   cursor: disabled ? 'not-allowed' : 'pointer',
+                  transition: 'opacity 0.2s',
+                  fontFamily: TOKENS.font.body,
+                  fontWeight: 600,
+                  padding: 0,
                 }}
               >
-                {modeKey}
+                {zone.label}
               </button>
             );
           })}
         </div>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Modus-Intensitaet</span>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{persona.toneMode.slider}</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={persona.toneMode.slider}
-            disabled={disabled}
-            onChange={(event) => onChange({ toneMode: { ...persona.toneMode, slider: Number(event.target.value) } })}
-            style={rangeStyle(persona.toneMode.slider, disabled)}
-          />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
-            <span>Historisch akkurat</span>
-            <span>Viral-komisch</span>
-          </div>
-        </label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 10, color: TOKENS.text2 }}>
+          <span>Historisch akkurat</span>
+          <span>Viral-komisch</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={persona.toneMode.slider}
+          disabled={disabled}
+          onChange={(event) => onChange({ toneMode: { ...persona.toneMode, slider: Number(event.target.value) } })}
+          style={rangeStyle(persona.toneMode.slider, disabled, VIOLET)}
+        />
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Auswirkung bei "{persona.toneMode.mode}"
@@ -344,109 +435,81 @@ export function ArcanaPersonaTuning({
         </div>
       </div>
 
+      {/* ─── E. Stimme · Tuning (Chips + Teal-Slider) ─── */}
       <div style={panelStyle()}>
-        {sectionLabel('Signature Quirks', 'Eigenarten')}
-        {persona.quirks.length > 0 ? persona.quirks.map((quirk) => (
-          <div
-            key={quirk.id}
-            style={{
-              border: `1.5px solid ${quirk.enabled ? `${TOKENS.gold}66` : TOKENS.b2}`,
-              borderRadius: 18,
-              padding: '14px 14px 12px',
-              background: quirk.enabled ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.015)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 14, color: TOKENS.text }}>{quirk.label}</div>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange({
-                  quirks: persona.quirks.map((entry) => entry.id === quirk.id ? { ...entry, enabled: !entry.enabled } : entry),
-                })}
-                style={{
-                  border: `1.5px solid ${quirk.enabled ? TOKENS.gold : TOKENS.b1}`,
-                  background: quirk.enabled ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.03)',
-                  color: quirk.enabled ? TOKENS.gold : TOKENS.text2,
-                  borderRadius: 999,
-                  padding: '6px 10px',
-                  fontFamily: TOKENS.font.body,
-                  fontSize: 11,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {quirk.enabled ? 'On' : 'Off'}
-              </button>
-            </div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{quirk.description}</div>
+        {sectionLabel('Stimme · Tuning', 'Klang & TTS', TEAL)}
+        {/* 3 featured voice chips */}
+        <div>
+          <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: TOKENS.text2, marginBottom: 8, textTransform: 'uppercase' }}>
+            Basisstimme
           </div>
-        )) : (
-          <div style={{ border: `1.5px dashed ${TOKENS.b2}`, borderRadius: 18, padding: '14px 12px', fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
-            Diese Persona hat aktuell keine Signature Quirks. In Phase 6.2 koennen bestehende Quirks getoggelt, aber noch nicht neu erzeugt werden.
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {FEATURED_VOICES.map((v) => {
+              const active = persona.voice.voiceName === v.name;
+              return (
+                <button
+                  key={v.name}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange({ voice: { ...persona.voice, voiceName: v.name as ArcanaPersonaDefinition['voice']['voiceName'] } })}
+                  style={{
+                    padding: '4px 11px',
+                    borderRadius: 6,
+                    border: `1px solid ${active ? 'rgba(78,206,206,0.45)' : 'rgba(201,168,76,0.12)'}`,
+                    background: active ? 'rgba(78,206,206,0.07)' : 'transparent',
+                    color: active ? TEAL : TOKENS.text2,
+                    fontSize: 11,
+                    fontFamily: TOKENS.font.body,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {v.label}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
-
-      <div style={panelStyle()}>
-        {sectionLabel('Stimme · Tuning', 'Klang & TTS')}
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>Basisstimme</span>
-          <select
-            value={persona.voice.voiceName}
-            disabled={disabled}
-            onChange={(event) => onChange({ voice: { ...persona.voice, voiceName: event.target.value as ArcanaPersonaDefinition['voice']['voiceName'] } })}
-            style={inputWrapStyle(disabled)}
-          >
-            <optgroup label="Female">
-              {VOICE_CATALOG.filter((entry) => entry.gender === 'female').map((entry) => (
-                <option key={entry.name} value={entry.name}>{entry.label}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Male">
-              {VOICE_CATALOG.filter((entry) => entry.gender === 'male').map((entry) => (
-                <option key={entry.name} value={entry.name}>{entry.label}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Neutral">
-              {VOICE_CATALOG.filter((entry) => entry.gender === 'neutral').map((entry) => (
-                <option key={entry.name} value={entry.name}>{entry.label}</option>
-              ))}
-            </optgroup>
-          </select>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>{voiceEntry?.character ?? 'Keine Beschreibung verfuegbar.'}</div>
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>Akzent</span>
+          {/* Accent chip — styled select */}
           <select
             value={persona.voice.accent}
             disabled={disabled}
             onChange={(event) => onChange({ voice: { ...persona.voice, accent: event.target.value as ArcanaPersonaDefinition['voice']['accent'] } })}
-            style={inputWrapStyle(disabled)}
+            style={{
+              padding: '4px 11px',
+              borderRadius: 6,
+              border: '1.5px dashed rgba(201,168,76,0.3)',
+              background: 'transparent',
+              color: TOKENS.gold,
+              fontSize: 11,
+              fontFamily: TOKENS.font.body,
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              appearance: 'none',
+              outline: 'none',
+            }}
           >
-            <option value="off">Kein Akzent</option>
-            <option value="indisch">Indisch</option>
-            <option value="britisch">Britisch</option>
-            <option value="franzoesisch">Franzoesisch</option>
-            <option value="arabisch">Arabisch</option>
-            <option value="japanisch">Japanisch</option>
-            <option value="suedlaendisch">Suedlaendisch</option>
-            <option value="nordisch">Nordisch</option>
-            <option value="mystisch">Mystisch</option>
-            <option value="griechisch">Griechisch</option>
-            <option value="russisch">Russisch</option>
-            <option value="afrikanisch">Afrikanisch</option>
-            <option value="lateinamerikanisch">Lateinamerikanisch</option>
+            <option value="off">+ Kein Akzent ✦</option>
+            <option value="indisch">+ Akzent: Indisch ✦</option>
+            <option value="britisch">+ Akzent: Britisch ✦</option>
+            <option value="franzoesisch">+ Akzent: Franzoesisch ✦</option>
+            <option value="arabisch">+ Akzent: Arabisch ✦</option>
+            <option value="japanisch">+ Akzent: Japanisch ✦</option>
+            <option value="suedlaendisch">+ Akzent: Suedlaendisch ✦</option>
+            <option value="nordisch">+ Akzent: Nordisch ✦</option>
+            <option value="mystisch">+ Akzent: Mystisch ✦</option>
+            <option value="griechisch">+ Akzent: Griechisch ✦</option>
+            <option value="russisch">+ Akzent: Russisch ✦</option>
+            <option value="afrikanisch">+ Akzent: Afrikanisch ✦</option>
+            <option value="lateinamerikanisch">+ Akzent: Lateinamerikanisch ✦</option>
           </select>
-        </label>
+          <div style={{ marginTop: 6, fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
+            {voiceEntry?.character ?? 'Keine Beschreibung verfuegbar.'}
+          </div>
+        </div>
+        {/* Teal sliders */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Akzent-Staerke</span>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{labelForAccentIntensity(persona.voice.accentIntensity)}</span>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{labelForAccentIntensity(persona.voice.accentIntensity)}</span>
           </div>
           <input
             type="range"
@@ -455,13 +518,13 @@ export function ArcanaPersonaTuning({
             value={persona.voice.accentIntensity}
             disabled={disabled}
             onChange={(event) => onChange({ voice: { ...persona.voice, accentIntensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.accentIntensity, disabled)}
+            style={rangeStyle(persona.voice.accentIntensity, disabled, TEAL)}
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Sprechtempo</span>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{voiceDisplay.tempo}</span>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.tempo}</span>
           </div>
           <input
             type="range"
@@ -470,7 +533,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.speakingTempo}
             disabled={disabled}
             onChange={(event) => onChange({ voice: { ...persona.voice, speakingTempo: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.speakingTempo, disabled)}
+            style={rangeStyle(persona.voice.speakingTempo, disabled, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Langsam meditativ</span>
@@ -480,7 +543,7 @@ export function ArcanaPersonaTuning({
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Pausen & Dramaturgie</span>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{voiceDisplay.pauses}</span>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.pauses}</span>
           </div>
           <input
             type="range"
@@ -489,7 +552,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.pauseDramaturgy}
             disabled={disabled}
             onChange={(event) => onChange({ voice: { ...persona.voice, pauseDramaturgy: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.pauseDramaturgy, disabled)}
+            style={rangeStyle(persona.voice.pauseDramaturgy, disabled, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Fliessend</span>
@@ -499,7 +562,7 @@ export function ArcanaPersonaTuning({
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Emotionale Intensitaet</span>
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{voiceDisplay.emotion}</span>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.emotion}</span>
           </div>
           <input
             type="range"
@@ -508,7 +571,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.emotionalIntensity}
             disabled={disabled}
             onChange={(event) => onChange({ voice: { ...persona.voice, emotionalIntensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.emotionalIntensity, disabled)}
+            style={rangeStyle(persona.voice.emotionalIntensity, disabled, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Neutral</span>
@@ -517,8 +580,9 @@ export function ArcanaPersonaTuning({
         </label>
       </div>
 
+      {/* ─── F. Maya · Special Mode (Violet) ─── */}
       <div style={panelStyle()}>
-        {sectionLabel('✦ Maya · Special Mode', 'Ueber die Regler hinaus')}
+        {sectionLabel('✦ Maya · Special Mode', 'Ueber die Regler hinaus', VIOLET)}
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, padding: '16px 16px 14px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             🌙 Maya Spezial-Funktion
@@ -552,6 +616,7 @@ export function ArcanaPersonaTuning({
         </div>
       </div>
 
+      {/* ─── G. Footer actions ─── */}
       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
         {onDelete && !isSystem ? (
           <button
