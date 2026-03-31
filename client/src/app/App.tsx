@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { Route, Switch } from 'wouter';
+import { Route, Switch, useLocation } from 'wouter';
 import type { UserProfile } from '../shared/types/profile';
 import type { ScoreResult } from '../shared/types/scoring';
 import type { MatchScoreResult } from '../shared/types/match';
@@ -235,6 +235,7 @@ function TabSectionFrame({ title, subtitle, accent, children }: TabSectionFrameP
 function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRequestIdRef = useRef(0);
+  const [, navigate] = useLocation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activePage, setActivePage] = useState<ActivePage>(HOME_PAGE);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -465,9 +466,14 @@ function HomePage() {
   const shellOffset = sidebarCollapsed ? SHELL_SIDEBAR_COLLAPSED_WIDTH : SHELL_SIDEBAR_WIDTH;
   const currentShellPage: PageDef = activePage === HOME_PAGE ? HOME_PAGE_DEF : (APP_PAGES[activePage] ?? APP_PAGES[0]!);
   const handleShellPageChange = useCallback((page: number) => {
+    if (page === PAGE_STUDIO) {
+      setMobileDrawerOpen(false);
+      navigate('/studio');
+      return;
+    }
     setActivePage(page);
     setMobileDrawerOpen(false);
-  }, []);
+  }, [navigate]);
 
   /* ── Overlay content (rendered inside global shell) ── */
   function renderOverlay() {
@@ -1187,7 +1193,7 @@ function HomePage() {
         className="app-content-main"
         style={{
           flex: 1,
-          overflowY: activePage === PAGE_STUDIO ? 'hidden' : 'auto',
+          overflowY: 'auto',
           overflowX: 'hidden',
           position: 'relative',
           zIndex: 10,
@@ -1255,7 +1261,7 @@ function HomePage() {
                   {computing ? 'Berechne…' : 'Score berechnen'}
                 </CosmicButton>
                 {studioEnabled && (
-                  <CosmicButton variant="outline" onClick={() => setActivePage(PAGE_STUDIO)}>
+                  <CosmicButton variant="outline" onClick={() => navigate('/studio')}>
                     Studio öffnen
                   </CosmicButton>
                 )}
@@ -1732,8 +1738,8 @@ function HomePage() {
                         claims={scoreResult.claims}
                         highlightedCard={highlightedCard}
                         tourTarget={tourTarget}
-                        onAskMaya={() => setActivePage(PAGE_STUDIO)}
-                        onNavigateStudio={() => setActivePage(PAGE_STUDIO)}
+                        onAskMaya={() => navigate('/studio')}
+                        onNavigateStudio={() => navigate('/studio')}
                       />
                     </SCard>
                   )}
@@ -1773,26 +1779,6 @@ function HomePage() {
         {/* ═══ PAGE 2: CHAT ═══ */}
         {activePage === PAGE_CHAT && (
           <DiscussionChat liveTalk={liveTalk} appMode="chat" onBack={() => setActivePage(PAGE_PROFILE)} />
-        )}
-
-        {/* ═══ PAGE 7: STUDIO ═══ */}
-        {activePage === PAGE_STUDIO && (
-          <div
-            key="studio"
-            className="portal-enter"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              minHeight: 0,
-              maxWidth: 1280,
-              margin: '0 auto',
-              width: '100%',
-              overflow: 'hidden',
-            }}
-          >
-            <ArcanaStudioPage userId={profile?.id ?? null} />
-          </div>
         )}
 
         {/* ═══ PAGE 4: ASTRO ═══ */}
@@ -2329,12 +2315,18 @@ function NotFound() {
   );
 }
 
+function StudioPage() {
+  const profile = loadProfile();
+  return <ArcanaStudioPage userId={profile?.id ?? null} />;
+}
+
 export function App() {
   return (
     <>
     <DisclaimerModal />
     <GuideProvider>
       <Switch>
+        <Route path="/studio" component={StudioPage} />
         <Route path="/" component={HomePage} />
         <Route component={NotFound} />
       </Switch>
