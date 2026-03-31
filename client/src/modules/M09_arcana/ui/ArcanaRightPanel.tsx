@@ -72,7 +72,7 @@ export function ArcanaRightPanel({
         <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
       </div>
 
-      <div style={{ minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ minHeight: 0, overflowY: 'auto' }}>
         <ArcanaPersonaTuning
           persona={persona}
           onChange={onChange}
