@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import { ArcanaPersonaList } from './ArcanaPersonaList';
-import { ArcanaPersonaTuning } from './ArcanaPersonaTuning';
-import { ArcanaLivePreview } from './ArcanaLivePreview';
+import { ArcanaCreatorChat } from './ArcanaCreatorChat';
+import { ArcanaRightPanel } from './ArcanaRightPanel';
 import {
   useArcanaApi,
   type ArcanaPersonaDefinition,
@@ -82,6 +82,12 @@ function buildNewPersonaDraft(): ArcanaPersonaDefinition {
       slider: 50,
     },
     quirks: buildStarterQuirks(),
+    skills: {
+      knowledge: [],
+      interaction: [],
+      tools: [],
+    },
+    contradictions: [],
     voice: {
       voiceName: 'Aoede' as const,
       accent: 'off' as const,
@@ -90,6 +96,7 @@ function buildNewPersonaDraft(): ArcanaPersonaDefinition {
       pauseDramaturgy: 50,
       emotionalIntensity: 50,
     },
+    sources: [],
     mayaSpecial: '',
     credits: {
       creationCost: 50,
@@ -111,7 +118,10 @@ function mapPersonaToDraftInput(persona: ArcanaPersonaDefinition): PersonaDraftI
     characterTuning: persona.character,
     toneMode: persona.toneMode,
     quirks: persona.quirks,
+    skills: persona.skills,
+    contradictions: persona.contradictions,
     voiceConfig: persona.voice,
+    sources: persona.sources,
     mayaSpecial: persona.mayaSpecial,
     presetId: persona.presetId,
   };
@@ -241,7 +251,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '220px minmax(0, 1fr) 300px',
+        gridTemplateColumns: '220px minmax(0, 1fr) 380px',
         gap: 0,
         height: '100%',
         minHeight: 0,
@@ -261,30 +271,18 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         loading={loading}
       />
 
-      <div style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', background: '#111118' }}>
-        <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(201,168,76,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          {hasUnsavedChanges && (
-            <span style={{ fontFamily: TOKENS.font.body, fontSize: 10, letterSpacing: '2px', color: '#C9A84C' }}>UNGESPEICHERT</span>
-          )}
-          {error || actionError ? (
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.6 }}>
-              Arcana API Fehler: {actionError ?? error}
-            </div>
-          ) : null}
-        </div>
+      <ArcanaCreatorChat hasUnsavedChanges={hasUnsavedChanges} errorMessage={actionError ?? error} />
 
-        <ArcanaPersonaTuning
-          persona={selectedPersona}
-          onChange={handleTuningChange}
-          onSave={() => void handleSave()}
-          onCancel={handleCancel}
-          onDelete={selectedPersona && selectedPersona.tier !== 'system' ? () => void handleDelete() : undefined}
-          saving={saving}
-          isSystem={selectedPersona?.tier === 'system'}
-        />
-      </div>
-
-      <ArcanaLivePreview persona={selectedPersona} onPreview={handlePreview} />
+      <ArcanaRightPanel
+        persona={selectedPersona}
+        onChange={handleTuningChange}
+        onSave={() => void handleSave()}
+        onCancel={handleCancel}
+        onDelete={selectedPersona && selectedPersona.tier !== 'system' ? () => void handleDelete() : undefined}
+        onPreview={handlePreview}
+        saving={saving}
+        isSystem={selectedPersona?.tier === 'system'}
+      />
     </div>
   );
 }

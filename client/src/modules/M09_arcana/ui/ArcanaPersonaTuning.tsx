@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import { VOICE_CATALOG } from '../../../data/voiceCatalog';
@@ -14,6 +14,7 @@ const VIOLET = '#8A6DB0';
 const RED    = '#FF7070';
 const GREEN  = '#6BD672';
 const GOLD   = '#C9A84C';
+const ORANGE = '#E8A838';
 const S1     = '#111118';   // block body bg
 const S2     = '#16161F';   // block header bg
 const MUTED  = '#6E6B7A';
@@ -33,6 +34,26 @@ const TONE_ZONES = [
   { key: 'komisch',   label: 'KOMISCH',   bg: 'rgba(107,214,114,0.18)', color: GREEN     },
 ] as const;
 
+const SOURCE_PREVIEW_FALLBACK: NonNullable<ArcanaPersonaDefinition['sources']> = [
+  { name: 'biografie.pdf', type: 'pdf', extractedCount: 4 },
+  { name: 'portrait-referenz.png', type: 'image', extractedCount: 3 },
+  { name: 'notizen.txt', type: 'text', extractedCount: 2 },
+];
+
+function createOpenSections(compact: boolean) {
+  return {
+    identity: !compact,
+    quirks: true,
+    skills: true,
+    contradictions: true,
+    character: true,
+    tone: false,
+    voice: false,
+    sources: true,
+    maya: false,
+  };
+}
+
 // ── Slider helpers ────────────────────────────────────────────────────────────
 function sliderBg(value: number, color: string): string {
   return `linear-gradient(90deg, ${color} 0%, ${color} ${value}%, rgba(255,255,255,0.12) ${value}%, rgba(255,255,255,0.12) 100%)`;
@@ -51,7 +72,12 @@ function rangeStyle(value: number, disabled: boolean, color: string) {
   } as const;
 }
 
-function blockHead(title: string, hint: string, dotColor: string) {
+function blockHead(
+  title: string,
+  hint: string,
+  dotColor: string,
+  collapsible?: { open: boolean; onToggle: () => void },
+) {
   const glow = dotColor + '80';
   return (
     <div
@@ -87,6 +113,30 @@ function blockHead(title: string, hint: string, dotColor: string) {
         {title}
       </span>
       <span style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, fontStyle: 'italic' }}>{hint}</span>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={collapsible.onToggle}
+          aria-label={collapsible.open ? `${title} einklappen` : `${title} ausklappen`}
+          style={{
+            border: '1px solid rgba(201,168,76,0.18)',
+            background: 'rgba(255,255,255,0.02)',
+            color: TOKENS.text2,
+            borderRadius: 6,
+            width: 22,
+            height: 22,
+            cursor: 'pointer',
+            lineHeight: 1,
+            fontSize: 13,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: 8,
+          }}
+        >
+          {collapsible.open ? '-' : '+'}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -124,12 +174,24 @@ function blockBody() {
 }
 
 function Block({
-  title, hint, dotColor, children,
-}: { title: string; hint: string; dotColor: string; children: ReactNode }) {
+  title,
+  hint,
+  dotColor,
+  children,
+  open = true,
+  onToggle,
+}: {
+  title: string;
+  hint: string;
+  dotColor: string;
+  children: ReactNode;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   return (
     <div style={blockOuter()}>
-      {blockHead(title, hint, dotColor)}
-      <div style={blockBody()}>{children}</div>
+      {blockHead(title, hint, dotColor, onToggle ? { open, onToggle } : undefined)}
+      {open ? <div style={blockBody()}>{children}</div> : null}
     </div>
   );
 }
@@ -138,6 +200,16 @@ function labelForAccentIntensity(value: number): string {
   if (value >= 75) return 'Ausgepraegt';
   if (value >= 45) return 'Spuerbar';
   return 'Dezent';
+}
+
+function getSourceMeta(type: 'pdf' | 'image' | 'text') {
+  if (type === 'pdf') {
+    return { icon: 'PDF', color: '#F87171', bg: 'rgba(248,113,113,0.12)' };
+  }
+  if (type === 'image') {
+    return { icon: 'IMG', color: TEAL, bg: 'rgba(78,206,206,0.12)' };
+  }
+  return { icon: 'TXT', color: '#B8A4E6', bg: 'rgba(138,109,176,0.2)' };
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -149,6 +221,7 @@ interface ArcanaPersonaTuningProps {
   onDelete?: () => void;
   saving: boolean;
   isSystem: boolean;
+  compact?: boolean;
 }
 
 export function ArcanaPersonaTuning({
@@ -159,14 +232,115 @@ export function ArcanaPersonaTuning({
   onDelete,
   saving,
   isSystem,
+  compact = false,
 }: ArcanaPersonaTuningProps) {
+  const [openSections, setOpenSections] = useState(() => createOpenSections(compact));
+  const [skillInputs, setSkillInputs] = useState({ knowledge: '', interaction: '', tools: '' });
+  const disabled = saving || isSystem;
+
+  useEffect(() => {
+    setOpenSections(createOpenSections(compact));
+    setSkillInputs({ knowledge: '', interaction: '', tools: '' });
+  }, [persona?.id, compact]);
+
+  function toggleSection(key: keyof typeof openSections) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function updateSkillInput(key: keyof typeof skillInputs, value: string) {
+    setSkillInputs((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function addSkillTag(key: keyof typeof skillInputs) {
+    if (!persona || disabled) {
+      return;
+    }
+
+    const nextValue = skillInputs[key].trim();
+    if (!nextValue) {
+      return;
+    }
+
+    const nextSkills = {
+      knowledge: persona.skills?.knowledge ?? [],
+      interaction: persona.skills?.interaction ?? [],
+      tools: persona.skills?.tools ?? [],
+    };
+
+    if (!nextSkills[key].includes(nextValue)) {
+      nextSkills[key] = [...nextSkills[key], nextValue];
+      onChange({ skills: nextSkills });
+    }
+
+    updateSkillInput(key, '');
+  }
+
+  function removeSkillTag(key: keyof typeof skillInputs, tag: string) {
+    if (!persona || disabled) {
+      return;
+    }
+
+    onChange({
+      skills: {
+        knowledge: key === 'knowledge'
+          ? (persona.skills?.knowledge ?? []).filter((entry) => entry !== tag)
+          : (persona.skills?.knowledge ?? []),
+        interaction: key === 'interaction'
+          ? (persona.skills?.interaction ?? []).filter((entry) => entry !== tag)
+          : (persona.skills?.interaction ?? []),
+        tools: key === 'tools'
+          ? (persona.skills?.tools ?? []).filter((entry) => entry !== tag)
+          : (persona.skills?.tools ?? []),
+      },
+    });
+  }
+
+  function updateContradiction(index: number, field: 'poleA' | 'poleB' | 'description', value: string) {
+    if (!persona || disabled) {
+      return;
+    }
+
+    onChange({
+      contradictions: (persona.contradictions ?? []).map((entry, currentIndex) => (
+        currentIndex === index ? { ...entry, [field]: value } : entry
+      )),
+    });
+  }
+
+  function addContradiction() {
+    if (!persona || disabled) {
+      return;
+    }
+
+    onChange({
+      contradictions: [
+        ...(persona.contradictions ?? []),
+        {
+          poleA: 'Ordnung',
+          poleB: 'Chaos',
+          description: 'Bewegt sich zwischen methodischer Kontrolle und kreativer Unberechenbarkeit.',
+        },
+      ],
+    });
+  }
+
+  function removeContradiction(index: number) {
+    if (!persona || disabled) {
+      return;
+    }
+
+    onChange({
+      contradictions: (persona.contradictions ?? []).filter((_, currentIndex) => currentIndex !== index),
+    });
+  }
+
   if (!persona) {
     return (
       <section
         style={{
           minHeight: 0,
-          height: '100%',
-          overflowY: 'auto',
+          height: compact ? 'auto' : '100%',
+          overflowY: compact ? 'visible' : 'auto',
           padding: '24px 24px 28px',
           display: 'flex',
           alignItems: 'center',
@@ -185,15 +359,21 @@ export function ArcanaPersonaTuning({
 
   const characterDisplay = getCharacterDisplay(persona);
   const voiceDisplay = getVoiceDisplay(persona);
-  const disabled = saving || isSystem;
   const voiceEntry = VOICE_CATALOG.find((entry) => entry.name === persona.voice.voiceName);
+  const skills = {
+    knowledge: persona.skills?.knowledge ?? [],
+    interaction: persona.skills?.interaction ?? [],
+    tools: persona.skills?.tools ?? [],
+  };
+  const contradictions = persona.contradictions ?? [];
+  const sources = (persona.sources && persona.sources.length > 0) ? persona.sources : SOURCE_PREVIEW_FALLBACK;
 
   return (
     <section
       style={{
         minHeight: 0,
-        height: '100%',
-        overflowY: 'auto',
+        height: compact ? 'auto' : '100%',
+        overflowY: compact ? 'visible' : 'auto',
         padding: '22px 24px 28px',
         display: 'flex',
         flexDirection: 'column',
@@ -262,7 +442,8 @@ export function ArcanaPersonaTuning({
       </div>
 
       {/* ─── A. Name · Archetyp ─── */}
-      <Block title="NAME · ARCHETYP" hint="Identität" dotColor={GOLD}>
+      {!compact ? (
+        <Block title="NAME · ARCHETYP" hint="Identität" dotColor={GOLD} open={openSections.identity} onToggle={() => toggleSection('identity')}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>Name</span>
@@ -311,10 +492,11 @@ export function ArcanaPersonaTuning({
             style={{ ...inputWrapStyle(disabled), resize: 'vertical', minHeight: 110 }}
           />
         </label>
-      </Block>
+        </Block>
+      ) : null}
 
       {/* ─── B. Signature Quirks (vor Charakter) ─── */}
-      <Block title="SIGNATURE QUIRKS" hint="Eigenarten" dotColor={RED}>
+      <Block title="SIGNATURE QUIRKS" hint="Eigenarten" dotColor={RED} open={openSections.quirks} onToggle={() => toggleSection('quirks')}>
         {persona.quirks.length > 0 ? persona.quirks.map((quirk) => (
           <div
             key={quirk.id}
@@ -375,8 +557,185 @@ export function ArcanaPersonaTuning({
         )}
       </Block>
 
-      {/* ─── C. Charakter · Tuning (Gold) ─── */}
-      <Block title="CHARAKTER · TUNING" hint="Persönlichkeit" dotColor={GOLD}>
+      {/* ─── C. Fähigkeiten & Wissen ─── */}
+      <Block title="FAEHIGKEITEN & WISSEN" hint="Tag-basierte Profile" dotColor={TEAL} open={openSections.skills} onToggle={() => toggleSection('skills')}>
+        {[
+          {
+            key: 'knowledge' as const,
+            title: 'Wissensdomaenen',
+            tags: skills.knowledge,
+            border: 'rgba(78,206,206,0.3)',
+            bg: 'rgba(78,206,206,0.12)',
+            color: TEAL,
+          },
+          {
+            key: 'interaction' as const,
+            title: 'Interaktionsmodi',
+            tags: skills.interaction,
+            border: 'rgba(138,109,176,0.35)',
+            bg: 'rgba(138,109,176,0.2)',
+            color: '#B8A4E6',
+          },
+          {
+            key: 'tools' as const,
+            title: 'Werkzeuge',
+            tags: skills.tools,
+            border: 'rgba(201,168,76,0.35)',
+            bg: 'rgba(201,168,76,0.16)',
+            color: GOLD,
+          },
+        ].map((group) => (
+          <div key={group.key} style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#5A5A6E', fontFamily: TOKENS.font.body }}>
+              {group.title}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {group.tags.map((tag) => (
+                <span
+                  key={`${group.key}-${tag}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 999,
+                    border: `1px solid ${group.border}`,
+                    background: group.bg,
+                    color: group.color,
+                    padding: '4px 9px',
+                    fontFamily: TOKENS.font.body,
+                    fontSize: 12,
+                  }}
+                >
+                  <span>{tag}</span>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => removeSkillTag(group.key, tag)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: group.color,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      padding: 0,
+                      fontSize: 12,
+                      lineHeight: 1,
+                    }}
+                  >
+                    x
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              value={skillInputs[group.key]}
+              disabled={disabled}
+              onChange={(event) => updateSkillInput(group.key, event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addSkillTag(group.key);
+                }
+              }}
+              placeholder="Tag hinzufuegen"
+              style={{
+                ...inputWrapStyle(disabled),
+                padding: '8px 12px',
+                fontSize: 12,
+              }}
+            />
+          </div>
+        ))}
+      </Block>
+
+      {/* ─── D. Widersprueche / Spannungsprofil ─── */}
+      <Block title="WIDERSPRUECHE / SPANNUNGSPROFIL" hint="Pole mit Reibung" dotColor={ORANGE} open={openSections.contradictions} onToggle={() => toggleSection('contradictions')}>
+        {contradictions.length > 0 ? contradictions.map((entry, index) => (
+          <div
+            key={`contradiction-${index}`}
+            style={{
+              borderLeft: `3px solid ${ORANGE}`,
+              borderRadius: 8,
+              background: '#16161F',
+              borderTop: '1px solid rgba(232,168,56,0.2)',
+              borderRight: '1px solid rgba(232,168,56,0.2)',
+              borderBottom: '1px solid rgba(232,168,56,0.2)',
+              padding: '10px 11px',
+              display: 'grid',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr) auto', gap: 8, alignItems: 'center' }}>
+              <input
+                value={entry.poleA}
+                disabled={disabled}
+                onChange={(event) => updateContradiction(index, 'poleA', event.target.value)}
+                style={{ ...inputWrapStyle(disabled), padding: '7px 10px', fontSize: 12 }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 500, color: ORANGE }}>↔</span>
+              <input
+                value={entry.poleB}
+                disabled={disabled}
+                onChange={(event) => updateContradiction(index, 'poleB', event.target.value)}
+                style={{ ...inputWrapStyle(disabled), padding: '7px 10px', fontSize: 12 }}
+              />
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => removeContradiction(index)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#fda4af',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+              >
+                x
+              </button>
+            </div>
+            <textarea
+              value={entry.description}
+              disabled={disabled}
+              onChange={(event) => updateContradiction(index, 'description', event.target.value)}
+              rows={2}
+              style={{
+                ...inputWrapStyle(disabled),
+                padding: '8px 10px',
+                fontSize: 12,
+                fontFamily: TOKENS.font.serif,
+                fontStyle: 'italic',
+                color: '#8A8A9A',
+                lineHeight: 1.5,
+                resize: 'vertical',
+              }}
+            />
+          </div>
+        )) : (
+          <div style={{ border: `1.5px dashed ${TOKENS.b2}`, borderRadius: 12, padding: '12px 10px', color: TOKENS.text2, fontSize: 12 }}>
+            Noch keine Widersprueche definiert.
+          </div>
+        )}
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={addContradiction}
+          style={{
+            border: '1px dashed rgba(232,168,56,0.45)',
+            background: 'rgba(232,168,56,0.06)',
+            color: ORANGE,
+            borderRadius: 10,
+            padding: '9px 10px',
+            fontFamily: TOKENS.font.body,
+            fontSize: 12,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+          }}
+        >
+          + Widerspruch hinzufuegen
+        </button>
+      </Block>
+
+      {/* ─── E. Charakter · Tuning (Gold) ─── */}
+      <Block title="CHARAKTER · TUNING" hint="Persönlichkeit" dotColor={GOLD} open={openSections.character} onToggle={() => toggleSection('character')}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Intensitaet</span>
@@ -436,8 +795,8 @@ export function ArcanaPersonaTuning({
         </label>
       </Block>
 
-      {/* ─── D. Ton · Modus (4-Zonen-Balken + Violet-Slider) ─── */}
-      <Block title="TON · MODUS" hint="Seriös bis Komisch" dotColor={GREEN}>
+      {/* ─── F. Ton · Modus (4-Zonen-Balken + Violet-Slider) ─── */}
+      <Block title="TON · MODUS" hint="Seriös bis Komisch" dotColor={GREEN} open={openSections.tone} onToggle={() => toggleSection('tone')}>
         {/* 4-zone bar */}
         <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden' }}>
           {TONE_ZONES.map((zone) => {
@@ -495,8 +854,8 @@ export function ArcanaPersonaTuning({
         </div>
       </Block>
 
-      {/* ─── E. Stimme · Tuning (Chips + Teal-Slider) ─── */}
-      <Block title="STIMME · TUNING" hint="Klang & TTS" dotColor={TEAL}>
+      {/* ─── G. Stimme · Tuning (Chips + Teal-Slider) ─── */}
+      <Block title="STIMME · TUNING" hint="Klang & TTS" dotColor={TEAL} open={openSections.voice} onToggle={() => toggleSection('voice')}>
         {/* 3 featured voice chips */}
         <div>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: TOKENS.text2, marginBottom: 8, textTransform: 'uppercase' }}>
@@ -639,8 +998,65 @@ export function ArcanaPersonaTuning({
         </label>
       </Block>
 
-      {/* ─── F. Maya · Special Mode (Violet) ─── */}
-      <Block title="✦ MAYA · SPECIAL MODE" hint="Über die Regler hinaus" dotColor={VIOLET}>
+      {/* ─── H. Quellen · Verankerung ─── */}
+      <Block title="QUELLEN · VERANKERUNG" hint="Statische Vorschau" dotColor={VIOLET} open={openSections.sources} onToggle={() => toggleSection('sources')}>
+        {sources.map((source, index) => {
+          const meta = getSourceMeta(source.type);
+          return (
+            <div
+              key={`${source.name}-${index}`}
+              style={{
+                border: '1px solid rgba(138,109,176,0.2)',
+                borderRadius: 10,
+                background: '#16161F',
+                padding: '9px 10px',
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                gap: 10,
+                alignItems: 'center',
+              }}
+            >
+              <span
+                style={{
+                  borderRadius: 6,
+                  border: `1px solid ${meta.color}55`,
+                  background: meta.bg,
+                  color: meta.color,
+                  padding: '3px 6px',
+                  fontFamily: TOKENS.font.body,
+                  fontSize: 10,
+                  letterSpacing: '1px',
+                }}
+              >
+                {meta.icon}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text }}>{source.name}</div>
+                <div style={{ marginTop: 2, fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3 }}>
+                  Quelle ist vorbereitet und wird in Phase 4 mit Attachments verbunden.
+                </div>
+              </div>
+              <span
+                style={{
+                  borderRadius: 999,
+                  border: '1px solid rgba(107,214,114,0.3)',
+                  background: 'rgba(107,214,114,0.12)',
+                  color: '#86E08C',
+                  padding: '3px 8px',
+                  fontFamily: TOKENS.font.body,
+                  fontSize: 11,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ✓ {source.extractedCount} Merkmale
+              </span>
+            </div>
+          );
+        })}
+      </Block>
+
+      {/* ─── I. Maya · Special Mode (Violet) ─── */}
+      <Block title="✦ MAYA · SPECIAL MODE" hint="Über die Regler hinaus" dotColor={VIOLET} open={openSections.maya} onToggle={() => toggleSection('maya')}>
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, padding: '16px 16px 14px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             🌙 Maya Spezial-Funktion

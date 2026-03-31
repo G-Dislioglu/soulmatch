@@ -40,6 +40,14 @@ export interface ArcanaCharacterTuning {
   confrontation: number;
 }
 
+function defaultSkills(): ArcanaPersonaSkills {
+  return {
+    knowledge: [],
+    interaction: [],
+    tools: [],
+  };
+}
+
 export interface ArcanaToneMode {
   mode: ArcanaToneModeKey;
   slider: number;
@@ -63,6 +71,24 @@ export interface ArcanaVoiceConfig {
   emotionalIntensity: number;
 }
 
+export interface ArcanaPersonaSkills {
+  knowledge: string[];
+  interaction: string[];
+  tools: string[];
+}
+
+export interface ArcanaPersonaContradiction {
+  poleA: string;
+  poleB: string;
+  description: string;
+}
+
+export interface ArcanaPersonaSource {
+  name: string;
+  type: 'pdf' | 'image' | 'text';
+  extractedCount: number;
+}
+
 export interface ArcanaPersonaCreditConfig {
   creationCost: number;
   textCostPerMessage: number;
@@ -84,7 +110,10 @@ export interface ArcanaPersonaDefinition {
   character: ArcanaCharacterTuning;
   toneMode: ArcanaToneMode;
   quirks: ArcanaSignatureQuirk[];
+  skills?: ArcanaPersonaSkills;
+  contradictions?: ArcanaPersonaContradiction[];
   voice: ArcanaVoiceConfig;
+  sources?: ArcanaPersonaSource[];
   mayaSpecial?: string;
   credits: ArcanaPersonaCreditConfig;
   presetId?: string;
@@ -108,7 +137,10 @@ export interface PersonaDraftInput {
   characterTuning: ArcanaCharacterTuning;
   toneMode: ArcanaToneMode;
   quirks: ArcanaSignatureQuirk[];
+  skills?: ArcanaPersonaSkills;
+  contradictions?: ArcanaPersonaContradiction[];
   voiceConfig: ArcanaVoiceConfig;
+  sources?: ArcanaPersonaSource[];
   mayaSpecial?: string;
   presetId?: string;
 }
@@ -166,6 +198,15 @@ function normalizePersona(persona: ArcanaPersonaDefinition): ArcanaPersonaDefini
   return {
     ...persona,
     subtitle: persona.subtitle || (persona.tier === 'system' ? 'System-Persona' : 'Entwurf'),
+    skills: {
+      ...defaultSkills(),
+      ...persona.skills,
+      knowledge: persona.skills?.knowledge ?? [],
+      interaction: persona.skills?.interaction ?? [],
+      tools: persona.skills?.tools ?? [],
+    },
+    contradictions: persona.contradictions ?? [],
+    sources: persona.sources ?? [],
     voice: {
       ...defaultVoiceConfig(),
       ...persona.voice,
