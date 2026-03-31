@@ -78,7 +78,7 @@ export const TOKENS = {
   },
 
   font: {
-    body: "'Outfit', sans-serif",
+    body: "'DM Sans', sans-serif",
     serif: "'Cormorant Garamond', serif",
     display: "'Cinzel', serif",
   },

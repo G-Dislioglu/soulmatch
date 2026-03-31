@@ -1,3 +1,5 @@
+import { type ReactNode } from 'react';
+
 import { TOKENS } from '../../../design';
 import { VOICE_CATALOG } from '../../../data/voiceCatalog';
 import {
@@ -11,6 +13,10 @@ const TEAL   = '#4ECECE';
 const VIOLET = '#8A6DB0';
 const RED    = '#FF7070';
 const GREEN  = '#6BD672';
+const GOLD   = '#C9A84C';
+const S1     = '#111118';   // block body bg
+const S2     = '#16161F';   // block header bg
+const MUTED  = '#6E6B7A';
 
 // 3 featured voice chips (prototype: Fenrir·rau, Puck·warm, Kore·tief)
 const FEATURED_VOICES = [
@@ -45,13 +51,42 @@ function rangeStyle(value: number, disabled: boolean, color: string) {
   } as const;
 }
 
-function sectionLabel(title: string, subtitle: string, dotColor: string = TOKENS.gold) {
+function blockHead(title: string, hint: string, dotColor: string) {
+  const glow = dotColor + '80';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-      <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: dotColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-        ● {title}
-      </div>
-      <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>{subtitle}</div>
+    <div
+      style={{
+        background: S2,
+        padding: '9px 15px',
+        borderBottom: '1px solid rgba(201,168,76,0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: dotColor,
+          boxShadow: `0 0 5px ${glow}`,
+          flexShrink: 0,
+          display: 'inline-block',
+        }}
+      />
+      <span
+        style={{
+          fontFamily: TOKENS.font.display,
+          fontSize: 10,
+          letterSpacing: '2px',
+          color: dotColor,
+        }}
+      >
+        {title}
+      </span>
+      <span style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, fontStyle: 'italic' }}>{hint}</span>
     </div>
   );
 }
@@ -70,16 +105,33 @@ function inputWrapStyle(disabled: boolean) {
   } as const;
 }
 
-function panelStyle() {
+function blockOuter() {
   return {
-    border: `1.5px solid ${TOKENS.b2}`,
-    borderRadius: 22,
-    background: 'rgba(255,255,255,0.025)',
-    padding: '18px 18px 16px',
+    border: '1px solid rgba(201,168,76,0.1)',
+    borderRadius: 11,
+    overflow: 'hidden',
+  } as const;
+}
+
+function blockBody() {
+  return {
+    padding: '14px 16px',
+    background: S1,
     display: 'flex',
     flexDirection: 'column',
     gap: 14,
   } as const;
+}
+
+function Block({
+  title, hint, dotColor, children,
+}: { title: string; hint: string; dotColor: string; children: ReactNode }) {
+  return (
+    <div style={blockOuter()}>
+      {blockHead(title, hint, dotColor)}
+      <div style={blockBody()}>{children}</div>
+    </div>
+  );
 }
 
 function labelForAccentIntensity(value: number): string {
@@ -142,53 +194,47 @@ export function ArcanaPersonaTuning({
         minHeight: 0,
         height: '100%',
         overflowY: 'auto',
-        padding: '24px 24px 28px',
+        padding: '22px 24px 28px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 18,
+        gap: 16,
+        background: '#111118',
       }}
     >
       {/* ─── Header ─── */}
-      <div style={panelStyle()}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              {persona.name.toUpperCase()} · Fine-Tuning
-            </div>
-            <div style={{ marginTop: 8, fontFamily: TOKENS.font.serif, fontSize: 30, color: TOKENS.text }}>{persona.subtitle || 'Arcana Persona'}</div>
-          </div>
-          {isSystem ? (
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2, lineHeight: 1.5, maxWidth: 180, textAlign: 'right' }}>
-              System-Personas bleiben read-only.
-            </div>
-          ) : null}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, letterSpacing: '2px', color: GOLD }}>
+          {persona.name.toUpperCase()} · FINE-TUNING
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+          {isSystem ? <span style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: MUTED }}>Read-only</span> : null}
           <button
             type="button"
             onClick={onCancel}
             style={{
-              border: `1.5px solid ${TOKENS.b1}`,
-              background: 'rgba(255,255,255,0.03)',
-              color: TOKENS.text,
-              borderRadius: 16,
-              padding: '10px 14px',
+              background: 'transparent',
+              border: '1px solid rgba(201,168,76,0.15)',
+              borderRadius: 7,
+              padding: '6px 12px',
               fontFamily: TOKENS.font.body,
+              fontSize: 11,
+              color: MUTED,
               cursor: 'pointer',
             }}
           >
-            ↻ Zuruecksetzen
+            ↩ Zuruecksetzen
           </button>
           <button
             type="button"
             onClick={() => document.getElementById('arcana-live-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             style={{
-              border: `1.5px solid ${TOKENS.gold}`,
-              background: 'rgba(212,175,55,0.08)',
-              color: TOKENS.gold,
-              borderRadius: 16,
-              padding: '10px 14px',
+              background: 'rgba(78,206,206,0.07)',
+              border: '1px solid rgba(78,206,206,0.25)',
+              borderRadius: 7,
+              padding: '6px 12px',
               fontFamily: TOKENS.font.body,
+              fontSize: 11,
+              color: TEAL,
               cursor: 'pointer',
             }}
           >
@@ -196,10 +242,27 @@ export function ArcanaPersonaTuning({
           </button>
         </div>
       </div>
+      {/* Preset pill */}
+      <div
+        style={{
+          background: '#1E1E2B',
+          border: '1px solid rgba(201,168,76,0.20)',
+          borderRadius: 10,
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <span style={{ fontSize: 26, flexShrink: 0 }}>{persona.icon || '✦'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: TOKENS.font.display, fontSize: 13, color: GOLD }}>{persona.name}</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{persona.subtitle || 'Entwurf'}</div>
+        </div>
+      </div>
 
       {/* ─── A. Name · Archetyp ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('Name · Archetyp', 'Identitaet')}
+      <Block title="NAME · ARCHETYP" hint="Identität" dotColor={GOLD}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>Name</span>
@@ -248,11 +311,10 @@ export function ArcanaPersonaTuning({
             style={{ ...inputWrapStyle(disabled), resize: 'vertical', minHeight: 110 }}
           />
         </label>
-      </div>
+      </Block>
 
       {/* ─── B. Signature Quirks (vor Charakter) ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('Signature Quirks', 'Eigenarten', RED)}
+      <Block title="SIGNATURE QUIRKS" hint="Eigenarten" dotColor={RED}>
         {persona.quirks.length > 0 ? persona.quirks.map((quirk) => (
           <div
             key={quirk.id}
@@ -311,11 +373,10 @@ export function ArcanaPersonaTuning({
             Diese Persona hat aktuell keine Signature Quirks.
           </div>
         )}
-      </div>
+      </Block>
 
       {/* ─── C. Charakter · Tuning (Gold) ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('Charakter · Tuning', 'Persoenlichkeit', TOKENS.gold)}
+      <Block title="CHARAKTER · TUNING" hint="Persönlichkeit" dotColor={GOLD}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Intensitaet</span>
@@ -373,11 +434,10 @@ export function ArcanaPersonaTuning({
             <span>Provokativ</span>
           </div>
         </label>
-      </div>
+      </Block>
 
       {/* ─── D. Ton · Modus (4-Zonen-Balken + Violet-Slider) ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('Ton · Modus', 'Serioes bis Komisch', GREEN)}
+      <Block title="TON · MODUS" hint="Seriös bis Komisch" dotColor={GREEN}>
         {/* 4-zone bar */}
         <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden' }}>
           {TONE_ZONES.map((zone) => {
@@ -433,11 +493,10 @@ export function ArcanaPersonaTuning({
             {TONE_MODE_IMPACT_TEXT[persona.toneMode.mode]}
           </div>
         </div>
-      </div>
+      </Block>
 
       {/* ─── E. Stimme · Tuning (Chips + Teal-Slider) ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('Stimme · Tuning', 'Klang & TTS', TEAL)}
+      <Block title="STIMME · TUNING" hint="Klang & TTS" dotColor={TEAL}>
         {/* 3 featured voice chips */}
         <div>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: TOKENS.text2, marginBottom: 8, textTransform: 'uppercase' }}>
@@ -578,11 +637,10 @@ export function ArcanaPersonaTuning({
             <span>Theatralisch</span>
           </div>
         </label>
-      </div>
+      </Block>
 
       {/* ─── F. Maya · Special Mode (Violet) ─── */}
-      <div style={panelStyle()}>
-        {sectionLabel('✦ Maya · Special Mode', 'Ueber die Regler hinaus', VIOLET)}
+      <Block title="✦ MAYA · SPECIAL MODE" hint="Über die Regler hinaus" dotColor={VIOLET}>
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, padding: '16px 16px 14px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             🌙 Maya Spezial-Funktion
@@ -614,7 +672,7 @@ export function ArcanaPersonaTuning({
             ✦ Maya oeffnen
           </button>
         </div>
-      </div>
+      </Block>
 
       {/* ─── G. Footer actions ─── */}
       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>

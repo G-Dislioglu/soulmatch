@@ -7,7 +7,6 @@ import { ArcanaLivePreview } from './ArcanaLivePreview';
 import {
   useArcanaApi,
   type ArcanaPersonaDefinition,
-  type ArcanaPersonaStatus,
   type PersonaDraftInput,
 } from '../hooks/useArcanaApi';
 import { buildExampleResponse } from '../lib/clientDirectorPrompt';
@@ -116,19 +115,6 @@ function mapPersonaToDraftInput(persona: ArcanaPersonaDefinition): PersonaDraftI
     mayaSpecial: persona.mayaSpecial,
     presetId: persona.presetId,
   };
-}
-
-function computeStatusLabel(hasUnsavedChanges: boolean, status?: ArcanaPersonaStatus) {
-  if (hasUnsavedChanges) {
-    return 'Ungespeicherte Aenderungen';
-  }
-  if (status === 'active') {
-    return 'Aktiv';
-  }
-  if (status === 'archived') {
-    return 'Archiviert';
-  }
-  return 'Entwurf';
 }
 
 export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
@@ -255,14 +241,14 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '260px minmax(0, 1fr) 320px',
+        gridTemplateColumns: '220px minmax(0, 1fr) 300px',
         gap: 0,
         height: '100%',
         minHeight: 0,
         width: '100%',
-        border: `1.5px solid ${TOKENS.b2}`,
-        borderRadius: 24,
-        background: TOKENS.card,
+        border: '1px solid rgba(201,168,76,0.1)',
+        borderRadius: 18,
+        background: '#111118',
         boxShadow: TOKENS.shadow.card,
         overflow: 'hidden',
       }}
@@ -275,33 +261,13 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         loading={loading}
       />
 
-      <div style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 24px 0' }}>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-            Creator Shell
-          </div>
-          <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: 28, color: TOKENS.text }}>
-            Persona Creator
-          </div>
-          <div style={{ marginTop: 8, fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7, maxWidth: 680 }}>
-            Drei Spalten, echte Arcana-Daten, lokaler Live-Edit-State und sofortige Auswirkung auf Director Prompt, Beispiel-Antwort und TTS-Preview.
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <div
-              style={{
-                border: `1.5px solid ${hasUnsavedChanges ? TOKENS.gold : TOKENS.b1}`,
-                borderRadius: 999,
-                padding: '6px 10px',
-                fontFamily: TOKENS.font.body,
-                fontSize: 12,
-                color: hasUnsavedChanges ? TOKENS.gold : TOKENS.text2,
-              }}
-            >
-              {computeStatusLabel(hasUnsavedChanges, selectedPersona?.status)}
-            </div>
-          </div>
+      <div style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', background: '#111118' }}>
+        <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(201,168,76,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {hasUnsavedChanges && (
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 10, letterSpacing: '2px', color: '#C9A84C' }}>UNGESPEICHERT</span>
+          )}
           {error || actionError ? (
-            <div style={{ marginTop: 12, fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.6 }}>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.6 }}>
               Arcana API Fehler: {actionError ?? error}
             </div>
           ) : null}

@@ -6,7 +6,6 @@ import { buildClientDirectorPrompt, buildExampleResponse } from '../lib/clientDi
 
 const TEAL   = '#4ECECE';
 const VIOLET = '#8A6DB0';
-const RED    = '#FF7070';
 const GREEN  = '#6BD672';
 
 type BadgeStyle = { bg: string; border: string; color: string; icon: string };
@@ -77,27 +76,23 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
     <aside
       id="arcana-live-preview"
       style={{
-        width: 320,
-        minWidth: 320,
+        width: 300,
+        minWidth: 300,
         height: '100%',
         minHeight: 0,
-        overflowY: 'auto',
-        borderLeft: `1.5px solid ${TOKENS.b1}`,
-        background: 'rgba(255,255,255,0.02)',
-        padding: '24px 22px 28px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 18,
+        borderLeft: '1px solid rgba(201,168,76,0.08)',
+        background: '#16161F',
       }}
     >
-      <div>
-        <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-          Live · Vorschau
-        </div>
-        <div style={{ marginTop: 6, fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
-          Aktualisiert in Echtzeit
-        </div>
+      {/* pv-head */}
+      <div style={{ padding: '13px 15px 11px', borderBottom: '1px solid rgba(201,168,76,0.08)', background: '#1E1E2B', flexShrink: 0 }}>
+        <div style={{ fontFamily: TOKENS.font.display, fontSize: 10, letterSpacing: '3px', color: '#C9A84C', marginBottom: 2 }}>LIVE · VORSCHAU</div>
+        <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#6E6B7A' }}>Aktualisiert in Echtzeit</div>
       </div>
+      {/* pv-body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '13px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
       {!persona ? (
         <div
@@ -116,20 +111,15 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
         </div>
       ) : (
         <>
-          <div
-            style={{
-              border: `1.5px solid ${TOKENS.b2}`,
-              borderRadius: 22,
-              background: TOKENS.card,
-              padding: '20px 18px',
-              boxShadow: TOKENS.shadow.card,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            <div style={{ fontFamily: TOKENS.font.display, fontSize: 22, color: TOKENS.text, lineHeight: 1.2 }}>{persona.name}</div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>{persona.subtitle || 'Arcana Persona'}</div>
+          {/* Snapshot card */}
+          <div style={{ background: '#1E1E2B', border: '1px solid rgba(201,168,76,0.1)', borderRadius: 9, padding: '11px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(201,168,76,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{persona.icon || '✦'}</div>
+              <div>
+                <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, color: '#C9A84C' }}>{persona.name}</div>
+                <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 11, color: '#6E6B7A' }}>{persona.subtitle || 'Arcana Persona'}</div>
+              </div>
+            </div>
             {renderMiniBar('Intensitaet', persona.character.intensity)}
             {renderMiniBar('Empathie', persona.character.empathy)}
             {renderMiniBar('Konfront.', persona.character.confrontation)}
@@ -146,23 +136,23 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
                     border: `1px solid ${bc.border}`,
                     borderRadius: 7,
                     padding: '3px 9px',
-                    fontFamily: TOKENS.font.body,
-                    fontSize: 11,
+                    fontFamily: TOKENS.font.display,
+                    fontSize: 10,
                     color: bc.color,
                     background: bc.bg,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 5,
+                    marginTop: 4,
                   }}
                 >
                   {bc.icon} {persona.toneMode.mode.toUpperCase()}-MODUS
                 </div>
               );
             })()}
-            <div style={{ background: TOKENS.bg, border: `1px solid rgba(255,112,112,0.18)`, borderRadius: 9, padding: '11px' }}>
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: RED, textTransform: 'uppercase', marginBottom: 7 }}>
+            <div style={{ background: '#111118', border: '1px solid rgba(255,112,112,0.18)', borderRadius: 9, padding: '11px' }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '3px', color: '#FF7070', textTransform: 'uppercase', marginBottom: 7 }}>
                 AKTIVE QUIRKS
               </div>
               {persona.quirks.filter((quirk) => quirk.enabled).length > 0 ? persona.quirks.filter((quirk) => quirk.enabled).map((quirk) => (
@@ -177,20 +167,10 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
             </div>
           </div>
 
-          <div
-            style={{
-              border: `1.5px solid ${TOKENS.b2}`,
-              borderRadius: 20,
-              padding: '16px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                Director Prompt · Auto
-              </div>
+          {/* Director Prompt */}
+          <div style={{ background: '#111118', border: '1px solid rgba(201,168,76,0.1)', borderRadius: 9, overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(201,168,76,0.04)', borderBottom: '1px solid rgba(201,168,76,0.08)', padding: '7px 11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '3px', color: '#C9A84C' }}>DIRECTOR PROMPT · AUTO</span>
               <button
                 type="button"
                 onClick={() => void handleCopyPrompt()}
@@ -210,87 +190,62 @@ export function ArcanaLivePreview({ persona, onPreview }: ArcanaLivePreviewProps
             </div>
             <pre
               style={{
-                margin: 0,
-                maxHeight: 240,
-                overflowY: 'auto',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'Consolas, monospace',
-                fontSize: 12,
-                lineHeight: 1.55,
-                color: TOKENS.text2,
-              }}
+                  margin: 0,
+                  maxHeight: 240,
+                  overflowY: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: TOKENS.font.serif,
+                  fontSize: 11,
+                  lineHeight: 1.7,
+                  color: TOKENS.text2,
+                  padding: '10px 11px',
+                }}
             >
               {directorPrompt}
             </pre>
           </div>
 
-          <div
-            style={{
-              border: `1.5px solid ${TOKENS.b2}`,
-              borderRadius: 20,
-              padding: '16px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-              Beispiel-Antwort
+          {/* Example Answer */}
+          <div style={{ background: '#1E1E2B', border: '1px solid rgba(201,168,76,0.1)', borderRadius: 9, padding: '11px' }}>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '3px', color: '#6E6B7A', marginBottom: 8, textTransform: 'uppercase' }}>BEISPIEL-ANTWORT</div>
+            <div style={{ background: '#242433', border: '1px solid rgba(201,168,76,0.08)', borderRadius: '9px 9px 9px 2px', padding: '8px 10px', marginBottom: 6 }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 10, color: '#C9A84C', letterSpacing: '1px', marginBottom: 2 }}>USER</div>
+              <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 13, lineHeight: 1.5 }}>Was soll ich mit meinem Leben anfangen?</div>
             </div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              User
+            <div style={{ background: '#242433', border: '1px solid rgba(201,168,76,0.08)', borderRadius: '9px 9px 9px 2px', padding: '8px 10px' }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 10, color: '#C9A84C', letterSpacing: '1px', marginBottom: 2 }}>{persona.name.toUpperCase()}</div>
+              <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 13, lineHeight: 1.5, color: TOKENS.text2 }}>{exampleAnswer}</div>
             </div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text, lineHeight: 1.6 }}>
-              Was soll ich mit meinem Leben anfangen?
-            </div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              {persona.name}
-            </div>
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
-              {exampleAnswer}
-            </div>
-          </div>
-
-          <div
-            style={{
-              border: `1.5px solid ${TOKENS.b2}`,
-              borderRadius: 20,
-              padding: '16px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}
-          >
-            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>
-              Stimme: {persona.voice.voiceName}<br />Akzent: {persona.voice.accent}
-            </div>
-            <button
-              type="button"
-              onClick={() => void handlePreview()}
-              disabled={previewing}
-              style={{
-                border: `1.5px solid ${TOKENS.gold}`,
-                background: 'rgba(212,175,55,0.08)',
-                color: TOKENS.gold,
-                borderRadius: 16,
-                padding: '12px 14px',
-                fontFamily: TOKENS.font.body,
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                cursor: previewing ? 'progress' : 'pointer',
-              }}
-            >
-              {previewing ? 'Stimme laedt...' : '▶ Stimme abspielen'}
-            </button>
-            {previewError ? (
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.6 }}>
-                {previewError}
-              </div>
-            ) : null}
           </div>
         </>
+      )}
+      </div>
+      {/* pv-foot */}
+      {persona && (
+        <div style={{ padding: '10px 13px', borderTop: '1px solid rgba(201,168,76,0.08)', background: '#1E1E2B', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => void handlePreview()}
+            disabled={previewing}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: 'rgba(78,206,206,0.06)',
+              border: '1px solid rgba(78,206,206,0.25)',
+              borderRadius: 7,
+              color: '#4ECECE',
+              fontFamily: TOKENS.font.display,
+              fontSize: 10,
+              letterSpacing: '2px',
+              cursor: previewing ? 'progress' : 'pointer',
+            }}
+          >
+            {previewing ? 'STIMME LÄDT...' : '▶ STIMME ABSPIELEN'}
+          </button>
+          {previewError ? (
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#fda4af', lineHeight: 1.6, marginTop: 6 }}>{previewError}</div>
+          ) : null}
+        </div>
       )}
     </aside>
   );
