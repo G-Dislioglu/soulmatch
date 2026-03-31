@@ -392,7 +392,7 @@ export function ArcanaPersonaTuning({
 
   const characterDisplay = getCharacterDisplay(persona);
   const voiceEntry = VOICE_CATALOG.find((entry) => entry.name === persona.voice.voiceName);
-  const voiceDisplay = getVoiceDisplay(persona.voice);
+  const voiceDisplay = getVoiceDisplay(persona);
   const quirks = persona.quirks.length > 0 ? persona.quirks : QUIRKS_FALLBACK;
   const skills = {
     knowledge: persona.skills?.knowledge?.length ? persona.skills.knowledge : SKILLS_FALLBACK.knowledge,
