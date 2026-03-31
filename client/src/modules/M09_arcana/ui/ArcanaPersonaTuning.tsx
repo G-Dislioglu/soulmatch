@@ -40,6 +40,39 @@ const SOURCE_PREVIEW_FALLBACK: NonNullable<ArcanaPersonaDefinition['sources']> =
   { name: 'notizen.txt', type: 'text', extractedCount: 2 },
 ];
 
+const QUIRKS_FALLBACK: ArcanaPersonaDefinition['quirks'] = [
+  {
+    id: 'fallback-importance',
+    label: 'Betont seine Bedeutung',
+    description: 'Setzt zentrale Punkte mit historischer Gravitas.',
+    promptFragment: 'Betone historische Bedeutung.',
+    enabled: true,
+    category: 'speech',
+  },
+  {
+    id: 'fallback-strategy',
+    label: 'Denkt in Strategien',
+    description: 'Rahmt Probleme als Plan, Taktik oder Feldzug.',
+    promptFragment: 'Rahme Probleme als Strategie.',
+    enabled: true,
+    category: 'behavior',
+  },
+];
+
+const SKILLS_FALLBACK: NonNullable<ArcanaPersonaDefinition['skills']> = {
+  knowledge: ['Geschichte', 'Machtanalyse'],
+  interaction: ['Direkt', 'Pointiert'],
+  tools: ['Framing', 'Szenarien'],
+};
+
+const CONTRADICTIONS_FALLBACK: NonNullable<ArcanaPersonaDefinition['contradictions']> = [
+  {
+    poleA: 'Visionaer',
+    poleB: 'Kontrollierend',
+    description: 'Treibt Innovation, will aber den Verlauf strikt steuern.',
+  },
+];
+
 function createOpenSections(compact: boolean) {
   return {
     identity: !compact,
@@ -47,8 +80,8 @@ function createOpenSections(compact: boolean) {
     skills: true,
     contradictions: true,
     character: true,
-    tone: false,
-    voice: false,
+    tone: compact,
+    voice: compact,
     sources: true,
     maya: false,
   };
@@ -236,7 +269,7 @@ export function ArcanaPersonaTuning({
 }: ArcanaPersonaTuningProps) {
   const [openSections, setOpenSections] = useState(() => createOpenSections(compact));
   const [skillInputs, setSkillInputs] = useState({ knowledge: '', interaction: '', tools: '' });
-  const disabled = saving || isSystem;
+  const readOnlyInputs = saving || isSystem;
 
   useEffect(() => {
     setOpenSections(createOpenSections(compact));
@@ -252,7 +285,7 @@ export function ArcanaPersonaTuning({
   }
 
   function addSkillTag(key: keyof typeof skillInputs) {
-    if (!persona || disabled) {
+    if (!persona || readOnlyInputs) {
       return;
     }
 
@@ -276,7 +309,7 @@ export function ArcanaPersonaTuning({
   }
 
   function removeSkillTag(key: keyof typeof skillInputs, tag: string) {
-    if (!persona || disabled) {
+    if (!persona || readOnlyInputs) {
       return;
     }
 
@@ -296,7 +329,7 @@ export function ArcanaPersonaTuning({
   }
 
   function updateContradiction(index: number, field: 'poleA' | 'poleB' | 'description', value: string) {
-    if (!persona || disabled) {
+    if (!persona || readOnlyInputs) {
       return;
     }
 
@@ -308,7 +341,7 @@ export function ArcanaPersonaTuning({
   }
 
   function addContradiction() {
-    if (!persona || disabled) {
+    if (!persona || readOnlyInputs) {
       return;
     }
 
@@ -325,7 +358,7 @@ export function ArcanaPersonaTuning({
   }
 
   function removeContradiction(index: number) {
-    if (!persona || disabled) {
+    if (!persona || readOnlyInputs) {
       return;
     }
 
@@ -358,14 +391,15 @@ export function ArcanaPersonaTuning({
   }
 
   const characterDisplay = getCharacterDisplay(persona);
-  const voiceDisplay = getVoiceDisplay(persona);
   const voiceEntry = VOICE_CATALOG.find((entry) => entry.name === persona.voice.voiceName);
+  const voiceDisplay = getVoiceDisplay(persona.voice);
+  const quirks = persona.quirks.length > 0 ? persona.quirks : QUIRKS_FALLBACK;
   const skills = {
-    knowledge: persona.skills?.knowledge ?? [],
-    interaction: persona.skills?.interaction ?? [],
-    tools: persona.skills?.tools ?? [],
+    knowledge: persona.skills?.knowledge?.length ? persona.skills.knowledge : SKILLS_FALLBACK.knowledge,
+    interaction: persona.skills?.interaction?.length ? persona.skills.interaction : SKILLS_FALLBACK.interaction,
+    tools: persona.skills?.tools?.length ? persona.skills.tools : SKILLS_FALLBACK.tools,
   };
-  const contradictions = persona.contradictions ?? [];
+  const contradictions = persona.contradictions && persona.contradictions.length > 0 ? persona.contradictions : CONTRADICTIONS_FALLBACK;
   const sources = (persona.sources && persona.sources.length > 0) ? persona.sources : SOURCE_PREVIEW_FALLBACK;
 
   return (
@@ -450,9 +484,9 @@ export function ArcanaPersonaTuning({
             <input
               value={persona.name}
               maxLength={100}
-              disabled={disabled}
+              disabled={readOnlyInputs}
               onChange={(event) => onChange({ name: event.target.value.slice(0, 100) })}
-              style={inputWrapStyle(disabled)}
+              style={inputWrapStyle(readOnlyInputs)}
             />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -460,9 +494,9 @@ export function ArcanaPersonaTuning({
             <input
               value={persona.subtitle}
               maxLength={120}
-              disabled={disabled}
+              disabled={readOnlyInputs}
               onChange={(event) => onChange({ subtitle: event.target.value.slice(0, 120) })}
-              style={inputWrapStyle(disabled)}
+              style={inputWrapStyle(readOnlyInputs)}
             />
           </label>
         </div>
@@ -470,9 +504,9 @@ export function ArcanaPersonaTuning({
           <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>Archetyp</span>
           <select
             value={persona.archetype}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ archetype: event.target.value as ArcanaPersonaDefinition['archetype'] })}
-            style={inputWrapStyle(disabled)}
+            style={inputWrapStyle(readOnlyInputs)}
           >
             {ARCANA_ARCHETYPE_OPTIONS.map((option) => (
               <option key={option.key} value={option.key}>
@@ -486,10 +520,10 @@ export function ArcanaPersonaTuning({
           <textarea
             value={persona.description}
             maxLength={500}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ description: event.target.value.slice(0, 500) })}
             rows={4}
-            style={{ ...inputWrapStyle(disabled), resize: 'vertical', minHeight: 110 }}
+            style={{ ...inputWrapStyle(readOnlyInputs), resize: 'vertical', minHeight: 110 }}
           />
         </label>
         </Block>
@@ -497,7 +531,7 @@ export function ArcanaPersonaTuning({
 
       {/* ─── B. Signature Quirks (vor Charakter) ─── */}
       <Block title="SIGNATURE QUIRKS" hint="Eigenarten" dotColor={RED} open={openSections.quirks} onToggle={() => toggleSection('quirks')}>
-        {persona.quirks.length > 0 ? persona.quirks.map((quirk) => (
+        {quirks.map((quirk) => (
           <div
             key={quirk.id}
             style={{
@@ -522,8 +556,8 @@ export function ArcanaPersonaTuning({
             <div
               role="switch"
               aria-checked={quirk.enabled}
-              onClick={() => !disabled && onChange({
-                quirks: persona.quirks.map((entry) => entry.id === quirk.id ? { ...entry, enabled: !entry.enabled } : entry),
+              onClick={() => !readOnlyInputs && onChange({
+                quirks: quirks.map((entry) => entry.id === quirk.id ? { ...entry, enabled: !entry.enabled } : entry),
               })}
               style={{
                 width: 32,
@@ -532,7 +566,7 @@ export function ArcanaPersonaTuning({
                 background: quirk.enabled ? 'rgba(255,112,112,0.2)' : TOKENS.b3,
                 border: `1px solid ${quirk.enabled ? 'rgba(255,112,112,0.35)' : 'rgba(255,255,255,0.07)'}`,
                 position: 'relative',
-                cursor: disabled ? 'not-allowed' : 'pointer',
+                cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                 flexShrink: 0,
                 marginTop: 2,
                 transition: 'background 0.3s, border-color 0.3s',
@@ -550,11 +584,7 @@ export function ArcanaPersonaTuning({
               }} />
             </div>
           </div>
-        )) : (
-          <div style={{ border: `1.5px dashed ${TOKENS.b2}`, borderRadius: 18, padding: '14px 12px', fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
-            Diese Persona hat aktuell keine Signature Quirks.
-          </div>
-        )}
+        ))}
       </Block>
 
       {/* ─── C. Fähigkeiten & Wissen ─── */}
@@ -609,13 +639,13 @@ export function ArcanaPersonaTuning({
                   <span>{tag}</span>
                   <button
                     type="button"
-                    disabled={disabled}
+                    disabled={readOnlyInputs}
                     onClick={() => removeSkillTag(group.key, tag)}
                     style={{
                       border: 'none',
                       background: 'transparent',
                       color: group.color,
-                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                       padding: 0,
                       fontSize: 12,
                       lineHeight: 1,
@@ -628,7 +658,7 @@ export function ArcanaPersonaTuning({
             </div>
             <input
               value={skillInputs[group.key]}
-              disabled={disabled}
+              disabled={readOnlyInputs}
               onChange={(event) => updateSkillInput(group.key, event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
@@ -638,7 +668,7 @@ export function ArcanaPersonaTuning({
               }}
               placeholder="Tag hinzufuegen"
               style={{
-                ...inputWrapStyle(disabled),
+                ...inputWrapStyle(readOnlyInputs),
                 padding: '8px 12px',
                 fontSize: 12,
               }}
@@ -667,26 +697,26 @@ export function ArcanaPersonaTuning({
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr) auto', gap: 8, alignItems: 'center' }}>
               <input
                 value={entry.poleA}
-                disabled={disabled}
+                disabled={readOnlyInputs}
                 onChange={(event) => updateContradiction(index, 'poleA', event.target.value)}
-                style={{ ...inputWrapStyle(disabled), padding: '7px 10px', fontSize: 12 }}
+                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 12 }}
               />
               <span style={{ fontSize: 12, fontWeight: 500, color: ORANGE }}>↔</span>
               <input
                 value={entry.poleB}
-                disabled={disabled}
+                disabled={readOnlyInputs}
                 onChange={(event) => updateContradiction(index, 'poleB', event.target.value)}
-                style={{ ...inputWrapStyle(disabled), padding: '7px 10px', fontSize: 12 }}
+                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 12 }}
               />
               <button
                 type="button"
-                disabled={disabled}
+                disabled={readOnlyInputs}
                 onClick={() => removeContradiction(index)}
                 style={{
                   border: 'none',
                   background: 'transparent',
                   color: '#fda4af',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                 }}
               >
                 x
@@ -694,11 +724,11 @@ export function ArcanaPersonaTuning({
             </div>
             <textarea
               value={entry.description}
-              disabled={disabled}
+              disabled={readOnlyInputs}
               onChange={(event) => updateContradiction(index, 'description', event.target.value)}
               rows={2}
               style={{
-                ...inputWrapStyle(disabled),
+                ...inputWrapStyle(readOnlyInputs),
                 padding: '8px 10px',
                 fontSize: 12,
                 fontFamily: TOKENS.font.serif,
@@ -710,14 +740,16 @@ export function ArcanaPersonaTuning({
             />
           </div>
         )) : (
-          <div style={{ border: `1.5px dashed ${TOKENS.b2}`, borderRadius: 12, padding: '12px 10px', color: TOKENS.text2, fontSize: 12 }}>
-            Noch keine Widersprueche definiert.
+          <div style={{ padding: '10px 11px', display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 12, color: '#8A8A9A' }}>
+              Keine Widersprueche definiert.
+            </div>
           </div>
         )}
 
         <button
           type="button"
-          disabled={disabled}
+          disabled={readOnlyInputs}
           onClick={addContradiction}
           style={{
             border: '1px dashed rgba(232,168,56,0.45)',
@@ -727,7 +759,7 @@ export function ArcanaPersonaTuning({
             padding: '9px 10px',
             fontFamily: TOKENS.font.body,
             fontSize: 12,
-            cursor: disabled ? 'not-allowed' : 'pointer',
+            cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
           }}
         >
           + Widerspruch hinzufuegen
@@ -746,9 +778,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.character.intensity}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, intensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.intensity, disabled, '#C9A84C')}
+            style={rangeStyle(persona.character.intensity, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Sanft</span>
@@ -765,9 +797,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.character.empathy}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, empathy: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.empathy, disabled, '#C9A84C')}
+            style={rangeStyle(persona.character.empathy, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Kuehl analytisch</span>
@@ -784,9 +816,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.character.confrontation}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, confrontation: Number(event.target.value) } })}
-            style={rangeStyle(persona.character.confrontation, disabled, '#C9A84C')}
+            style={rangeStyle(persona.character.confrontation, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Bestaetigend</span>
@@ -805,7 +837,7 @@ export function ArcanaPersonaTuning({
               <button
                 key={zone.key}
                 type="button"
-                disabled={disabled}
+                disabled={readOnlyInputs}
                 onClick={() => onChange({ toneMode: { ...persona.toneMode, mode: zone.key } })}
                 style={{
                   flex: 1,
@@ -819,7 +851,7 @@ export function ArcanaPersonaTuning({
                   opacity: active ? 1 : 0.35,
                   border: 'none',
                   borderRight: '1px solid rgba(255,255,255,0.05)',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                   transition: 'opacity 0.2s',
                   fontFamily: TOKENS.font.body,
                   fontWeight: 600,
@@ -840,9 +872,9 @@ export function ArcanaPersonaTuning({
           min={0}
           max={100}
           value={persona.toneMode.slider}
-          disabled={disabled}
+          disabled={readOnlyInputs}
           onChange={(event) => onChange({ toneMode: { ...persona.toneMode, slider: Number(event.target.value) } })}
-          style={rangeStyle(persona.toneMode.slider, disabled, VIOLET)}
+          style={rangeStyle(persona.toneMode.slider, readOnlyInputs, VIOLET)}
         />
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -868,7 +900,7 @@ export function ArcanaPersonaTuning({
                 <button
                   key={v.name}
                   type="button"
-                  disabled={disabled}
+                  disabled={readOnlyInputs}
                   onClick={() => onChange({ voice: { ...persona.voice, voiceName: v.name as ArcanaPersonaDefinition['voice']['voiceName'] } })}
                   style={{
                     padding: '4px 11px',
@@ -878,7 +910,7 @@ export function ArcanaPersonaTuning({
                     color: active ? TEAL : TOKENS.text2,
                     fontSize: 11,
                     fontFamily: TOKENS.font.body,
-                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
                   }}
                 >
@@ -890,7 +922,7 @@ export function ArcanaPersonaTuning({
           {/* Accent chip — styled select */}
           <select
             value={persona.voice.accent}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, accent: event.target.value as ArcanaPersonaDefinition['voice']['accent'] } })}
             style={{
               padding: '4px 11px',
@@ -900,7 +932,7 @@ export function ArcanaPersonaTuning({
               color: TOKENS.gold,
               fontSize: 11,
               fontFamily: TOKENS.font.body,
-              cursor: disabled ? 'not-allowed' : 'pointer',
+              cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
               appearance: 'none',
               outline: 'none',
             }}
@@ -934,9 +966,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.voice.accentIntensity}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, accentIntensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.accentIntensity, disabled, TEAL)}
+            style={rangeStyle(persona.voice.accentIntensity, readOnlyInputs, TEAL)}
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -949,9 +981,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.voice.speakingTempo}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, speakingTempo: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.speakingTempo, disabled, TEAL)}
+            style={rangeStyle(persona.voice.speakingTempo, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Langsam meditativ</span>
@@ -968,9 +1000,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.voice.pauseDramaturgy}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, pauseDramaturgy: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.pauseDramaturgy, disabled, TEAL)}
+            style={rangeStyle(persona.voice.pauseDramaturgy, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Fliessend</span>
@@ -987,9 +1019,9 @@ export function ArcanaPersonaTuning({
             min={0}
             max={100}
             value={persona.voice.emotionalIntensity}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, emotionalIntensity: Number(event.target.value) } })}
-            style={rangeStyle(persona.voice.emotionalIntensity, disabled, TEAL)}
+            style={rangeStyle(persona.voice.emotionalIntensity, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Neutral</span>
@@ -1066,10 +1098,10 @@ export function ArcanaPersonaTuning({
           </div>
           <textarea
             value={persona.mayaSpecial ?? ''}
-            disabled={disabled}
+            disabled={readOnlyInputs}
             onChange={(event) => onChange({ mayaSpecial: event.target.value })}
             rows={4}
-            style={{ ...inputWrapStyle(disabled), resize: 'vertical', minHeight: 120 }}
+            style={{ ...inputWrapStyle(readOnlyInputs), resize: 'vertical', minHeight: 120 }}
           />
           <button
             type="button"
@@ -1131,16 +1163,16 @@ export function ArcanaPersonaTuning({
             <button
               type="button"
               onClick={onSave}
-              disabled={disabled}
+              disabled={readOnlyInputs}
               style={{
-                border: `1.5px solid ${disabled ? TOKENS.b1 : TOKENS.gold}`,
-                background: disabled ? 'rgba(255,255,255,0.03)' : TOKENS.gold,
-                color: disabled ? TOKENS.text3 : TOKENS.bg,
+                border: `1.5px solid ${readOnlyInputs ? TOKENS.b1 : TOKENS.gold}`,
+                background: readOnlyInputs ? 'rgba(255,255,255,0.03)' : TOKENS.gold,
+                color: readOnlyInputs ? TOKENS.text3 : TOKENS.bg,
                 borderRadius: 16,
                 padding: '12px 16px',
                 fontFamily: TOKENS.font.body,
                 fontWeight: 700,
-                cursor: disabled ? 'not-allowed' : 'pointer',
+                cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
               }}
             >
               {saving ? 'Speichert...' : '✦ Persona speichern'}

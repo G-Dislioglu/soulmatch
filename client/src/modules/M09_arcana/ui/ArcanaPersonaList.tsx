@@ -17,6 +17,27 @@ interface ArcanaPersonaListProps {
   loading: boolean;
 }
 
+const DEMO_USER_PERSONAS = [
+  { id: '__demo_napoleon__', name: 'Napoleon', subtitle: 'Nutzer-Persona', icon: '🫡' },
+  { id: '__demo_sokrates__', name: 'Sokrates', subtitle: 'Nutzer-Persona', icon: '🧠' },
+  { id: '__demo_freud__', name: 'Freud', subtitle: 'Nutzer-Persona', icon: '🛋️' },
+] as const;
+
+function fallbackIconFor(name: string): string {
+  const key = name.toLowerCase();
+  if (key === 'maya') return '🌙';
+  if (key === 'luna') return '🌕';
+  if (key === 'orion') return '⭐';
+  if (key === 'lilith') return '🦂';
+  if (key === 'stella') return '✨';
+  if (key === 'kael') return '⚔️';
+  if (key === 'lian') return '🍃';
+  if (key === 'sibyl') return '🔮';
+  if (key === 'amara') return '🔥';
+  if (key === 'sri') return '🕉️';
+  return '✦';
+}
+
 function badgeFor(persona: ArcanaPersonaDefinition) {
   const isMaya = persona.name.toLowerCase() === 'maya';
   if (persona.tier === 'system') {
@@ -65,10 +86,12 @@ function PersonaItem({
   persona,
   isSelected,
   onSelect,
+  disabled = false,
 }: {
   persona: ArcanaPersonaDefinition;
   isSelected: boolean;
   onSelect: () => void;
+  disabled?: boolean;
 }) {
   const badge = badgeFor(persona);
   const isMaya = persona.name.toLowerCase() === 'maya';
@@ -84,17 +107,18 @@ function PersonaItem({
       role="button"
       tabIndex={0}
       onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !disabled) onSelect(); }}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         padding: '8px 14px',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         borderLeft: `2px solid ${isSelected ? GOLD : 'transparent'}`,
         background: isSelected ? 'rgba(201,168,76,0.05)' : 'transparent',
         transition: 'background 0.15s',
         userSelect: 'none',
+        opacity: disabled ? 0.92 : 1,
       }}
     >
       <div
@@ -111,7 +135,7 @@ function PersonaItem({
           flexShrink: 0,
         }}
       >
-        {persona.icon || '✦'}
+        {persona.icon || fallbackIconFor(persona.name)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -129,6 +153,7 @@ function PersonaItem({
 export function ArcanaPersonaList({ personas, selectedId, onSelect, onCreate, loading }: ArcanaPersonaListProps) {
   const systemPersonas  = personas.filter((p) => p.tier === 'system');
   const userPersonas    = personas.filter((p) => p.tier === 'user_created');
+  const hasRealUserPersonas = userPersonas.length > 0;
 
   return (
     <aside
@@ -174,14 +199,36 @@ export function ArcanaPersonaList({ personas, selectedId, onSelect, onCreate, lo
       <div style={{ padding: '10px 14px 5px', fontSize: 9, letterSpacing: '3px', color: MUTED2, fontFamily: TOKENS.font.body }}>
         DEINE PERSONAS
       </div>
-      {userPersonas.length > 0
+      {hasRealUserPersonas
         ? userPersonas.map((p) => (
             <PersonaItem key={p.id} persona={p} isSelected={selectedId === p.id} onSelect={() => onSelect(p.id)} />
           ))
         : (
-          <div style={{ padding: '8px 14px', fontFamily: TOKENS.font.body, fontSize: 11, color: MUTED, fontStyle: 'italic', lineHeight: 1.5 }}>
-            Noch keine eigenen Personas.
-          </div>
+          <>
+            {DEMO_USER_PERSONAS.map((entry) => {
+              const demoPersona = {
+                id: entry.id,
+                name: entry.name,
+                subtitle: entry.subtitle,
+                icon: entry.icon,
+                tier: 'user_created',
+                status: 'active',
+              } as ArcanaPersonaDefinition;
+
+              return (
+                <PersonaItem
+                  key={entry.id}
+                  persona={demoPersona}
+                  isSelected={false}
+                  onSelect={() => {}}
+                  disabled
+                />
+              );
+            })}
+            <div style={{ padding: '8px 14px', fontFamily: TOKENS.font.body, fontSize: 11, color: MUTED, fontStyle: 'italic', lineHeight: 1.5 }}>
+              Demo-Ansicht. Erstelle unten deine erste Persona.
+            </div>
+          </>
         )
       }
 

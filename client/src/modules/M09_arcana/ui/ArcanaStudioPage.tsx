@@ -160,6 +160,15 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
   const creditBudget = selectedPersona?.credits.creationCost ?? 50;
   const canSavePersona = Boolean(selectedPersona && selectedPersona.tier !== 'system' && hasUnsavedChanges && !saving);
 
+  function handleBackToApp(): void {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.assign('/');
+  }
+
   function handleCreate(): void {
     setSelectedId(LOCAL_DRAFT_ID);
     setEditState(buildNewPersonaDraft());
@@ -290,6 +299,24 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={handleBackToApp}
+              style={{
+                height: 28,
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.03)',
+                color: TOKENS.text2,
+                fontFamily: TOKENS.font.body,
+                fontSize: 11,
+                padding: '0 10px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ← Zurueck
+            </button>
             <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, letterSpacing: '4px', color: '#C9A84C', whiteSpace: 'nowrap' }}>
               ARCANA STUDIO
             </div>
