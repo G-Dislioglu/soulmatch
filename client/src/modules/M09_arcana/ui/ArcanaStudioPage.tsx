@@ -158,6 +158,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
   const selectedPersona = editState;
   const breadcrumbName = selectedPersona?.name || 'Napoleon';
   const creditBudget = selectedPersona?.credits.creationCost ?? 50;
+  const canSavePersona = Boolean(selectedPersona && selectedPersona.tier !== 'system' && hasUnsavedChanges && !saving);
 
   function handleCreate(): void {
     setSelectedId(LOCAL_DRAFT_ID);
@@ -257,108 +258,174 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         minHeight: '100vh',
         background: '#0B0A12',
         color: TOKENS.text,
-        display: 'grid',
-        gridTemplateRows: '48px minmax(0, calc(100vh - 48px))',
+        padding: 10,
+        boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
-      <header
-        style={{
-          height: 48,
-          borderBottom: '1px solid rgba(201,168,76,0.12)',
-          background: '#111118',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          padding: '0 14px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, letterSpacing: '4px', color: '#C9A84C', whiteSpace: 'nowrap' }}>
-            ARCANA STUDIO
-          </div>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#8D88A6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Creator Shell 
-            <span style={{ color: '#5D5772' }}>→</span>
-            {' '}
-            <span style={{ color: '#D8D3EB' }}>{breadcrumbName}</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <span style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#9F7AEA' }}>{creditBudget}T · Maya Special aktiv</span>
-          <span
-            style={{
-              height: 30,
-              borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: '#1C1A28',
-              color: '#8D88A6',
-              fontFamily: TOKENS.font.body,
-              fontSize: 11,
-              padding: '0 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-            }}
-          >
-            Credits: 847T
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={!selectedPersona || saving || selectedPersona.tier === 'system' || !hasUnsavedChanges}
-            style={{
-              height: 30,
-              borderRadius: 10,
-              border: '1px solid rgba(201,168,76,0.45)',
-              background: hasUnsavedChanges ? 'rgba(201,168,76,0.18)' : 'rgba(201,168,76,0.08)',
-              color: '#E2C36D',
-              fontFamily: TOKENS.font.body,
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              padding: '0 12px',
-              cursor: !selectedPersona || saving || selectedPersona.tier === 'system' || !hasUnsavedChanges ? 'not-allowed' : 'pointer',
-            }}
-          >
-            + Persona erstellen
-          </button>
-        </div>
-      </header>
-
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '220px minmax(0, 1fr) 380px',
-          gap: 0,
-          height: 'calc(100vh - 48px)',
-          minHeight: 0,
           width: '100%',
+          height: '100%',
+          minHeight: 0,
+          border: '1.5px solid rgba(201,168,76,0.16)',
+          borderRadius: 18,
+          background: '#111118',
+          boxShadow: TOKENS.shadow.card,
+          display: 'grid',
+          gridTemplateRows: '48px minmax(0, calc(100vh - 68px))',
           overflow: 'hidden',
-          borderTop: '1px solid rgba(255,255,255,0.02)',
         }}
       >
-        <ArcanaPersonaList
-          personas={displayPersonas}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onCreate={handleCreate}
-          loading={loading}
-        />
+        <header
+          style={{
+            height: 48,
+            borderBottom: '1px solid rgba(201,168,76,0.12)',
+            background: '#111118',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '0 14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, letterSpacing: '4px', color: '#C9A84C', whiteSpace: 'nowrap' }}>
+              ARCANA STUDIO
+            </div>
+            <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#8D88A6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Creator Shell 
+              <span style={{ color: '#5D5772' }}>→</span>
+              {' '}
+              <span style={{ color: '#D8D3EB' }}>{breadcrumbName}</span>
+            </div>
+          </div>
 
-        <ArcanaCreatorChat hasUnsavedChanges={hasUnsavedChanges} errorMessage={actionError ?? error} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#9F7AEA' }}>{creditBudget}T · Maya Special aktiv</span>
+            <span
+              style={{
+                height: 30,
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: '#1C1A28',
+                color: '#8D88A6',
+                fontFamily: TOKENS.font.body,
+                fontSize: 11,
+                padding: '0 12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              Credits: 847T
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={!canSavePersona}
+              style={{
+                height: 30,
+                borderRadius: 10,
+                border: '1px solid rgba(201,168,76,0.45)',
+                background: hasUnsavedChanges ? 'rgba(201,168,76,0.18)' : 'rgba(201,168,76,0.08)',
+                color: '#E2C36D',
+                fontFamily: TOKENS.font.body,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+                padding: '0 12px',
+                cursor: !canSavePersona ? 'not-allowed' : 'pointer',
+              }}
+            >
+              + Persona erstellen
+            </button>
+          </div>
+        </header>
 
-        <ArcanaRightPanel
-          persona={selectedPersona}
-          onChange={handleTuningChange}
-          onSave={() => void handleSave()}
-          onCancel={handleCancel}
-          onDelete={selectedPersona && selectedPersona.tier !== 'system' ? () => void handleDelete() : undefined}
-          onPreview={handlePreview}
-          saving={saving}
-          isSystem={selectedPersona?.tier === 'system'}
-        />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '220px minmax(0, 1fr) 380px',
+            gap: 0,
+            height: 'calc(100vh - 68px)',
+            minHeight: 0,
+            width: '100%',
+            overflow: 'hidden',
+            borderTop: '1px solid rgba(255,255,255,0.02)',
+          }}
+        >
+          <ArcanaPersonaList
+            personas={displayPersonas}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onCreate={handleCreate}
+            loading={loading}
+          />
+
+          <section style={{ minHeight: 0, display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', overflow: 'hidden' }}>
+            <ArcanaCreatorChat hasUnsavedChanges={hasUnsavedChanges} errorMessage={actionError ?? error} />
+
+            <div
+              style={{
+                borderTop: '1px solid rgba(201,168,76,0.08)',
+                background: '#14141C',
+                padding: '10px 14px',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={saving}
+                style={{
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  background: 'rgba(255,255,255,0.03)',
+                  color: TOKENS.text2,
+                  borderRadius: 10,
+                  height: 34,
+                  padding: '0 14px',
+                  fontFamily: TOKENS.font.body,
+                  fontSize: 12,
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={!canSavePersona}
+                style={{
+                  border: '1px solid rgba(201,168,76,0.45)',
+                  background: canSavePersona ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.08)',
+                  color: '#E2C36D',
+                  borderRadius: 10,
+                  height: 34,
+                  padding: '0 14px',
+                  fontFamily: TOKENS.font.body,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: !canSavePersona ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {saving ? 'Speichert...' : '✦ Persona speichern'}
+              </button>
+            </div>
+          </section>
+
+          <ArcanaRightPanel
+            persona={selectedPersona}
+            onChange={handleTuningChange}
+            onSave={() => void handleSave()}
+            onCancel={handleCancel}
+            onDelete={selectedPersona && selectedPersona.tier !== 'system' ? () => void handleDelete() : undefined}
+            onPreview={handlePreview}
+            saving={saving}
+            isSystem={selectedPersona?.tier === 'system'}
+          />
+        </div>
       </div>
     </main>
   );

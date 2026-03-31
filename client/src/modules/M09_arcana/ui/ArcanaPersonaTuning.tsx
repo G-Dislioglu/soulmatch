@@ -339,8 +339,8 @@ export function ArcanaPersonaTuning({
       <section
         style={{
           minHeight: 0,
-          height: compact ? 'auto' : '100%',
-          overflowY: compact ? 'visible' : 'auto',
+          height: '100%',
+          overflowY: 'auto',
           padding: '24px 24px 28px',
           display: 'flex',
           alignItems: 'center',
@@ -372,8 +372,8 @@ export function ArcanaPersonaTuning({
     <section
       style={{
         minHeight: 0,
-        height: compact ? 'auto' : '100%',
-        overflowY: compact ? 'visible' : 'auto',
+        height: '100%',
+        overflowY: 'auto',
         padding: '22px 24px 28px',
         display: 'flex',
         flexDirection: 'column',
@@ -1090,62 +1090,64 @@ export function ArcanaPersonaTuning({
         </div>
       </Block>
 
-      {/* ─── G. Footer actions ─── */}
-      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-        {onDelete && !isSystem ? (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onDelete}
-            style={{
-              border: '1.5px solid rgba(248,113,113,0.35)',
-              background: 'rgba(248,113,113,0.08)',
-              color: '#fda4af',
-              borderRadius: 16,
-              padding: '12px 16px',
-              fontFamily: TOKENS.font.body,
-              cursor: saving ? 'progress' : 'pointer',
-            }}
-          >
-            Persona loeschen
-          </button>
-        ) : <div />}
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            style={{
-              border: `1.5px solid ${TOKENS.b1}`,
-              background: 'rgba(255,255,255,0.03)',
-              color: TOKENS.text,
-              borderRadius: 16,
-              padding: '12px 16px',
-              fontFamily: TOKENS.font.body,
-              cursor: saving ? 'progress' : 'pointer',
-            }}
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={disabled}
-            style={{
-              border: `1.5px solid ${disabled ? TOKENS.b1 : TOKENS.gold}`,
-              background: disabled ? 'rgba(255,255,255,0.03)' : TOKENS.gold,
-              color: disabled ? TOKENS.text3 : TOKENS.bg,
-              borderRadius: 16,
-              padding: '12px 16px',
-              fontFamily: TOKENS.font.body,
-              fontWeight: 700,
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {saving ? 'Speichert...' : '✦ Persona speichern'}
-          </button>
+      {/* ─── G. Footer actions (nur im Full-Tuning-Modus) ─── */}
+      {!compact && (
+        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+          {onDelete && !isSystem ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onDelete}
+              style={{
+                border: '1.5px solid rgba(248,113,113,0.35)',
+                background: 'rgba(248,113,113,0.08)',
+                color: '#fda4af',
+                borderRadius: 16,
+                padding: '12px 16px',
+                fontFamily: TOKENS.font.body,
+                cursor: saving ? 'progress' : 'pointer',
+              }}
+            >
+              Persona loeschen
+            </button>
+          ) : <div />}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={saving}
+              style={{
+                border: `1.5px solid ${TOKENS.b1}`,
+                background: 'rgba(255,255,255,0.03)',
+                color: TOKENS.text,
+                borderRadius: 16,
+                padding: '12px 16px',
+                fontFamily: TOKENS.font.body,
+                cursor: saving ? 'progress' : 'pointer',
+              }}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={disabled}
+              style={{
+                border: `1.5px solid ${disabled ? TOKENS.b1 : TOKENS.gold}`,
+                background: disabled ? 'rgba(255,255,255,0.03)' : TOKENS.gold,
+                color: disabled ? TOKENS.text3 : TOKENS.bg,
+                borderRadius: 16,
+                padding: '12px 16px',
+                fontFamily: TOKENS.font.body,
+                fontWeight: 700,
+                cursor: disabled ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? 'Speichert...' : '✦ Persona speichern'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

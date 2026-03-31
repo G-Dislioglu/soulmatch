@@ -18,22 +18,35 @@ interface ArcanaPersonaListProps {
 }
 
 function badgeFor(persona: ArcanaPersonaDefinition) {
+  const isMaya = persona.name.toLowerCase() === 'maya';
   if (persona.tier === 'system') {
-    const isMaya = persona.name.toLowerCase() === 'maya';
     return {
-      label: isMaya ? '✦' : 'SYS',
+      label: isMaya ? 'Maya Special' : 'SYS',
       style: {
-        fontSize: 9, padding: '1px 6px', borderRadius: 8,
+        fontSize: 9, padding: '1px 7px', borderRadius: 8,
         background: isMaya ? 'rgba(176,109,176,0.12)' : 'rgba(201,168,76,0.10)',
         color: isMaya ? MAYA : GOLD,
         border: `1px solid ${isMaya ? 'rgba(176,109,176,0.25)' : 'rgba(201,168,76,0.20)'}`,
       },
     };
   }
+
+  if (persona.status === 'draft') {
+    return {
+      label: 'Entwurf',
+      style: {
+        fontSize: 9, padding: '1px 7px', borderRadius: 8,
+        background: 'rgba(120,113,255,0.12)',
+        color: '#BEB4FF',
+        border: '1px solid rgba(120,113,255,0.25)',
+      },
+    };
+  }
+
   return {
-    label: '✎',
+    label: 'DEIN',
     style: {
-      fontSize: 9, padding: '1px 6px', borderRadius: 8,
+      fontSize: 9, padding: '1px 7px', borderRadius: 8,
       background: 'rgba(78,206,206,0.10)',
       color: TEAL,
       border: '1px solid rgba(78,206,206,0.20)',
@@ -58,6 +71,14 @@ function PersonaItem({
   onSelect: () => void;
 }) {
   const badge = badgeFor(persona);
+  const isMaya = persona.name.toLowerCase() === 'maya';
+  const avatarBackground = persona.tier === 'system'
+    ? (isMaya ? 'linear-gradient(135deg, rgba(176,109,176,0.32), rgba(124,106,247,0.3))' : 'linear-gradient(135deg, rgba(201,168,76,0.28), rgba(148,119,41,0.24))')
+    : (persona.status === 'draft' ? 'linear-gradient(135deg, rgba(124,106,247,0.34), rgba(157,139,255,0.24))' : 'linear-gradient(135deg, rgba(78,206,206,0.32), rgba(53,167,167,0.22))');
+  const avatarBorder = persona.tier === 'system'
+    ? (isMaya ? '1px solid rgba(176,109,176,0.35)' : '1px solid rgba(201,168,76,0.35)')
+    : (persona.status === 'draft' ? '1px solid rgba(124,106,247,0.35)' : '1px solid rgba(78,206,206,0.3)');
+
   return (
     <div
       role="button"
@@ -85,8 +106,8 @@ function PersonaItem({
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 14,
-          border: '1px solid rgba(201,168,76,0.12)',
-          background: 'rgba(201,168,76,0.06)',
+          border: avatarBorder,
+          background: avatarBackground,
           flexShrink: 0,
         }}
       >

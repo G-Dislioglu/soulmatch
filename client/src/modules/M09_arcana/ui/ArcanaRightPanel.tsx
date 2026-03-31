@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { TOKENS } from '../../../design';
 import type { ArcanaPersonaDefinition } from '../hooks/useArcanaApi';
 import { ArcanaLivePreview } from './ArcanaLivePreview';
@@ -24,6 +26,25 @@ export function ArcanaRightPanel({
   saving,
   isSystem,
 }: ArcanaRightPanelProps) {
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  async function handlePreviewClick(): Promise<void> {
+    if (!persona) {
+      return;
+    }
+
+    setPreviewing(true);
+    setPreviewError(null);
+    try {
+      await onPreview(persona);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : 'Stimmprobe fehlgeschlagen');
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   return (
     <aside
       style={{
@@ -34,7 +55,8 @@ export function ArcanaRightPanel({
         borderLeft: '1px solid rgba(201,168,76,0.08)',
         background: '#16161F',
         display: 'grid',
-        gridTemplateRows: 'auto minmax(0, 1fr)',
+        gridTemplateRows: 'auto minmax(0, 1fr) auto',
+        overflow: 'hidden',
       }}
     >
       <div
@@ -47,16 +69,10 @@ export function ArcanaRightPanel({
           background: '#1E1E2B',
         }}
       >
-        <div style={{ fontFamily: TOKENS.font.display, fontSize: 10, letterSpacing: '3px', color: '#C9A84C', marginBottom: 2 }}>
-          LIVE · VORSCHAU
-        </div>
-        <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#6E6B7A', marginBottom: 10 }}>
-          Snapshot + direkte Stimmprobe
-        </div>
-        <ArcanaLivePreview persona={persona} onPreview={onPreview} />
+        <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
       </div>
 
-      <div style={{ minHeight: 0, overflowY: 'auto' }}>
+      <div style={{ minHeight: 0, overflow: 'hidden' }}>
         <ArcanaPersonaTuning
           persona={persona}
           onChange={onChange}
@@ -67,6 +83,38 @@ export function ArcanaRightPanel({
           isSystem={isSystem}
           compact
         />
+      </div>
+
+      <div
+        style={{
+          borderTop: '1px solid rgba(201,168,76,0.08)',
+          background: '#14141C',
+          padding: '10px 12px',
+          display: 'grid',
+          gap: 7,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => void handlePreviewClick()}
+          disabled={!persona || previewing || saving}
+          style={{
+            height: 34,
+            borderRadius: 10,
+            border: '1px solid rgba(78,206,206,0.35)',
+            background: !persona || previewing || saving ? 'rgba(78,206,206,0.04)' : 'rgba(78,206,206,0.12)',
+            color: '#73DEDE',
+            fontFamily: TOKENS.font.display,
+            fontSize: 10,
+            letterSpacing: '1.8px',
+            cursor: !persona || previewing || saving ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {previewing ? 'Stimme laeuft...' : '▶ Stimme abspielen'}
+        </button>
+        {previewError ? (
+          <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: '#fda4af' }}>{previewError}</div>
+        ) : null}
       </div>
     </aside>
   );
