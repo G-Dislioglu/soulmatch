@@ -6,7 +6,11 @@ import { ArcanaCreatorChat } from './ArcanaCreatorChat';
 import { ArcanaRightPanel } from './ArcanaRightPanel';
 import {
   useArcanaApi,
+  type ArcanaPersonaContradiction,
   type ArcanaPersonaDefinition,
+  type ArcanaPersonaSkills,
+  type ArcanaSignatureQuirk,
+  type ArcanaToneModeKey,
   type PersonaDraftInput,
 } from '../hooks/useArcanaApi';
 import { buildExampleResponse } from '../lib/clientDirectorPrompt';
@@ -248,6 +252,95 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
     setHasUnsavedChanges(false);
   }
 
+  function handleExtraction(fields: Record<string, unknown>): void {
+    setEditState((current) => {
+      if (!current) return current;
+
+      const updates: Partial<ArcanaPersonaDefinition> = {};
+
+      // name
+      if (typeof fields.name === 'string' && fields.name.trim().length > 0) {
+        updates.name = fields.name.trim();
+      }
+
+      // tone → toneMode.mode if it matches a valid key
+      if (typeof fields.tone === 'string' && fields.tone.trim().length > 0) {
+        const toneValue = fields.tone.trim().toLowerCase() as ArcanaToneModeKey;
+        const validTones: ArcanaToneModeKey[] = ['serioes', 'bissig', 'satirisch', 'komisch'];
+        if (validTones.includes(toneValue)) {
+          updates.toneMode = { ...current.toneMode, mode: toneValue };
+        }
+      }
+
+      // traits → append to description
+      if (Array.isArray(fields.traits) && (fields.traits as unknown[]).length > 0) {
+        const newTraits = (fields.traits as unknown[]).filter((t): t is string => typeof t === 'string');
+        if (newTraits.length > 0) {
+          const traitLine = `Charakterzüge: ${newTraits.join(', ')}`;
+          updates.description = current.description
+            ? `${current.description}\n${traitLine}`
+            : traitLine;
+        }
+      }
+
+      // quirks → append unique ones (no duplicates by label)
+      if (Array.isArray(fields.quirks) && (fields.quirks as unknown[]).length > 0) {
+        const existingLabels = new Set(current.quirks.map((q) => q.label.toLowerCase()));
+        const newQuirks: ArcanaSignatureQuirk[] = (fields.quirks as unknown[])
+          .filter((q): q is string => typeof q === 'string')
+          .filter((q) => !existingLabels.has(q.toLowerCase()))
+          .map((q) => ({
+            id: `extracted_${q.replace(/\s+/g, '_').slice(0, 30)}`,
+            label: q,
+            description: '',
+            promptFragment: q,
+            enabled: true,
+            category: 'behavior' as const,
+          }));
+        if (newQuirks.length > 0) {
+          updates.quirks = [...current.quirks, ...newQuirks];
+        }
+      }
+
+      // skills → append unique to interaction
+      if (Array.isArray(fields.skills) && (fields.skills as unknown[]).length > 0) {
+        const currentInteraction = current.skills?.interaction ?? [];
+        const existingSet = new Set(currentInteraction.map((s) => s.toLowerCase()));
+        const newSkills = (fields.skills as unknown[])
+          .filter((s): s is string => typeof s === 'string')
+          .filter((s) => !existingSet.has(s.toLowerCase()));
+        if (newSkills.length > 0) {
+          const baseSkills: ArcanaPersonaSkills = {
+            knowledge: current.skills?.knowledge ?? [],
+            interaction: currentInteraction,
+            tools: current.skills?.tools ?? [],
+          };
+          updates.skills = { ...baseSkills, interaction: [...currentInteraction, ...newSkills] };
+        }
+      }
+
+      // contradictions → append
+      if (Array.isArray(fields.contradictions) && (fields.contradictions as unknown[]).length > 0) {
+        const newContradictions: ArcanaPersonaContradiction[] = (fields.contradictions as unknown[])
+          .filter(
+            (c): c is { polA: string; polB: string } =>
+              typeof c === 'object' &&
+              c !== null &&
+              typeof (c as Record<string, unknown>).polA === 'string' &&
+              typeof (c as Record<string, unknown>).polB === 'string',
+          )
+          .map((c) => ({ poleA: c.polA, poleB: c.polB, description: '' }));
+        if (newContradictions.length > 0) {
+          updates.contradictions = [...(current.contradictions ?? []), ...newContradictions];
+        }
+      }
+
+      if (Object.keys(updates).length === 0) return current;
+      return { ...current, ...updates, updatedAt: new Date().toISOString() };
+    });
+    setHasUnsavedChanges(true);
+  }
+
   async function handleDelete(): Promise<void> {
     if (!editState) {
       return;
@@ -405,7 +498,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
           />
 
           <section style={{ minHeight: 0, display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', overflow: 'hidden' }}>
-            <ArcanaCreatorChat errorMessage={actionError ?? error} />
+            <ArcanaCreatorChat errorMessage={actionError ?? error} onExtraction={handleExtraction} />
 
             <div
               style={{

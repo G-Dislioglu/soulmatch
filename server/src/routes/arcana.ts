@@ -530,6 +530,53 @@ interface ArcanaChatBody {
   personaContext?: ArcanaChatPersonaContext;
 }
 
+async function runExtractionCall(
+  messages: ArcanaChatMessage[],
+  geminiApiKey: string,
+): Promise<Record<string, unknown>> {
+  const extractionUrl =
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+
+  const extractionSystemPrompt =
+    'Analysiere das folgende Gespräch zwischen einem Nutzer und Maya (Casting-Direktorin). ' +
+    'Extrahiere alle Persona-Merkmale die im Gespräch erwähnt oder impliziert wurden. ' +
+    'Antworte NUR mit einem JSON-Objekt, kein Markdown, keine Backticks. ' +
+    'Felder: name (string|null), traits (string[]|null), tone (string|null), ' +
+    'quirks (string[]|null), skills (string[]|null), ' +
+    'contradictions (Array<{polA:string,polB:string}>|null). ' +
+    'Setze Felder auf null wenn nicht erwähnt.';
+
+  const chatHistory = messages
+    .filter((m) => m.content.trim().length > 0)
+    .map((m) => `${m.role === 'maya' ? 'Maya' : 'Nutzer'}: ${m.content}`)
+    .join('\n');
+
+  const resp = await fetch(extractionUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: chatHistory }] }],
+      systemInstruction: { parts: [{ text: extractionSystemPrompt }] },
+      generationConfig: { maxOutputTokens: 400, temperature: 0.1 },
+    }),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Extraction HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json() as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  // Strip markdown code fences if present
+  rawText = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  rawText = rawText.replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  return JSON.parse(rawText) as Record<string, unknown>;
+}
+
 arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
   const body = req.body as ArcanaChatBody;
   const messages: ArcanaChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
@@ -648,20 +695,31 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
     // Signal text completion
     sendEvent('text_done', { full: fullText });
 
-    // Generate and stream TTS for the complete response
+    // Run extraction and TTS in parallel — extraction event sent before audio
     if (fullText.trim().length > 0) {
-      try {
-        const ttsResult = await withTimeout(
+      const [extractionOutcome, ttsOutcome] = await Promise.allSettled([
+        withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
+        withTimeout(
           generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
           12000,
-        );
+        ),
+      ]);
+
+      // Extraction event — optional, must not block or crash
+      if (extractionOutcome.status === 'fulfilled') {
+        sendEvent('extraction', { fields: extractionOutcome.value });
+      } else {
+        devLogger.warn('api', 'Maya extraction failed', { error: String(extractionOutcome.reason) });
+      }
+
+      // Audio event
+      if (ttsOutcome.status === 'fulfilled') {
         sendEvent('audio', {
-          base64: ttsResult.audioBuffer.toString('base64'),
-          mimeType: ttsResult.mimeType,
+          base64: ttsOutcome.value.audioBuffer.toString('base64'),
+          mimeType: ttsOutcome.value.mimeType,
         });
-      } catch (ttsErr) {
-        // TTS failure is non-fatal; text was already delivered
-        devLogger.warn('api', 'Maya creator TTS failed', { error: String(ttsErr) });
+      } else {
+        devLogger.warn('api', 'Maya creator TTS failed', { error: String(ttsOutcome.reason) });
       }
     }
   } catch (error) {

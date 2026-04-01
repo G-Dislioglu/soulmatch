@@ -21,6 +21,7 @@ interface PersonaContext {
 interface ArcanaCreatorChatProps {
   errorMessage?: string | null;
   personaContext?: PersonaContext;
+  onExtraction?: (fields: Record<string, unknown>) => void;
 }
 
 const SUGGESTIONS = ['Historische Figur', 'Fiktiver Charakter', 'Eigene Erfindung'] as const;
@@ -31,7 +32,7 @@ const INTRO_MESSAGE: CreatorMessage = {
     'Ich bin Maya, deine Casting-Direktorin fuer neue Personas. Gib mir eine Richtung und ich forme mit dir Schritt fuer Schritt eine klare, nutzbare Persona.',
 };
 
-export function ArcanaCreatorChat({ errorMessage = null, personaContext }: ArcanaCreatorChatProps) {
+export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -43,6 +44,8 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
   const listRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const onExtractionRef = useRef(onExtraction);
+  useEffect(() => { onExtractionRef.current = onExtraction; }, [onExtraction]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -127,6 +130,11 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
                   }
                   return next;
                 });
+              } else if (type === 'extraction') {
+                const fields = event.fields as Record<string, unknown>;
+                if (fields && typeof fields === 'object') {
+                  onExtractionRef.current?.(fields);
+                }
               } else if (type === 'audio') {
                 const base64 = event.base64 as string;
                 const mimeType = (event.mimeType as string) ?? 'audio/wav';
