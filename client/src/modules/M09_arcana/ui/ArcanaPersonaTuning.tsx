@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import { VOICE_CATALOG } from '../../../data/voiceCatalog';
@@ -26,24 +26,47 @@ function CustomSlider({
 }) {
   const pct = ((value - min) / (max - min)) * 100;
   const ref = useRef<HTMLDivElement>(null);
-  function handle(e: React.MouseEvent<HTMLDivElement>) {
-    if (disabled || !ref.current) return;
+  const dragging = useRef(false);
+
+  const calcValue = useCallback((clientX: number): number => {
+    if (!ref.current) return value;
     const rect = ref.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    onChange(Math.round(min + x * (max - min)));
-  }
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Math.round(min + x * (max - min));
+  }, [min, max, value]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    e.preventDefault();
+    dragging.current = true;
+    onChange(calcValue(e.clientX));
+
+    function onMove(ev: MouseEvent) {
+      if (!dragging.current) return;
+      onChange(calcValue(ev.clientX));
+    }
+    function onUp() {
+      dragging.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [disabled, onChange, calcValue]);
+
   return (
     <div
       ref={ref}
-      onClick={handle}
+      onMouseDown={handleMouseDown}
       style={{
         width: '100%',
         height: 6,
         borderRadius: 999,
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        cursor: disabled ? 'not-allowed' : 'ew-resize',
         background: `linear-gradient(90deg, ${color} 0%, ${color} ${pct}%, #3A3A50 ${pct}%, #3A3A50 100%)`,
         position: 'relative',
         opacity: disabled ? 0.5 : 1,
+        userSelect: 'none',
       }}
     >
       <div
