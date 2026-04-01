@@ -731,14 +731,14 @@ export function ArcanaPersonaTuning({
                 value={entry.poleA}
                 disabled={readOnlyInputs}
                 onChange={(event) => updateContradiction(index, 'poleA', event.target.value)}
-                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 12 }}
+                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 14 }}
               />
-              <span style={{ fontSize: 12, fontWeight: 500, color: ORANGE }}>↔</span>
+              <span style={{ fontSize: 14, fontWeight: 500, color: ORANGE }}>↔</span>
               <input
                 value={entry.poleB}
                 disabled={readOnlyInputs}
                 onChange={(event) => updateContradiction(index, 'poleB', event.target.value)}
-                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 12 }}
+                style={{ ...inputWrapStyle(readOnlyInputs), padding: '7px 10px', fontSize: 14 }}
               />
               <button
                 type="button"
@@ -762,7 +762,7 @@ export function ArcanaPersonaTuning({
               style={{
                 ...inputWrapStyle(readOnlyInputs),
                 padding: '8px 10px',
-                fontSize: 12,
+                fontSize: 14,
                 fontFamily: TOKENS.font.serif,
                 fontStyle: 'italic',
                 color: '#8A8A9A',
@@ -773,7 +773,7 @@ export function ArcanaPersonaTuning({
           </div>
         )) : (
           <div style={{ padding: '10px 11px', display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 12, color: '#8A8A9A' }}>
+            <div style={{ fontSize: 14, color: '#8A8A9A' }}>
               Keine Widersprueche definiert.
             </div>
           </div>
@@ -790,7 +790,7 @@ export function ArcanaPersonaTuning({
             borderRadius: 10,
             padding: '9px 10px',
             fontFamily: TOKENS.font.body,
-            fontSize: 12,
+            fontSize: 14,
             cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
           }}
         >

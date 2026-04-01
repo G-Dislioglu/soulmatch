@@ -10,6 +10,7 @@ import {
   type PersonaDraftInput,
 } from '../hooks/useArcanaApi';
 import { buildExampleResponse } from '../lib/clientDirectorPrompt';
+import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 
 interface ArcanaStudioPageProps {
   userId?: string | null;
@@ -275,12 +276,13 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         minHeight: '100vh',
         background: '#0B0A12',
         color: TOKENS.text,
-        cursor: 'default',
         padding: 10,
         boxSizing: 'border-box',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
+      <CosmicTrail intensity={60} />
       <div
         style={{
           width: '100%',
