@@ -28,6 +28,7 @@ export function ArcanaRightPanel({
 }: ArcanaRightPanelProps) {
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   async function handlePreviewClick(): Promise<void> {
     if (!persona) {
@@ -64,13 +65,57 @@ export function ArcanaRightPanel({
           position: 'sticky',
           top: 0,
           zIndex: 2,
-          padding: '13px 15px 11px',
+          padding: '8px 12px',
           borderBottom: '1px solid rgba(201,168,76,0.08)',
           background: '#1E1E2B',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
         }}
       >
-        <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
+        {/* Compact persona identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>{persona?.icon ?? '✦'}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: TOKENS.font.display, fontSize: 11, letterSpacing: '1.5px', color: '#C9A84C', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {persona ? persona.name.toUpperCase() : 'KEIN PROFIL'}
+            </div>
+            {persona ? (
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 10, color: '#6E6B7A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {persona.subtitle || 'Entwurf'}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {/* Preview toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowPreview((prev) => !prev)}
+          style={{
+            height: 28,
+            borderRadius: 8,
+            border: `1px solid ${showPreview ? 'rgba(78,206,206,0.45)' : 'rgba(78,206,206,0.20)'}`,
+            background: showPreview ? 'rgba(78,206,206,0.12)' : 'rgba(78,206,206,0.04)',
+            color: '#4ECECE',
+            fontFamily: TOKENS.font.display,
+            fontSize: 9,
+            letterSpacing: '1.5px',
+            padding: '0 10px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {showPreview ? '▼ VORSCHAU' : '▶ VORSCHAU'}
+        </button>
       </div>
+
+      {/* Collapsible Live Preview */}
+      {showPreview ? (
+        <div style={{ padding: '12px 15px', borderBottom: '1px solid rgba(201,168,76,0.08)', background: '#1A1A27' }}>
+          <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
+        </div>
+      ) : null}
 
       <div style={{ minHeight: 0, overflowY: 'auto' }}>
         <ArcanaPersonaTuning

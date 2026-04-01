@@ -18,6 +18,14 @@ const ORANGE = '#E8A838';
 const S1     = '#111118';   // block body bg
 const MUTED  = '#6E6B7A';
 
+// Emoji icons by quirk category
+const QUIRK_CATEGORY_ICON: Record<string, string> = {
+  behavior: '🔱',
+  speech:   '🎭',
+  knowledge: '📚',
+  limitation: '⚠️',
+};
+
 // 3 featured voice chips (prototype: Fenrir·rau, Puck·warm, Kore·tief)
 const FEATURED_VOICES = [
   { name: 'Fenrir', label: 'Fenrir · rau' },
@@ -418,12 +426,15 @@ export function ArcanaPersonaTuning({
         background: '#111118',
       }}
     >
-      {/* ─── Header ─── */}
+      {/* ─── Header (compact single line) ─── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <div style={{ fontFamily: TOKENS.font.display, fontSize: 12, letterSpacing: '2px', color: GOLD }}>
-          {persona.name.toUpperCase()} · FINE-TUNING
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 18, flexShrink: 0 }}>{persona.icon || '✦'}</span>
+          <div style={{ fontFamily: TOKENS.font.display, fontSize: 11, letterSpacing: '2px', color: GOLD, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {persona.name.toUpperCase()} · FINE-TUNING
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexShrink: 0 }}>
           {isSystem ? <span style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: MUTED }}>Read-only</span> : null}
           <button
             type="button"
@@ -432,49 +443,15 @@ export function ArcanaPersonaTuning({
               background: 'transparent',
               border: '1px solid rgba(201,168,76,0.15)',
               borderRadius: 7,
-              padding: '6px 12px',
+              padding: '5px 10px',
               fontFamily: TOKENS.font.body,
               fontSize: 11,
               color: MUTED,
               cursor: 'pointer',
             }}
           >
-            ↩ Zuruecksetzen
+            ↩ Reset
           </button>
-          <button
-            type="button"
-            onClick={() => document.getElementById('arcana-live-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            style={{
-              background: 'rgba(78,206,206,0.07)',
-              border: '1px solid rgba(78,206,206,0.25)',
-              borderRadius: 7,
-              padding: '6px 12px',
-              fontFamily: TOKENS.font.body,
-              fontSize: 11,
-              color: TEAL,
-              cursor: 'pointer',
-            }}
-          >
-            ▶ Vorschau
-          </button>
-        </div>
-      </div>
-      {/* Preset pill */}
-      <div
-        style={{
-          background: '#1E1E2B',
-          border: '1px solid rgba(201,168,76,0.20)',
-          borderRadius: 10,
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <span style={{ fontSize: 26, flexShrink: 0 }}>{persona.icon || '✦'}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: TOKENS.font.display, fontSize: 13, color: GOLD }}>{persona.name}</div>
-          <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{persona.subtitle || 'Entwurf'}</div>
         </div>
       </div>
 
@@ -548,7 +525,8 @@ export function ArcanaPersonaTuning({
             }}
           >
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, fontWeight: 500, color: TOKENS.text, marginBottom: 2 }}>
+              <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, fontWeight: 500, color: TOKENS.text, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>{QUIRK_CATEGORY_ICON[quirk.category] ?? '✦'}</span>
                 {quirk.label}
               </div>
               <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 11, color: TOKENS.text2, lineHeight: 1.4 }}>
