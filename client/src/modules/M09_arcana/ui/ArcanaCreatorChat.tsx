@@ -38,7 +38,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
   const [isFocused, setIsFocused] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [suggestionsUsed, setSuggestionsUsed] = useState(false);
-  const [_lastAudioBase64, setLastAudioBase64] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [lastAudioBase64, setLastAudioBase64] = useState<{ base64: string; mimeType: string } | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -130,7 +130,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
               } else if (type === 'audio') {
                 const base64 = event.base64 as string;
                 const mimeType = (event.mimeType as string) ?? 'audio/wav';
-                // Store audio for external player — do not auto-play
+                // Store audio for play button — do not auto-play
                 setLastAudioBase64({ base64, mimeType });
               } else if (type === 'error') {
                 const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
@@ -214,6 +214,19 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
 
   function removeAttachment(index: number) {
     setAttachments((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function handlePlayLastAudio() {
+    if (!lastAudioBase64) return;
+    const { base64, mimeType } = lastAudioBase64;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
+    void audio.play().catch(() => {});
   }
 
   return (
@@ -502,6 +515,30 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
             style={{ display: 'none' }}
           />
         </div>
+        {lastAudioBase64 ? (
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={handlePlayLastAudio}
+              style={{
+                border: '1px solid rgba(124,106,247,0.45)',
+                background: 'rgba(124,106,247,0.12)',
+                color: '#D2C8FF',
+                borderRadius: 8,
+                height: 28,
+                padding: '0 12px',
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 11,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              ▶ Letzte Antwort abspielen
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );

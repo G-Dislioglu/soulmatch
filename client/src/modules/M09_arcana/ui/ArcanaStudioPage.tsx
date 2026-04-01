@@ -165,7 +165,11 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
     : personas;
 
   const selectedPersona = editState;
-  const breadcrumbName = selectedPersona?.name || 'Napoleon';
+  const breadcrumbName = selectedPersona?.name && selectedPersona.name.trim().length > 0
+    ? selectedPersona.name
+    : selectedId === LOCAL_DRAFT_ID
+      ? 'Neue Persona'
+      : '—';
   const creditBudget = selectedPersona?.credits.creationCost ?? 50;
   const canSavePersona = Boolean(selectedPersona && selectedPersona.tier !== 'system' && hasUnsavedChanges && !saving);
 
