@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import { VOICE_CATALOG } from '../../../data/voiceCatalog';
@@ -7,6 +7,15 @@ import {
   type ArcanaPersonaDefinition,
 } from '../hooks/useArcanaApi';
 import { getCharacterDisplay, getVoiceDisplay, TONE_MODE_IMPACT_TEXT } from '../lib/clientDirectorPrompt';
+
+// ── Dim color helper ──────────────────────────────────────────────────────────
+function dimHex(hex: string, factor = 0.3): string {
+  const h = hex.replace('#', '');
+  const r = Math.round(parseInt(h.substring(0, 2), 16) * factor);
+  const g = Math.round(parseInt(h.substring(2, 4), 16) * factor);
+  const b = Math.round(parseInt(h.substring(4, 6), 16) * factor);
+  return `rgb(${r},${g},${b})`;
+}
 
 // ── Custom Slider ─────────────────────────────────────────────────────────────
 function CustomSlider({
@@ -26,59 +35,38 @@ function CustomSlider({
 }) {
   const pct = ((value - min) / (max - min)) * 100;
   const ref = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  const calcValue = useCallback((clientX: number): number => {
-    if (!ref.current) return value;
+  const dim = dimHex(color, 0.3);
+  function handle(e: React.MouseEvent<HTMLDivElement>) {
+    if (disabled || !ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return Math.round(min + x * (max - min));
-  }, [min, max, value]);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    e.preventDefault();
-    dragging.current = true;
-    onChange(calcValue(e.clientX));
-
-    function onMove(ev: MouseEvent) {
-      if (!dragging.current) return;
-      onChange(calcValue(ev.clientX));
-    }
-    function onUp() {
-      dragging.current = false;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [disabled, onChange, calcValue]);
-
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    onChange(Math.round(min + x * (max - min)));
+  }
   return (
     <div
       ref={ref}
-      onMouseDown={handleMouseDown}
+      onClick={handle}
       style={{
         width: '100%',
-        height: 6,
+        height: 8,
         borderRadius: 999,
-        cursor: disabled ? 'not-allowed' : 'ew-resize',
-        background: `linear-gradient(90deg, ${color} 0%, ${color} ${pct}%, #3A3A50 ${pct}%, #3A3A50 100%)`,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: `linear-gradient(90deg, ${dim} 0%, ${color} ${pct}%, #2A2A3A ${pct}%, #2A2A3A 100%)`,
         position: 'relative',
         opacity: disabled ? 0.5 : 1,
-        userSelect: 'none',
       }}
     >
       <div
         style={{
-          width: 14,
-          height: 14,
+          width: 16,
+          height: 16,
           borderRadius: '50%',
           background: color,
           border: '2px solid #0B0B12',
+          boxShadow: `0 0 6px ${color}40`,
           position: 'absolute',
           top: -4,
-          left: `calc(${pct}% - 7px)`,
+          left: `calc(${pct}% - 8px)`,
           pointerEvents: 'none',
         }}
       />
@@ -210,14 +198,14 @@ function blockHead(
       <span
         style={{
           fontFamily: TOKENS.font.display,
-          fontSize: 10,
+          fontSize: 12,
           letterSpacing: '2.5px',
           color: dotColor,
         }}
       >
         {title}
       </span>
-      <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.48)', fontStyle: 'italic' }}>{hint}</span>
+      <span style={{ marginLeft: 'auto', fontSize: 13, color: 'rgba(255,255,255,0.48)', fontStyle: 'italic' }}>{hint}</span>
       {collapsible ? (
         <button
           type="button"
@@ -493,12 +481,12 @@ export function ArcanaPersonaTuning({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ fontSize: 18, flexShrink: 0 }}>{persona.icon || '✦'}</span>
-          <div style={{ fontFamily: TOKENS.font.display, fontSize: 11, letterSpacing: '2px', color: GOLD, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontFamily: TOKENS.font.display, fontSize: 13, letterSpacing: '2px', color: GOLD, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {persona.name.toUpperCase()} · FINE-TUNING
           </div>
         </div>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexShrink: 0 }}>
-          {isSystem ? <span style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: MUTED }}>Read-only</span> : null}
+          {isSystem ? <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: MUTED }}>Read-only</span> : null}
           <button
             type="button"
             onClick={onCancel}
@@ -508,7 +496,7 @@ export function ArcanaPersonaTuning({
               borderRadius: 7,
               padding: '5px 10px',
               fontFamily: TOKENS.font.body,
-              fontSize: 11,
+              fontSize: 13,
               color: MUTED,
               cursor: 'pointer',
             }}
@@ -592,7 +580,7 @@ export function ArcanaPersonaTuning({
                 <span style={{ fontSize: 14 }}>{QUIRK_CATEGORY_ICON[quirk.category] ?? '✦'}</span>
                 {quirk.label}
               </div>
-              <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 11, color: TOKENS.text2, lineHeight: 1.4 }}>
+              <div style={{ fontFamily: TOKENS.font.serif, fontStyle: 'italic', fontSize: 13, color: TOKENS.text2, lineHeight: 1.4 }}>
                 {quirk.description}
               </div>
             </div>
@@ -660,7 +648,7 @@ export function ArcanaPersonaTuning({
           },
         ].map((group) => (
           <div key={group.key} style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A7A8E', fontFamily: TOKENS.font.body }}>
+            <div style={{ fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A7A8E', fontFamily: TOKENS.font.body }}>
               {group.title}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -881,7 +869,7 @@ export function ArcanaPersonaTuning({
                   justifyContent: 'center',
                   background: zone.bg,
                   color: zone.color,
-                  fontSize: 9,
+                  fontSize: 12,
                   letterSpacing: '0.5px',
                   opacity: active ? 1 : 0.35,
                   border: 'none',
@@ -898,7 +886,7 @@ export function ArcanaPersonaTuning({
             );
           })}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 10, color: TOKENS.text2 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
           <span>Historisch akkurat</span>
           <span>Viral-komisch</span>
         </div>
@@ -909,7 +897,7 @@ export function ArcanaPersonaTuning({
           disabled={readOnlyInputs}
         />
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Auswirkung bei "{persona.toneMode.mode}"
           </div>
           <div style={{ marginTop: 8, fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
@@ -922,7 +910,7 @@ export function ArcanaPersonaTuning({
       <Block title="STIMME · TUNING" hint="Klang & TTS" dotColor={TEAL} open={openSections.voice} onToggle={() => toggleSection('voice')}>
         {/* 3 featured voice chips */}
         <div>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 9, letterSpacing: '0.3em', color: TOKENS.text2, marginBottom: 8, textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, letterSpacing: '0.3em', color: TOKENS.text2, marginBottom: 8, textTransform: 'uppercase' }}>
             Basisstimme
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -940,7 +928,7 @@ export function ArcanaPersonaTuning({
                     border: active ? '1.5px solid #4ECECE' : '1px solid #3A3A50',
                     background: active ? 'rgba(78,206,206,0.15)' : 'transparent',
                     color: active ? TEAL : '#7A7A8E',
-                    fontSize: 11,
+                    fontSize: 13,
                     fontFamily: TOKENS.font.body,
                     cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
@@ -962,7 +950,7 @@ export function ArcanaPersonaTuning({
               border: '1.5px dashed rgba(201,168,76,0.3)',
               background: 'transparent',
               color: TOKENS.gold,
-              fontSize: 11,
+              fontSize: 13,
               fontFamily: TOKENS.font.body,
               cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
               appearance: 'none',
@@ -1076,7 +1064,7 @@ export function ArcanaPersonaTuning({
                   color: meta.color,
                   padding: '3px 6px',
                   fontFamily: TOKENS.font.body,
-                  fontSize: 10,
+                  fontSize: 12,
                   letterSpacing: '1px',
                 }}
               >
@@ -1084,7 +1072,7 @@ export function ArcanaPersonaTuning({
               </span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text }}>{source.name}</div>
-                <div style={{ marginTop: 2, fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.text3 }}>
+                <div style={{ marginTop: 2, fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text3 }}>
                   Quelle ist vorbereitet und wird in Phase 4 mit Attachments verbunden.
                 </div>
               </div>
@@ -1096,7 +1084,7 @@ export function ArcanaPersonaTuning({
                   color: '#86E08C',
                   padding: '3px 8px',
                   fontFamily: TOKENS.font.body,
-                  fontSize: 11,
+                  fontSize: 13,
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -1110,7 +1098,7 @@ export function ArcanaPersonaTuning({
       {/* ─── I. Maya · Special Mode (Violet) ─── */}
       <Block title="✦ MAYA · SPECIAL MODE" hint="Über die Regler hinaus" dotColor={VIOLET} open={openSections.maya} onToggle={() => toggleSection('maya')}>
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, padding: '16px 16px 14px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             🌙 Maya Spezial-Funktion
           </div>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
