@@ -114,15 +114,15 @@ function blockHead(
   return (
     <div
       style={{
-        background: '#1E1E2A',
-        padding: '12px 16px',
-        borderTop: '1px solid #2E2E40',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
-        border: '3px solid red',
+        background: '#252535',
+        padding: '10px 16px',
+        borderTop: '1px solid rgba(255,255,255,0.10)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         flexShrink: 0,
+        minHeight: 40,
       }}
     >
       <span
@@ -458,10 +458,6 @@ export function ArcanaPersonaTuning({
             ▶ Vorschau
           </button>
         </div>
-      </div>
-      {/* DEBUG: big red test block */}
-      <div style={{ background: 'red', color: 'white', padding: 20, fontSize: 24, fontWeight: 'bold', margin: 16 }}>
-        DEBUG: TUNING SECTIONS START HERE
       </div>
       {/* Preset pill */}
       <div
