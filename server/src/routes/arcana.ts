@@ -500,3 +500,174 @@ arcanaRouter.get('/arcana/presets', async (_req: Request, res: Response) => {
     res.status(500).json({ error: 'internal_server_error' });
   }
 });
+
+// ─── Maya Creator Chat ────────────────────────────────────────────────────────
+
+const MAYA_SYSTEM_PROMPT =
+  'Du bist Maya, Casting-Direktorin im Arcana Studio. Du hilfst dem User ' +
+  'eine KI-Persona zu erschaffen. Stelle gezielte Fragen zu Persönlichkeit, ' +
+  'Sprechstil, Wissensgebieten und inneren Widersprüchen. Wenn der User ' +
+  'genug beschrieben hat, schlage konkrete Werte vor (Quirks, Ton-Modus, ' +
+  'Charakter-Einstellungen). Antworte auf Deutsch. Halte Antworten bei ' +
+  '2-4 Sätzen. Sei warm aber direkt.';
+
+interface ArcanaChatMessage {
+  role: 'user' | 'maya';
+  content: string;
+}
+
+interface ArcanaChatPersonaContext {
+  name?: string;
+  archetype?: string;
+  quirks?: string[];
+  skills?: string[];
+  tone?: string;
+}
+
+interface ArcanaChatBody {
+  messages?: ArcanaChatMessage[];
+  personaContext?: ArcanaChatPersonaContext;
+}
+
+arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
+  const body = req.body as ArcanaChatBody;
+  const messages: ArcanaChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+
+  res.status(200);
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  function sendEvent(type: string, data: Record<string, unknown>): void {
+    res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+  }
+
+  if (!geminiApiKey) {
+    sendEvent('error', { message: 'Maya ist gerade nicht erreichbar. Versuche es nochmal.' });
+    res.end();
+    return;
+  }
+
+  try {
+    // Build system prompt, optionally enriched with current persona context
+    const ctx = body.personaContext;
+    let systemPrompt = MAYA_SYSTEM_PROMPT;
+    if (ctx) {
+      const ctxParts: string[] = [];
+      if (ctx.name) ctxParts.push(`Persona-Name bisher: ${ctx.name}`);
+      if (ctx.archetype) ctxParts.push(`Archetyp: ${ctx.archetype}`);
+      if (ctx.quirks && ctx.quirks.length > 0) ctxParts.push(`Quirks: ${ctx.quirks.join(', ')}`);
+      if (ctx.tone) ctxParts.push(`Tonalität: ${ctx.tone}`);
+      if (ctxParts.length > 0) {
+        systemPrompt += `\n\nAktueller Persona-Kontext:\n${ctxParts.join('\n')}`;
+      }
+    }
+
+    // Map maya messages to Gemini "model" role
+    const contents = messages
+      .filter((m) => m.content.trim().length > 0)
+      .map((m) => ({
+        role: m.role === 'maya' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
+
+    // Gemini streaming endpoint
+    const geminiUrl =
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent` +
+      `?key=${geminiApiKey}&alt=sse`;
+
+    const geminiResp = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          maxOutputTokens: 200,
+          temperature: 0.8,
+        },
+      }),
+    });
+
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text();
+      devLogger.error('api', 'Maya Gemini text stream error', { status: geminiResp.status, error: errText.slice(0, 300) });
+      sendEvent('error', { message: 'Maya ist gerade nicht erreichbar. Versuche es nochmal.' });
+      res.end();
+      return;
+    }
+
+    const reader = geminiResp.body?.getReader();
+    if (!reader) {
+      sendEvent('error', { message: 'Maya ist gerade nicht erreichbar. Versuche es nochmal.' });
+      res.end();
+      return;
+    }
+
+    let fullText = '';
+    let buffer = '';
+    const decoder = new TextDecoder();
+
+    // Read and forward streaming chunks
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      // Keep the last (potentially partial) line in the buffer
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]' || jsonStr.length === 0) continue;
+
+        try {
+          const chunk = JSON.parse(jsonStr) as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          };
+          const chunkText =
+            chunk.candidates?.[0]?.content?.parts
+              ?.map((p) => p.text ?? '')
+              .join('') ?? '';
+          if (chunkText.length > 0) {
+            fullText += chunkText;
+            sendEvent('text_delta', { chunk: chunkText });
+          }
+        } catch {
+          // silently skip malformed JSON chunks
+        }
+      }
+    }
+
+    // Signal text completion
+    sendEvent('text_done', { full: fullText });
+
+    // Generate and stream TTS for the complete response
+    if (fullText.trim().length > 0) {
+      try {
+        const ttsResult = await withTimeout(
+          generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
+          12000,
+        );
+        sendEvent('audio', {
+          base64: ttsResult.audioBuffer.toString('base64'),
+          mimeType: ttsResult.mimeType,
+        });
+      } catch (ttsErr) {
+        // TTS failure is non-fatal; text was already delivered
+        devLogger.warn('api', 'Maya creator TTS failed', { error: String(ttsErr) });
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    devLogger.error('api', 'Maya creator chat failed', { error: message });
+    sendEvent('error', { message: 'Maya ist gerade nicht erreichbar. Versuche es nochmal.' });
+  } finally {
+    res.end();
+  }
+});

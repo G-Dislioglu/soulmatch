@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import { TOKENS } from '../../../design';
 
@@ -7,11 +7,20 @@ type CreatorRole = 'maya' | 'user';
 interface CreatorMessage {
   role: CreatorRole;
   content: string;
+  streaming?: boolean;
   attachments?: File[];
+}
+
+interface PersonaContext {
+  name?: string;
+  archetype?: string;
+  quirks?: string[];
+  tone?: string;
 }
 
 interface ArcanaCreatorChatProps {
   errorMessage?: string | null;
+  personaContext?: PersonaContext;
 }
 
 const SUGGESTIONS = ['Historische Figur', 'Fiktiver Charakter', 'Eigene Erfindung'] as const;
@@ -22,37 +31,176 @@ const INTRO_MESSAGE: CreatorMessage = {
     'Ich bin Maya, deine Casting-Direktorin fuer neue Personas. Gib mir eine Richtung und ich forme mit dir Schritt fuer Schritt eine klare, nutzbare Persona.',
 };
 
-export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProps) {
+export function ArcanaCreatorChat({ errorMessage = null, personaContext }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [suggestionsUsed, setSuggestionsUsed] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!listRef.current) {
-      return;
-    }
+    if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages]);
 
-  const canSend = useMemo(() => input.trim().length > 0 || attachments.length > 0, [attachments.length, input]);
+  const canSend = useMemo(
+    () => !isStreaming && (input.trim().length > 0 || attachments.length > 0),
+    [attachments.length, input, isStreaming],
+  );
+
+  const callMayaApi = useCallback(
+    async (updatedMessages: CreatorMessage[]) => {
+      // Cancel any in-flight request
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setIsStreaming(true);
+
+      // Add an empty streaming bubble for Maya
+      const mayaIndex = updatedMessages.length;
+      setMessages((prev) => [...prev, { role: 'maya', content: '', streaming: true }]);
+
+      // Build the conversation payload (exclude attachments-only user messages)
+      const apiMessages = updatedMessages
+        .filter((m) => m.content.trim().length > 0)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      try {
+        const resp = await fetch('/api/arcana/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: apiMessages, personaContext: personaContext ?? {} }),
+          signal: controller.signal,
+        });
+
+        if (!resp.ok || !resp.body) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+        let fullText = '';
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const event = JSON.parse(jsonStr) as Record<string, unknown>;
+              const type = event.type as string;
+
+              if (type === 'text_delta') {
+                const chunk = (event.chunk as string) ?? '';
+                fullText += chunk;
+                setMessages((prev) => {
+                  const next = [...prev];
+                  const target = next[mayaIndex];
+                  if (target) {
+                    next[mayaIndex] = { ...target, content: target.content + chunk };
+                  }
+                  return next;
+                });
+              } else if (type === 'text_done') {
+                // Mark streaming done
+                setMessages((prev) => {
+                  const next = [...prev];
+                  const target = next[mayaIndex];
+                  if (target) {
+                    next[mayaIndex] = { ...target, content: fullText || target.content, streaming: false };
+                  }
+                  return next;
+                });
+              } else if (type === 'audio') {
+                const base64 = event.base64 as string;
+                const mimeType = (event.mimeType as string) ?? 'audio/wav';
+                try {
+                  const binary = atob(base64);
+                  const bytes = new Uint8Array(binary.length);
+                  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                  const blob = new Blob([bytes], { type: mimeType });
+                  const url = URL.createObjectURL(blob);
+                  const audio = new Audio(url);
+                  audio.onended = () => URL.revokeObjectURL(url);
+                  void audio.play().catch(() => {/* autoplay blocked — silently ignore */});
+                } catch {
+                  // Audio decode/play failure is non-fatal
+                }
+              } else if (type === 'error') {
+                const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+                setMessages((prev) => {
+                  const next = [...prev];
+                  const target = next[mayaIndex];
+                  if (target) {
+                    next[mayaIndex] = { ...target, content: errMsg, streaming: false };
+                  }
+                  return next;
+                });
+              }
+            } catch {
+              // malformed SSE chunk — skip
+            }
+          }
+        }
+
+        // Ensure streaming flag is cleared even without a text_done event
+        setMessages((prev) => {
+          const next = [...prev];
+          const target = next[mayaIndex];
+          if (target?.streaming) {
+            const finalContent = fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+            next[mayaIndex] = { ...target, content: finalContent, streaming: false };
+          }
+          return next;
+        });
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        const fallback = 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+        setMessages((prev) => {
+          const next = [...prev];
+          const target = next[mayaIndex];
+          if (target) {
+            next[mayaIndex] = { ...target, content: target.content || fallback, streaming: false };
+          }
+          return next;
+        });
+      } finally {
+        setIsStreaming(false);
+      }
+    },
+    [personaContext],
+  );
 
   function pushUserMessage(content: string, files: File[] = []) {
-    if (content.trim().length === 0 && files.length === 0) {
-      return;
-    }
+    if (content.trim().length === 0 && files.length === 0) return;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: 'user',
-        content: content.trim(),
-        attachments: files.length > 0 ? files : undefined,
-      },
-    ]);
+    const userMsg: CreatorMessage = {
+      role: 'user',
+      content: content.trim(),
+      attachments: files.length > 0 ? files : undefined,
+    };
+
+    setMessages((prev) => {
+      const updated = [...prev, userMsg];
+      void callMayaApi(updated);
+      return updated;
+    });
+
     setInput('');
     setAttachments([]);
   }
@@ -62,15 +210,13 @@ export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProp
   }
 
   function handleSuggestionClick(suggestion: string) {
+    setSuggestionsUsed(true);
     pushUserMessage(suggestion);
   }
 
   function handleAttachmentPick(event: ChangeEvent<HTMLInputElement>) {
     const nextFiles = Array.from(event.target.files ?? []);
-    if (nextFiles.length === 0) {
-      return;
-    }
-
+    if (nextFiles.length === 0) return;
     setAttachments((prev) => [...prev, ...nextFiles]);
     event.target.value = '';
   }
@@ -178,7 +324,11 @@ export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProp
                     color: TOKENS.text,
                   }}
                 >
-                  {message.content}
+                  {message.streaming && message.content.length === 0 ? (
+                    <span style={{ color: TOKENS.text3, fontStyle: 'italic', fontSize: 12 }}>Maya schreibt…</span>
+                  ) : (
+                    message.content
+                  )}
                   {message.attachments && message.attachments.length > 0 ? (
                     <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {message.attachments.map((file, fileIndex) => (
@@ -201,7 +351,7 @@ export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProp
                   ) : null}
                 </div>
 
-                {isMaya && index === 0 ? (
+                {isMaya && index === 0 && !suggestionsUsed ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {SUGGESTIONS.map((suggestion) => (
                       <button
@@ -365,3 +515,4 @@ export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProp
     </section>
   );
 }
+
