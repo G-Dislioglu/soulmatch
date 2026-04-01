@@ -115,9 +115,10 @@ function blockHead(
   return (
     <div
       style={{
-        background: S2,
-        padding: '9px 15px',
-        borderBottom: '1px solid rgba(201,168,76,0.08)',
+        background: '#1E1E2A',
+        padding: '12px 16px',
+        borderTop: '1px solid #2E2E40',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
@@ -126,41 +127,42 @@ function blockHead(
     >
       <span
         style={{
-          width: 6,
-          height: 6,
+          width: 7,
+          height: 7,
           borderRadius: '50%',
           background: dotColor,
-          boxShadow: `0 0 5px ${glow}`,
+          boxShadow: `0 0 8px ${glow}`,
           flexShrink: 0,
           display: 'inline-block',
+          marginRight: 8,
         }}
       />
       <span
         style={{
           fontFamily: TOKENS.font.display,
           fontSize: 10,
-          letterSpacing: '2px',
+          letterSpacing: '2.5px',
           color: dotColor,
         }}
       >
         {title}
       </span>
-      <span style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, fontStyle: 'italic' }}>{hint}</span>
+      <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.48)', fontStyle: 'italic' }}>{hint}</span>
       {collapsible ? (
         <button
           type="button"
           onClick={collapsible.onToggle}
           aria-label={collapsible.open ? `${title} einklappen` : `${title} ausklappen`}
           style={{
-            border: '1px solid rgba(201,168,76,0.18)',
-            background: 'rgba(255,255,255,0.02)',
-            color: TOKENS.text2,
-            borderRadius: 6,
-            width: 22,
-            height: 22,
+            border: `1px solid ${dotColor}55`,
+            background: 'rgba(255,255,255,0.04)',
+            color: dotColor,
+            borderRadius: 8,
+            width: 24,
+            height: 24,
             cursor: 'pointer',
             lineHeight: 1,
-            fontSize: 13,
+            fontSize: 14,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -193,6 +195,7 @@ function blockOuter() {
     border: '1px solid rgba(201,168,76,0.1)',
     borderRadius: 11,
     overflow: 'hidden',
+    background: '#14141C',
   } as const;
 }
 
