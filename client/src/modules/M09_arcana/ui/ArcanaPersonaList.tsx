@@ -199,11 +199,19 @@ export function ArcanaPersonaList({ personas, selectedId, onSelect, onCreate, lo
       <div style={{ padding: '10px 14px 5px', fontSize: 9, letterSpacing: '3px', color: MUTED2, fontFamily: TOKENS.font.body }}>
         DEINE PERSONAS
       </div>
-      {hasRealUserPersonas
-        ? userPersonas.map((p) => (
-            <PersonaItem key={p.id} persona={p} isSelected={selectedId === p.id} onSelect={() => onSelect(p.id)} />
-          ))
-        : (
+      {loading
+        ? (
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[1, 2, 3].map((n) => (
+              <div key={n} style={{ height: 44, borderRadius: 8, background: 'rgba(255,255,255,0.04)' }} />
+            ))}
+          </div>
+        )
+        : hasRealUserPersonas
+          ? userPersonas.map((p) => (
+              <PersonaItem key={p.id} persona={p} isSelected={selectedId === p.id} onSelect={() => onSelect(p.id)} />
+            ))
+          : (
           <>
             {DEMO_USER_PERSONAS.map((entry) => {
               const demoPersona = {
