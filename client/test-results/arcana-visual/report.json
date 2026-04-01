@@ -1,0 +1,14 @@
+{
+  "studioVisible": true,
+  "creatorVisible": true,
+  "livePreviewVisible": true,
+  "createButtonVisible": true,
+  "previewStatus": 200,
+  "previewOk": true,
+  "previewFetch": {
+    "ok": true,
+    "status": 200,
+    "hasAudio": true
+  },
+  "bodyTextSnippet": "Soulmatch\nMAYA CORE SHELL\n«\nLiveTalk\nKlicken zum Aktivieren\nMaya\nMaya-Core verbunden\n👤\nProfil\nOeffnen\n🔥\nMatch\nOeffnen\n💬\nChat\nOeffnen\n✶\nAstro\nOeffnen\n✧\nReise\nOeffnen\n♥\nSeelen\nOeffnen\n◈\nStudio\nAktiver Bereich\nG\nGuercan\n1991-03-14\n⚙\n◈\nStudio\n\nMaya fuehrt dich durch den aktiven Bereich.\n\nLiveTalk\nKlicken zum Aktivieren\nOFF\nEffekt-Steuerung\nDezent\nBalanced\nLebendig\nIntensiv\n🔦\nReading Light\n75%\n🖱️\nCursor Aura\n55%\n🌊\nPlasma Border\n20%\n💫\nPulse Rings\n25%\n📐\n3D Tilt\n15%\n🎨\nFarbsättigung\n130%\n✨\nGoldene Aura\n{ glow: 75, cursorAura: 55, plasma: 20, pulse: 25, tilt: 15, sat: 130, trail: on }\nEinstellu"
+}

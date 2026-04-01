@@ -504,12 +504,13 @@ arcanaRouter.get('/arcana/presets', async (_req: Request, res: Response) => {
 // ─── Maya Creator Chat ────────────────────────────────────────────────────────
 
 const MAYA_SYSTEM_PROMPT =
-  'Du bist Maya, Casting-Direktorin im Arcana Studio. Du hilfst dem User ' +
-  'eine KI-Persona zu erschaffen. Stelle gezielte Fragen zu Persönlichkeit, ' +
-  'Sprechstil, Wissensgebieten und inneren Widersprüchen. Wenn der User ' +
-  'genug beschrieben hat, schlage konkrete Werte vor (Quirks, Ton-Modus, ' +
-  'Charakter-Einstellungen). Antworte auf Deutsch. Halte Antworten bei ' +
-  '2-4 Sätzen. Sei warm aber direkt.';
+  'Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch. Du hilfst dem Nutzer dabei, eine einzigartige KI-Persona zu erschaffen. Deine Aufgabe:\n' +
+  '- Stelle gezielte Fragen zu Persönlichkeit, Stimme, Widersprüchen und besonderen Merkmalen der neuen Persona\n' +
+  '- Sei warmherzig aber direkt, mit einem Gespür für interessante Charaktere\n' +
+  '- Halte deine Antworten kurz (2-4 Sätze) und stelle immer eine Folgefrage\n' +
+  '- Wenn der Nutzer einen Namen oder ein Merkmal nennt, bestätige begeistert und frage nach dem nächsten Aspekt\n' +
+  '- Antworte IMMER auf Deutsch in grammatikalisch korrekten, vollständigen Sätzen\n' +
+  '- Verwende einen lebendigen, enthusiastischen Ton';
 
 interface ArcanaChatMessage {
   role: 'user' | 'maya';
@@ -585,7 +586,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         contents,
         systemInstruction: { parts: [{ text: systemPrompt }] },
         generationConfig: {
-          maxOutputTokens: 200,
+          maxOutputTokens: 500,
           temperature: 0.8,
         },
       }),

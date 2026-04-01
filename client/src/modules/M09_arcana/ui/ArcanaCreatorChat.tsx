@@ -38,6 +38,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
   const [isFocused, setIsFocused] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [suggestionsUsed, setSuggestionsUsed] = useState(false);
+  const [_lastAudioBase64, setLastAudioBase64] = useState<{ base64: string; mimeType: string } | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -129,18 +130,8 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext }: Arcan
               } else if (type === 'audio') {
                 const base64 = event.base64 as string;
                 const mimeType = (event.mimeType as string) ?? 'audio/wav';
-                try {
-                  const binary = atob(base64);
-                  const bytes = new Uint8Array(binary.length);
-                  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                  const blob = new Blob([bytes], { type: mimeType });
-                  const url = URL.createObjectURL(blob);
-                  const audio = new Audio(url);
-                  audio.onended = () => URL.revokeObjectURL(url);
-                  void audio.play().catch(() => {/* autoplay blocked — silently ignore */});
-                } catch {
-                  // Audio decode/play failure is non-fatal
-                }
+                // Store audio for external player — do not auto-play
+                setLastAudioBase64({ base64, mimeType });
               } else if (type === 'error') {
                 const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
                 setMessages((prev) => {
