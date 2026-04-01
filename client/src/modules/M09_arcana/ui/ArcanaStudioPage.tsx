@@ -398,7 +398,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
           />
 
           <section style={{ minHeight: 0, display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', overflow: 'hidden' }}>
-            <ArcanaCreatorChat hasUnsavedChanges={hasUnsavedChanges} errorMessage={actionError ?? error} />
+            <ArcanaCreatorChat errorMessage={actionError ?? error} />
 
             <div
               style={{

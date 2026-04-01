@@ -35,10 +35,10 @@ const FEATURED_VOICES = [
 
 // 4 tone zones with distinct colors
 const TONE_ZONES = [
-  { key: 'serioes',   label: 'SERIÖS',    bg: 'rgba(107,79,160,0.3)',   color: '#C0A8E0' },
-  { key: 'bissig',    label: 'BISSIG',    bg: 'rgba(201,168,76,0.18)',  color: '#C9A84C' },
-  { key: 'satirisch', label: 'SATIRISCH', bg: 'rgba(255,120,50,0.18)',  color: '#FFB080' },
-  { key: 'komisch',   label: 'KOMISCH',   bg: 'rgba(107,214,114,0.18)', color: GREEN     },
+  { key: 'serioes',   label: 'SERIÖS',    bg: 'rgba(138,109,176,0.45)', color: '#8A6DB0' },
+  { key: 'bissig',    label: 'BISSIG',    bg: 'rgba(201,168,76,0.40)',  color: '#C9A84C' },
+  { key: 'satirisch', label: 'SATIRISCH', bg: 'rgba(232,168,56,0.40)',  color: '#E8A838' },
+  { key: 'komisch',   label: 'KOMISCH',   bg: 'rgba(107,203,119,0.40)', color: '#6BCB77' },
 ] as const;
 
 const SOURCE_PREVIEW_FALLBACK: NonNullable<ArcanaPersonaDefinition['sources']> = [
@@ -763,6 +763,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.intensity}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, intensity: Number(event.target.value) } })}
+            data-thumb="gold"
             style={rangeStyle(persona.character.intensity, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
@@ -782,6 +783,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.empathy}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, empathy: Number(event.target.value) } })}
+            data-thumb="gold"
             style={rangeStyle(persona.character.empathy, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
@@ -801,6 +803,7 @@ export function ArcanaPersonaTuning({
             value={persona.character.confrontation}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ character: { ...persona.character, confrontation: Number(event.target.value) } })}
+            data-thumb="gold"
             style={rangeStyle(persona.character.confrontation, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
@@ -857,6 +860,7 @@ export function ArcanaPersonaTuning({
           value={persona.toneMode.slider}
           disabled={readOnlyInputs}
           onChange={(event) => onChange({ toneMode: { ...persona.toneMode, slider: Number(event.target.value) } })}
+          data-thumb="violet"
           style={rangeStyle(persona.toneMode.slider, readOnlyInputs, VIOLET)}
         />
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
@@ -888,9 +892,9 @@ export function ArcanaPersonaTuning({
                   style={{
                     padding: '4px 11px',
                     borderRadius: 6,
-                    border: `1px solid ${active ? 'rgba(78,206,206,0.45)' : 'rgba(201,168,76,0.12)'}`,
-                    background: active ? 'rgba(78,206,206,0.07)' : 'transparent',
-                    color: active ? TEAL : TOKENS.text2,
+                    border: active ? '1.5px solid #4ECECE' : '1px solid #3A3A50',
+                    background: active ? 'rgba(78,206,206,0.15)' : 'transparent',
+                    color: active ? TEAL : '#7A7A8E',
                     fontSize: 11,
                     fontFamily: TOKENS.font.body,
                     cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
@@ -951,6 +955,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.accentIntensity}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, accentIntensity: Number(event.target.value) } })}
+            data-thumb="teal"
             style={rangeStyle(persona.voice.accentIntensity, readOnlyInputs, TEAL)}
           />
         </label>
@@ -966,6 +971,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.speakingTempo}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, speakingTempo: Number(event.target.value) } })}
+            data-thumb="teal"
             style={rangeStyle(persona.voice.speakingTempo, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
@@ -985,6 +991,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.pauseDramaturgy}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, pauseDramaturgy: Number(event.target.value) } })}
+            data-thumb="teal"
             style={rangeStyle(persona.voice.pauseDramaturgy, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
@@ -1004,6 +1011,7 @@ export function ArcanaPersonaTuning({
             value={persona.voice.emotionalIntensity}
             disabled={readOnlyInputs}
             onChange={(event) => onChange({ voice: { ...persona.voice, emotionalIntensity: Number(event.target.value) } })}
+            data-thumb="teal"
             style={rangeStyle(persona.voice.emotionalIntensity, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>

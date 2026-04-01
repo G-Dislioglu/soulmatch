@@ -11,7 +11,6 @@ interface CreatorMessage {
 }
 
 interface ArcanaCreatorChatProps {
-  hasUnsavedChanges?: boolean;
   errorMessage?: string | null;
 }
 
@@ -23,7 +22,7 @@ const INTRO_MESSAGE: CreatorMessage = {
     'Ich bin Maya, deine Casting-Direktorin fuer neue Personas. Gib mir eine Richtung und ich forme mit dir Schritt fuer Schritt eine klare, nutzbare Persona.',
 };
 
-export function ArcanaCreatorChat({ hasUnsavedChanges = false, errorMessage = null }: ArcanaCreatorChatProps) {
+export function ArcanaCreatorChat({ errorMessage = null }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -110,16 +109,11 @@ export function ArcanaCreatorChat({ hasUnsavedChanges = false, errorMessage = nu
             </div>
           </div>
         </div>
-        {(hasUnsavedChanges || errorMessage) && (
-          <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasUnsavedChanges ? (
-              <span style={{ fontFamily: TOKENS.font.body, fontSize: 10, letterSpacing: '2px', color: '#C9A84C' }}>UNGESPEICHERT</span>
-            ) : null}
-            {errorMessage ? (
-              <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.5 }}>Arcana API Fehler: {errorMessage}</span>
-            ) : null}
+        {errorMessage ? (
+          <div style={{ marginTop: 10 }}>
+            <span style={{ fontFamily: TOKENS.font.body, fontSize: 12, color: '#fda4af', lineHeight: 1.5 }}>Arcana API Fehler: {errorMessage}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div ref={listRef} style={{ minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
