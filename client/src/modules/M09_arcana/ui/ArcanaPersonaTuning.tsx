@@ -110,14 +110,16 @@ function blockHead(
   dotColor: string,
   collapsible?: { open: boolean; onToggle: () => void },
 ) {
+  console.log('blockHead rendering:', title, dotColor);
   const glow = dotColor + '80';
   return (
     <div
       style={{
-        background: '#252535',
+        background: '#2A2A3A',
         padding: '10px 16px',
         borderTop: '1px solid rgba(255,255,255,0.10)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderLeft: `4px solid ${dotColor}`,
         display: 'flex',
         alignItems: 'center',
         gap: 8,
@@ -404,6 +406,8 @@ export function ArcanaPersonaTuning({
   };
   const contradictions = persona.contradictions && persona.contradictions.length > 0 ? persona.contradictions : CONTRADICTIONS_FALLBACK;
   const sources = (persona.sources && persona.sources.length > 0) ? persona.sources : SOURCE_PREVIEW_FALLBACK;
+
+  console.log('ArcanaPersonaTuning render, persona:', persona?.name, 'compact:', compact);
 
   return (
     <section
