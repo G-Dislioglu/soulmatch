@@ -230,10 +230,14 @@ export function useArcanaApi(explicitUserId?: string | null): UseArcanaApiResult
   const [personas, setPersonas] = useState<ArcanaPersonaDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string>('');
+  // Resolve userId synchronously so the first render already has the correct
+  // ID and personas is never fetched with an empty userId (which caused the
+  // flash: personas briefly [] → editState wiped → tuning shows empty state).
+  const [userId, setUserId] = useState<string>(() => resolveArcanaUserId(explicitUserId));
 
   useEffect(() => {
-    setUserId(resolveArcanaUserId(explicitUserId));
+    const resolved = resolveArcanaUserId(explicitUserId);
+    setUserId(resolved);
   }, [explicitUserId]);
 
   async function refreshPersonas(): Promise<void> {

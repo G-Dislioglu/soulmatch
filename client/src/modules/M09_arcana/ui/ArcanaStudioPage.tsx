@@ -146,10 +146,18 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
       return;
     }
 
+    // Don't wipe editState while personas is still loading (empty array).
+    // The personas list is populated asynchronously; wiping on an empty list
+    // caused the visible flash where the tuning panel briefly showed the
+    // "Wähle links eine Persona" empty state after the initial selection.
+    if (loading && personas.length === 0) {
+      return;
+    }
+
     const persona = personas.find((entry) => entry.id === selectedId) ?? null;
     setEditState(persona ? clonePersona(persona) : null);
     setHasUnsavedChanges(false);
-  }, [selectedId, personas]);
+  }, [selectedId, personas, loading]);
 
   const displayPersonas = selectedId === LOCAL_DRAFT_ID && editState
     ? [...personas.filter((persona) => persona.id !== LOCAL_DRAFT_ID), editState]
