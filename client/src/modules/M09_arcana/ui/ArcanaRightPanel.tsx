@@ -110,9 +110,32 @@ export function ArcanaRightPanel({
         </button>
       </div>
 
-      {/* Collapsible Live Preview */}
+      {/* Floating Live Preview Overlay */}
       {showPreview ? (
-        <div style={{ padding: '12px 15px', borderBottom: '1.5px solid #3A3A50', background: '#16161F', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', borderRadius: 12 }}>
+        <div style={{
+          position: 'fixed',
+          top: 60,
+          right: 20,
+          width: 420,
+          zIndex: 9999,
+          background: '#16161F',
+          border: '1.5px solid #3A3A50',
+          borderRadius: 12,
+          boxShadow: '0 12px 48px rgba(0,0,0,0.7)',
+          padding: '16px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontFamily: 'Cinzel, serif', fontSize: 11, letterSpacing: '2px', color: '#4ECECE' }}>
+              LIVE · VORSCHAU
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPreview(false)}
+              style={{ background: 'none', border: 'none', color: '#7A7A8E', fontSize: 16, cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
           <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
         </div>
       ) : null}

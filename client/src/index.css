@@ -315,6 +315,21 @@ input[type=range][data-thumb="teal"]::-moz-range-thumb   { background: #4ECECE; 
 input[type=range][data-thumb="violet"]::-moz-range-thumb { background: #8A6DB0; }
 input[type=range][data-thumb]:disabled::-webkit-slider-thumb { background: rgba(255,255,255,0.2); }
 input[type=range][data-thumb]:disabled::-moz-range-thumb     { background: rgba(255,255,255,0.2); }
+input[type=range][data-thumb] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type=range][data-thumb]::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
+input[type=range][data-thumb]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
 .hide-sb { scrollbar-width: none; }
 
 /* ── Live Sigil Animations ── */
