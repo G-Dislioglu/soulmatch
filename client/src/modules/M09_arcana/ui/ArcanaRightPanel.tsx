@@ -48,8 +48,8 @@ export function ArcanaRightPanel({
   return (
     <aside
       style={{
-        minWidth: 420,
-        width: 420,
+        minWidth: 540,
+        width: 540,
         height: '100%',
         minHeight: 0,
         borderLeft: '1px solid rgba(201,168,76,0.08)',
