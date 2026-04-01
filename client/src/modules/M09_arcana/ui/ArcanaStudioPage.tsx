@@ -275,6 +275,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         minHeight: '100vh',
         background: '#0B0A12',
         color: TOKENS.text,
+        cursor: 'default',
         padding: 10,
         boxSizing: 'border-box',
         overflow: 'hidden',

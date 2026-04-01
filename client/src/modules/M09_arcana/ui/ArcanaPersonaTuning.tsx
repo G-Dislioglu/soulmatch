@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { TOKENS } from '../../../design';
 import { VOICE_CATALOG } from '../../../data/voiceCatalog';
@@ -7,6 +7,61 @@ import {
   type ArcanaPersonaDefinition,
 } from '../hooks/useArcanaApi';
 import { getCharacterDisplay, getVoiceDisplay, TONE_MODE_IMPACT_TEXT } from '../lib/clientDirectorPrompt';
+
+// ── Custom Slider ─────────────────────────────────────────────────────────────
+function CustomSlider({
+  value,
+  onChange,
+  color,
+  disabled,
+  min = 0,
+  max = 100,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  color: string;
+  disabled?: boolean;
+  min?: number;
+  max?: number;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  const ref = useRef<HTMLDivElement>(null);
+  function handle(e: React.MouseEvent<HTMLDivElement>) {
+    if (disabled || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    onChange(Math.round(min + x * (max - min)));
+  }
+  return (
+    <div
+      ref={ref}
+      onClick={handle}
+      style={{
+        width: '100%',
+        height: 6,
+        borderRadius: 999,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: `linear-gradient(90deg, ${color} 0%, ${color} ${pct}%, #3A3A50 ${pct}%, #3A3A50 100%)`,
+        position: 'relative',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <div
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: '50%',
+          background: color,
+          border: '2px solid #0B0B12',
+          position: 'absolute',
+          top: -4,
+          left: `calc(${pct}% - 7px)`,
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+}
 
 // ── Design constants ──────────────────────────────────────────────────────────
 const TEAL   = '#4ECECE';
@@ -94,24 +149,7 @@ function createOpenSections(compact: boolean) {
   };
 }
 
-// ── Slider helpers ────────────────────────────────────────────────────────────
-function sliderBg(value: number, color: string): string {
-  return `linear-gradient(90deg, ${color} 0%, ${color} ${value}%, #3A3A50 ${value}%, #3A3A50 100%)`;
-}
-
-function rangeStyle(value: number, disabled: boolean, color: string) {
-  return {
-    width: '100%',
-    appearance: 'none' as const,
-    height: 6,
-    borderRadius: 999,
-    background: disabled ? 'rgba(255,255,255,0.08)' : sliderBg(value, color),
-    outline: 'none',
-    opacity: disabled ? 0.6 : 1,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-  } as const;
-}
-
+// ── Block helpers ─────────────────────────────────────────────────────────────
 function blockHead(
   title: string,
   hint: string,
@@ -756,15 +794,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Intensitaet</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{characterDisplay.intensity}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.character.intensity}
+            onChange={(v) => onChange({ character: { ...persona.character, intensity: v } })}
+            color="#C9A84C"
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ character: { ...persona.character, intensity: Number(event.target.value) } })}
-            data-thumb="gold"
-            style={rangeStyle(persona.character.intensity, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Sanft</span>
@@ -776,15 +810,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Empathie</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{characterDisplay.empathy}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.character.empathy}
+            onChange={(v) => onChange({ character: { ...persona.character, empathy: v } })}
+            color="#C9A84C"
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ character: { ...persona.character, empathy: Number(event.target.value) } })}
-            data-thumb="gold"
-            style={rangeStyle(persona.character.empathy, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Kuehl analytisch</span>
@@ -796,15 +826,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Konfrontation</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.gold }}>{characterDisplay.confrontation}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.character.confrontation}
+            onChange={(v) => onChange({ character: { ...persona.character, confrontation: v } })}
+            color="#C9A84C"
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ character: { ...persona.character, confrontation: Number(event.target.value) } })}
-            data-thumb="gold"
-            style={rangeStyle(persona.character.confrontation, readOnlyInputs, '#C9A84C')}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Bestaetigend</span>
@@ -853,15 +879,11 @@ export function ArcanaPersonaTuning({
           <span>Historisch akkurat</span>
           <span>Viral-komisch</span>
         </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
+        <CustomSlider
           value={persona.toneMode.slider}
+          onChange={(v) => onChange({ toneMode: { ...persona.toneMode, slider: v } })}
+          color={VIOLET}
           disabled={readOnlyInputs}
-          onChange={(event) => onChange({ toneMode: { ...persona.toneMode, slider: Number(event.target.value) } })}
-          data-thumb="violet"
-          style={rangeStyle(persona.toneMode.slider, readOnlyInputs, VIOLET)}
         />
         <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ fontFamily: TOKENS.font.body, fontSize: 11, color: TOKENS.gold, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -948,15 +970,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Akzent-Staerke</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{labelForAccentIntensity(persona.voice.accentIntensity)}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.voice.accentIntensity}
+            onChange={(v) => onChange({ voice: { ...persona.voice, accentIntensity: v } })}
+            color={TEAL}
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ voice: { ...persona.voice, accentIntensity: Number(event.target.value) } })}
-            data-thumb="teal"
-            style={rangeStyle(persona.voice.accentIntensity, readOnlyInputs, TEAL)}
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -964,15 +982,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Sprechtempo</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.tempo}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.voice.speakingTempo}
+            onChange={(v) => onChange({ voice: { ...persona.voice, speakingTempo: v } })}
+            color={TEAL}
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ voice: { ...persona.voice, speakingTempo: Number(event.target.value) } })}
-            data-thumb="teal"
-            style={rangeStyle(persona.voice.speakingTempo, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Langsam meditativ</span>
@@ -984,15 +998,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Pausen & Dramaturgie</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.pauses}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.voice.pauseDramaturgy}
+            onChange={(v) => onChange({ voice: { ...persona.voice, pauseDramaturgy: v } })}
+            color={TEAL}
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ voice: { ...persona.voice, pauseDramaturgy: Number(event.target.value) } })}
-            data-thumb="teal"
-            style={rangeStyle(persona.voice.pauseDramaturgy, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Fliessend</span>
@@ -1004,15 +1014,11 @@ export function ArcanaPersonaTuning({
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TOKENS.text }}>Emotionale Intensitaet</span>
             <span style={{ fontFamily: TOKENS.font.body, fontSize: 13, color: TEAL }}>{voiceDisplay.emotion}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
+          <CustomSlider
             value={persona.voice.emotionalIntensity}
+            onChange={(v) => onChange({ voice: { ...persona.voice, emotionalIntensity: v } })}
+            color={TEAL}
             disabled={readOnlyInputs}
-            onChange={(event) => onChange({ voice: { ...persona.voice, emotionalIntensity: Number(event.target.value) } })}
-            data-thumb="teal"
-            style={rangeStyle(persona.voice.emotionalIntensity, readOnlyInputs, TEAL)}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: TOKENS.font.body, fontSize: 12, color: TOKENS.text2 }}>
             <span>Neutral</span>
