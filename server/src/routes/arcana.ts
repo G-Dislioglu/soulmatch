@@ -575,7 +575,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
 
     // Gemini streaming endpoint
     const geminiUrl =
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent` +
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:streamGenerateContent` +
       `?key=${geminiApiKey}&alt=sse`;
 
     const geminiResp = await fetch(geminiUrl, {
