@@ -16,7 +16,7 @@ const GREEN  = '#6BD672';
 const GOLD   = '#C9A84C';
 const ORANGE = '#E8A838';
 const S1     = '#111118';   // block body bg
-const MUTED  = '#6E6B7A';
+const MUTED  = '#7A7A8E';
 
 // Emoji icons by quirk category
 const QUIRK_CATEGORY_ICON: Record<string, string> = {
@@ -96,7 +96,7 @@ function createOpenSections(compact: boolean) {
 
 // ── Slider helpers ────────────────────────────────────────────────────────────
 function sliderBg(value: number, color: string): string {
-  return `linear-gradient(90deg, ${color} 0%, ${color} ${value}%, rgba(255,255,255,0.12) ${value}%, rgba(255,255,255,0.12) 100%)`;
+  return `linear-gradient(90deg, ${color} 0%, ${color} ${value}%, #3A3A50 ${value}%, #3A3A50 100%)`;
 }
 
 function rangeStyle(value: number, disabled: boolean, color: string) {
@@ -122,10 +122,10 @@ function blockHead(
   return (
     <div
       style={{
-        background: '#2A2A3A',
+        background: '#2E2E42',
         padding: '12px 16px',
-        borderTop: '1px solid rgba(255,255,255,0.10)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderTop: '1.5px solid #3A3A50',
+        borderBottom: '1px solid #2A2A3A',
         borderLeft: `4px solid ${dotColor}`,
         display: 'flex',
         alignItems: 'center',
@@ -199,18 +199,20 @@ function inputWrapStyle(disabled: boolean) {
   } as const;
 }
 
-function blockOuter() {
+function blockOuter(dotColor: string) {
   return {
     border: '1px solid rgba(201,168,76,0.1)',
+    borderLeft: `3px solid ${dotColor}`,
     overflow: 'visible',
     background: '#14141C',
   } as const;
 }
 
-function blockBody() {
+function blockBody(dotColor: string) {
   return {
     padding: '14px 16px',
     background: S1,
+    borderLeft: `3px solid ${dotColor}33`,
     display: 'flex',
     flexDirection: 'column',
     gap: 14,
@@ -233,9 +235,9 @@ function Block({
   onToggle?: () => void;
 }) {
   return (
-    <div style={blockOuter()}>
+    <div style={blockOuter(dotColor)}>
       {blockHead(title, hint, dotColor, onToggle ? { open, onToggle } : undefined)}
-      {open ? <div style={blockBody()}>{children}</div> : null}
+      {open ? <div style={blockBody(dotColor)}>{children}</div> : null}
     </div>
   );
 }
@@ -544,7 +546,7 @@ export function ArcanaPersonaTuning({
                 width: 32,
                 height: 17,
                 borderRadius: 9,
-                background: quirk.enabled ? 'rgba(255,112,112,0.2)' : TOKENS.b3,
+                background: quirk.enabled ? 'rgba(255,112,112,0.2)' : '#3A3A50',
                 border: `1px solid ${quirk.enabled ? 'rgba(255,112,112,0.35)' : 'rgba(255,255,255,0.07)'}`,
                 position: 'relative',
                 cursor: readOnlyInputs ? 'not-allowed' : 'pointer',
@@ -597,7 +599,7 @@ export function ArcanaPersonaTuning({
           },
         ].map((group) => (
           <div key={group.key} style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#5A5A6E', fontFamily: TOKENS.font.body }}>
+            <div style={{ fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7A7A8E', fontFamily: TOKENS.font.body }}>
               {group.title}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>

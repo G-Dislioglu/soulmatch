@@ -53,7 +53,7 @@ export function ArcanaRightPanel({
         width: 540,
         height: '100%',
         minHeight: 0,
-        borderLeft: '1px solid rgba(201,168,76,0.08)',
+        borderLeft: '1.5px solid #3A3A50',
         background: '#16161F',
         display: 'grid',
         gridTemplateRows: 'auto minmax(0, 1fr) auto',
@@ -66,7 +66,7 @@ export function ArcanaRightPanel({
           top: 0,
           zIndex: 2,
           padding: '8px 12px',
-          borderBottom: '1px solid rgba(201,168,76,0.08)',
+          borderBottom: '1.5px solid #3A3A50',
           background: '#1E1E2B',
           display: 'flex',
           alignItems: 'center',
@@ -112,7 +112,7 @@ export function ArcanaRightPanel({
 
       {/* Collapsible Live Preview */}
       {showPreview ? (
-        <div style={{ padding: '12px 15px', borderBottom: '1px solid rgba(201,168,76,0.08)', background: '#1A1A27' }}>
+        <div style={{ padding: '12px 15px', borderBottom: '1.5px solid #3A3A50', background: '#16161F', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', borderRadius: 12 }}>
           <ArcanaLivePreview persona={persona} onPreview={onPreview} showPreviewButton={false} />
         </div>
       ) : null}
@@ -132,7 +132,7 @@ export function ArcanaRightPanel({
 
       <div
         style={{
-          borderTop: '1px solid rgba(201,168,76,0.08)',
+          borderTop: '1.5px solid #3A3A50',
           background: '#14141C',
           padding: '10px 12px',
           display: 'grid',
