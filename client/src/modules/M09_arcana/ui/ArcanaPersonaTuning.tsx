@@ -118,6 +118,7 @@ function blockHead(
         padding: '12px 16px',
         borderTop: '1px solid #2E2E40',
         borderBottom: '1px solid rgba(255,255,255,0.04)',
+        border: '3px solid red',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
