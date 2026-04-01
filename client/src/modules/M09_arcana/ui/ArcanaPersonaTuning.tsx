@@ -459,6 +459,10 @@ export function ArcanaPersonaTuning({
           </button>
         </div>
       </div>
+      {/* DEBUG: big red test block */}
+      <div style={{ background: 'red', color: 'white', padding: 20, fontSize: 24, fontWeight: 'bold', margin: 16 }}>
+        DEBUG: TUNING SECTIONS START HERE
+      </div>
       {/* Preset pill */}
       <div
         style={{
