@@ -380,7 +380,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '220px minmax(0, 1fr) 380px',
+            gridTemplateColumns: '200px minmax(0, 1fr) 420px',
             gap: 0,
             height: 'calc(100vh - 68px)',
             minHeight: 0,
