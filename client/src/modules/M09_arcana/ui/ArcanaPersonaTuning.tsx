@@ -16,7 +16,6 @@ const GREEN  = '#6BD672';
 const GOLD   = '#C9A84C';
 const ORANGE = '#E8A838';
 const S1     = '#111118';   // block body bg
-const S2     = '#16161F';   // block header bg
 const MUTED  = '#6E6B7A';
 
 // 3 featured voice chips (prototype: Fenrir·rau, Puck·warm, Kore·tief)
