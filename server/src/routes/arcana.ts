@@ -570,12 +570,14 @@ async function runExtractionCall(
   };
 
   let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  // Strip everything before first { and after last } (thinking text, markdown fences, etc.)
+  // Strip markdown code fences first, then extract JSON object
+  rawText = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
   const firstBrace = rawText.indexOf('{');
   const lastBrace = rawText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-    rawText = rawText.substring(firstBrace, lastBrace + 1);
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    throw new Error('No JSON object found in extraction response');
   }
+  rawText = rawText.substring(firstBrace, lastBrace + 1);
 
   return JSON.parse(rawText) as Record<string, unknown>;
 }
