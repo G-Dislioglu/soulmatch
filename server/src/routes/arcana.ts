@@ -570,9 +570,12 @@ async function runExtractionCall(
   };
 
   let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  // Strip markdown code fences if present
-  rawText = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  rawText = rawText.replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Strip everything before first { and after last } (thinking text, markdown fences, etc.)
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+    rawText = rawText.substring(firstBrace, lastBrace + 1);
+  }
 
   return JSON.parse(rawText) as Record<string, unknown>;
 }
@@ -635,6 +638,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         generationConfig: {
           maxOutputTokens: 500,
           temperature: 0.8,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
@@ -701,7 +705,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
         withTimeout(
           generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
-          12000,
+          15000,
         ),
       ]);
 
