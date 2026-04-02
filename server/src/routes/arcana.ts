@@ -3,6 +3,7 @@ import { and, asc, eq, ne } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db.js';
 import { devLogger } from '../devLogger.js';
+import { getRandomFiller } from '../lib/fillerCatalog.js';
 import { generateTTS } from '../lib/ttsService.js';
 import {
   ACCENT_CATALOG,
@@ -639,6 +640,22 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         role: m.role === 'maya' ? 'model' : 'user',
         parts: [{ text: m.content }],
       }));
+
+    // Fire filler in parallel with Gemini stream setup — best-effort, never blocks
+    const fillerPhrase = getRandomFiller('maya', [], 'thinking');
+    if (fillerPhrase) {
+      sendEvent('filler_text', { content: fillerPhrase.text });
+      generateTTS(fillerPhrase.text, 'maya', geminiApiKey, process.env.OPENAI_API_KEY)
+        .then((fillerTts) => {
+          sendEvent('filler_audio', {
+            base64: fillerTts.audioBuffer.toString('base64'),
+            mimeType: fillerTts.mimeType,
+          });
+        })
+        .catch((err: unknown) => {
+          devLogger.warn('api', 'Maya filler TTS failed', { error: String(err) });
+        });
+    }
 
     // Gemini streaming endpoint
     const geminiUrl =

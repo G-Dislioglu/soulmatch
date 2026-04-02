@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import { TOKENS } from '../../../design';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 
 type CreatorRole = 'maya' | 'user';
 
@@ -8,6 +9,7 @@ interface CreatorMessage {
   role: CreatorRole;
   content: string;
   streaming?: boolean;
+  isFiller?: boolean;
   attachments?: File[];
 }
 
@@ -24,6 +26,14 @@ interface ArcanaCreatorChatProps {
   onExtraction?: (fields: Record<string, unknown>) => void;
 }
 
+interface AudioPlayerState {
+  playing: boolean;
+  currentTime: number;
+  duration: number;
+  muted: boolean;
+  hasAudio: boolean;
+}
+
 const SUGGESTIONS = ['Historische Figur', 'Fiktiver Charakter', 'Eigene Erfindung'] as const;
 
 const INTRO_MESSAGE: CreatorMessage = {
@@ -32,6 +42,20 @@ const INTRO_MESSAGE: CreatorMessage = {
     'Ich bin Maya, deine Casting-Direktorin fuer neue Personas. Gib mir eine Richtung und ich forme mit dir Schritt fuer Schritt eine klare, nutzbare Persona.',
 };
 
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+function formatTime(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
   const [input, setInput] = useState('');
@@ -39,149 +63,284 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
   const [isFocused, setIsFocused] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [suggestionsUsed, setSuggestionsUsed] = useState(false);
-  const [lastAudioBase64, setLastAudioBase64] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [audioPlayer, setAudioPlayer] = useState<AudioPlayerState>({
+    playing: false,
+    currentTime: 0,
+    duration: 0,
+    muted: false,
+    hasAudio: false,
+  });
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const onExtractionRef = useRef(onExtraction);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fillerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => { onExtractionRef.current = onExtraction; }, [onExtraction]);
+
+  // Speech-to-text — auto-send when recognition ends
+  const handleAutoSend = useCallback((text: string) => {
+    if (text.trim().length > 0) {
+      setInput('');
+      // pushUserMessage needs current messages — use a ref-based approach via setState
+      setMessages((prev) => {
+        const userMsg: CreatorMessage = { role: 'user', content: text.trim() };
+        const updated = [...prev, userMsg];
+        void callMayaApiInner(updated);
+        return updated;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stt = useSpeechToText('de', handleAutoSend);
+
+  // Sync STT transcript into text input
+  useEffect(() => {
+    if (stt.isListening && stt.transcript) {
+      setInput(stt.transcript);
+    }
+  }, [stt.isListening, stt.transcript]);
 
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages]);
 
+  // Stop filler audio when audio player audio arrives
+  function stopFillerAudio() {
+    if (fillerAudioRef.current) {
+      fillerAudioRef.current.pause();
+      fillerAudioRef.current = null;
+    }
+  }
+
+  function loadMainAudio(base64: string, mimeType: string) {
+    stopFillerAudio();
+    // Revoke old object URL if any
+    if (audioRef.current) {
+      audioRef.current.pause();
+      if (audioRef.current.src.startsWith('blob:')) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    }
+    const blob = base64ToBlob(base64, mimeType);
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.muted = audioRef.current?.muted ?? false;
+
+    audio.addEventListener('loadedmetadata', () => {
+      setAudioPlayer((prev) => ({ ...prev, duration: audio.duration, hasAudio: true }));
+    });
+    audio.addEventListener('timeupdate', () => {
+      setAudioPlayer((prev) => ({ ...prev, currentTime: audio.currentTime }));
+    });
+    audio.addEventListener('ended', () => {
+      setAudioPlayer((prev) => ({ ...prev, playing: false }));
+      URL.revokeObjectURL(url);
+    });
+    audio.addEventListener('pause', () => {
+      setAudioPlayer((prev) => ({ ...prev, playing: false }));
+    });
+    audio.addEventListener('play', () => {
+      setAudioPlayer((prev) => ({ ...prev, playing: true }));
+    });
+
+    audioRef.current = audio;
+    setAudioPlayer((prev) => ({ ...prev, currentTime: 0, duration: 0, hasAudio: true, playing: false }));
+  }
+
+  function handlePlayerToggle() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }
+
+  function handleMuteToggle() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = !audio.muted;
+    setAudioPlayer((prev) => ({ ...prev, muted: audio.muted }));
+  }
+
+  function handleProgressClick(event: React.MouseEvent<HTMLDivElement>) {
+    const audio = audioRef.current;
+    const bar = progressBarRef.current;
+    if (!audio || !bar || !isFinite(audio.duration) || audio.duration === 0) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    audio.currentTime = ratio * audio.duration;
+  }
+
   const canSend = useMemo(
     () => !isStreaming && (input.trim().length > 0 || attachments.length > 0),
     [attachments.length, input, isStreaming],
   );
 
-  const callMayaApi = useCallback(
-    async (updatedMessages: CreatorMessage[]) => {
-      // Cancel any in-flight request
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+  // Inner API call helper (used by both normal send and STT auto-send)
+  async function callMayaApiInner(updatedMessages: CreatorMessage[]) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-      setIsStreaming(true);
+    setIsStreaming(true);
 
-      // Add an empty streaming bubble for Maya
-      const mayaIndex = updatedMessages.length;
-      setMessages((prev) => [...prev, { role: 'maya', content: '', streaming: true }]);
+    const mayaIndex = updatedMessages.length;
+    setMessages((prev) => [...prev, { role: 'maya', content: '', streaming: true }]);
 
-      // Build the conversation payload (exclude attachments-only user messages)
-      const apiMessages = updatedMessages
-        .filter((m) => m.content.trim().length > 0)
-        .map((m) => ({ role: m.role, content: m.content }));
+    const apiMessages = updatedMessages
+      .filter((m) => m.content.trim().length > 0 && !m.isFiller)
+      .map((m) => ({ role: m.role, content: m.content }));
 
-      try {
-        const resp = await fetch('/api/arcana/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: apiMessages, personaContext: personaContext ?? {} }),
-          signal: controller.signal,
-        });
+    try {
+      const resp = await fetch('/api/arcana/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages, personaContext: personaContext ?? {} }),
+        signal: controller.signal,
+      });
 
-        if (!resp.ok || !resp.body) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
+      if (!resp.ok || !resp.body) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
 
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let sseBuffer = '';
-        let fullText = '';
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+      let fullText = '';
+      let fillerBubbleInserted = false;
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-          sseBuffer += decoder.decode(value, { stream: true });
-          const lines = sseBuffer.split('\n');
-          sseBuffer = lines.pop() ?? '';
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() ?? '';
 
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr) continue;
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
 
-            try {
-              const event = JSON.parse(jsonStr) as Record<string, unknown>;
-              const type = event.type as string;
+          try {
+            const event = JSON.parse(jsonStr) as Record<string, unknown>;
+            const type = event.type as string;
 
-              if (type === 'text_delta') {
-                const chunk = (event.chunk as string) ?? '';
-                fullText += chunk;
+            if (type === 'filler_text') {
+              const content = (event.content as string) ?? '';
+              if (!fillerBubbleInserted) {
+                fillerBubbleInserted = true;
                 setMessages((prev) => {
+                  // Insert filler bubble just before the empty maya streaming bubble
                   const next = [...prev];
-                  const target = next[mayaIndex];
-                  if (target) {
-                    next[mayaIndex] = { ...target, content: target.content + chunk };
-                  }
-                  return next;
-                });
-              } else if (type === 'text_done') {
-                // Mark streaming done
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const target = next[mayaIndex];
-                  if (target) {
-                    next[mayaIndex] = { ...target, content: fullText || target.content, streaming: false };
-                  }
-                  return next;
-                });
-              } else if (type === 'extraction') {
-                const fields = event.fields as Record<string, unknown>;
-                if (fields && typeof fields === 'object') {
-                  onExtractionRef.current?.(fields);
-                }
-              } else if (type === 'audio') {
-                const base64 = event.base64 as string;
-                const mimeType = (event.mimeType as string) ?? 'audio/wav';
-                // Store audio for play button — do not auto-play
-                setLastAudioBase64({ base64, mimeType });
-              } else if (type === 'error') {
-                const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const target = next[mayaIndex];
-                  if (target) {
-                    next[mayaIndex] = { ...target, content: errMsg, streaming: false };
-                  }
+                  next.splice(mayaIndex, 0, { role: 'maya', content, isFiller: true });
                   return next;
                 });
               }
-            } catch {
-              // malformed SSE chunk — skip
+            } else if (type === 'filler_audio') {
+              const fb64 = event.base64 as string;
+              const fMime = (event.mimeType as string) ?? 'audio/wav';
+              if (fb64) {
+                const blob = base64ToBlob(fb64, fMime);
+                const url = URL.createObjectURL(blob);
+                const fa = new Audio(url);
+                fa.onended = () => URL.revokeObjectURL(url);
+                fillerAudioRef.current = fa;
+                void fa.play().catch(() => {});
+              }
+            } else if (type === 'text_delta') {
+              const chunk = (event.chunk as string) ?? '';
+              fullText += chunk;
+              // Remove filler bubble on first real text
+              if (fillerBubbleInserted) {
+                fillerBubbleInserted = false;
+                stopFillerAudio();
+                setMessages((prev) => {
+                  // Remove filler bubble (isFiller === true)
+                  return prev.filter((m) => !m.isFiller);
+                });
+              }
+              setMessages((prev) => {
+                const next = [...prev];
+                const target = next[next.length - 1]; // last item is the streaming maya bubble
+                if (target?.role === 'maya' && target.streaming) {
+                  next[next.length - 1] = { ...target, content: target.content + chunk };
+                }
+                return next;
+              });
+            } else if (type === 'text_done') {
+              setMessages((prev) => {
+                const next = [...prev];
+                const target = next[next.length - 1];
+                if (target?.role === 'maya' && target.streaming) {
+                  next[next.length - 1] = { ...target, content: fullText || target.content, streaming: false };
+                }
+                return next;
+              });
+            } else if (type === 'extraction') {
+              const fields = event.fields as Record<string, unknown>;
+              if (fields && typeof fields === 'object') {
+                onExtractionRef.current?.(fields);
+              }
+            } else if (type === 'audio') {
+              const base64 = event.base64 as string;
+              const mimeType = (event.mimeType as string) ?? 'audio/wav';
+              loadMainAudio(base64, mimeType);
+            } else if (type === 'error') {
+              const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+              setMessages((prev) => {
+                const next = [...prev];
+                const target = next[next.length - 1];
+                if (target?.role === 'maya') {
+                  next[next.length - 1] = { ...target, content: errMsg, streaming: false };
+                }
+                return next;
+              });
             }
+          } catch {
+            // malformed SSE chunk — skip
           }
         }
-
-        // Ensure streaming flag is cleared even without a text_done event
-        setMessages((prev) => {
-          const next = [...prev];
-          const target = next[mayaIndex];
-          if (target?.streaming) {
-            const finalContent = fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
-            next[mayaIndex] = { ...target, content: finalContent, streaming: false };
-          }
-          return next;
-        });
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
-        const fallback = 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
-        setMessages((prev) => {
-          const next = [...prev];
-          const target = next[mayaIndex];
-          if (target) {
-            next[mayaIndex] = { ...target, content: target.content || fallback, streaming: false };
-          }
-          return next;
-        });
-      } finally {
-        setIsStreaming(false);
       }
+
+      // Ensure streaming flag cleared
+      setMessages((prev) => {
+        const next = [...prev];
+        const target = next[next.length - 1];
+        if (target?.role === 'maya' && target.streaming) {
+          next[next.length - 1] = { ...target, content: fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.', streaming: false };
+        }
+        return next;
+      });
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      const fallback = 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+      setMessages((prev) => {
+        const next = [...prev];
+        const target = next[next.length - 1];
+        if (target?.role === 'maya') {
+          next[next.length - 1] = { ...target, content: target.content || fallback, streaming: false };
+        }
+        return next;
+      });
+    } finally {
+      setIsStreaming(false);
+    }
+  }
+
+  const callMayaApi = useCallback(
+    (updatedMessages: CreatorMessage[]) => {
+      void callMayaApiInner(updatedMessages);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [personaContext],
   );
 
@@ -196,7 +355,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
     setMessages((prev) => {
       const updated = [...prev, userMsg];
-      void callMayaApi(updated);
+      callMayaApi(updated);
       return updated;
     });
 
@@ -224,18 +383,27 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
     setAttachments((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   }
 
-  function handlePlayLastAudio() {
-    if (!lastAudioBase64) return;
-    const { base64, mimeType } = lastAudioBase64;
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => URL.revokeObjectURL(url);
-    void audio.play().catch(() => {});
+  function handleMicClick() {
+    if (!stt.isSupported) return;
+    if (!stt.hasConsent) {
+      stt.grantConsent();
+    }
+    if (stt.isListening) {
+      stt.stopListening();
+      if (input.trim().length > 0) {
+        pushUserMessage(input);
+        stt.resetTranscript();
+      }
+    } else {
+      stt.resetTranscript();
+      setInput('');
+      stt.startListening();
+    }
   }
+
+  const progressPercent = audioPlayer.duration > 0
+    ? (audioPlayer.currentTime / audioPlayer.duration) * 100
+    : 0;
 
   return (
     <section style={{ minHeight: 0, height: '100%', display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr) auto', background: '#111118' }}>
@@ -334,6 +502,8 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
                     fontSize: 13,
                     lineHeight: 1.65,
                     color: TOKENS.text,
+                    opacity: message.isFiller ? 0.6 : 1,
+                    fontStyle: message.isFiller ? 'italic' : 'normal',
                   }}
                 >
                   {message.streaming && message.content.length === 0 ? (
@@ -447,7 +617,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             background: '#16161F',
             padding: '8px 10px',
             display: 'grid',
-            gridTemplateColumns: 'auto 1fr auto',
+            gridTemplateColumns: 'auto 1fr auto auto',
             gap: 8,
             alignItems: 'end',
           }}
@@ -474,7 +644,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             onChange={(event) => setInput(event.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="Beschreibe Persona-Idee, Tonalitaet oder Szenario..."
+            placeholder={stt.isListening ? 'Spreche jetzt…' : 'Beschreibe Persona-Idee, Tonalitaet oder Szenario...'}
             rows={2}
             style={{
               width: '100%',
@@ -496,6 +666,30 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             }}
           />
 
+          {/* Mic button */}
+          <button
+            type="button"
+            onClick={handleMicClick}
+            title={!stt.isSupported ? 'Spracheingabe nur in Chrome verfügbar' : stt.isListening ? 'Aufnahme stoppen' : 'Spracheingabe starten'}
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              border: `1px solid ${stt.isListening ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.12)'}`,
+              background: stt.isListening ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.03)',
+              color: stt.isListening ? '#f87171' : stt.isSupported ? TOKENS.text2 : TOKENS.text3,
+              fontSize: 14,
+              cursor: stt.isSupported ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: stt.isListening ? 'arcana-mic-pulse 1.2s ease-in-out infinite' : 'none',
+            }}
+          >
+            🎤
+          </button>
+
+          {/* Send button */}
           <button
             type="button"
             onClick={handleSend}
@@ -523,30 +717,106 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             style={{ display: 'none' }}
           />
         </div>
-        {lastAudioBase64 ? (
-          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+
+        {/* Audio mini-player */}
+        {audioPlayer.hasAudio ? (
+          <div
+            style={{
+              marginTop: 8,
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr auto auto',
+              alignItems: 'center',
+              gap: 10,
+              padding: '7px 12px',
+              border: '1px solid rgba(20,184,166,0.3)',
+              borderRadius: 10,
+              background: 'rgba(20,184,166,0.06)',
+            }}
+          >
+            {/* Play/pause */}
             <button
               type="button"
-              onClick={handlePlayLastAudio}
+              onClick={handlePlayerToggle}
               style={{
-                border: '1px solid rgba(124,106,247,0.45)',
-                background: 'rgba(124,106,247,0.12)',
-                color: '#D2C8FF',
-                borderRadius: 8,
+                width: 28,
                 height: 28,
-                padding: '0 12px',
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 11,
+                borderRadius: 7,
+                border: '1px solid rgba(20,184,166,0.45)',
+                background: 'rgba(20,184,166,0.12)',
+                color: '#2dd4bf',
+                fontSize: 13,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                justifyContent: 'center',
               }}
             >
-              ▶ Letzte Antwort abspielen
+              {audioPlayer.playing ? '⏸' : '▶'}
+            </button>
+
+            {/* Progress bar + time */}
+            <div style={{ display: 'grid', gap: 4 }}>
+              <div
+                ref={progressBarRef}
+                onClick={handleProgressClick}
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: 'rgba(255,255,255,0.1)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: `${progressPercent}%`,
+                    background: '#2dd4bf',
+                    borderRadius: 2,
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: TOKENS.text3 }}>
+                  {formatTime(audioPlayer.currentTime)}
+                </span>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: TOKENS.text3 }}>
+                  {formatTime(audioPlayer.duration)}
+                </span>
+              </div>
+            </div>
+
+            {/* Mute toggle */}
+            <button
+              type="button"
+              onClick={handleMuteToggle}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 7,
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'transparent',
+                color: audioPlayer.muted ? TOKENS.text3 : TOKENS.text2,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {audioPlayer.muted ? '🔇' : '🔊'}
             </button>
           </div>
         ) : null}
+
+        <style>{`
+          @keyframes arcana-mic-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+          }
+        `}</style>
       </div>
     </section>
   );
