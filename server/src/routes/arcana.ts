@@ -538,13 +538,12 @@ async function runExtractionCall(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
 
   const extractionSystemPrompt =
-    'Analysiere das folgende Gespräch zwischen einem Nutzer und Maya (Casting-Direktorin). ' +
-    'Extrahiere alle Persona-Merkmale die im Gespräch erwähnt oder impliziert wurden. ' +
-    'Antworte NUR mit einem JSON-Objekt, kein Markdown, keine Backticks. ' +
-    'Felder: name (string|null), traits (string[]|null), tone (string|null), ' +
-    'quirks (string[]|null), skills (string[]|null), ' +
-    'contradictions (Array<{polA:string,polB:string}>|null). ' +
-    'Setze Felder auf null wenn nicht erwähnt.';
+    'Du bist ein JSON-Extraktor. Analysiere das Gespräch und extrahiere Persona-Merkmale. ' +
+    'Antworte AUSSCHLIESSLICH mit einem JSON-Objekt. Kein Text davor oder danach. Kein Markdown. ' +
+    'Keine Erklärungen. Nur das JSON-Objekt. ' +
+    'Schema: {"name": string|null, "traits": string[]|null, "tone": string|null, ' +
+    '"quirks": string[]|null, "skills": string[]|null, ' +
+    '"contradictions": [{"polA": string, "polB": string}]|null}';
 
   const chatHistory = messages
     .filter((m) => m.content.trim().length > 0)
@@ -557,11 +556,17 @@ async function runExtractionCall(
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: chatHistory }] }],
       systemInstruction: { parts: [{ text: extractionSystemPrompt }] },
-      generationConfig: { maxOutputTokens: 400, temperature: 0.1 },
+      generationConfig: {
+        maxOutputTokens: 400,
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
     }),
   });
 
   if (!resp.ok) {
+    const errBody = await resp.text().catch(() => '');
+    devLogger.warn('api', '[Extraction] HTTP error', { status: resp.status, body: errBody.slice(0, 300) });
     throw new Error(`Extraction HTTP ${resp.status}`);
   }
 
@@ -569,17 +574,26 @@ async function runExtractionCall(
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
 
-  let rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  // Strip markdown code fences first, then extract JSON object
-  rawText = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-  const firstBrace = rawText.indexOf('{');
-  const lastBrace = rawText.lastIndexOf('}');
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (rawText === undefined || rawText === null) {
+    devLogger.warn('api', '[Extraction] No text in response', { response: JSON.stringify(data).slice(0, 500) });
+    throw new Error('Extraction response has no text');
+  }
+
+  devLogger.info('api', '[Extraction] Raw response', { preview: rawText.slice(0, 200) });
+
+  // With responseMimeType: 'application/json' the response should be clean JSON.
+  // As a safety net, still extract the first {...} block in case of wrapper text.
+  let clean = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const firstBrace = clean.indexOf('{');
+  const lastBrace = clean.lastIndexOf('}');
   if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    devLogger.warn('api', '[Extraction] No JSON object found', { raw: rawText.slice(0, 300) });
     throw new Error('No JSON object found in extraction response');
   }
-  rawText = rawText.substring(firstBrace, lastBrace + 1);
+  clean = clean.substring(firstBrace, lastBrace + 1);
 
-  return JSON.parse(rawText) as Record<string, unknown>;
+  return JSON.parse(clean) as Record<string, unknown>;
 }
 
 arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
