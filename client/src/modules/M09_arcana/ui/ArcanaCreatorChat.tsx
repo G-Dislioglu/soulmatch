@@ -192,7 +192,6 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
     setIsStreaming(true);
 
-    const mayaIndex = updatedMessages.length;
     setMessages((prev) => [...prev, { role: 'maya', content: '', streaming: true }]);
 
     const apiMessages = updatedMessages
@@ -239,9 +238,11 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               if (!fillerBubbleInserted) {
                 fillerBubbleInserted = true;
                 setMessages((prev) => {
-                  // Insert filler bubble just before the empty maya streaming bubble
+                  // Find the streaming bubble dynamically and insert filler just before it
+                  const streamingIdx = prev.findIndex((m) => m.streaming === true);
+                  if (streamingIdx === -1) return prev;
                   const next = [...prev];
-                  next.splice(mayaIndex, 0, { role: 'maya', content, isFiller: true });
+                  next.splice(streamingIdx, 0, { role: 'maya', content, isFiller: true });
                   return next;
                 });
               }
@@ -249,20 +250,16 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               const fb64 = event.base64 as string;
               const fMime = (event.mimeType as string) ?? 'audio/wav';
               if (fb64) {
-                const blob = base64ToBlob(fb64, fMime);
-                const url = URL.createObjectURL(blob);
-                const fa = new Audio(url);
-                fa.onended = () => URL.revokeObjectURL(url);
-                fillerAudioRef.current = fa;
-                void fa.play().catch(() => {});
+                // Load filler audio into the main player so the user can see/hear it
+                loadMainAudio(fb64, fMime);
+                void audioRef.current?.play().catch(() => {});
               }
             } else if (type === 'text_delta') {
               const chunk = (event.chunk as string) ?? '';
               fullText += chunk;
-              // Remove filler bubble on first real text
+              // Remove filler bubble on first real text (filler audio keeps playing until real audio arrives)
               if (fillerBubbleInserted) {
                 fillerBubbleInserted = false;
-                stopFillerAudio();
                 setMessages((prev) => {
                   // Remove filler bubble (isFiller === true)
                   return prev.filter((m) => !m.isFiller);

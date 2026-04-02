@@ -539,7 +539,10 @@ async function runExtractionCall(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
 
   const extractionSystemPrompt =
-    'Du bist ein JSON-Extraktor. Analysiere das Gespräch und extrahiere Persona-Merkmale. ' +
+    'Du bist ein JSON-Extraktor. Analysiere das Gespräch zwischen einem NUTZER und MAYA (der Casting-Direktorin). ' +
+    'MAYA hilft dem Nutzer eine NEUE KI-Persona zu erstellen. ' +
+    'Extrahiere NUR die Merkmale der NEUEN PERSONA die erstellt werden soll — NICHT die Merkmale von Maya selbst. ' +
+    'Wenn noch keine konkrete Persona besprochen wurde, setze alle Felder auf null. ' +
     'Antworte AUSSCHLIESSLICH mit einem JSON-Objekt. Kein Text davor oder danach. Kein Markdown. ' +
     'Keine Erklärungen. Nur das JSON-Objekt. ' +
     'Schema: {"name": string|null, "traits": string[]|null, "tone": string|null, ' +
@@ -558,7 +561,7 @@ async function runExtractionCall(
       contents: [{ role: 'user', parts: [{ text: chatHistory }] }],
       systemInstruction: { parts: [{ text: extractionSystemPrompt }] },
       generationConfig: {
-        maxOutputTokens: 400,
+        maxOutputTokens: 500,
         temperature: 0.1,
         responseMimeType: 'application/json',
       },
