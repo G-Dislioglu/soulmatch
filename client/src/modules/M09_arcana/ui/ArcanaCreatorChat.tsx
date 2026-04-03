@@ -142,13 +142,16 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
     });
     audio.addEventListener('ended', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: false }));
+      stt.setPlaybackActive(false);
       URL.revokeObjectURL(url);
     });
     audio.addEventListener('pause', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: false }));
+      stt.setPlaybackActive(false);
     });
     audio.addEventListener('play', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: true }));
+      stt.setPlaybackActive(true);
     });
 
     audioRef.current = audio;
