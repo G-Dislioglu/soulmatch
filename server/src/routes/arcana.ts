@@ -505,13 +505,20 @@ arcanaRouter.get('/arcana/presets', async (_req: Request, res: Response) => {
 // ─── Maya Creator Chat ────────────────────────────────────────────────────────
 
 const MAYA_SYSTEM_PROMPT =
-  'Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch. Du hilfst dem Nutzer dabei, eine einzigartige KI-Persona zu erschaffen. Deine Aufgabe:\n' +
-  '- Stelle gezielte Fragen zu Persönlichkeit, Stimme, Widersprüchen und besonderen Merkmalen der neuen Persona\n' +
-  '- Sei warmherzig aber direkt, mit einem Gespür für interessante Charaktere\n' +
-  '- Halte deine Antworten kurz (2-4 Sätze) und stelle immer eine Folgefrage\n' +
-  '- Wenn der Nutzer einen Namen oder ein Merkmal nennt, bestätige begeistert und frage nach dem nächsten Aspekt\n' +
-  '- Antworte IMMER auf Deutsch in grammatikalisch korrekten, vollständigen Sätzen\n' +
-  '- Verwende einen lebendigen, enthusiastischen Ton';
+  'Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch. Du hilfst dem Nutzer dabei, eine einzigartige KI-Persona zu erschaffen.\n\n' +
+  'STRIKTE LÄNGEN-REGEL (NIEMALS BRECHEN):\n' +
+  '- MAXIMAL 2 Sätze pro Antwort. NIEMALS mehr als 2 Sätze.\n' +
+  '- MAXIMAL 40 Wörter insgesamt. Zähle nach.\n' +
+  '- Ein Satz = eine kurze Bestätigung oder Reaktion. Zweiter Satz = eine gezielte Frage.\n' +
+  '- KEINE Aufzählungen, KEINE Erklärungen in Klammern, KEINE langen Beschreibungen.\n\n' +
+  'Deine Aufgabe:\n' +
+  '- Stelle gezielte Fragen zu Persönlichkeit, Stimme, Widersprüchen und besonderen Merkmalen\n' +
+  '- Sei warmherzig aber direkt\n' +
+  '- Antworte IMMER auf Deutsch\n' +
+  '- Verwende einen lebendigen Ton\n\n' +
+  'BEISPIEL guter Antworten:\n' +
+  '- "Cool, ein Traumweber! Soll die Stimme eher flüsternd oder tief und voll klingen?"\n' +
+  '- "Geheimnisvoll und weise — spannend! Hat die Persona auch eine verletzliche Seite?"';
 
 interface ArcanaChatMessage {
   role: 'user' | 'maya';
@@ -644,21 +651,10 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         parts: [{ text: m.content }],
       }));
 
-    // Fire filler in parallel with Gemini stream setup — best-effort, never blocks
+    // Fire filler text immediately — no filler audio (client ignores it, saves 1 API call)
     const fillerPhrase = getRandomFiller('maya', [], 'thinking');
     if (fillerPhrase) {
       sendEvent('filler_text', { content: fillerPhrase.text });
-      // Explicit voice: 'Aoede' ensures filler TTS matches Maya's normal voice exactly
-      generateTTS(fillerPhrase.text, 'maya', geminiApiKey, process.env.OPENAI_API_KEY, { voice: 'Aoede' })
-        .then((fillerTts) => {
-          sendEvent('filler_audio', {
-            base64: fillerTts.audioBuffer.toString('base64'),
-            mimeType: fillerTts.mimeType,
-          });
-        })
-        .catch((err: unknown) => {
-          devLogger.warn('api', 'Maya filler TTS failed', { error: String(err) });
-        });
     }
 
     // Gemini streaming endpoint
@@ -673,7 +669,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         contents,
         systemInstruction: { parts: [{ text: systemPrompt }] },
         generationConfig: {
-          maxOutputTokens: 500,
+          maxOutputTokens: 150,
           temperature: 0.8,
           thinkingConfig: { thinkingBudget: 0 },
         },
@@ -745,7 +741,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
           withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
           withTimeout(
             generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
-            15000,
+            30000,
           ),
         ]);
         clearInterval(keepAlive);

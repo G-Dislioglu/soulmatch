@@ -188,6 +188,9 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
   // Inner API call helper (used by both normal send and STT auto-send)
   async function callMayaApiInner(updatedMessages: CreatorMessage[]) {
+    // Stop mic immediately — prevents recording Maya's audio playback
+    if (stt.isListening) stt.stopListening();
+
     // Stop any playing audio when user sends a new message
     if (audioRef.current) {
       audioRef.current.pause();
