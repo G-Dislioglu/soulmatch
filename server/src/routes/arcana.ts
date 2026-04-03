@@ -648,7 +648,8 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
     const fillerPhrase = getRandomFiller('maya', [], 'thinking');
     if (fillerPhrase) {
       sendEvent('filler_text', { content: fillerPhrase.text });
-      generateTTS(fillerPhrase.text, 'maya', geminiApiKey, process.env.OPENAI_API_KEY)
+      // Explicit voice: 'Aoede' ensures filler TTS matches Maya's normal voice exactly
+      generateTTS(fillerPhrase.text, 'maya', geminiApiKey, process.env.OPENAI_API_KEY, { voice: 'Aoede' })
         .then((fillerTts) => {
           sendEvent('filler_audio', {
             base64: fillerTts.audioBuffer.toString('base64'),

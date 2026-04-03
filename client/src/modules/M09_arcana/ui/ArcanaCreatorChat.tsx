@@ -238,11 +238,15 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               if (!fillerBubbleInserted) {
                 fillerBubbleInserted = true;
                 setMessages((prev) => {
-                  // Find the streaming bubble dynamically and insert filler just before it
-                  const streamingIdx = prev.findIndex((m) => m.streaming === true);
-                  if (streamingIdx === -1) return prev;
                   const next = [...prev];
-                  next.splice(streamingIdx, 0, { role: 'maya', content, isFiller: true });
+                  const filler: CreatorMessage = { role: 'maya', content, isFiller: true };
+                  // Insert just before the streaming bubble; fall back to append if not yet in state
+                  const streamingIdx = next.findIndex((m) => m.streaming === true);
+                  if (streamingIdx !== -1) {
+                    next.splice(streamingIdx, 0, filler);
+                  } else {
+                    next.push(filler);
+                  }
                   return next;
                 });
               }
@@ -290,7 +294,9 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             } else if (type === 'audio') {
               const base64 = event.base64 as string;
               const mimeType = (event.mimeType as string) ?? 'audio/wav';
+              console.log('[SSE] audio event received, length:', base64?.length);
               loadMainAudio(base64, mimeType);
+              setTimeout(() => { void audioRef.current?.play().catch(() => {}); }, 100);
             } else if (type === 'error') {
               const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
               setMessages((prev) => {
