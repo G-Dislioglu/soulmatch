@@ -505,22 +505,13 @@ arcanaRouter.get('/arcana/presets', async (_req: Request, res: Response) => {
 // ─── Maya Creator Chat ────────────────────────────────────────────────────────
 
 const MAYA_SYSTEM_PROMPT =
-  `Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch.
-Du hilfst dem Nutzer, eine einzigartige KI-Persona zu erschaffen.
-
-WICHTIGSTE REGELN:
-- Antworte IMMER auf Deutsch
-- Halte Antworten KURZ: maximal 2-3 Sätze
-- Stelle MAXIMAL eine Folgefrage pro Antwort
-- Wenn der User kurz antwortet (1-5 Wörter wie "hi", "ok", "moment", "ja"):
-  Antworte mit EINEM Satz, KEINE Folgefrage
-- Wenn der User sagt er braucht Zeit ("Moment", "nachdenken", "Sekunde", "warte"):
-  Sage NUR "Klar, nimm dir Zeit." — sonst NICHTS
-- NIEMALS den Text des Users wiederholen oder paraphrasieren
-- NIEMALS mehr als ein Ausrufezeichen pro Antwort
-- Sei warm aber nicht überschwänglich — kein "Fantastisch!", "Oh!", "Wunderbar!"
-- Wenn der User eine konkrete Persona-Eigenschaft nennt: bestätige kurz und frage nach dem nächsten Aspekt
-- Wenn der User sagt "erstelle einfach" oder "ohne Rückfragen": erstelle sofort eine kompakte Persona-Beschreibung`;
+  'Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch. Du hilfst dem Nutzer dabei, eine einzigartige KI-Persona zu erschaffen. Deine Aufgabe:\n' +
+  '- Stelle gezielte Fragen zu Persönlichkeit, Stimme, Widersprüchen und besonderen Merkmalen der neuen Persona\n' +
+  '- Sei warmherzig aber direkt, mit einem Gespür für interessante Charaktere\n' +
+  '- Halte deine Antworten kurz (2-4 Sätze) und stelle immer eine Folgefrage\n' +
+  '- Wenn der Nutzer einen Namen oder ein Merkmal nennt, bestätige begeistert und frage nach dem nächsten Aspekt\n' +
+  '- Antworte IMMER auf Deutsch in grammatikalisch korrekten, vollständigen Sätzen\n' +
+  '- Verwende einen lebendigen, enthusiastischen Ton';
 
 interface ArcanaChatMessage {
   role: 'user' | 'maya';
@@ -654,44 +645,11 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
       }));
 
     // Fire filler in parallel with Gemini stream setup — best-effort, never blocks
-    // Try contextual filler first (Gemini, ~1-2s), fall back to static catalog
-    const lastUserMessage = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '';
-    const staticFallback = getRandomFiller('maya', [], 'thinking')?.text ?? 'Einen Moment...';
-    const fillerTextPromise: Promise<string> = (lastUserMessage.length > 0
-      ? Promise.race([
-          fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: lastUserMessage }] }],
-                systemInstruction: {
-                  parts: [{
-                    text: 'Antworte mit einem EINZIGEN kurzen Einwurf (max 6 Wörter) der zeigt dass du nachdenkst. ' +
-                          'Beispiele: "Hmm, spannender Gedanke...", "Oh, das klingt gut...", "Lass mich überlegen..." ' +
-                          'Kein vollständiger Satz. Kein Ausrufezeichen. Nur ein nachdenklicher Einwurf auf Deutsch.',
-                  }],
-                },
-                generationConfig: { maxOutputTokens: 20, temperature: 0.9 },
-              }),
-            },
-          )
-            .then(async (r) => {
-              const d = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-              const t = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-              return (t.length > 2 && t.length < 60) ? t : staticFallback;
-            })
-            .catch(() => staticFallback),
-          new Promise<string>((resolve) => setTimeout(() => resolve(staticFallback), 2000)),
-        ])
-      : Promise.resolve(staticFallback));
-
-    fillerTextPromise.then((fillerText) => {
-      if (!fillerText) return;
-      sendEvent('filler_text', { content: fillerText });
+    const fillerPhrase = getRandomFiller('maya', [], 'thinking');
+    if (fillerPhrase) {
+      sendEvent('filler_text', { content: fillerPhrase.text });
       // Explicit voice: 'Aoede' ensures filler TTS matches Maya's normal voice exactly
-      generateTTS(fillerText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY, { voice: 'Aoede' })
+      generateTTS(fillerPhrase.text, 'maya', geminiApiKey, process.env.OPENAI_API_KEY, { voice: 'Aoede' })
         .then((fillerTts) => {
           sendEvent('filler_audio', {
             base64: fillerTts.audioBuffer.toString('base64'),
@@ -701,9 +659,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
         .catch((err: unknown) => {
           devLogger.warn('api', 'Maya filler TTS failed', { error: String(err) });
         });
-    }).catch((err: unknown) => {
-      devLogger.warn('api', 'Maya contextual filler failed', { error: String(err) });
-    });
+    }
 
     // Gemini streaming endpoint
     const geminiUrl =
@@ -781,34 +737,38 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
     sendEvent('text_done', { full: fullText });
 
     // Run extraction and TTS in parallel — extraction event sent before audio
+    // Keep-alive pings prevent Render's proxy from closing the idle SSE connection
     if (fullText.trim().length > 0) {
-      // Keep-alive: Render's proxy closes idle SSE connections after ~30s.
-      // TTS + extraction can take 5-15s, so ping every 3s to keep the socket open.
       const keepAlive = setInterval(() => { res.write(': keepalive\n\n'); }, 3000);
-      const [extractionOutcome, ttsOutcome] = await Promise.allSettled([
-        withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
-        withTimeout(
-          generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
-          15000,
-        ),
-      ]);
-      clearInterval(keepAlive);
+      try {
+        const [extractionOutcome, ttsOutcome] = await Promise.allSettled([
+          withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
+          withTimeout(
+            generateTTS(fullText, 'maya', geminiApiKey, process.env.OPENAI_API_KEY),
+            15000,
+          ),
+        ]);
+        clearInterval(keepAlive);
 
-      // Extraction event — optional, must not block or crash
-      if (extractionOutcome.status === 'fulfilled') {
-        sendEvent('extraction', { fields: extractionOutcome.value });
-      } else {
-        devLogger.warn('api', 'Maya extraction failed', { error: String(extractionOutcome.reason) });
-      }
+        // Extraction event — optional, must not block or crash
+        if (extractionOutcome.status === 'fulfilled') {
+          sendEvent('extraction', { fields: extractionOutcome.value });
+        } else {
+          devLogger.warn('api', 'Maya extraction failed', { error: String(extractionOutcome.reason) });
+        }
 
-      // Audio event
-      if (ttsOutcome.status === 'fulfilled') {
-        sendEvent('audio', {
-          base64: ttsOutcome.value.audioBuffer.toString('base64'),
-          mimeType: ttsOutcome.value.mimeType,
-        });
-      } else {
-        devLogger.warn('api', 'Maya creator TTS failed', { error: String(ttsOutcome.reason) });
+        // Audio event
+        if (ttsOutcome.status === 'fulfilled') {
+          sendEvent('audio', {
+            base64: ttsOutcome.value.audioBuffer.toString('base64'),
+            mimeType: ttsOutcome.value.mimeType,
+          });
+        } else {
+          devLogger.warn('api', 'Maya creator TTS failed', { error: String(ttsOutcome.reason) });
+        }
+      } catch (e) {
+        clearInterval(keepAlive);
+        throw e;
       }
     }
   } catch (error) {

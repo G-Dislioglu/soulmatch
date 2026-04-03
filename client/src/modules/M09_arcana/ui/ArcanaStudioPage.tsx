@@ -485,7 +485,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
           />
 
           <section style={{ minHeight: 0, display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', overflow: 'hidden' }}>
-            <ArcanaCreatorChat errorMessage={actionError ?? error} onExtraction={handleExtraction} liveTalkActive={liveTalk.liveTalkActive} />
+            <ArcanaCreatorChat errorMessage={actionError ?? error} onExtraction={handleExtraction} />
 
             <div
               style={{
