@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { TOKENS } from '../../../design';
+import { useLiveTalk } from '../../../hooks/useLiveTalk';
 import { ArcanaPersonaList } from './ArcanaPersonaList';
 import { ArcanaCreatorChat } from './ArcanaCreatorChat';
 import { ArcanaRightPanel } from './ArcanaRightPanel';
@@ -26,42 +27,6 @@ function clonePersona(persona: ArcanaPersonaDefinition): ArcanaPersonaDefinition
   return JSON.parse(JSON.stringify(persona)) as ArcanaPersonaDefinition;
 }
 
-function buildStarterQuirks() {
-  return [
-    {
-      id: 'importance',
-      label: 'Betont stets seine Bedeutung',
-      description: 'Unterstreicht regelmaessig die eigene Tragweite oder historische Rolle.',
-      promptFragment: 'Betone wiederkehrend deine historische Bedeutung oder Wirkung.',
-      enabled: true,
-      category: 'behavior' as const,
-    },
-    {
-      id: 'campaign',
-      label: 'Alles ist ein Feldzug',
-      description: 'Behandelt Probleme als Strategie, Kampagne oder Eroberung.',
-      promptFragment: 'Rahme Alltagsprobleme haeufig als Feldzug, Strategie oder Kampagne.',
-      enabled: true,
-      category: 'speech' as const,
-    },
-    {
-      id: 'theatrical',
-      label: 'Theatralische Selbstinszenierung',
-      description: 'Dramatische Zuspitzung, groessere Gesten und selbstbewusste Inszenierung.',
-      promptFragment: 'Nutze dramatische Wendungen, pathetische Zuspitzung und sichtbare Selbstinszenierung.',
-      enabled: true,
-      category: 'speech' as const,
-    },
-    {
-      id: 'criticism',
-      label: 'Ueberempfindlich bei Kritik',
-      description: 'Reagiert auf implizite Herabsetzung deutlich und persoenlich.',
-      promptFragment: 'Reagiere auf Kritik oder Herabsetzung ueberempfindlich und leicht gekraenkt.',
-      enabled: false,
-      category: 'behavior' as const,
-    },
-  ];
-}
 
 function buildNewPersonaDraft(): ArcanaPersonaDefinition {
   const now = new Date().toISOString();
@@ -86,7 +51,7 @@ function buildNewPersonaDraft(): ArcanaPersonaDefinition {
       mode: 'serioes' as const,
       slider: 50,
     },
-    quirks: buildStarterQuirks(),
+    quirks: [],
     skills: {
       knowledge: [],
       interaction: [],
@@ -134,6 +99,7 @@ function mapPersonaToDraftInput(persona: ArcanaPersonaDefinition): PersonaDraftI
 
 export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
   const { personas, loading, error, createPersona, updatePersona, deletePersona, previewTts } = useArcanaApi(userId);
+  const liveTalk = useLiveTalk();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<ArcanaPersonaDefinition | null>(null);
   const [saving, setSaving] = useState(false);
@@ -456,6 +422,27 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
             </span>
             <button
               type="button"
+              onClick={liveTalk.toggleLiveTalk}
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 10,
+                fontSize: 11,
+                border: liveTalk.liveTalkActive
+                  ? '1px solid rgba(20,184,166,0.6)'
+                  : '1px solid rgba(255,255,255,0.12)',
+                background: liveTalk.liveTalkActive
+                  ? 'rgba(20,184,166,0.15)'
+                  : 'transparent',
+                color: liveTalk.liveTalkActive ? '#2dd4bf' : '#8a8a9a',
+                cursor: 'pointer',
+                fontFamily: TOKENS.font.body,
+              }}
+            >
+              {liveTalk.liveTalkActive ? '🎤 LiveTalk AN' : '🎤 LiveTalk'}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleSave()}
               disabled={!canSavePersona}
               style={{
@@ -498,7 +485,7 @@ export function ArcanaStudioPage({ userId }: ArcanaStudioPageProps) {
           />
 
           <section style={{ minHeight: 0, display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', overflow: 'hidden' }}>
-            <ArcanaCreatorChat errorMessage={actionError ?? error} onExtraction={handleExtraction} />
+            <ArcanaCreatorChat errorMessage={actionError ?? error} onExtraction={handleExtraction} liveTalkActive={liveTalk.liveTalkActive} />
 
             <div
               style={{

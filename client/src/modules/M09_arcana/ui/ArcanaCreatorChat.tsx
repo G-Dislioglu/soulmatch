@@ -24,6 +24,7 @@ interface ArcanaCreatorChatProps {
   errorMessage?: string | null;
   personaContext?: PersonaContext;
   onExtraction?: (fields: Record<string, unknown>) => void;
+  liveTalkActive?: boolean;
 }
 
 interface AudioPlayerState {
@@ -56,7 +57,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction }: ArcanaCreatorChatProps) {
+export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction, liveTalkActive = false }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
   const [fillerText, setFillerText] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -187,6 +188,13 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
   // Inner API call helper (used by both normal send and STT auto-send)
   async function callMayaApiInner(updatedMessages: CreatorMessage[]) {
+    // Stop any playing audio when user sends a new message
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setAudioPlayer((prev) => ({ ...prev, playing: false, hasAudio: false }));
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -288,15 +296,18 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
                   existing.src = url;
                   existing.load();
                   setAudioPlayer((prev) => ({ ...prev, currentTime: 0, duration: 0, hasAudio: true, playing: false }));
-                  console.log('[Audio] calling play() on existing element');
-                  void existing.play()
-                    .then(() => { console.log('[Audio] play() resolved (autoplay allowed)'); })
-                    .catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
+                  if (liveTalkActive) {
+                    console.log('[Audio] calling play() on existing element (liveTalkActive)');
+                    void existing.play()
+                      .then(() => { console.log('[Audio] play() resolved (autoplay allowed)'); })
+                      .catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
+                  }
                 } else {
                   // Fallback: no filler audio was played, create fresh element
-                  console.log('[Audio] no existing element, calling loadMainAudio + setTimeout play');
                   loadMainAudio(base64, mimeType);
-                  setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked (fresh):', err); }); }, 150);
+                  if (liveTalkActive) {
+                    setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked (fresh):', err); }); }, 150);
+                  }
                 }
               } else {
                 console.warn('[SSE] audio event received but base64 is empty');
@@ -774,6 +785,35 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               }}
             >
               {audioPlayer.playing ? '⏸' : '▶'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const audio = audioRef.current;
+                if (audio) {
+                  audio.pause();
+                  audio.currentTime = 0;
+                  if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+                  audio.src = '';
+                }
+                setAudioPlayer({ playing: false, currentTime: 0, duration: 0, hasAudio: false, muted: audioPlayer.muted });
+              }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 7,
+                border: '1px solid rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.08)',
+                color: '#ef4444',
+                fontSize: 11,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ■
             </button>
 
             {/* Progress bar + time */}

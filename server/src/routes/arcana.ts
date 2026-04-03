@@ -505,17 +505,22 @@ arcanaRouter.get('/arcana/presets', async (_req: Request, res: Response) => {
 // ─── Maya Creator Chat ────────────────────────────────────────────────────────
 
 const MAYA_SYSTEM_PROMPT =
-  'Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch.\n' +
-  'Regeln:\n' +
-  '- Halte Antworten KURZ (1-3 Sätze maximal).\n' +
-  '- Stelle MAXIMAL eine Folgefrage pro Antwort.\n' +
-  '- Wenn der User sagt er braucht einen Moment ("moment", "warte", "lass mich nachdenken", etc.), sage NUR "Klar, nimm dir Zeit!" — KEINE Folgefrage, KEIN weiterer Text.\n' +
-  '- Wenn der User nur ein einzelnes Wort schreibt (hi, ok, ja, nein, etc.), antworte mit maximal 1-2 Sätzen.\n' +
-  '- Reagiere auf kurze oder unklare Eingaben mit kurzen Antworten.\n' +
-  '- Sei warmherzig aber NICHT überschwänglich. Keine Ausrufezeichen-Flut.\n' +
-  '- Antworte IMMER auf Deutsch in vollständigen Sätzen.\n' +
-  '- Wiederhole oder paraphrasiere NIEMALS den Text des Users.\n' +
-  '- Deine Aufgabe: Hilf dem Nutzer Schritt für Schritt, eine einzigartige KI-Persona zu erschaffen, indem du gezielte Fragen zu Persönlichkeit, Stimme, Widersprüchen und Merkmalen stellst.';
+  `Du bist Maya, die kreative Direktorin des Arcana Studios in Soulmatch.
+Du hilfst dem Nutzer, eine einzigartige KI-Persona zu erschaffen.
+
+WICHTIGSTE REGELN:
+- Antworte IMMER auf Deutsch
+- Halte Antworten KURZ: maximal 2-3 Sätze
+- Stelle MAXIMAL eine Folgefrage pro Antwort
+- Wenn der User kurz antwortet (1-5 Wörter wie "hi", "ok", "moment", "ja"):
+  Antworte mit EINEM Satz, KEINE Folgefrage
+- Wenn der User sagt er braucht Zeit ("Moment", "nachdenken", "Sekunde", "warte"):
+  Sage NUR "Klar, nimm dir Zeit." — sonst NICHTS
+- NIEMALS den Text des Users wiederholen oder paraphrasieren
+- NIEMALS mehr als ein Ausrufezeichen pro Antwort
+- Sei warm aber nicht überschwänglich — kein "Fantastisch!", "Oh!", "Wunderbar!"
+- Wenn der User eine konkrete Persona-Eigenschaft nennt: bestätige kurz und frage nach dem nächsten Aspekt
+- Wenn der User sagt "erstelle einfach" oder "ohne Rückfragen": erstelle sofort eine kompakte Persona-Beschreibung`;
 
 interface ArcanaChatMessage {
   role: 'user' | 'maya';
@@ -651,30 +656,36 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
     // Fire filler in parallel with Gemini stream setup — best-effort, never blocks
     // Try contextual filler first (Gemini, ~1-2s), fall back to static catalog
     const lastUserMessage = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '';
+    const staticFallback = getRandomFiller('maya', [], 'thinking')?.text ?? 'Einen Moment...';
     const fillerTextPromise: Promise<string> = (lastUserMessage.length > 0
-      ? fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: lastUserMessage }] }],
-              systemInstruction: {
-                parts: [{
-                  text: 'Antworte mit einem einzigen kurzen Einwurf (max 8 Wörter) der zeigt dass du die Nachricht verstanden hast und nachdenkst. Beispiele: "Hmm, interessanter Gedanke...", "Oh, das klingt spannend...", "Lass mich kurz überlegen...". Nur dieser Einwurf, kein ganzer Satz, kein weiterer Text.',
-                }],
-              },
-              generationConfig: { maxOutputTokens: 30, temperature: 0.9 },
-            }),
-          },
-        )
-          .then(async (r) => {
-            const d = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-            const t = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-            return t.length > 0 ? t : (getRandomFiller('maya', [], 'thinking')?.text ?? '');
-          })
-          .catch(() => getRandomFiller('maya', [], 'thinking')?.text ?? '')
-      : Promise.resolve(getRandomFiller('maya', [], 'thinking')?.text ?? ''));
+      ? Promise.race([
+          fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: lastUserMessage }] }],
+                systemInstruction: {
+                  parts: [{
+                    text: 'Antworte mit einem EINZIGEN kurzen Einwurf (max 6 Wörter) der zeigt dass du nachdenkst. ' +
+                          'Beispiele: "Hmm, spannender Gedanke...", "Oh, das klingt gut...", "Lass mich überlegen..." ' +
+                          'Kein vollständiger Satz. Kein Ausrufezeichen. Nur ein nachdenklicher Einwurf auf Deutsch.',
+                  }],
+                },
+                generationConfig: { maxOutputTokens: 20, temperature: 0.9 },
+              }),
+            },
+          )
+            .then(async (r) => {
+              const d = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+              const t = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+              return (t.length > 2 && t.length < 60) ? t : staticFallback;
+            })
+            .catch(() => staticFallback),
+          new Promise<string>((resolve) => setTimeout(() => resolve(staticFallback), 2000)),
+        ])
+      : Promise.resolve(staticFallback));
 
     fillerTextPromise.then((fillerText) => {
       if (!fillerText) return;
