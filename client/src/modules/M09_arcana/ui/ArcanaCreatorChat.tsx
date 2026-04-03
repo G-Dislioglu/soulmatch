@@ -24,6 +24,7 @@ interface ArcanaCreatorChatProps {
   errorMessage?: string | null;
   personaContext?: PersonaContext;
   onExtraction?: (fields: Record<string, unknown>) => void;
+  liveTalkActive?: boolean;
 }
 
 interface AudioPlayerState {
@@ -56,14 +57,14 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction }: ArcanaCreatorChatProps) {
+export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction, liveTalkActive: _liveTalkActive = false }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
+  const [fillerText, setFillerText] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [suggestionsUsed, setSuggestionsUsed] = useState(false);
-  const [fillerText, setFillerText] = useState<string | null>(null);
   const [audioPlayer, setAudioPlayer] = useState<AudioPlayerState>({
     playing: false,
     currentTime: 0,
@@ -187,6 +188,13 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
   // Inner API call helper (used by both normal send and STT auto-send)
   async function callMayaApiInner(updatedMessages: CreatorMessage[]) {
+    // Stop any playing audio when user sends a new message
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setAudioPlayer((prev) => ({ ...prev, playing: false, hasAudio: false }));
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -215,7 +223,6 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
       const decoder = new TextDecoder();
       let sseBuffer = '';
       let fullText = '';
-      let audioReceived = false;
 
       for (;;) {
         const { done, value } = await reader.read();
@@ -236,15 +243,35 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
             if (type === 'filler_text') {
               const content = (event.content as string) ?? '';
-              setFillerText(content);
+              if (content) setFillerText(content);
             } else if (type === 'filler_audio') {
-              // No-op: filler audio removed — filler is text-only
+              // Filler audio SKIPPED — only filler text is shown.
+              // Main audio will play the full answer. This avoids:
+              // - Voice inconsistency between filler and answer
+              // - Audio player slot conflicts
+              // - Jarring transition between two separate audio clips
             } else if (type === 'text_delta') {
-              // Buffer only — do NOT show text yet, filler stays visible
               const chunk = (event.chunk as string) ?? '';
               fullText += chunk;
+              setFillerText(null);
+              setMessages((prev) => {
+                const next = [...prev];
+                const target = next[next.length - 1]; // last item is the streaming maya bubble
+                if (target?.role === 'maya' && target.streaming) {
+                  next[next.length - 1] = { ...target, content: target.content + chunk };
+                }
+                return next;
+              });
             } else if (type === 'text_done') {
-              // Text is complete but keep filler visible — wait for audio
+              setFillerText(null);
+              setMessages((prev) => {
+                const next = [...prev];
+                const target = next[next.length - 1];
+                if (target?.role === 'maya' && target.streaming) {
+                  next[next.length - 1] = { ...target, content: fullText || target.content, streaming: false };
+                }
+                return next;
+              });
             } else if (type === 'extraction') {
               const fields = event.fields as Record<string, unknown>;
               if (fields && typeof fields === 'object') {
@@ -254,36 +281,33 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               const base64 = event.base64 as string;
               const mimeType = (event.mimeType as string) ?? 'audio/wav';
               if (base64) {
-                audioReceived = true;
-                // Reveal buffered text and play audio simultaneously
-                setFillerText(null);
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const target = next[next.length - 1];
-                  if (target?.role === 'maya' && target.streaming) {
-                    next[next.length - 1] = { ...target, content: fullText || target.content, streaming: false };
-                  }
-                  return next;
-                });
+                console.log('[SSE] audio event received, length:', base64.length, 'mimeType:', mimeType);
+                console.log('[Audio] audioRef.current exists:', !!audioRef.current, 'src:', audioRef.current?.src?.slice(0, 40));
                 const blob = base64ToBlob(base64, mimeType);
                 const url = URL.createObjectURL(blob);
                 const existing = audioRef.current;
                 if (existing) {
+                  // Reuse the same HTMLAudioElement — browser may keep autoplay permission
                   const prevUrl = existing.src;
                   existing.pause();
                   if (prevUrl.startsWith('blob:')) URL.revokeObjectURL(prevUrl);
                   existing.src = url;
                   existing.load();
                   setAudioPlayer((prev) => ({ ...prev, currentTime: 0, duration: 0, hasAudio: true, playing: false }));
-                  void existing.play().catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
+                  // Always auto-play Maya's response audio
+                  void existing.play()
+                    .then(() => { console.log('[Audio] play() resolved'); })
+                    .catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
                 } else {
+                  // Fallback: create fresh element
                   loadMainAudio(base64, mimeType);
-                  setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked:', err); }); }, 150);
+                  setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked (fresh):', err); }); }, 150);
                 }
+              } else {
+                console.warn('[SSE] audio event received but base64 is empty');
               }
             } else if (type === 'error') {
               const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
-              setFillerText(null);
               setMessages((prev) => {
                 const next = [...prev];
                 const target = next[next.length - 1];
@@ -299,18 +323,16 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
         }
       }
 
-      // Fallback: if audio never arrived (TTS timeout/error), show buffered text anyway
-      if (!audioReceived) {
-        setFillerText(null);
-        setMessages((prev) => {
-          const next = [...prev];
-          const target = next[next.length - 1];
-          if (target?.role === 'maya' && target.streaming) {
-            next[next.length - 1] = { ...target, content: fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.', streaming: false };
-          }
-          return next;
-        });
-      }
+      // Ensure streaming flag cleared
+      setFillerText(null);
+      setMessages((prev) => {
+        const next = [...prev];
+        const target = next[next.length - 1];
+        if (target?.role === 'maya' && target.streaming) {
+          next[next.length - 1] = { ...target, content: fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.', streaming: false };
+        }
+        return next;
+      });
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const fallback = 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
@@ -499,11 +521,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
                   }}
                 >
                   {message.streaming && message.content.length === 0 ? (
-                    fillerText ? (
-                      <span style={{ color: TOKENS.text2, fontStyle: 'italic', fontSize: 13 }}>{fillerText}</span>
-                    ) : (
-                      <span style={{ color: TOKENS.text3, fontStyle: 'italic', fontSize: 12 }}>Maya schreibt…</span>
-                    )
+                    <span style={{ color: TOKENS.text3, fontStyle: 'italic', fontSize: 12 }}>Maya schreibt…</span>
                   ) : (
                     message.content
                   )}
@@ -564,6 +582,19 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             </div>
           );
         })}
+        {fillerText ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ maxWidth: '78%', display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F3F0FF', fontFamily: 'DM Sans, sans-serif', fontSize: 11, border: '1px solid rgba(124,106,247,0.45)', background: 'linear-gradient(135deg, #7c6af7, #9b8aff)' }}>M</div>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#8a8a9a', letterSpacing: '1px' }}>MAYA</span>
+              </div>
+              <div style={{ borderRadius: '12px 12px 12px 4px', border: '1px solid rgba(201,168,76,0.1)', background: '#16161F', padding: '10px 12px', fontFamily: 'DM Sans, sans-serif', fontSize: 13, lineHeight: 1.65, opacity: 0.6, fontStyle: 'italic', color: '#E5E4EE' }}>
+                {fillerText}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.08)', padding: '14px 24px 18px', background: '#111118' }}>
@@ -748,6 +779,35 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               }}
             >
               {audioPlayer.playing ? '⏸' : '▶'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const audio = audioRef.current;
+                if (audio) {
+                  audio.pause();
+                  audio.currentTime = 0;
+                  if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+                  audio.src = '';
+                }
+                setAudioPlayer({ playing: false, currentTime: 0, duration: 0, hasAudio: false, muted: audioPlayer.muted });
+              }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 7,
+                border: '1px solid rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.08)',
+                color: '#ef4444',
+                fontSize: 11,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ■
             </button>
 
             {/* Progress bar + time */}
