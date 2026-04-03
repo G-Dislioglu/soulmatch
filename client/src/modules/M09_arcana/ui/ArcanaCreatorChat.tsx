@@ -99,6 +99,36 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
   }, []);
 
   const stt = useSpeechToText('de', handleAutoSend);
+  const shouldResumeSpeechRef = useRef<{ mode: 'continuous' | 'listening' | 'none' }>({ mode: 'none' });
+
+  // Pause mic before audio plays — saves which mode to restore later
+  // (exact pattern from DiscussionChat.tsx where this works reliably)
+  const pauseSpeechForAudio = useCallback(() => {
+    if (stt.isContinuousMode) {
+      shouldResumeSpeechRef.current = { mode: 'continuous' };
+      stt.stopContinuous();
+      return;
+    }
+    if (stt.isListening) {
+      shouldResumeSpeechRef.current = { mode: 'listening' };
+      stt.stopListening();
+      return;
+    }
+    shouldResumeSpeechRef.current = { mode: 'none' };
+  }, [stt]);
+
+  // Resume mic after audio ends — 1000ms delay so speakers are fully silent
+  const scheduleResumeSpeechAfterAudio = useCallback(() => {
+    window.setTimeout(() => {
+      const mode = shouldResumeSpeechRef.current.mode;
+      shouldResumeSpeechRef.current = { mode: 'none' };
+      if (mode === 'continuous') {
+        stt.startContinuous();
+      } else if (mode === 'listening') {
+        stt.startListening();
+      }
+    }, 1000);
+  }, [stt]);
 
   // Sync STT transcript into text input
   useEffect(() => {
@@ -143,15 +173,18 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
     audio.addEventListener('ended', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: false }));
       stt.setPlaybackActive(false);
+      scheduleResumeSpeechAfterAudio();
       URL.revokeObjectURL(url);
     });
     audio.addEventListener('pause', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: false }));
       stt.setPlaybackActive(false);
+      scheduleResumeSpeechAfterAudio();
     });
     audio.addEventListener('play', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: true }));
       stt.setPlaybackActive(true);
+      pauseSpeechForAudio();
     });
 
     audioRef.current = audio;
