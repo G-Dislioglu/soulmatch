@@ -445,19 +445,6 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
       </div>
 
       <div ref={listRef} style={{ minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {fillerText ? (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ maxWidth: '78%', display: 'grid', gap: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F3F0FF', fontFamily: 'DM Sans, sans-serif', fontSize: 11, border: '1px solid rgba(124,106,247,0.45)', background: 'linear-gradient(135deg, #7c6af7, #9b8aff)' }}>M</div>
-                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#8a8a9a', letterSpacing: '1px' }}>MAYA</span>
-              </div>
-              <div style={{ borderRadius: '12px 12px 12px 4px', border: '1px solid rgba(201,168,76,0.1)', background: '#16161F', padding: '10px 12px', fontFamily: 'DM Sans, sans-serif', fontSize: 13, lineHeight: 1.65, opacity: 0.6, fontStyle: 'italic', color: '#E5E4EE' }}>
-                {fillerText}
-              </div>
-            </div>
-          </div>
-        ) : null}
         {messages.map((message, index) => {
           const isMaya = message.role === 'maya';
           return (
@@ -583,6 +570,19 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             </div>
           );
         })}
+        {fillerText ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ maxWidth: '78%', display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F3F0FF', fontFamily: 'DM Sans, sans-serif', fontSize: 11, border: '1px solid rgba(124,106,247,0.45)', background: 'linear-gradient(135deg, #7c6af7, #9b8aff)' }}>M</div>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#8a8a9a', letterSpacing: '1px' }}>MAYA</span>
+              </div>
+              <div style={{ borderRadius: '12px 12px 12px 4px', border: '1px solid rgba(201,168,76,0.1)', background: '#16161F', padding: '10px 12px', fontFamily: 'DM Sans, sans-serif', fontSize: 13, lineHeight: 1.65, opacity: 0.6, fontStyle: 'italic', color: '#E5E4EE' }}>
+                {fillerText}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.08)', padding: '14px 24px 18px', background: '#111118' }}>
