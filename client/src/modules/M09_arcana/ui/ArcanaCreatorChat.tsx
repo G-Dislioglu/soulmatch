@@ -179,7 +179,9 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
     audio.addEventListener('pause', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: false }));
       stt.setPlaybackActive(false);
-      scheduleResumeSpeechAfterAudio();
+      // NOTE: do NOT call scheduleResumeSpeechAfterAudio here.
+      // 'pause' fires on source swap (existing.pause() before new src),
+      // not just on actual stop. Resume only belongs in 'ended'.
     });
     audio.addEventListener('play', () => {
       setAudioPlayer((prev) => ({ ...prev, playing: true }));
