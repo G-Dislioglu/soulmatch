@@ -738,6 +738,9 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
 
     // Run extraction and TTS in parallel — extraction event sent before audio
     if (fullText.trim().length > 0) {
+      // Keep-alive: Render's proxy closes idle SSE connections after ~30s.
+      // TTS + extraction can take 5-15s, so ping every 3s to keep the socket open.
+      const keepAlive = setInterval(() => { res.write(': keepalive\n\n'); }, 3000);
       const [extractionOutcome, ttsOutcome] = await Promise.allSettled([
         withTimeout(runExtractionCall(messages, geminiApiKey), 10000),
         withTimeout(
@@ -745,6 +748,7 @@ arcanaRouter.post('/arcana/chat', async (req: Request, res: Response) => {
           15000,
         ),
       ]);
+      clearInterval(keepAlive);
 
       // Extraction event — optional, must not block or crash
       if (extractionOutcome.status === 'fulfilled') {

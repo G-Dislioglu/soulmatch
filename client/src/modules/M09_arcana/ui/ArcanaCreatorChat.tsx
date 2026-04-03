@@ -58,6 +58,7 @@ function formatTime(seconds: number): string {
 
 export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtraction }: ArcanaCreatorChatProps) {
   const [messages, setMessages] = useState<CreatorMessage[]>([INTRO_MESSAGE]);
+  const [fillerText, setFillerText] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -214,7 +215,6 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
       const decoder = new TextDecoder();
       let sseBuffer = '';
       let fullText = '';
-      let fillerBubbleInserted = false;
 
       for (;;) {
         const { done, value } = await reader.read();
@@ -235,21 +235,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
 
             if (type === 'filler_text') {
               const content = (event.content as string) ?? '';
-              if (!fillerBubbleInserted) {
-                fillerBubbleInserted = true;
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const filler: CreatorMessage = { role: 'maya', content, isFiller: true };
-                  // Insert just before the streaming bubble; fall back to append if not yet in state
-                  const streamingIdx = next.findIndex((m) => m.streaming === true);
-                  if (streamingIdx !== -1) {
-                    next.splice(streamingIdx, 0, filler);
-                  } else {
-                    next.push(filler);
-                  }
-                  return next;
-                });
-              }
+              if (content) setFillerText(content);
             } else if (type === 'filler_audio') {
               const fb64 = event.base64 as string;
               const fMime = (event.mimeType as string) ?? 'audio/wav';
@@ -261,7 +247,7 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
             } else if (type === 'text_delta') {
               const chunk = (event.chunk as string) ?? '';
               fullText += chunk;
-              // Filler bubble stays visible during streaming — removed at text_done to avoid React batching race
+              setFillerText(null);
               setMessages((prev) => {
                 const next = [...prev];
                 const target = next[next.length - 1]; // last item is the streaming maya bubble
@@ -271,11 +257,9 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
                 return next;
               });
             } else if (type === 'text_done') {
-              fillerBubbleInserted = false;
+              setFillerText(null);
               setMessages((prev) => {
-                // Remove filler bubble and finalise streaming bubble in the same setState
-                const withoutFiller = prev.filter((m) => !m.isFiller);
-                const next = [...withoutFiller];
+                const next = [...prev];
                 const target = next[next.length - 1];
                 if (target?.role === 'maya' && target.streaming) {
                   next[next.length - 1] = { ...target, content: fullText || target.content, streaming: false };
@@ -327,10 +311,10 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
         }
       }
 
-      // Ensure streaming flag cleared and any stale filler bubble removed
+      // Ensure streaming flag cleared
+      setFillerText(null);
       setMessages((prev) => {
-        const withoutFiller = prev.filter((m) => !m.isFiller);
-        const next = [...withoutFiller];
+        const next = [...prev];
         const target = next[next.length - 1];
         if (target?.role === 'maya' && target.streaming) {
           next[next.length - 1] = { ...target, content: fullText || target.content || 'Maya ist gerade nicht erreichbar. Versuche es nochmal.', streaming: false };
@@ -340,9 +324,9 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const fallback = 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
+      setFillerText(null);
       setMessages((prev) => {
-        const withoutFiller = prev.filter((m) => !m.isFiller);
-        const next = [...withoutFiller];
+        const next = [...prev];
         const target = next[next.length - 1];
         if (target?.role === 'maya') {
           next[next.length - 1] = { ...target, content: target.content || fallback, streaming: false };
@@ -461,6 +445,19 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
       </div>
 
       <div ref={listRef} style={{ minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {fillerText ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ maxWidth: '78%', display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F3F0FF', fontFamily: 'DM Sans, sans-serif', fontSize: 11, border: '1px solid rgba(124,106,247,0.45)', background: 'linear-gradient(135deg, #7c6af7, #9b8aff)' }}>M</div>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#8a8a9a', letterSpacing: '1px' }}>MAYA</span>
+              </div>
+              <div style={{ borderRadius: '12px 12px 12px 4px', border: '1px solid rgba(201,168,76,0.1)', background: '#16161F', padding: '10px 12px', fontFamily: 'DM Sans, sans-serif', fontSize: 13, lineHeight: 1.65, opacity: 0.6, fontStyle: 'italic', color: '#E5E4EE' }}>
+                {fillerText}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {messages.map((message, index) => {
           const isMaya = message.role === 'maya';
           return (
