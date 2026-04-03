@@ -275,7 +275,8 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
               const base64 = event.base64 as string;
               const mimeType = (event.mimeType as string) ?? 'audio/wav';
               if (base64) {
-                console.log('[SSE] audio event received, length:', base64.length);
+                console.log('[SSE] audio event received, length:', base64.length, 'mimeType:', mimeType);
+                console.log('[Audio] audioRef.current exists:', !!audioRef.current, 'src:', audioRef.current?.src?.slice(0, 40));
                 const blob = base64ToBlob(base64, mimeType);
                 const url = URL.createObjectURL(blob);
                 const existing = audioRef.current;
@@ -287,12 +288,18 @@ export function ArcanaCreatorChat({ errorMessage = null, personaContext, onExtra
                   existing.src = url;
                   existing.load();
                   setAudioPlayer((prev) => ({ ...prev, currentTime: 0, duration: 0, hasAudio: true, playing: false }));
-                  void existing.play().catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
+                  console.log('[Audio] calling play() on existing element');
+                  void existing.play()
+                    .then(() => { console.log('[Audio] play() resolved (autoplay allowed)'); })
+                    .catch((err) => { console.warn('[Audio] Autoplay blocked:', err); });
                 } else {
                   // Fallback: no filler audio was played, create fresh element
+                  console.log('[Audio] no existing element, calling loadMainAudio + setTimeout play');
                   loadMainAudio(base64, mimeType);
-                  setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked:', err); }); }, 150);
+                  setTimeout(() => { void audioRef.current?.play().catch((err) => { console.warn('[Audio] Autoplay blocked (fresh):', err); }); }, 150);
                 }
+              } else {
+                console.warn('[SSE] audio event received but base64 is empty');
               }
             } else if (type === 'error') {
               const errMsg = (event.message as string) ?? 'Maya ist gerade nicht erreichbar. Versuche es nochmal.';
