@@ -571,6 +571,7 @@ async function runExtractionCall(
         maxOutputTokens: 500,
         temperature: 0.1,
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });
