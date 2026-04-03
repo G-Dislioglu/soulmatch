@@ -1,0 +1,63 @@
+{
+  "trunk": {
+    "id": "bluepilot",
+    "name": "Bluepilot",
+    "sub": "Autonomous App-Building System",
+    "color": "#3B8BD4",
+    "owner": "guercan",
+    "status": "planned",
+    "summary": "Nexus Core orchestrator with parallel chorus execution and council chamber.",
+    "updated_at": "2026-04-03T21:00:00Z",
+    "entry_nodes": ["bp-spec-v2"]
+  },
+  "sections": [
+    {"id": "architecture", "title": "ARCHITECTURE", "order": 10},
+    {"id": "implementation", "title": "IMPLEMENTATION", "order": 20},
+    {"id": "specs-docs", "title": "SPECS & DOCS", "order": 50},
+    {"id": "connections", "title": "CONNECTIONS", "order": 100}
+  ],
+  "nodes": [
+    {
+      "id": "bp-spec-v2", "section_id": "specs-docs", "kind": "spec",
+      "name": "Bluepilot Spec v2.0", "path": "bluepilot/BLUEPILOT-SPEC-v2.0.md",
+      "summary": "Nexus Core, Chorus, Council Chamber, Template System, Phase Scanner.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.85,
+      "roles": ["entry", "spec"], "tags": ["spec", "architecture"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "bp-nexus-core", "section_id": "architecture", "kind": "feature",
+      "name": "Nexus Core (Opus 4.6)", "virtual_ref": "feature://bluepilot/nexus",
+      "summary": "Central orchestrator — Opus as architect.",
+      "status": "planned", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.70,
+      "roles": ["entry"], "tags": ["nexus", "orchestrator"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "bp-council", "section_id": "architecture", "kind": "feature",
+      "name": "Council Chamber", "virtual_ref": "feature://bluepilot/council",
+      "summary": "4 models, 3-round schema for architecture decisions.",
+      "status": "possible", "canonicality": "supported", "verification": "ai_inferred", "confidence": 0.55,
+      "roles": ["pattern"], "tags": ["council", "multi-model"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "bp-operational-affect", "section_id": "architecture", "kind": "feature",
+      "name": "Operational Affect", "virtual_ref": "feature://bluepilot/affect",
+      "summary": "4 states: Confident, Cautious, Alert, Focused.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.82,
+      "roles": ["pattern"], "tags": ["affect", "state"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "bp-phase1", "section_id": "implementation", "kind": "milestone",
+      "name": "Phase 1: First Code", "virtual_ref": "milestone://bluepilot/phase1",
+      "summary": "Claude writes code directly — no Windsurf dependency.",
+      "status": "planned", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.72,
+      "roles": ["task_target"], "tags": ["phase1", "direct"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "bp-mcp-bridge", "section_id": "implementation", "kind": "feature",
+      "name": "MCP Bridge", "virtual_ref": "feature://bluepilot/mcp",
+      "summary": "Local control via GOAT reuse + PC-Agent 4-layer.",
+      "status": "possible", "canonicality": "supported", "verification": "ai_inferred", "confidence": 0.45,
+      "roles": ["spec"], "tags": ["mcp", "goat", "agent"], "updated_at": "2026-04-03T21:00:00Z"
+    }
+  ]
+}

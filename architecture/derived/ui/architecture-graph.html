@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture Graph — Soulmatch Ecosystem</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=DM+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400&display=swap');
+:root{--bg:#0a0a12;--s1:#111119;--s2:#16161f;--s3:#1c1c28;--brd:rgba(255,255,255,0.06);
+--t1:#e5e4ee;--t2:#8a8a9a;--t3:#55556a;--gold:#C9A84C;--done:#5DCAA5;--active:#EF9F27;
+--planned:rgba(255,255,255,0.3);--blocked:#E24B4A;
+--sm:#7c6af7;--maya:#1D9E75;--aicos:#C9A84C;--bp:#3B8BD4;
+--canon:#5DCAA5;--legacy:#EF9F27;--deprecated:#E24B4A;--forbidden:#ff4466}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--brd);background:var(--s1);flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar h1{font-family:'Cinzel',serif;font-size:14px;letter-spacing:3px;font-weight:400;background:linear-gradient(135deg,#C9A84C,#e8d5a0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-sub{font-size:10px;color:var(--t3)}
+/* Tabs */
+.tabs{display:flex;gap:0;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--s1)}
+.tab{padding:8px 18px;font-size:11px;letter-spacing:1px;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:var(--t2);background:var(--s2)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+/* Main content */
+.content{flex:1;overflow:auto;padding:0}
+.view{display:none;height:100%}
+.view.active{display:flex}
+/* === MAP VIEW === */
+.map-view{display:grid;grid-template-columns:repeat(4,1fr);gap:0;height:100%}
+.map-trunk{border-right:1px solid var(--brd);padding:16px;cursor:pointer;transition:background .2s;overflow-y:auto}
+.map-trunk:last-child{border-right:none}
+.map-trunk:hover{background:var(--s1)}
+.map-trunk-hdr{text-align:center;margin-bottom:14px}
+.map-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:18px;font-weight:600;margin:0 auto 6px;border:2px solid;transition:box-shadow .3s}
+.map-trunk:hover .map-icon{box-shadow:0 0 20px rgba(255,255,255,0.08)}
+.map-name{font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px}
+.map-sub{font-size:9px;color:var(--t3);margin-top:2px}
+.map-stats{display:flex;justify-content:center;gap:8px;margin-top:6px;font-size:9px;color:var(--t3)}
+.map-stat{display:flex;align-items:center;gap:3px}
+.map-dot{width:5px;height:5px;border-radius:50%}
+.map-nodes{margin-top:10px;border-top:1px solid var(--brd);padding-top:8px}
+.map-node{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;font-size:10px;transition:background .15s;margin:1px 0}
+.map-node:hover{background:var(--s2)}
+.map-ndot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.map-nname{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-canon{font-size:7px;padding:1px 4px;border-radius:3px;flex-shrink:0;letter-spacing:.5px;font-weight:500}
+.c-canonical{background:rgba(93,202,165,0.12);color:var(--canon)}
+.c-legacy{background:rgba(239,159,39,0.12);color:var(--legacy)}
+.c-deprecated{background:rgba(226,75,74,0.12);color:var(--deprecated)}
+.c-forbidden{background:rgba(255,68,102,0.15);color:var(--forbidden)}
+.c-supported{background:rgba(255,255,255,0.05);color:var(--t3)}
+.map-conn{font-size:8px;color:var(--t3);padding:2px 6px;display:flex;align-items:center;gap:4px;margin:2px 0}
+.map-conn::before{content:'⟷';font-size:10px;opacity:.4}
+/* === FOCUS VIEW === */
+.focus-view{flex-direction:row;height:100%}
+.focus-sidebar{width:240px;border-right:1px solid var(--brd);overflow-y:auto;background:var(--s1);flex-shrink:0}
+.focus-trunk-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--brd);transition:background .15s;font-size:12px}
+.focus-trunk-btn:hover,.focus-trunk-btn.active{background:var(--s2)}
+.focus-trunk-dot{width:10px;height:10px;border-radius:50%}
+.focus-main{flex:1;overflow-y:auto;padding:20px}
+.focus-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--brd)}
+.focus-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:16px;font-weight:600;border:2px solid}
+.focus-title{font-family:'Cinzel',serif;font-size:16px;letter-spacing:2px}
+.focus-sub{font-size:11px;color:var(--t2)}
+/* Section */
+.sec{margin-bottom:16px}
+.sec-hdr{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--brd);cursor:pointer;user-select:none;font-size:10px;letter-spacing:1.5px;color:var(--t3);transition:color .15s}
+.sec-hdr:hover{color:var(--t2)}
+.sec-arrow{font-size:7px;transition:transform .15s}
+.sec.collapsed .sec-arrow{transform:rotate(-90deg)}
+.sec.collapsed .sec-body{display:none}
+.sec-body{padding-left:14px;border-left:1.5px solid var(--brd);margin-top:6px}
+/* Nodes */
+.nd{display:flex;align-items:flex-start;gap:7px;padding:4px 0;position:relative;cursor:pointer;border-radius:4px;transition:background .1s}
+.nd:hover{background:rgba(255,255,255,0.02)}
+.nd::before{content:'';position:absolute;left:-15px;top:11px;width:12px;border-top:1.5px solid var(--brd)}
+.nd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.nd-body{flex:1;min-width:0}
+.nd-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.nd-name{font-size:11px;font-weight:500}
+.nd-detail{font-size:9px;color:var(--t2);margin-top:1px}
+.nd-file{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3);margin-top:1px}
+.nd-commit{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--t3);background:var(--s2);padding:0 3px;border-radius:2px}
+.nd-tag{font-size:8px;padding:0 4px;border-radius:3px;border:1px solid var(--brd);color:var(--t3)}
+.md-tag{font-size:8px;padding:1px 4px;border-radius:3px;font-family:'JetBrains Mono',monospace;background:rgba(201,168,76,0.1);color:var(--gold);border:1px solid rgba(201,168,76,0.15)}
+.hotspot-tag{font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(239,159,39,0.1);color:var(--active);border:1px solid rgba(239,159,39,0.15)}
+.entry-tag{font-size:8px;padding:1px 4px;border-radius:3px;background:rgba(93,202,165,0.1);color:var(--done);border:1px solid rgba(93,202,165,0.15)}
+.nd-ai{font-size:9px;color:var(--t3);font-style:italic;margin-top:2px;padding:2px 6px;background:rgba(124,106,247,0.05);border-radius:3px;border-left:2px solid rgba(124,106,247,0.2)}
+.children{padding-left:14px;border-left:1px dashed rgba(255,255,255,0.04);margin-top:2px}
+.child{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:10px;color:var(--t2);position:relative}
+.child::before{content:'';position:absolute;left:-15px;top:8px;width:12px;border-top:1px dashed rgba(255,255,255,0.04)}
+.child-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+/* === RADAR VIEW === */
+.radar-view{flex-direction:column;padding:20px;gap:16px;overflow-y:auto}
+.radar-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.radar-card{background:var(--s1);border:1px solid var(--brd);border-radius:10px;padding:14px}
+.radar-title{font-size:11px;letter-spacing:1.5px;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.radar-emoji{font-size:14px}
+.radar-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;margin:3px 0;font-size:11px;transition:background .15s;cursor:default}
+.radar-item:hover{background:var(--s2)}
+.radar-bar{height:4px;border-radius:2px;flex-shrink:0}
+.radar-label{flex:1}
+.radar-val{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+/* === COMPARE VIEW === */
+.compare-view{flex-direction:row;height:100%}
+.compare-col{flex:1;border-right:1px solid var(--brd);padding:16px;overflow-y:auto}
+.compare-col:last-child{border-right:none}
+.compare-hdr{text-align:center;padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:10px}
+.compare-badge{display:inline-block;font-size:9px;padding:2px 8px;border-radius:99px;margin-top:4px}
+.compare-row{display:flex;align-items:center;gap:6px;padding:4px 6px;font-size:11px;border-radius:4px;margin:2px 0}
+.compare-match{background:rgba(93,202,165,0.06);border-left:2px solid var(--done)}
+.compare-diff{background:rgba(239,159,39,0.06);border-left:2px solid var(--active)}
+.compare-missing{background:rgba(226,75,74,0.06);border-left:2px solid var(--blocked)}
+/* === AI VIEW === */
+.ai-view{flex-direction:column;height:100%}
+.ai-toolbar{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--brd);background:var(--s1)}
+.ai-btn{font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--brd);background:transparent;color:var(--t2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.ai-btn:hover{background:var(--s2);color:var(--t1)}
+.ai-btn.active{background:var(--s2);color:var(--gold);border-color:rgba(201,168,76,0.3)}
+.ai-output{flex:1;overflow:auto;padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:var(--t2);white-space:pre-wrap;tab-size:2}
+.ai-output .kw{color:var(--gold)}.ai-output .str{color:var(--done)}.ai-output .cmt{color:var(--t3);font-style:italic}
+/* Status dots */
+.s-done{background:var(--done)}.s-active{background:var(--active);animation:pulse 2s ease-in-out infinite}
+.s-planned{background:var(--planned)}.s-possible{background:transparent;border:1.5px dashed var(--t3)}
+.s-blocked{background:var(--blocked)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.view.active{animation:fadeIn .2s}
+</style>
+</head>
+<body>
+<div class="topbar">
+<div class="topbar-left">
+<h1>ARCHITECTURE GRAPH</h1>
+<span class="topbar-sub">Soulmatch Ecosystem — v3 Graph Model</span>
+</div>
+</div>
+<div class="tabs" id="tabs">
+<div class="tab active" data-view="map">MAP</div>
+<div class="tab" data-view="focus">FOCUS</div>
+<div class="tab" data-view="radar">RADAR</div>
+<div class="tab" data-view="compare">COMPARE</div>
+<div class="tab" data-view="ai">AI VIEW</div>
+</div>
+<div class="content">
+<div class="view active" id="v-map"></div>
+<div class="view" id="v-focus"></div>
+<div class="view" id="v-radar"></div>
+<div class="view" id="v-compare"></div>
+<div class="view" id="v-ai"></div>
+</div>
+<script>
+/* ===== DATA ===== */
+const G={
+soulmatch:{name:"SOULMATCH",sub:"Multi-Persona Spiritual Chat",color:"var(--sm)",hex:"#7c6af7",letter:"S",sections:[
+{title:"CLIENT MODULES",nodes:[
+{name:"M08_studio-chat",status:"done",canon:"canonical",detail:"Haupt-Chat — REFERENZ",file:"client/src/modules/M08_studio-chat/",entry:true,ai:"Canonical audio/mic pattern. pauseSpeechForAudio + scheduleResumeSpeechAfterAudio hier. IMMER zuerst prüfen bei Audio-Features.",children:[
+{name:"DiscussionChat.tsx",status:"done",detail:"Audio/Mic Reference Pattern"},
+{name:"PersonaBar + Grid",status:"done"},{name:"StudioSession",status:"done"},
+{name:"LiveTalk (Continuous)",status:"done"},{name:"Oracle Mode",status:"done"},
+{name:"VoiceRitual",status:"done"},{name:"SpeechConsentDialog",status:"done"},
+]},
+{name:"M09_arcana",status:"active",canon:"canonical",detail:"Arcana Studio — Creator Shell",file:"client/src/modules/M09_arcana/",hotspot:true,commit:"d9e0cbd",children:[
+{name:"ArcanaStudioPage.tsx",status:"done",detail:"~530Z, 3-Spalten Layout"},
+{name:"ArcanaCreatorChat.tsx",status:"active",detail:"~880Z, Chat+SSE+Mic"},
+{name:"ArcanaPersonaTuning.tsx",status:"done",detail:"1193Z, 8 Akkordeons"},
+{name:"ArcanaRightPanel.tsx",status:"done"},{name:"ArcanaLivePreview.tsx",status:"done"},
+{name:"ArcanaPersonaList.tsx",status:"done"},{name:"useArcanaApi.ts",status:"done"},
+]},
+{name:"M10_builder",status:"planned",canon:"canonical",detail:"Builder Studio — Self-Dev v3.3",file:"client/src/modules/M10_builder/",children:[
+{name:"Builder UI (3-Spalten)",status:"planned"},{name:"Task Queue Bar",status:"planned"},
+{name:"BDL/Klartext Toggle",status:"planned"},{name:"Architecture Tree View",status:"planned"},
+]},
+{name:"M01_landing",status:"done",canon:"supported",file:"client/src/modules/M01_landing/"},
+{name:"M02_ui-kit",status:"done",canon:"canonical",detail:"Design Tokens",file:"client/src/modules/M02_ui-kit/"},
+{name:"M06_discuss",status:"done",canon:"supported",file:"client/src/modules/M06_discuss/"},
+]},
+{title:"SHARED",nodes:[
+{name:"useSpeechToText.ts",status:"done",canon:"canonical",detail:"STT + Continuous + setPlaybackActive",file:"client/src/hooks/",entry:true,ai:"Zentrale Speech-Hook. setPlaybackActive pausiert Mic während Audio. Nicht duplizieren — importieren."},
+{name:"design.ts (TOKENS)",status:"done",canon:"canonical",detail:"Farben, Fonts, Spacing"},
+]},
+{title:"SERVER",nodes:[
+{name:"arcana.ts",status:"active",canon:"canonical",detail:"~780Z — Chat SSE + Extraction + TTS",file:"server/src/routes/arcana.ts",hotspot:true,commit:"ea42842",children:[
+{name:"MAYA_SYSTEM_PROMPT",status:"active",detail:"Max 2 Sätze, 40 Wörter"},
+{name:"Gemini 2.5 Flash Stream",status:"done"},{name:"Extraction (JSON)",status:"active"},
+{name:"TTS Gemini Aoede (30s)",status:"active"},{name:"SSE Keepalive",status:"done"},
+{name:"Filler (nur Text)",status:"done"},
+]},
+{name:"discuss.ts",status:"done",canon:"canonical",detail:"Haupt-Chat Route",file:"server/src/routes/"},
+{name:"ttsService.ts",status:"done",canon:"canonical",detail:"Gemini + OpenAI TTS",file:"server/src/lib/"},
+{name:"builder.ts",status:"planned",canon:"canonical",detail:"Builder Studio API",file:"server/src/routes/"},
+{name:"dev.ts",status:"done",canon:"canonical",detail:"requireDevToken Middleware"},
+]},
+{title:"DATABASE",nodes:[
+{name:"NeonDB (PostgreSQL)",status:"done",canon:"canonical"},{name:"Drizzle ORM",status:"done",canon:"canonical"},
+{name:"persona_definitions",status:"done",canon:"canonical"},
+{name:"builder_tasks",status:"planned"},{name:"builder_actions",status:"planned"},{name:"builder_reviews",status:"planned"},
+]},
+{title:"SPECS",nodes:[
+{name:"BUILDER-STUDIO-SPEC-v3.3.md",status:"active",canon:"canonical",md:true,detail:"Self-Dev Engine 1126Z"},
+{name:"FUSION-ENGINE-SPEC.md",status:"done",canon:"canonical",md:true,file:"docs/"},
+{name:"ARCANA-CRUSH.md",status:"done",canon:"supported",md:true,detail:"Crush 52/100"},
+{name:"VAL-K2-WORKFLOW.md",status:"done",canon:"canonical",md:true},
+{name:"ARCHITECTURE-TREE.json",status:"planned",canon:"canonical",md:true},
+{name:"agent-prompt-v5-*.md",status:"done",canon:"legacy",md:true,file:"docs/",ai:"Alte Agent-Prompts. Durch VAL-K2 ersetzt."},
+{name:"WINDSURF-MASTER-PROMPT.md",status:"done",canon:"deprecated",md:true,ai:"Archiviert. Windsurf nicht mehr in Nutzung."},
+]},
+{title:"AGENTS",nodes:[
+{name:"VS Code Copilot Agent",status:"active",detail:"Claude Sonnet 4.6 High"},
+{name:"Claude Opus 4.6",status:"active",detail:"Architektur-Partner (claude.ai)"},
+{name:"ChatGPT",status:"active",detail:"Parallel Maya Core + Review"},
+{name:"VAL-K2 Workflow",status:"active",canon:"canonical",detail:"Verified Agent Loop",ai:"Nach jedem Agent-Commit: Opus pull → verifizieren → freigeben."},
+{name:"PROOF CORE Escape Ed.",status:"done",canon:"canonical",detail:"1 Bug/Feature pro Chat"},
+]},
+{title:"APIS",nodes:[
+{name:"Gemini Paid Tier 1",status:"active",detail:"Chat+Extract+TTS 100/Tag"},
+{name:"OpenAI",status:"done",detail:"GPT-5-nano Companions"},
+{name:"DeepSeek",status:"done",detail:"Lian/Amara/Luna"},
+{name:"xAI Grok",status:"done",detail:"Kael/Lilith"},
+{name:"Anthropic",status:"planned",detail:"Für Builder Studio"},
+]},
+{title:"ROADMAP",nodes:[
+{name:"1. Mic-Fix verifizieren",status:"active"},{name:"2. Crush 52→70+",status:"planned"},
+{name:"3. Builder B1: DB+CRUD",status:"planned"},{name:"4. Builder B2-B4: Foundation",status:"planned"},
+{name:"5. Fusion Engine F1",status:"planned"},{name:"6. Credits",status:"possible"},
+]},
+{title:"CONNECTIONS",nodes:[
+{name:"→ Maya: Memory + affect_core",status:"done"},{name:"→ Maya: Shared Queue",status:"planned"},
+{name:"→ AICOS: Card Registry + Crush",status:"done"},{name:"→ Bluepilot: Builder Pattern",status:"planned"},
+]},
+]},
+maya:{name:"MAYA CORE",sub:"Memory-native AI Companion",color:"var(--maya)",hex:"#1D9E75",letter:"M",sections:[
+{title:"CORE",nodes:[
+{name:"Memory 7-Tier Store",status:"done",canon:"canonical",entry:true,ai:"Thread-Digest Pipeline. Cross-App Layers. Canonical memory pattern.",children:[
+{name:"Thread-Digest Pipeline",status:"done"},{name:"Cross-App Layers (4)",status:"done"},
+{name:"affect_core.ts (82%)",status:"active",detail:"Tone Detector fehlt"},
+]},
+{name:"Chat UI",status:"done",canon:"canonical",children:[
+{name:"K7 Component Extraction",status:"done"},{name:"Gold Cursor Streaming",status:"done"},
+{name:"Ambient Presence Orb",status:"done"},{name:"Memory Chips inline",status:"done"},
+]},
+{name:"Provider Registry",status:"done",canon:"canonical",detail:"5 APIs Role Routing"},
+{name:"Denker-Triade",status:"planned",detail:"Shadow Agent + Mitdenker"},
+{name:"Design Contracts (6)",status:"done",canon:"canonical",md:true,children:[
+{name:"Identity (9 Konstanten)",status:"done"},{name:"Lilith-Register",status:"done"},
+{name:"Expression Tuning (4 Sliders)",status:"done"},
+]},
+]},
+{title:"SPECS",nodes:[
+{name:"Maya Spec v2.3",status:"done",canon:"canonical",md:true},
+{name:"Maya UI/UX Handoff v4.3",status:"done",canon:"canonical",md:true,detail:"95/100"},
+]},
+{title:"CONNECTIONS",nodes:[
+{name:"→ Soulmatch: Chat-Integration",status:"done"},
+{name:"→ AICOS: Card Registry",status:"done"},
+{name:"→ Bluepilot: Governance",status:"planned"},
+]},
+]},
+aicos:{name:"AICOS",sub:"Card-based Knowledge Registry (101+)",color:"var(--aicos)",hex:"#C9A84C",letter:"A",sections:[
+{title:"CARDS",nodes:[
+{name:"COF 10 Base Operators",status:"done",canon:"canonical",detail:"ZL,ZQ,IL,BL,IV,AN,SE,TE,SV,OB"},
+{name:"6 Crossing Operators",status:"done",canon:"canonical"},
+{name:"Solution + Meta Cards",status:"done",canon:"canonical"},
+{name:"Resonance Paths",status:"active",canon:"canonical",children:[
+{name:"Empirical Growth Model",status:"active"},{name:"Dream Phase",status:"possible"},
+]},
+]},
+{title:"CRUSH",nodes:[
+{name:"Crush Spec v1.1",status:"done",canon:"canonical",md:true,detail:"Matrix 5×3"},
+{name:"65% ARC-AGI manual",status:"done"},{name:"Crush Solver v2",status:"planned",detail:"Multi-Provider Webapp"},
+]},
+]},
+bluepilot:{name:"BLUEPILOT",sub:"Autonomous App-Building",color:"var(--bp)",hex:"#3B8BD4",letter:"B",sections:[
+{title:"ARCHITECTURE",nodes:[
+{name:"Spec v2.0",status:"done",canon:"canonical",md:true,children:[
+{name:"Nexus Core (Opus 4.6)",status:"planned"},{name:"Chorus Parallel",status:"possible"},
+{name:"Council Chamber (4 AIs)",status:"possible"},{name:"Template System",status:"possible"},
+]},
+{name:"Operational Affect",status:"done",detail:"4 States"},
+{name:"Governance",status:"done",detail:"Kill-Switch, Budget, Audit"},
+]},
+{title:"IMPLEMENTATION",nodes:[
+{name:"Phase 1: First Code",status:"planned",detail:"Claude direkt"},
+{name:"MCP Bridge",status:"possible",children:[
+{name:"GOAT Reuse",status:"possible"},{name:"PC-Agent 4-Layer",status:"possible"},
+]},
+]},
+]},
+};
+
+/* ===== RADAR DATA ===== */
+const RADAR={
+cold:[
+{name:"M01_landing",trunk:"soulmatch",days:60},{name:"M06_discuss",trunk:"soulmatch",days:45},
+{name:"Crush Solver v2",trunk:"aicos",days:30},{name:"Credits System",trunk:"soulmatch",days:90},
+{name:"MCP Bridge",trunk:"bluepilot",days:90},{name:"Denker-Triade",trunk:"maya",days:40},
+],
+duplication:[
+{a:"ArcanaCreatorChat — Audio/Mic",b:"DiscussionChat — Audio/Mic",risk:"high",hint:"REUSE: pauseSpeechForAudio()"},
+{a:"arcana.ts SSE streaming",b:"discuss.ts SSE streaming",risk:"medium",hint:"Pattern ähnlich, Consolidation möglich"},
+],
+risk:[
+{name:"ArcanaCreatorChat.tsx",reason:"880Z, aktiver Hotspot, häufige Bugs",score:85},
+{name:"arcana.ts",reason:"780Z, 3 API-Calls pro Msg, TTS-Timeouts",score:78},
+{name:"affect_core.ts",reason:"82% fertig, Tone Detector fehlt",score:65},
+{name:"builder_tasks (planned)",reason:"Neue DB-Tabelle, Schema-Migration",score:55},
+],
+drift:[
+{name:"WINDSURF-MASTER-PROMPT.md",spec:"8 Phasen",reality:"Nicht mehr in Nutzung",severity:"deprecated"},
+{name:"agent-prompt-v5-*.md",spec:"Phase-based agent",reality:"Durch VAL-K2 ersetzt",severity:"legacy"},
+{name:"Maya Prompt",spec:"2-4 Sätze",reality:"Jetzt 2 Sätze, 40 Wörter",severity:"updated"},
+],
+};
+
+/* ===== COMPARE DATA ===== */
+const COMPARE={
+left:{title:"ArcanaCreatorChat",trunk:"Soulmatch",file:"M09_arcana/ArcanaCreatorChat.tsx",
+features:[
+{name:"SSE Streaming",match:true},{name:"Audio Player",match:true},
+{name:"pauseSpeechForAudio()",match:true,note:"Kopiert von rechts"},
+{name:"scheduleResumeSpeech()",match:true,note:"Kopiert von rechts"},
+{name:"Filler Text Bubble",match:false,note:"Nur in Arcana"},{name:"Extraction → Panel",match:false,note:"Nur in Arcana"},
+{name:"Persona Context",match:false,note:"Nur in Arcana"},
+]},
+right:{title:"DiscussionChat",trunk:"Soulmatch",file:"M08_studio-chat/DiscussionChat.tsx",
+features:[
+{name:"SSE Streaming",match:true},{name:"Audio Queue System",match:true},
+{name:"pauseSpeechForAudio()",match:true,note:"CANONICAL"},
+{name:"scheduleResumeSpeech()",match:true,note:"CANONICAL"},
+{name:"Speaking Persona Indicator",match:false,note:"Nur in Chat"},{name:"Micro Reactions",match:false,note:"Nur in Chat"},
+{name:"Oracle Routing",match:false,note:"Nur in Chat"},
+]},
+};
+
+/* ===== HELPERS ===== */
+function sClass(s){return s==='active'?'s-active':''}
+function sStyle(s){
+if(s==='done')return'background:var(--done)';if(s==='active')return'background:var(--active)';
+if(s==='planned')return'background:var(--planned)';if(s==='blocked')return'background:var(--blocked)';
+return'background:transparent;border:1.5px dashed var(--t3)';
+}
+function canonBadge(c){if(!c)return'';return`<span class="map-canon c-${c}">${c}</span>`}
+function countStatus(app){const c={done:0,active:0,planned:0,possible:0};
+app.sections.forEach(s=>s.nodes.forEach(n=>{if(c[n.status]!==undefined)c[n.status]++;
+(n.children||[]).forEach(ch=>{if(c[ch.status]!==undefined)c[ch.status]++})}));return c}
+
+/* ===== MAP VIEW ===== */
+function renderMap(){
+document.getElementById('v-map').innerHTML=Object.entries(G).map(([k,app])=>{
+const c=countStatus(app);
+const nodes=[];app.sections.forEach(s=>s.nodes.slice(0,6).forEach(n=>{
+nodes.push(`<div class="map-node"><span class="map-ndot ${sClass(n.status)}" style="${sStyle(n.status)}"></span>
+<span class="map-nname">${n.name}</span>${canonBadge(n.canon)}
+${n.hotspot?'<span class="hotspot-tag">hotspot</span>':''}${n.entry?'<span class="entry-tag">entry</span>':''}</div>`)}));
+const conns=(app.sections.find(s=>s.title==='CONNECTIONS')||{nodes:[]}).nodes.map(n=>
+`<div class="map-conn">${n.name}</div>`).join('');
+return`<div class="map-trunk" onclick="switchToFocus('${k}')">
+<div class="map-trunk-hdr">
+<div class="map-icon" style="color:${app.hex};border-color:${app.hex};background:${app.hex}12">${app.letter}</div>
+<div class="map-name" style="color:${app.hex}">${app.name}</div>
+<div class="map-sub">${app.sub}</div>
+<div class="map-stats">
+<span class="map-stat"><span class="map-dot" style="background:var(--done)"></span>${c.done}</span>
+<span class="map-stat"><span class="map-dot ${sClass('active')}" style="background:var(--active)"></span>${c.active}</span>
+<span class="map-stat"><span class="map-dot" style="background:var(--planned)"></span>${c.planned}</span>
+</div></div>
+<div class="map-nodes">${nodes.join('')}</div>
+${conns?`<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--brd)">${conns}</div>`:''}
+</div>`}).join('');
+}
+
+/* ===== FOCUS VIEW ===== */
+let focusTrunk='soulmatch';
+function renderFocus(){
+const sidebar=Object.entries(G).map(([k,app])=>
+`<div class="focus-trunk-btn ${k===focusTrunk?'active':''}" onclick="focusTrunk='${k}';renderFocus()">
+<span class="focus-trunk-dot" style="background:${app.hex}"></span>${app.name}</div>`).join('');
+const app=G[focusTrunk];
+const sections=app.sections.map(s=>{
+const nodes=s.nodes.map(n=>{
+const ch=(n.children||[]).map(c=>
+`<div class="child"><span class="child-dot ${sClass(c.status)}" style="${sStyle(c.status)}"></span>${c.name}
+${c.detail?`<span style="color:var(--t3);margin-left:4px;font-size:9px">${c.detail}</span>`:''}</div>`).join('');
+return`<div class="nd">
+<span class="nd-dot ${sClass(n.status)}" style="${sStyle(n.status)}"></span>
+<div class="nd-body">
+<div class="nd-row">
+<span class="nd-name">${n.name}</span>
+${n.md?'<span class="md-tag">.md</span>':''}
+${n.hotspot?'<span class="hotspot-tag">hotspot</span>':''}
+${n.entry?'<span class="entry-tag">entry</span>':''}
+${canonBadge(n.canon)}
+${n.commit?`<span class="nd-commit">${n.commit}</span>`:''}
+</div>
+${n.detail?`<div class="nd-detail">${n.detail}</div>`:''}
+${n.file?`<div class="nd-file">${n.file}</div>`:''}
+${n.ai?`<div class="nd-ai">AI: ${n.ai}</div>`:''}
+${ch?`<div class="children">${ch}</div>`:''}
+</div></div>`}).join('');
+return`<div class="sec"><div class="sec-hdr" onclick="this.parentElement.classList.toggle('collapsed')">
+<span class="sec-arrow">▼</span>${s.title}</div><div class="sec-body">${nodes}</div></div>`}).join('');
+document.getElementById('v-focus').innerHTML=`
+<div class="focus-sidebar">${sidebar}</div>
+<div class="focus-main">
+<div class="focus-header">
+<div class="focus-icon" style="color:${app.hex};border-color:${app.hex};background:${app.hex}12">${app.letter}</div>
+<div><div class="focus-title" style="color:${app.hex}">${app.name}</div><div class="focus-sub">${app.sub}</div></div>
+</div>${sections}</div>`;
+}
+function switchToFocus(k){focusTrunk=k;switchView('focus')}
+
+/* ===== RADAR VIEW ===== */
+function renderRadar(){
+const cold=RADAR.cold.sort((a,b)=>b.days-a.days).map(r=>
+`<div class="radar-item"><div class="radar-bar" style="width:${r.days}px;background:var(--bp)"></div>
+<span class="radar-label">${r.name} <span style="color:var(--t3);font-size:9px">(${r.trunk})</span></span>
+<span class="radar-val">${r.days}d</span></div>`).join('');
+const dup=RADAR.duplication.map(r=>
+`<div class="radar-item" style="flex-direction:column;align-items:flex-start;gap:3px">
+<div style="display:flex;gap:6px;align-items:center;width:100%">
+<span style="font-size:10px;flex:1">${r.a}</span>
+<span style="font-size:8px;color:var(--t3)">⟷</span>
+<span style="font-size:10px;flex:1">${r.b}</span>
+<span class="map-canon c-${r.risk==='high'?'deprecated':'legacy'}">${r.risk}</span>
+</div>
+<div style="font-size:9px;color:var(--done);padding-left:4px">${r.hint}</div>
+</div>`).join('');
+const risk=RADAR.risk.sort((a,b)=>b.score-a.score).map(r=>
+`<div class="radar-item"><div class="radar-bar" style="width:${r.score}px;background:${r.score>70?'var(--blocked)':'var(--active)'}"></div>
+<span class="radar-label">${r.name}<div style="font-size:9px;color:var(--t3)">${r.reason}</div></span>
+<span class="radar-val">${r.score}</span></div>`).join('');
+const drift=RADAR.drift.map(r=>
+`<div class="radar-item" style="flex-direction:column;align-items:flex-start;gap:2px">
+<div style="display:flex;gap:6px;align-items:center;width:100%">
+<span style="font-size:10px;flex:1">${r.name}</span>
+<span class="map-canon c-${r.severity==='deprecated'?'deprecated':r.severity==='legacy'?'legacy':'supported'}">${r.severity}</span>
+</div>
+<div style="font-size:9px;color:var(--t3)">Spec: ${r.spec} → Realität: ${r.reality}</div>
+</div>`).join('');
+document.getElementById('v-radar').innerHTML=`<div class="radar-grid">
+<div class="radar-card"><div class="radar-title">❄ COLD RADAR — Lange nicht angefasst</div>${cold}</div>
+<div class="radar-card"><div class="radar-title">⚠ RISK RADAR — Hohe Komplexität/Bugs</div>${risk}</div>
+<div class="radar-card"><div class="radar-title">♊ DUPLICATION RADAR — Ähnliche Patterns</div>${dup}</div>
+<div class="radar-card"><div class="radar-title">↕ DRIFT RADAR — Spec ≠ Code</div>${drift}</div>
+</div>`;
+}
+
+/* ===== COMPARE VIEW ===== */
+function renderCompare(){
+function col(data,side){
+const rows=data.features.map(f=>`<div class="compare-row ${f.match?'compare-match':'compare-diff'}">
+<span style="font-size:11px">${f.name}</span>
+${f.note?`<span style="font-size:9px;color:var(--t3);margin-left:auto">${f.note}</span>`:''}
+</div>`).join('');
+return`<div class="compare-col"><div class="compare-hdr">
+<div style="font-size:13px;font-weight:500">${data.title}</div>
+<div style="font-size:10px;color:var(--t3)">${data.trunk} · ${data.file}</div>
+<div class="compare-badge" style="background:${side==='right'?'rgba(93,202,165,0.1);color:var(--done)':'rgba(239,159,39,0.1);color:var(--active)'}">
+${side==='right'?'CANONICAL SOURCE':'ADAPTION'}</div></div>${rows}</div>`}
+document.getElementById('v-compare').innerHTML=col(COMPARE.left,'left')+
+`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px;gap:8px;border-right:1px solid var(--brd);border-left:1px solid var(--brd);min-width:60px">
+<div style="font-size:9px;color:var(--t3);letter-spacing:1px;writing-mode:vertical-lr">REUSE MAP</div></div>`+
+col(COMPARE.right,'right');
+}
+
+/* ===== AI VIEW ===== */
+let aiMode='startpack';
+function renderAI(){
+const toolbar=`<div class="ai-toolbar">
+<button class="ai-btn ${aiMode==='startpack'?'active':''}" onclick="aiMode='startpack';renderAI()">START PACK</button>
+<button class="ai-btn ${aiMode==='dsl'?'active':''}" onclick="aiMode='dsl';renderAI()">DSL</button>
+<button class="ai-btn ${aiMode==='json'?'active':''}" onclick="aiMode='json';renderAI()">JSON</button></div>`;
+let out='';
+if(aiMode==='startpack'){out=`<span class="cmt"># AI START PACK — Soulmatch</span>
+<span class="cmt"># Was du als KI zuerst wissen musst</span>
+
+<span class="kw">CANONICAL ENTRY POINTS:</span>
+  <span class="str">client/src/modules/M08_studio-chat/DiscussionChat.tsx</span>
+    → Audio/Mic Reference Pattern (pauseSpeechForAudio, scheduleResumeSpeechAfterAudio)
+  <span class="str">client/src/hooks/useSpeechToText.ts</span>
+    → Zentrale Speech Hook. Nicht duplizieren.
+  <span class="str">server/src/routes/arcana.ts</span>
+    → Arcana Studio Backend (SSE + Extraction + TTS)
+
+<span class="kw">ACTIVE HOTSPOTS:</span>
+  ArcanaCreatorChat.tsx  → 880Z, häufige Bugs, Audio/Mic
+  arcana.ts              → 780Z, 3 API-Calls/Msg, TTS-Timeouts
+
+<span class="kw">REUSE CANDIDATES:</span>
+  Audio/Mic in Arcana    → KOPIERE von DiscussionChat.tsx
+  SSE Streaming          → Pattern aus discuss.ts
+
+<span class="kw">FORBIDDEN / DO NOT REBUILD:</span>
+  <span class="cmt">× Audio/Mic eigenes System bauen → IMMER DiscussionChat Pattern nutzen</span>
+  <span class="cmt">× WINDSURF-MASTER-PROMPT.md → deprecated, nicht verwenden</span>
+  <span class="cmt">× agent-prompt-v5-*.md → legacy, durch VAL-K2 ersetzt</span>
+
+<span class="kw">HIGH-RISK SEAMS:</span>
+  useSpeechToText ↔ Audio playback  → setPlaybackActive + pauseSpeech
+  Gemini TTS ↔ SSE timeout          → 30s timeout + keepalive
+  Extraction ↔ Tuning Panel         → JSON parsing fragil
+
+<span class="kw">CURRENT TASK CONTEXT:</span>
+  Mic-Fix deployed (d9e0cbd) — pauseSpeechForAudio Pattern
+  Nächste: Crush 52→70, dann Builder B1`}
+else if(aiMode==='dsl'){out=`<span class="kw">@trunk</span> soulmatch <span class="str">"Soulmatch"</span> color=#7c6af7
+
+<span class="kw">@node</span> m08 kind=module status=done canon=canonical
+  path=<span class="str">"client/src/modules/M08_studio-chat/"</span>
+  entry=true
+  ai=<span class="str">"Canonical audio/mic pattern. IMMER zuerst prüfen."</span>
+
+<span class="kw">@node</span> m09 kind=module status=active canon=canonical hotspot=true
+  path=<span class="str">"client/src/modules/M09_arcana/"</span>
+  commit=d9e0cbd
+
+<span class="kw">@node</span> stt kind=hook status=done canon=canonical entry=true
+  path=<span class="str">"client/src/hooks/useSpeechToText.ts"</span>
+  ai=<span class="str">"Nicht duplizieren — importieren."</span>
+  do_not_rebuild=true
+
+<span class="kw">@edge</span> m09 -> m08 type=reuse_candidate
+  reason=<span class="str">"pauseSpeechForAudio + scheduleResumeSpeechAfterAudio"</span>
+
+<span class="kw">@flag</span> arcana-creator-chat risk=duplication
+  similar_to=<span class="str">"M08 DiscussionChat audio handling"</span>
+
+<span class="kw">@node</span> windsurf-prompt kind=spec status=done canon=deprecated
+  path=<span class="str">"WINDSURF-MASTER-PROMPT.md"</span>
+  ai=<span class="str">"Archiviert. Nicht verwenden."</span>`}
+else{out=JSON.stringify({trunk:"soulmatch",canonical_entries:["M08_studio-chat/DiscussionChat.tsx","hooks/useSpeechToText.ts","routes/arcana.ts"],hotspots:["ArcanaCreatorChat.tsx","arcana.ts"],forbidden:["WINDSURF-MASTER-PROMPT.md","Eigenes Audio/Mic System"],reuse_map:[{from:"M09 Arcana Audio",to:"M08 DiscussionChat",type:"reuse_candidate"}]},null,2)}
+document.getElementById('v-ai').innerHTML=toolbar+`<div class="ai-output">${out}</div>`;
+}
+
+/* ===== VIEW SWITCHING ===== */
+function switchView(name){
+document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));
+document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+name));
+if(name==='map')renderMap();else if(name==='focus')renderFocus();
+else if(name==='radar')renderRadar();else if(name==='compare')renderCompare();
+else if(name==='ai')renderAI();
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchView(t.dataset.view)));
+
+/* Init */
+renderMap();
+</script>
+</body>
+</html>

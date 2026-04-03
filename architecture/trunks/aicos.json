@@ -1,0 +1,63 @@
+{
+  "trunk": {
+    "id": "aicos",
+    "name": "AICOS",
+    "sub": "Card-based Knowledge Registry (101+ Cards)",
+    "color": "#C9A84C",
+    "owner": "guercan",
+    "status": "active",
+    "summary": "Cognitive Operator Framework with cards, crossings, resonance paths, and Crush method.",
+    "updated_at": "2026-04-03T21:00:00Z",
+    "entry_nodes": ["cof-operators", "crush-method"]
+  },
+  "sections": [
+    {"id": "card-system", "title": "CARD SYSTEM", "order": 10},
+    {"id": "crush", "title": "CRUSH METHOD", "order": 20},
+    {"id": "specs-docs", "title": "SPECS & DOCS", "order": 50},
+    {"id": "connections", "title": "CONNECTIONS", "order": 100}
+  ],
+  "nodes": [
+    {
+      "id": "cof-operators", "section_id": "card-system", "kind": "feature",
+      "name": "COF — 10 Base Operators", "virtual_ref": "feature://aicos/cof",
+      "summary": "ZL, ZQ, IL, BL, IV, AN, SE, TE, SV, OB — formal operator contracts.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.92,
+      "roles": ["entry", "pattern"], "tags": ["cof", "operators", "knowledge"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "crossing-operators", "section_id": "card-system", "kind": "feature",
+      "name": "6 Crossing Operators", "virtual_ref": "feature://aicos/crossings",
+      "summary": "Named card-crossing operators for resonance paths.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.90,
+      "roles": ["pattern"], "tags": ["crossings", "resonance"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "resonance-paths", "section_id": "card-system", "kind": "feature",
+      "name": "Resonance Paths", "virtual_ref": "feature://aicos/resonance",
+      "summary": "Empirical growth model via card crossings. Dream phase planned.",
+      "status": "active", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.78,
+      "roles": ["hotspot"], "tags": ["resonance", "growth", "dream"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "crush-method", "section_id": "crush", "kind": "feature",
+      "name": "Crush Method", "virtual_ref": "feature://aicos/crush",
+      "summary": "Matrix-Crush 5×3, Crush-guided Refinement, 65% ARC-AGI manual.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.88,
+      "roles": ["entry", "pattern"], "tags": ["crush", "arc-agi", "method"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "crush-spec", "section_id": "specs-docs", "kind": "spec",
+      "name": "Crush Spec v1.1", "path": "aicos/crush-spec-v1.1.md",
+      "summary": "Matrix 5×3, 2-round abort, adaptive dimensions.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.86,
+      "roles": ["spec"], "tags": ["crush", "spec"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "crush-solver-v2", "section_id": "crush", "kind": "feature",
+      "name": "Crush Solver v2", "virtual_ref": "feature://aicos/crush-solver-v2",
+      "summary": "Multi-provider webapp with A/B toggle and comparison table.",
+      "status": "planned", "canonicality": "supported", "verification": "human_asserted", "confidence": 0.65,
+      "roles": ["spec"], "tags": ["crush", "webapp", "solver"], "updated_at": "2026-04-03T21:00:00Z"
+    }
+  ]
+}

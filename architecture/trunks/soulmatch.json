@@ -1,0 +1,188 @@
+{
+  "trunk": {
+    "id": "soulmatch",
+    "name": "Soulmatch",
+    "sub": "Multi-Persona Spiritual Chat App",
+    "color": "#7c6af7",
+    "owner": "guercan",
+    "status": "active",
+    "summary": "Primary spiritual chat app with creator studio, multi-persona chat, and self-development engine.",
+    "updated_at": "2026-04-03T21:00:00Z",
+    "entry_nodes": ["m08-discussion-chat", "use-speech-to-text", "arcana-api"]
+  },
+  "sections": [
+    {"id": "client-modules", "title": "CLIENT MODULES", "order": 10},
+    {"id": "shared", "title": "SHARED", "order": 20},
+    {"id": "server", "title": "SERVER", "order": 30},
+    {"id": "database", "title": "DATABASE", "order": 40},
+    {"id": "specs-docs", "title": "SPECS & DOCS", "order": 50},
+    {"id": "agent-workflow", "title": "AGENT & WORKFLOW", "order": 60},
+    {"id": "apis-provider", "title": "APIs & PROVIDER", "order": 70},
+    {"id": "features-active", "title": "FEATURES ACTIVE", "order": 80},
+    {"id": "roadmap", "title": "ROADMAP", "order": 90},
+    {"id": "connections", "title": "CONNECTIONS", "order": 100}
+  ],
+  "nodes": [
+    {
+      "id": "m08-discussion-chat", "section_id": "client-modules", "kind": "module",
+      "name": "M08_studio-chat", "path": "client/src/modules/M08_studio-chat/",
+      "summary": "Main chat reference module. Contains canonical audio/mic and persona patterns.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.97,
+      "roles": ["entry", "pattern"], "tags": ["chat", "audio", "mic", "reference"],
+      "do_not_rebuild": true, "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Canonical audio/mic reference. Always inspect first before building similar flows."
+    },
+    {
+      "id": "discussion-chat-file", "section_id": "client-modules", "kind": "file",
+      "name": "DiscussionChat.tsx", "path": "client/src/modules/M08_studio-chat/ui/DiscussionChat.tsx",
+      "summary": "Audio/mic handling reference — pauseSpeechForAudio + scheduleResumeSpeechAfterAudio.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.97,
+      "roles": ["entry", "pattern", "seam"], "tags": ["audio", "mic", "pause-resume"],
+      "do_not_rebuild": true, "updated_at": "2026-04-03T21:00:00Z",
+      "metrics": {"reuse_score": 0.93, "risk_score": 0.32},
+      "ai_note": "Source for pauseSpeechForAudio and scheduleResumeSpeechAfterAudio. COPY this pattern, do not reinvent."
+    },
+    {
+      "id": "m09-arcana", "section_id": "client-modules", "kind": "module",
+      "name": "M09_arcana", "path": "client/src/modules/M09_arcana/",
+      "summary": "Arcana Studio — creator shell for persona building.",
+      "status": "active", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.93,
+      "roles": ["hotspot"], "tags": ["arcana", "creator", "audio", "sse"],
+      "hotspot": true, "commit_last_seen": "d9e0cbd", "updated_at": "2026-04-03T21:00:00Z",
+      "metrics": {"loc": 3500, "risk_score": 0.68, "volatility": 0.71},
+      "ai_note": "High-change area. Reuse M08 patterns before extending audio/mic behavior."
+    },
+    {
+      "id": "arcana-creator-chat", "section_id": "client-modules", "kind": "file",
+      "name": "ArcanaCreatorChat.tsx", "path": "client/src/modules/M09_arcana/ui/ArcanaCreatorChat.tsx",
+      "summary": "Chat + SSE + mic flow inside Arcana Studio.",
+      "status": "active", "canonicality": "supported", "verification": "human_asserted", "confidence": 0.84,
+      "roles": ["hotspot", "risk", "task_target"], "tags": ["chat", "audio", "mic", "sse"],
+      "hotspot": true, "updated_at": "2026-04-03T21:00:00Z",
+      "metrics": {"loc": 887, "risk_score": 0.85, "volatility": 0.78},
+      "ai_note": "Frequent bug hotspot. Compare against DiscussionChat before modifying."
+    },
+    {
+      "id": "m10-builder", "section_id": "client-modules", "kind": "module",
+      "name": "M10_builder", "path": "client/src/modules/M10_builder/",
+      "summary": "Builder Studio — self-development engine UI.",
+      "status": "planned", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.82,
+      "roles": ["spec"], "tags": ["builder", "self-dev", "ui"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "use-speech-to-text", "section_id": "shared", "kind": "file",
+      "name": "useSpeechToText.ts", "path": "client/src/hooks/useSpeechToText.ts",
+      "summary": "Central speech hook with continuous mode and setPlaybackActive.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.96,
+      "roles": ["entry", "seam", "pattern"], "tags": ["speech", "hook", "audio"],
+      "do_not_rebuild": true, "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Central speech hook. Import and extend; never duplicate."
+    },
+    {
+      "id": "design-tokens", "section_id": "shared", "kind": "file",
+      "name": "design.ts", "path": "client/src/design.ts",
+      "summary": "Design system tokens — colors, fonts, spacing.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.95,
+      "roles": ["pattern"], "tags": ["design", "tokens"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "audio-mic-pattern", "section_id": "shared", "kind": "pattern",
+      "name": "Audio/Mic Pause-Resume Pattern",
+      "virtual_ref": "pattern://soulmatch/audio-mic-pause-resume",
+      "summary": "pauseSpeechForAudio + scheduleResumeSpeechAfterAudio + setPlaybackActive.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.90,
+      "roles": ["pattern"], "tags": ["audio", "mic", "reuse"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "arcana-api", "section_id": "server", "kind": "file",
+      "name": "arcana.ts", "path": "server/src/routes/arcana.ts",
+      "summary": "Arcana backend: SSE streaming + Gemini extraction + TTS.",
+      "status": "active", "canonicality": "supported", "verification": "repo_verified", "confidence": 0.92,
+      "roles": ["entry", "seam", "risk"], "tags": ["server", "sse", "tts", "api"],
+      "hotspot": true, "commit_last_seen": "ea42842", "updated_at": "2026-04-03T21:00:00Z",
+      "metrics": {"loc": 777, "risk_score": 0.78, "volatility": 0.69},
+      "ai_note": "High-risk backend seam. 3 Gemini calls per message. Watch timeout + keepalive."
+    },
+    {
+      "id": "discuss-api", "section_id": "server", "kind": "file",
+      "name": "discuss.ts", "path": "server/src/routes/discuss.ts",
+      "summary": "Main chat route with SSE streaming.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.95,
+      "roles": ["entry", "pattern"], "tags": ["server", "sse", "chat"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "tts-service", "section_id": "server", "kind": "file",
+      "name": "ttsService.ts", "path": "server/src/lib/ttsService.ts",
+      "summary": "Gemini + OpenAI TTS with voice routing.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.94,
+      "roles": ["seam"], "tags": ["tts", "audio", "gemini"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "neondb", "section_id": "database", "kind": "infra",
+      "name": "NeonDB (PostgreSQL)", "virtual_ref": "infra://neondb",
+      "summary": "Serverless PostgreSQL via NeonDB.",
+      "status": "done", "canonicality": "canonical", "verification": "runtime_verified", "confidence": 0.96,
+      "roles": ["infra"], "tags": ["db", "postgres"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "builder-spec", "section_id": "specs-docs", "kind": "spec",
+      "name": "BUILDER-STUDIO-SPEC-v3.3.md", "path": "docs/BUILDER-STUDIO-SPEC-v3.3.md",
+      "summary": "Builder Studio self-dev engine spec. 1126 lines. Reuse-First + Architecture Tree integrated.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.88,
+      "roles": ["spec"], "tags": ["builder", "spec"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "arch-graph-spec", "section_id": "specs-docs", "kind": "spec",
+      "name": "ARCHITECTURE-GRAPH-SPEC-v1.1.md", "path": "docs/ARCHITECTURE-GRAPH-SPEC-v1.1.md",
+      "summary": "Architecture Graph specification — graph model, views, DSL, mutation policy.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.88,
+      "roles": ["spec"], "tags": ["architecture", "graph", "spec"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "fusion-spec", "section_id": "specs-docs", "kind": "spec",
+      "name": "FUSION-ENGINE-SPEC.md", "path": "docs/FUSION-ENGINE-SPEC.md",
+      "summary": "Multi-provider persona engine spec.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.80,
+      "roles": ["spec"], "tags": ["fusion", "provider"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "windsurf-prompt", "section_id": "specs-docs", "kind": "spec",
+      "name": "WINDSURF-MASTER-PROMPT.md", "path": "WINDSURF-MASTER-PROMPT.md",
+      "summary": "Archived 8-phase agent prompt. Replaced by VAL-K2.",
+      "status": "done", "canonicality": "deprecated", "verification": "human_asserted", "confidence": 0.76,
+      "roles": ["spec"], "tags": ["prompt", "legacy"], "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Archived. Do not use as current working prompt. Use VAL-K2 instead."
+    },
+    {
+      "id": "val-k2", "section_id": "agent-workflow", "kind": "agent",
+      "name": "VAL-K2 Workflow", "virtual_ref": "workflow://val-k2",
+      "summary": "Verified Agent Loop — Opus verifies agent code via git pull.",
+      "status": "active", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.90,
+      "roles": ["pattern"], "tags": ["workflow", "verification"], "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "After every agent commit: Opus pull → diff → verify → approve."
+    },
+    {
+      "id": "audio-mic-rule", "section_id": "agent-workflow", "kind": "agent",
+      "name": "No new audio/mic system",
+      "virtual_ref": "rule://soulmatch/no-new-audio-mic-system",
+      "summary": "Reuse-first rule: use M08 pattern, never invent new audio/mic logic.",
+      "status": "done", "canonicality": "forbidden", "verification": "human_asserted", "confidence": 0.90,
+      "roles": ["risk"], "tags": ["rule", "forbidden", "reuse-first"], "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Do not invent a separate audio/mic system when M08 pattern already exists."
+    },
+    {
+      "id": "gemini-api", "section_id": "apis-provider", "kind": "api",
+      "name": "Gemini Paid Tier 1", "virtual_ref": "api://gemini",
+      "summary": "Chat + Extraction + TTS. 100 calls/day.",
+      "status": "active", "canonicality": "canonical", "verification": "runtime_verified", "confidence": 0.93,
+      "roles": ["infra"], "tags": ["gemini", "tts", "llm"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "openai-api", "section_id": "apis-provider", "kind": "api",
+      "name": "OpenAI", "virtual_ref": "api://openai",
+      "summary": "GPT-5-nano for Companions.", "status": "done", "canonicality": "canonical",
+      "verification": "runtime_verified", "confidence": 0.94,
+      "roles": ["infra"], "tags": ["openai", "llm"], "updated_at": "2026-04-03T21:00:00Z"
+    }
+  ]
+}

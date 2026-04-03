@@ -1,0 +1,79 @@
+{
+  "trunk": {
+    "id": "maya-core",
+    "name": "Maya Core",
+    "sub": "Memory-native AI Companion",
+    "color": "#1D9E75",
+    "owner": "guercan",
+    "status": "active",
+    "summary": "AI companion with 7-tier memory, affect system, and multi-provider routing.",
+    "updated_at": "2026-04-03T21:00:00Z",
+    "entry_nodes": ["maya-memory-store", "maya-chat-ui", "maya-provider-registry"]
+  },
+  "sections": [
+    {"id": "client-modules", "title": "CLIENT MODULES", "order": 10},
+    {"id": "shared", "title": "SHARED", "order": 20},
+    {"id": "server", "title": "SERVER", "order": 30},
+    {"id": "specs-docs", "title": "SPECS & DOCS", "order": 50},
+    {"id": "connections", "title": "CONNECTIONS", "order": 100}
+  ],
+  "nodes": [
+    {
+      "id": "maya-memory-store", "section_id": "shared", "kind": "module",
+      "name": "Memory 7-Tier Store", "path": "maya-core/memory/",
+      "summary": "Thread-Digest pipeline, cross-app layers, scope fields.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.94,
+      "roles": ["entry", "pattern"], "tags": ["memory", "digest", "cross-app"],
+      "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Canonical memory architecture. 7 tiers mapped to 4 cross-app layers."
+    },
+    {
+      "id": "affect-core", "section_id": "shared", "kind": "file",
+      "name": "affect_core.ts", "path": "maya-core/lib/affect_core.ts",
+      "summary": "Affect state system — weighted dominance scoring, ambiguity mechanics.",
+      "status": "active", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.82,
+      "roles": ["seam", "hotspot"], "tags": ["affect", "emotion", "state"],
+      "hotspot": true, "updated_at": "2026-04-03T21:00:00Z",
+      "metrics": {"risk_score": 0.65},
+      "ai_note": "82% production-grade. Missing: tone detector, per-turn max-delta cap."
+    },
+    {
+      "id": "maya-chat-ui", "section_id": "client-modules", "kind": "module",
+      "name": "Maya Chat UI", "path": "maya-core/components/maya/",
+      "summary": "Dark companion interface with streaming, presence orb, memory chips.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.95,
+      "roles": ["entry", "pattern"], "tags": ["ui", "chat", "companion"],
+      "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "maya-provider-registry", "section_id": "server", "kind": "module",
+      "name": "Provider Registry", "path": "maya-core/providers/",
+      "summary": "Role-based routing — scout/worker/reasoner/vision/tts across 5 APIs.",
+      "status": "done", "canonicality": "canonical", "verification": "repo_verified", "confidence": 0.93,
+      "roles": ["entry", "seam"], "tags": ["provider", "routing", "multi-api"],
+      "updated_at": "2026-04-03T21:00:00Z",
+      "ai_note": "Reuse this routing pattern for Fusion Engine."
+    },
+    {
+      "id": "maya-denker-triade", "section_id": "shared", "kind": "feature",
+      "name": "Denker-Triade", "virtual_ref": "feature://maya/denker-triade",
+      "summary": "Shadow Agent + Mitdenker running async on every message.",
+      "status": "planned", "canonicality": "supported", "verification": "human_asserted", "confidence": 0.60,
+      "roles": ["spec"], "tags": ["async", "shadow", "collective"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "maya-design-contracts", "section_id": "specs-docs", "kind": "spec",
+      "name": "Design Contracts (6)", "path": "maya-core/docs/design-contracts.md",
+      "summary": "Identity, Memory Stratification, Transition, Truthfulness, Lilith-Register, Expression Tuning.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.88,
+      "roles": ["spec"], "tags": ["contracts", "identity"], "updated_at": "2026-04-03T21:00:00Z"
+    },
+    {
+      "id": "maya-spec-v23", "section_id": "specs-docs", "kind": "spec",
+      "name": "Maya Spec v2.3", "path": "maya-core/docs/MAYA-SPEC-v2.3.md",
+      "summary": "Multi-provider, CE-1 to CE-6, Collective Intelligence Layer.",
+      "status": "done", "canonicality": "canonical", "verification": "human_asserted", "confidence": 0.85,
+      "roles": ["spec"], "tags": ["spec", "architecture"], "updated_at": "2026-04-03T21:00:00Z"
+    }
+  ]
+}

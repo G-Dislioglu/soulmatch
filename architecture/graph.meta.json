@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.1",
+  "graph_id": "architecture-graph",
+  "title": "Living Architecture Graph",
+  "model_kind": "graph_with_derived_views",
+  "description": "Canonical semantic architecture map for humans and KIs. UI may look tree-like, but source of truth is graph-based.",
+  "updated_at": "2026-04-03T21:00:00Z",
+  "owners": ["guercan"],
+  "mutation_policy": {
+    "ai_may_write_directly": ["status", "task_overlay", "ai_note", "risk_flag", "proposed_edge", "event_entry"],
+    "ai_must_propose_only": ["canonicality", "forbidden", "deprecated", "archived", "new_trunk", "global_rule"]
+  },
+  "node_kinds": ["module", "file", "feature", "pattern", "seam", "spec", "api", "infra", "agent", "milestone", "task"],
+  "status_enum": ["planned", "active", "blocked", "done", "archived"],
+  "canonicality_enum": ["canonical", "supported", "legacy", "deprecated", "forbidden"],
+  "verification_enum": ["repo_verified", "runtime_verified", "human_asserted", "ai_inferred", "stale", "conflict"],
+  "role_enum": ["entry", "hotspot", "pattern", "seam", "spec", "infra", "risk", "task_target"],
+  "edge_types": ["depends_on", "reuse_candidate", "canonical_source_for", "related_to", "blocked_by", "uses", "cross_trunk_link", "duplicates", "derived_from"],
+  "sections_default": ["client-modules", "shared", "server", "database", "specs-docs", "agent-workflow", "apis-provider", "features-active", "roadmap", "connections"],
+  "derived_views": {
+    "human": ["map", "focus", "radar", "compare"],
+    "ai": ["start_pack", "task_pack", "dsl_verbose", "dsl_compact", "json_export"]
+  },
+  "confidence_defaults": {
+    "repo_verified": 0.90,
+    "runtime_verified": 0.95,
+    "human_asserted": 0.75,
+    "ai_inferred": 0.55,
+    "stale": 0.40
+  },
+  "file_layout": {
+    "trunks_dir": "architecture/trunks/",
+    "edges_file": "architecture/edges.json",
+    "events_dir": "architecture/events/",
+    "derived_dir": "architecture/derived/"
+  }
+}
