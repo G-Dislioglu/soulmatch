@@ -17,6 +17,7 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
 
 const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRY_DELAY_MS = [250, 800];
+const ANTHROPIC_ENV_KEY = 'ANTHROPIC_API_KEY';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -123,6 +124,53 @@ export async function callProvider(
     return typeof text === 'string' ? text : '';
   }
 
+  if (provider === 'anthropic') {
+    const apiKey = process.env[ANTHROPIC_ENV_KEY] || clientApiKey;
+    if (!apiKey) throw new Error(`No API key for anthropic. Set ${ANTHROPIC_ENV_KEY} on server.`);
+
+    const url = 'https://api.anthropic.com/v1/messages';
+
+    const resp = await fetchWithRetries(url, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        system: params.system || undefined,
+        messages: params.messages,
+        max_tokens: params.maxTokens ?? 2000,
+        temperature: params.temperature ?? 0.7,
+      }),
+    }, 'anthropic');
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`anthropic API ${resp.status}: ${errText}`);
+    }
+
+    const data = await resp.json() as {
+      content?: Array<{ type?: string; text?: string }>;
+    };
+
+    const text = data.content
+      ?.filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .filter(Boolean)
+      .join('') ?? '';
+
+    if (!text) throw new Error('No text content in anthropic response');
+
+    let content = text.trim();
+    if (content.startsWith('```')) {
+      content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    }
+
+    return content;
+  }
+
   const endpoint = PROVIDER_ENDPOINTS[provider];
   if (!endpoint) throw new Error(`Unknown provider: ${provider}`);
 
@@ -222,6 +270,9 @@ export async function callProvider(
 export function getProviderApiKey(provider: string, clientApiKey?: string): string | undefined {
   if (provider === 'gemini') {
     return process.env.GEMINI_API_KEY || clientApiKey || undefined;
+  }
+  if (provider === 'anthropic') {
+    return process.env.ANTHROPIC_API_KEY || clientApiKey || undefined;
   }
   const endpoint = PROVIDER_ENDPOINTS[provider];
   if (!endpoint) return undefined;
