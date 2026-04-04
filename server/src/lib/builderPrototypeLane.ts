@@ -1,5 +1,4 @@
 import { and, desc, eq } from 'drizzle-orm';
-
 import { getDb } from '../db.js';
 import { builderArtifacts, builderTasks } from '../schema/builder.js';
 import type { BdlCommand } from './builderBdlParser.js';
@@ -12,15 +11,36 @@ export interface PrototypeResult {
   error?: string;
 }
 
-function parsePrototypeKind(value: string | undefined): 'html' | 'react' {
-  return value === 'react' ? 'react' : 'html';
+type PrototypePayload = {
+  kind?: unknown;
+  html?: unknown;
+  interactive?: unknown;
+};
+
+function getPrototypeKind(command: BdlCommand): 'html' | 'react' {
+  return command.params.kind === 'react' ? 'react' : 'html';
+}
+
+async function getLatestPrototypeArtifact(taskId: string) {
+  const db = getDb();
+  const [artifact] = await db
+    .select()
+    .from(builderArtifacts)
+    .where(and(
+      eq(builderArtifacts.taskId, taskId),
+      eq(builderArtifacts.artifactType, 'prototype'),
+    ))
+    .orderBy(desc(builderArtifacts.createdAt))
+    .limit(1);
+
+  return artifact ?? null;
 }
 
 export async function executePrototype(
   taskId: string,
   command: BdlCommand,
 ): Promise<PrototypeResult> {
-  const kind = parsePrototypeKind(command.params.kind);
+  const kind = getPrototypeKind(command);
   const body = command.body?.trim() ?? '';
 
   if (!body) {
@@ -43,7 +63,7 @@ export async function executePrototype(
       path: `/builder/preview/${taskId}`,
       jsonPayload: {
         kind,
-        html: body,
+        html: command.body,
         interactive: command.params.interactive === 'true',
       },
     })
@@ -52,24 +72,18 @@ export async function executePrototype(
   return {
     taskId,
     kind,
-    saved: true,
+    saved: Boolean(artifact?.id),
     artifactId: artifact?.id ?? null,
   };
 }
 
 export async function getPrototypeHtml(taskId: string): Promise<string | null> {
-  const db = getDb();
-  const [artifact] = await db
-    .select({ jsonPayload: builderArtifacts.jsonPayload })
-    .from(builderArtifacts)
-    .where(and(
-      eq(builderArtifacts.taskId, taskId),
-      eq(builderArtifacts.artifactType, 'prototype'),
-    ))
-    .orderBy(desc(builderArtifacts.createdAt))
-    .limit(1);
+  const artifact = await getLatestPrototypeArtifact(taskId);
+  if (!artifact) {
+    return null;
+  }
 
-  const payload = artifact?.jsonPayload as Record<string, unknown> | null | undefined;
+  const payload = artifact.jsonPayload as PrototypePayload | null;
   return typeof payload?.html === 'string' ? payload.html : null;
 }
 
@@ -78,29 +92,12 @@ export async function promotePrototype(
   approved: string[],
   exclude: string[],
 ): Promise<{ promoted: boolean; notes: string }> {
-  const db = getDb();
-  const [sourceArtifact] = await db
-    .select({
-      id: builderArtifacts.id,
-      jsonPayload: builderArtifacts.jsonPayload,
-    })
-    .from(builderArtifacts)
-    .where(and(
-      eq(builderArtifacts.taskId, taskId),
-      eq(builderArtifacts.artifactType, 'prototype'),
-    ))
-    .orderBy(desc(builderArtifacts.createdAt))
-    .limit(1);
-
+  const sourceArtifact = await getLatestPrototypeArtifact(taskId);
   if (!sourceArtifact) {
     return { promoted: false, notes: 'No prototype artifact found' };
   }
 
-  const payload = sourceArtifact.jsonPayload as Record<string, unknown> | null | undefined;
-  const kind = typeof payload?.kind === 'string' ? payload.kind : 'html';
-  const html = typeof payload?.html === 'string' ? payload.html : '';
-  const interactive = payload?.interactive === true;
-
+  const db = getDb();
   await db.insert(builderArtifacts).values({
     taskId,
     artifactType: 'promoted_prototype',
@@ -111,9 +108,6 @@ export async function promotePrototype(
       exclude,
       sourceArtifactId: sourceArtifact.id,
       promotedAt: new Date().toISOString(),
-      kind,
-      html,
-      interactive,
     },
   });
 

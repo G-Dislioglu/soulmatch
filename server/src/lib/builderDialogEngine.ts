@@ -437,20 +437,13 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       totalTokens += protoTokens;
       const protoCommands = parseBdl(protoResponse);
       const protoCommand = protoCommands.find((command) => command.kind === 'PROTOTYPE');
-      const protoResults = protoCommands.map((command) => (
-        command.kind === 'PROTOTYPE'
-          ? (protoCommand
-              ? executePrototype(taskId, command)
-              : Promise.resolve({
-                  taskId,
-                  kind: 'html' as const,
-                  saved: false,
-                  artifactId: null,
-                  error: 'No prototype command',
-                }))
-          : Promise.resolve({ stub: true } as Record<string, unknown>)
-      ));
-      const resolvedProtoResults = await Promise.all(protoResults);
+      const resolvedProtoResults = protoCommands.map((command) => ({ stub: true } as Record<string, unknown>));
+
+      if (protoCommand) {
+        const protoIndex = protoCommands.indexOf(protoCommand);
+        const protoResult = await executePrototype(taskId, protoCommand);
+        resolvedProtoResults[protoIndex] = protoResult as unknown as Record<string, unknown>;
+      }
 
       rounds.push({
         roundNumber: 0,
@@ -470,7 +463,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         protoCommands,
         protoResponse,
         protoTokens,
-        resolvedProtoResults.map((result) => result as Record<string, unknown>),
+        resolvedProtoResults,
         'prototype',
       );
 

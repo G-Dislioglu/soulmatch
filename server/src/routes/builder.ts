@@ -269,6 +269,22 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
     const { commitHash } = req.body as { commitHash?: string };
 
     const db = getDb();
+    const [task] = await db
+      .select({ status: builderTasks.status })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status === 'prototype_review') {
+      res.status(409).json({ error: 'Use approve-prototype for prototype_review tasks' });
+      return;
+    }
+
     const [updated] = await db
       .update(builderTasks)
       .set({ status: 'done', commitHash: commitHash ?? null, updatedAt: new Date() })
@@ -290,6 +306,23 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
 // POST /api/builder/tasks/:id/approve-prototype — promote preview and continue code lane
 router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) => {
   try {
+    const db = getDb();
+    const [task] = await db
+      .select({ status: builderTasks.status })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status !== 'prototype_review') {
+      res.status(409).json({ error: 'Task is not waiting for prototype review' });
+      return;
+    }
+
     const { approved, exclude } = req.body as { approved?: string[]; exclude?: string[] };
     const result = await promotePrototype(req.params.id, approved ?? [], exclude ?? []);
 
@@ -314,6 +347,22 @@ router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) =
   try {
     const { notes } = req.body as { notes?: string };
     const db = getDb();
+    const [task] = await db
+      .select({ status: builderTasks.status })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status !== 'prototype_review') {
+      res.status(409).json({ error: 'Task is not waiting for prototype review' });
+      return;
+    }
+
     const [updated] = await db
       .update(builderTasks)
       .set({ status: 'prototyping', updatedAt: new Date() })
@@ -336,10 +385,64 @@ router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) =
   }
 });
 
+// POST /api/builder/tasks/:id/discard — discard a prototype under review
+router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [task] = await db
+      .select({ status: builderTasks.status })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status !== 'prototype_review') {
+      res.status(409).json({ error: 'Use revert for non-prototype tasks' });
+      return;
+    }
+
+    const [updated] = await db
+      .update(builderTasks)
+      .set({ status: 'discarded', updatedAt: new Date() })
+      .where(eq(builderTasks.id, req.params.id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[builder] POST /tasks/:id/discard error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // POST /api/builder/tasks/:id/revert — set status to reverted
 router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
   try {
     const db = getDb();
+    const [task] = await db
+      .select({ status: builderTasks.status })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status === 'prototype_review') {
+      res.status(409).json({ error: 'Use discard for prototype_review tasks' });
+      return;
+    }
+
     const [updated] = await db
       .update(builderTasks)
       .set({ status: 'reverted', updatedAt: new Date() })

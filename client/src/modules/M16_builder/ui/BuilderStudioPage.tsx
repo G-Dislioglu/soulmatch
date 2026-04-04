@@ -36,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
   blocked: '#ef4444',
   done: TOKENS.green,
   reverted: TOKENS.text3,
+  discarded: TOKENS.rose,
 };
 
 const ACTOR_COLORS: Record<string, string> = {
@@ -286,6 +287,8 @@ export function BuilderStudioPage() {
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
   const compact = viewportWidth < 1180;
+  const isPrototypeReview = activeTask?.status === 'prototype_review';
+  const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const previewUrl = activeTask ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}` : null;
 
   const refreshTasks = useCallback(async () => {
@@ -517,15 +520,19 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      await api.revertTask(selectedTaskId);
+      if (isPrototypeReview) {
+        await api.discardPrototype(selectedTaskId);
+      } else {
+        await api.revertTask(selectedTaskId);
+      }
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht revertiert werden');
+      setPageError(error instanceof Error ? error.message : isPrototypeReview ? 'Prototype konnte nicht verworfen werden' : 'Task konnte nicht revertiert werden');
     } finally {
       setIsBusy(false);
     }
-  }, [api, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [api, isPrototypeReview, refreshTaskDetail, refreshTasks, selectedTaskId]);
 
   if (!authenticated) {
     return (
@@ -755,11 +762,11 @@ export function BuilderStudioPage() {
                   </div>
                   <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash für Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
                   <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                    <button onClick={() => { void handleRunTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Run</button>
-                    <button onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve</button>
-                    <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revert</button>
+                    <button onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
+                    <button onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
+                    <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
                   </div>
-                  {activeTask?.status === 'prototype_review' && previewUrl ? (
+                  {isPrototypeReview && previewUrl ? (
                     <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
                       <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
                         <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Prototype Preview</div>

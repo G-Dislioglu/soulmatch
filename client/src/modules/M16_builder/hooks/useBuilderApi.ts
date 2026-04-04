@@ -182,6 +182,12 @@ export function useBuilderApi(token: string | null) {
     });
   }, [requestJson]);
 
+  const discardPrototype = useCallback((taskId: string) => {
+    return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/discard`, {
+      method: 'POST',
+    });
+  }, [requestJson]);
+
   const revertTask = useCallback((taskId: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/revert`, {
       method: 'POST',
@@ -200,6 +206,7 @@ export function useBuilderApi(token: string | null) {
     approveTask,
     approvePrototype,
     revisePrototype,
+    discardPrototype,
     revertTask,
   };
 }
