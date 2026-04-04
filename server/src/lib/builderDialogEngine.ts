@@ -9,6 +9,7 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
+import { runBrowserLane } from './builderBrowserLane.js';
 import { executePrototype } from './builderPrototypeLane.js';
 import {
   assertExpect,
@@ -58,6 +59,9 @@ function buildArchitectSystemPrompt(task: typeof builderTasks.$inferSelect) {
     `Not-Scope: ${task.notScope.join(', ') || '(leer)'}`,
     `Policy: ${task.policyProfile ?? TASK_TYPE_TO_PROFILE[task.taskType as keyof typeof TASK_TYPE_TO_PROFILE]}`,
     'Regel: @FIND_PATTERN ist Pflicht vor jedem @PLAN.',
+    ['B', 'C'].includes(task.taskType)
+      ? 'Fuer Typ B/C musst du mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
+      : '',
   ].join('\n');
 }
 
@@ -266,6 +270,20 @@ async function executeArchitectCommands(
     if (kind === 'PROTOTYPE') {
       const prototypeResult = await executePrototype(task.id, command);
       const result = prototypeResult as unknown as Record<string, unknown>;
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'UI_RUN') {
+      const result = {
+        queued: true,
+        route: command.params.route || command.params.path || command.params.url || command.params.arg1 || '/',
+        selector: command.params.selector || command.params.locator || null,
+        text: command.params.text || command.params.contains || null,
+        waitFor: command.params.waitFor || command.params.wait || null,
+        notes: command.body ?? null,
+      };
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
       continue;
@@ -712,6 +730,73 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         if (combinedVerdict === 'ok') {
+          if (['B', 'C'].includes(task.taskType)) {
+            const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
+
+            await db
+              .update(builderTasks)
+              .set({ status: 'browser_testing', updatedAt: new Date() })
+              .where(eq(builderTasks.id, taskId));
+
+            try {
+              const browserExecution = await runBrowserLane(taskId, worktree.worktreePath, uiRunCommands);
+
+              if (uiRunCommands.length > 0) {
+                await saveCommandActions(
+                  taskId,
+                  'system',
+                  'system',
+                  roundNumber,
+                  uiRunCommands,
+                  browserExecution.summary,
+                  0,
+                  browserExecution.commandResults,
+                  'browser',
+                );
+              } else {
+                await saveCommandActions(
+                  taskId,
+                  'system',
+                  'system',
+                  roundNumber,
+                  [],
+                  browserExecution.summary,
+                  0,
+                  [],
+                  'browser',
+                );
+              }
+
+              latestContext = [
+                latestContext,
+                `browser_lane:${browserExecution.reason}`,
+                browserExecution.summary,
+              ].filter(Boolean).join('\n\n');
+
+              if (!browserExecution.ok) {
+                finalStatus = 'review_needed';
+                abortReason = browserExecution.reason;
+                break;
+              }
+            } catch (browserError) {
+              const message = browserError instanceof Error ? browserError.message : String(browserError);
+              await saveCommandActions(
+                taskId,
+                'system',
+                'system',
+                roundNumber,
+                [],
+                `Browser lane error: ${message}`,
+                0,
+                [],
+                'browser',
+              );
+              finalStatus = 'review_needed';
+              abortReason = `browser_lane_error:${message}`;
+              break;
+            }
+          }
+
           finalStatus = 'push_candidate';
           break;
         }
