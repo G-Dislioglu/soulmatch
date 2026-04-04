@@ -1,12 +1,14 @@
+import { execSync } from 'node:child_process';
 import { asc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { builderActions, builderTasks } from '../schema/builder.js';
 import { BUILDER_POLICY_PROFILES, TASK_TYPE_TO_PROFILE } from './builderPolicyProfiles.js';
 import { callProvider } from './providers.js';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
-import { checkTokenBudget } from './builderGates.js';
+import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
+import { applyPatch } from './builderPatchExecutor.js';
 
 export interface DialogRound {
   roundNumber: number;
@@ -56,6 +58,29 @@ function buildReviewerSystemPrompt() {
 
 function summarizeCommandResult(command: BdlCommand, result: Record<string, unknown>) {
   return JSON.stringify({ kind: command.kind, params: command.params, result });
+}
+
+function parseStageFiles(value: string) {
+  return value
+    .replace(/[\[\]]/g, '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function runGitCommand(command: string, cwd: string) {
+  try {
+    return execSync(command, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 60_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    const execError = error as Error & { stderr?: string; stdout?: string };
+    throw new Error(execError.stderr || execError.stdout || execError.message);
+  }
 }
 
 async function saveCommandActions(
@@ -118,6 +143,7 @@ async function executeArchitectCommands(
   const forbiddenFiles = policy?.forbidden_files ?? [];
   const outputs: string[] = [];
   const results: Array<Record<string, unknown>> = [];
+  const pendingPatches: Array<{ file: string; body: string }> = [];
 
   for (const command of commands) {
     const kind = command.kind;
@@ -178,8 +204,90 @@ async function executeArchitectCommands(
       continue;
     }
 
-    if (kind === 'PLAN' || kind === 'PATCH' || kind === 'APPLY') {
-      const result = { stub: true, body: command.body ?? null, params: command.params };
+    if (kind === 'PLAN') {
+      const result = {
+        planned: true,
+        body: command.body ?? null,
+        params: command.params,
+      };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'PATCH') {
+      const filePath = command.params.file;
+      let result: Record<string, unknown>;
+
+      if (!filePath) {
+        result = { error: 'missing_file_param' };
+      } else {
+        pendingPatches.push({ file: filePath, body: command.body ?? '' });
+        result = { buffered: true, file: filePath };
+      }
+
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'APPLY') {
+      const patchResults = [];
+      for (const patch of pendingPatches) {
+        patchResults.push(
+          await applyPatch(worktreePath, patch.file, patch.body, task.scope, forbiddenFiles),
+        );
+      }
+      pendingPatches.length = 0;
+
+      const result = { patches: patchResults };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'STAGE') {
+      const filesParam = command.params.files || command.params.arg1 || '';
+      const fileList = parseStageFiles(filesParam);
+      let result: Record<string, unknown>;
+
+      if (fileList.length === 0) {
+        result = { error: 'missing_files_param' };
+      } else {
+        const scopeViolation = fileList
+          .map((file) => ({ file, check: checkScope(file, task.scope, forbiddenFiles) }))
+          .find(({ check }) => !check.allowed);
+
+        if (scopeViolation) {
+          result = {
+            error: `scope_violation:${scopeViolation.file}`,
+            reason: scopeViolation.check.reason,
+          };
+        } else {
+          const quotedFiles = fileList.map((file) => JSON.stringify(file)).join(' ');
+          runGitCommand(`git add -- ${quotedFiles}`, worktreePath);
+          result = { staged: fileList };
+        }
+      }
+
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'COMMIT') {
+      const message = command.params.msg || command.params.message || command.body || 'builder: auto-commit';
+      let result: Record<string, unknown>;
+
+      try {
+        runGitCommand('git diff --cached --quiet', worktreePath);
+        result = { error: 'no_staged_changes' };
+      } catch {
+        runGitCommand(`git commit -m ${JSON.stringify(message)}`, worktreePath);
+        const commitHash = runGitCommand('git rev-parse HEAD', worktreePath);
+        result = { commitHash, message };
+      }
+
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
       continue;
@@ -353,6 +461,68 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
     if (rounds.length > 0 && finalStatus === 'needs_human_review' && !abortReason) {
       abortReason = 'max_rounds_exceeded';
+    }
+
+    const needsCounterexamples = policy?.counterexamples_required === true
+      && (task.risk === 'medium' || task.risk === 'high');
+
+    if (needsCounterexamples && finalStatus === 'push_candidate') {
+      await db
+        .update(builderTasks)
+        .set({ status: 'counterexampling', updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+
+      const counterexampleResponse = await callProvider('openai', 'gpt-4.1-mini', {
+        system: [
+          'Du bist der Builder-Counterexample-Analyst fuer Soulmatch.',
+          'Antworte NUR in BDL.',
+          'Generiere 1-3 @COUNTEREXAMPLE oder @FAILURE_PATH Bloecke.',
+          'Denke: Was koennte an diesem Fix schiefgehen?',
+          'Wenn du einen echten Blocker findest: @BLOCK. Sonst: @APPROVE.',
+        ].join('\n'),
+        messages: [
+          {
+            role: 'user',
+            content: `Task: ${task.goal}\n\nBisheriger Dialog:\n${latestContext}`,
+          },
+        ],
+        maxTokens: 1500,
+        temperature: 0.8,
+      });
+
+      const ceTokens = estimateTokens(counterexampleResponse);
+      totalTokens += ceTokens;
+      const ceCommands = parseBdl(counterexampleResponse);
+
+      rounds.push({
+        roundNumber: rounds.length + 1,
+        actor: 'chatgpt',
+        role: 'reviewer',
+        rawResponse: counterexampleResponse,
+        commands: ceCommands,
+        tokensUsed: ceTokens,
+        timestamp: new Date().toISOString(),
+      });
+
+      await saveCommandActions(
+        taskId,
+        'chatgpt',
+        'reviewer',
+        rounds.length,
+        ceCommands,
+        counterexampleResponse,
+        ceTokens,
+        ceCommands.map(() => ({ stub: true })),
+      );
+
+      const counterexampleBudget = checkTokenBudget(totalTokens, tokenBudget);
+      if (!counterexampleBudget.ok) {
+        finalStatus = 'blocked';
+        abortReason = 'token_budget_exceeded';
+      } else if (ceCommands.some((command) => command.kind === 'BLOCK')) {
+        finalStatus = 'blocked';
+        abortReason = 'counterexample_blocked';
+      }
     }
   } catch (error) {
     finalStatus = 'blocked';
