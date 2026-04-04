@@ -9,6 +9,13 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
+import {
+  assertExpect,
+  assertExpectJson,
+  callLocalEndpoint,
+  verifyDatabaseState,
+  type RuntimeCallResult,
+} from './builderRuntimeLane.js';
 
 export interface DialogRound {
   roundNumber: number;
@@ -144,6 +151,7 @@ async function executeArchitectCommands(
   const outputs: string[] = [];
   const results: Array<Record<string, unknown>> = [];
   const pendingPatches: Array<{ file: string; body: string }> = [];
+  let lastCallResult: RuntimeCallResult | null = null;
 
   for (const command of commands) {
     const kind = command.kind;
@@ -192,6 +200,36 @@ async function executeArchitectCommands(
         result = { type: checkType, stub: true };
       }
 
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'CALL') {
+      const result = await callLocalEndpoint(task.id, command);
+      lastCallResult = result;
+      const summaryResult = result as unknown as Record<string, unknown>;
+      results.push(summaryResult);
+      outputs.push(summarizeCommandResult(command, summaryResult));
+      continue;
+    }
+
+    if (kind === 'EXPECT') {
+      const result = await assertExpect(task.id, command, lastCallResult);
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'EXPECT_JSON') {
+      const result = await assertExpectJson(task.id, command, lastCallResult);
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'DB_VERIFY') {
+      const result = await verifyDatabaseState(task.id, command);
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
       continue;
