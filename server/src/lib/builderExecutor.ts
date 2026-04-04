@@ -28,7 +28,16 @@ function trimOutput(output: string) {
 }
 
 export function getRepoRoot() {
-  return runCommand('git rev-parse --show-toplevel').trim();
+  try {
+    return execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf-8',
+      timeout: 5_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return process.cwd();
+  }
 }
 
 export function createWorktree(taskId: string) {

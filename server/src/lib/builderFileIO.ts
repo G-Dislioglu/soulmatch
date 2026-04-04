@@ -56,12 +56,18 @@ export async function findPattern(rootDir: string, pattern: string, fileGlob?: s
   const safePattern = pattern.replace(/"/g, '\\"');
   const includePart = fileGlob ? ` --include=\"${fileGlob.replace(/"/g, '\\"')}\"` : '';
   const command = `grep -rn${includePart} -E \"${safePattern}\" . 2>/dev/null || true`;
-  const output = execSync(command, {
-    cwd: rootDir,
-    encoding: 'utf-8',
-    maxBuffer: 1024 * 1024 * 8,
-    windowsHide: true,
-  });
+  let output = '';
+
+  try {
+    output = execSync(command, {
+      cwd: rootDir,
+      encoding: 'utf-8',
+      maxBuffer: 1024 * 1024 * 8,
+      windowsHide: true,
+    });
+  } catch {
+    return [];
+  }
 
   return output
     .split(/\r?\n/)
@@ -104,12 +110,18 @@ export async function listFiles(rootDir: string, subPath?: string) {
     '-print',
   ].join(' ');
 
-  const output = execSync(command, {
-    cwd: resolved,
-    encoding: 'utf-8',
-    maxBuffer: 1024 * 1024 * 8,
-    windowsHide: true,
-  });
+  let output = '';
+
+  try {
+    output = execSync(command, {
+      cwd: resolved,
+      encoding: 'utf-8',
+      maxBuffer: 1024 * 1024 * 8,
+      windowsHide: true,
+    });
+  } catch {
+    return [];
+  }
 
   return output
     .split(/\r?\n/)
