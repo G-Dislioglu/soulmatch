@@ -90,7 +90,9 @@ export async function findPattern(rootDir: string, pattern: string, fileGlob?: s
 
 export async function listFiles(rootDir: string, subPath?: string) {
   const { normalized, resolved } = resolveRootPath(rootDir, subPath ?? '');
-  ensureScope(normalized, [], []);
+  if (normalized) {
+    ensureScope(normalized, [], []);
+  }
 
   const command = [
     'find',
