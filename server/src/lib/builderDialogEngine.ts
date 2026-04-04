@@ -24,6 +24,7 @@ import {
   type ParsedReview,
   type ReviewVerdict,
 } from './builderReviewLane.js';
+import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
 
 export interface DialogRound {
   roundNumber: number;
@@ -723,6 +724,13 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       updatedAt: new Date(),
     })
     .where(eq(builderTasks.id, taskId));
+
+  try {
+    const evidencePack = await generateEvidencePack(taskId);
+    await saveEvidencePack(taskId, evidencePack);
+  } catch (evidenceError) {
+    console.error('[builder] Evidence pack generation failed:', evidenceError);
+  }
 
   return {
     taskId,

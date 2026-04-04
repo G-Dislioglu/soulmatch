@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { eq, desc, asc } from 'drizzle-orm';
+import { and, eq, desc, asc } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
   builderActions,
+  builderArtifacts,
   builderTasks,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from '../lib/builderPolicyProfiles.js';
@@ -201,6 +202,32 @@ router.get('/tasks/:id/dialog', async (req: Request, res: Response) => {
     res.json(textActions);
   } catch (err) {
     console.error('[builder] GET /tasks/:id/dialog error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /api/builder/tasks/:id/evidence — latest evidence pack
+router.get('/tasks/:id/evidence', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [artifact] = await db
+      .select()
+      .from(builderArtifacts)
+      .where(and(
+        eq(builderArtifacts.taskId, req.params.id),
+        eq(builderArtifacts.artifactType, 'evidence_pack'),
+      ))
+      .orderBy(desc(builderArtifacts.createdAt))
+      .limit(1);
+
+    if (!artifact) {
+      res.status(404).json({ error: 'Evidence pack not found' });
+      return;
+    }
+
+    res.json(artifact.jsonPayload);
+  } catch (err) {
+    console.error('[builder] GET /tasks/:id/evidence error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
