@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 
 import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
@@ -282,7 +282,21 @@ export function BuilderStudioPage() {
     taskType: 'A',
   });
 
-  const api = useBuilderApi(token || null);
+  const {
+    listFiles: listBuilderFiles,
+    readFile: readBuilderFile,
+    getTasks: getBuilderTasks,
+    createTask: createBuilderTask,
+    getTask: getBuilderTask,
+    runTask: runBuilderTask,
+    getDialog: getBuilderDialog,
+    getEvidence: getBuilderEvidence,
+    approveTask: approveBuilderTask,
+    approvePrototype: approveBuilderPrototype,
+    revisePrototype: reviseBuilderPrototype,
+    discardPrototype: discardBuilderPrototype,
+    revertTask: revertBuilderTask,
+  } = useBuilderApi(token || null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -290,9 +304,15 @@ export function BuilderStudioPage() {
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const previewUrl = activeTask ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}` : null;
+  const bootstrappedTokenRef = useRef<string | null>(null);
+  const dialogFormatRef = useRef(dialogFormat);
+
+  useEffect(() => {
+    dialogFormatRef.current = dialogFormat;
+  }, [dialogFormat]);
 
   const refreshTasks = useCallback(async () => {
-    const nextTasks = await api.getTasks();
+    const nextTasks = await getBuilderTasks();
     setTasks(nextTasks);
     setSelectedTaskId((current) => {
       if (current && nextTasks.some((task) => task.id === current)) {
@@ -300,27 +320,27 @@ export function BuilderStudioPage() {
       }
       return nextTasks[0]?.id ?? null;
     });
-  }, [api]);
+  }, [getBuilderTasks]);
 
   const refreshFiles = useCallback(async () => {
-    const nextFiles = await api.listFiles();
+    const nextFiles = await listBuilderFiles();
     setFiles(nextFiles);
     setSelectedFilePath((current) => current ?? nextFiles[0] ?? null);
-  }, [api]);
+  }, [listBuilderFiles]);
 
   const refreshTaskDetail = useCallback(async (taskId: string) => {
-    const nextTask = await api.getTask(taskId);
+    const nextTask = await getBuilderTask(taskId);
     setTaskDetail(nextTask);
-  }, [api]);
+  }, [getBuilderTask]);
 
   const refreshDialog = useCallback(async (taskId: string, format: DialogFormat) => {
-    const nextActions = await api.getDialog(taskId, format);
+    const nextActions = await getBuilderDialog(taskId, format);
     setDialogActions(nextActions);
-  }, [api]);
+  }, [getBuilderDialog]);
 
   const refreshEvidence = useCallback(async (taskId: string) => {
     try {
-      const nextEvidence = await api.getEvidence(taskId);
+      const nextEvidence = await getBuilderEvidence(taskId);
       setEvidencePack(nextEvidence);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -330,35 +350,57 @@ export function BuilderStudioPage() {
       }
       throw error;
     }
-  }, [api]);
+  }, [getBuilderEvidence]);
 
-  const bootstrap = useCallback(async () => {
-    if (!token || token.trim().length === 0) {
+  useEffect(() => {
+    const trimmedToken = token.trim();
+
+    if (trimmedToken.length === 0) {
+      bootstrappedTokenRef.current = null;
       setAuthenticated(false);
+      setAuthLoading(false);
       return;
     }
 
-    setAuthLoading(true);
-    setAuthError(null);
-    setPageError(null);
-    try {
-      const [nextTasks, nextFiles] = await Promise.all([api.getTasks(), api.listFiles()]);
-      setTasks(nextTasks);
-      setFiles(nextFiles);
-      setSelectedTaskId((current) => current ?? nextTasks[0]?.id ?? null);
-      setSelectedFilePath((current) => current ?? nextFiles[0] ?? null);
-      setAuthenticated(true);
-    } catch (error) {
-      setAuthenticated(false);
-      setAuthError(error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen');
-    } finally {
-      setAuthLoading(false);
+    if (bootstrappedTokenRef.current === trimmedToken) {
+      return;
     }
-  }, [api, token]);
 
-  useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
+    bootstrappedTokenRef.current = trimmedToken;
+    let cancelled = false;
+
+    void (async () => {
+      setAuthLoading(true);
+      setAuthError(null);
+      setPageError(null);
+      try {
+        const [nextTasks, nextFiles] = await Promise.all([getBuilderTasks(), listBuilderFiles()]);
+        if (cancelled) {
+          return;
+        }
+        setTasks(nextTasks);
+        setFiles(nextFiles);
+        setSelectedTaskId((current) => current ?? nextTasks[0]?.id ?? null);
+        setSelectedFilePath((current) => current ?? nextFiles[0] ?? null);
+        setAuthenticated(true);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        bootstrappedTokenRef.current = null;
+        setAuthenticated(false);
+        setAuthError(error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen');
+      } finally {
+        if (!cancelled) {
+          setAuthLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, getBuilderTasks, listBuilderFiles]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -372,7 +414,7 @@ export function BuilderStudioPage() {
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [authenticated, refreshTasks]);
+  }, [authenticated, selectedTaskId, refreshTasks]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -396,26 +438,26 @@ export function BuilderStudioPage() {
     }
 
     const intervalId = window.setInterval(() => {
-      void refreshDialog(selectedTaskId, dialogFormat).catch((error) => {
+      void refreshDialog(selectedTaskId, dialogFormatRef.current).catch((error) => {
         setPageError(error instanceof Error ? error.message : 'Dialog konnte nicht aktualisiert werden');
       });
     }, 3000);
 
     return () => window.clearInterval(intervalId);
-  }, [authenticated, selectedTaskId, dialogFormat, refreshDialog]);
+  }, [authenticated, selectedTaskId, refreshDialog]);
 
   useEffect(() => {
     if (!authenticated || !selectedFilePath) {
       return;
     }
 
-    void api.readFile(selectedFilePath)
+    void readBuilderFile(selectedFilePath)
       .then((file) => setSelectedFileContent(file.content))
       .catch((error) => {
         setSelectedFileContent('');
         setPageError(error instanceof Error ? error.message : 'Datei konnte nicht geladen werden');
       });
-  }, [api, authenticated, selectedFilePath]);
+  }, [authenticated, readBuilderFile, selectedFilePath]);
 
   const handleAuthSubmit = useCallback(() => {
     setToken(tokenInput.trim());
@@ -425,7 +467,7 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      const created = await api.createTask(draft);
+      const created = await createBuilderTask(draft);
       setDraft({ title: '', goal: '', risk: draft.risk, taskType: draft.taskType });
       await refreshTasks();
       setSelectedTaskId(created.id);
@@ -434,7 +476,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, draft, refreshTasks]);
+  }, [createBuilderTask, draft, refreshTasks]);
 
   const handleRunTask = useCallback(async () => {
     if (!selectedTaskId) {
@@ -443,7 +485,7 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      await api.runTask(selectedTaskId);
+      await runBuilderTask(selectedTaskId);
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
       await refreshDialog(selectedTaskId, dialogFormat);
@@ -452,7 +494,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, dialogFormat, refreshDialog, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [dialogFormat, refreshDialog, refreshTaskDetail, refreshTasks, runBuilderTask, selectedTaskId]);
 
   const handleApproveTask = useCallback(async () => {
     if (!selectedTaskId) {
@@ -461,7 +503,7 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      await api.approveTask(selectedTaskId, commitHash || undefined);
+      await approveBuilderTask(selectedTaskId, commitHash || undefined);
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
       await refreshEvidence(selectedTaskId);
@@ -470,7 +512,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, commitHash, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [approveBuilderTask, commitHash, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
 
   const handleApprovePrototype = useCallback(async () => {
     if (!selectedTaskId) {
@@ -480,7 +522,7 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      await api.approvePrototype(selectedTaskId);
+      await approveBuilderPrototype(selectedTaskId);
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
       await refreshDialog(selectedTaskId, dialogFormat);
@@ -490,7 +532,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, dialogFormat, refreshDialog, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [approveBuilderPrototype, dialogFormat, refreshDialog, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
 
   const handleRevisePrototype = useCallback(async () => {
     if (!selectedTaskId) {
@@ -502,7 +544,7 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      await api.revisePrototype(selectedTaskId, notes);
+      await reviseBuilderPrototype(selectedTaskId, notes);
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
       await refreshDialog(selectedTaskId, dialogFormat);
@@ -511,7 +553,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, dialogFormat, refreshDialog, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [dialogFormat, refreshDialog, refreshTaskDetail, refreshTasks, reviseBuilderPrototype, selectedTaskId]);
 
   const handleRevertTask = useCallback(async () => {
     if (!selectedTaskId) {
@@ -521,9 +563,9 @@ export function BuilderStudioPage() {
     setPageError(null);
     try {
       if (isPrototypeReview) {
-        await api.discardPrototype(selectedTaskId);
+        await discardBuilderPrototype(selectedTaskId);
       } else {
-        await api.revertTask(selectedTaskId);
+        await revertBuilderTask(selectedTaskId);
       }
       await refreshTasks();
       await refreshTaskDetail(selectedTaskId);
@@ -532,7 +574,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [api, isPrototypeReview, refreshTaskDetail, refreshTasks, selectedTaskId]);
+  }, [discardBuilderPrototype, isPrototypeReview, refreshTaskDetail, refreshTasks, revertBuilderTask, selectedTaskId]);
 
   if (!authenticated) {
     return (
