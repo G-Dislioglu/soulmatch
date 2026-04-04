@@ -1,12 +1,15 @@
 import { Router, type Request, type Response } from 'express';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, asc } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
+  builderActions,
   builderTasks,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from '../lib/builderPolicyProfiles.js';
 import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
+import { extractTextContent } from '../lib/builderBdlParser.js';
+import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 
 const router = Router();
@@ -132,6 +135,21 @@ router.get('/tasks/:id', async (req: Request, res: Response) => {
 router.post('/tasks/:id/run', async (req: Request, res: Response) => {
   try {
     const db = getDb();
+    const [task] = await db
+      .select()
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id));
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    if (task.status !== 'queued') {
+      res.status(409).json({ error: 'Task is not queued' });
+      return;
+    }
+
     const [updated] = await db
       .update(builderTasks)
       .set({ status: 'classifying', updatedAt: new Date() })
@@ -143,9 +161,46 @@ router.post('/tasks/:id/run', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(updated);
+    void runDialogEngine(req.params.id).catch((error) => {
+      console.error('[builder] dialog engine error:', error);
+    });
+
+    res.status(202).json({ taskId: updated.id, status: 'classifying' });
   } catch (err) {
     console.error('[builder] POST /tasks/:id/run error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /api/builder/tasks/:id/dialog — raw or text-only dialog history
+router.get('/tasks/:id/dialog', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const actions = await db
+      .select()
+      .from(builderActions)
+      .where(eq(builderActions.taskId, req.params.id))
+      .orderBy(asc(builderActions.createdAt));
+
+    const format = req.query.format === 'text' ? 'text' : 'dsl';
+    if (format !== 'text') {
+      res.json(actions);
+      return;
+    }
+
+    const textActions = actions.map((action) => {
+      const payload = action.payload as Record<string, unknown> | null;
+      const rawResponse = typeof payload?.rawResponse === 'string' ? payload.rawResponse : '';
+
+      return {
+        ...action,
+        text: extractTextContent(rawResponse),
+      };
+    });
+
+    res.json(textActions);
+  } catch (err) {
+    console.error('[builder] GET /tasks/:id/dialog error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
