@@ -1,6 +1,4 @@
-import * as pgc from 'drizzle-orm/pg-core';
-
-const { integer, jsonb, text, timestamp, uuid, varchar } = pgc;
+import { integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 export const BUILDER_STATUS = [
   'queued',
@@ -25,7 +23,7 @@ export const BUILDER_STATUS = [
 
 export type BuilderStatus = (typeof BUILDER_STATUS)[number];
 
-export const builderTasks = pgc.pgTable('builder_tasks', {
+export const builderTasks = pgTable('builder_tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 200 }).notNull(),
   goal: text('goal').notNull(),
@@ -46,7 +44,7 @@ export const builderTasks = pgc.pgTable('builder_tasks', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const builderActions = pgc.pgTable('builder_actions', {
+export const builderActions = pgTable('builder_actions', {
   id: uuid('id').primaryKey().defaultRandom(),
   taskId: uuid('task_id')
     .references(() => builderTasks.id)
@@ -60,7 +58,7 @@ export const builderActions = pgc.pgTable('builder_actions', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const builderReviews = pgc.pgTable('builder_reviews', {
+export const builderReviews = pgTable('builder_reviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   taskId: uuid('task_id')
     .references(() => builderTasks.id)
@@ -76,7 +74,7 @@ export const builderReviews = pgc.pgTable('builder_reviews', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const builderTestResults = pgc.pgTable('builder_test_results', {
+export const builderTestResults = pgTable('builder_test_results', {
   id: uuid('id').primaryKey().defaultRandom(),
   taskId: uuid('task_id')
     .references(() => builderTasks.id)
@@ -88,7 +86,7 @@ export const builderTestResults = pgc.pgTable('builder_test_results', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const builderArtifacts = pgc.pgTable('builder_artifacts', {
+export const builderArtifacts = pgTable('builder_artifacts', {
   id: uuid('id').primaryKey().defaultRandom(),
   taskId: uuid('task_id')
     .references(() => builderTasks.id)
