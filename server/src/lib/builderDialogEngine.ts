@@ -9,6 +9,7 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
+import { executePrototype } from './builderPrototypeLane.js';
 import {
   assertExpect,
   assertExpectJson,
@@ -125,13 +126,14 @@ async function saveCommandActions(
   rawResponse: string,
   tokensUsed: number,
   results: Array<Record<string, unknown>>,
+  laneOverride?: string,
 ) {
   const db = getDb();
 
   if (commands.length === 0) {
     await db.insert(builderActions).values({
       taskId,
-      lane: role === 'reviewer' || role === 'observer' ? 'review' : 'code',
+      lane: laneOverride ?? (role === 'reviewer' || role === 'observer' ? 'review' : 'code'),
       kind: 'SAY',
       actor,
       payload: {
@@ -149,7 +151,7 @@ async function saveCommandActions(
   await db.insert(builderActions).values(
     commands.map((command, index) => ({
       taskId,
-      lane: role === 'reviewer' || role === 'observer' ? 'review' : 'code',
+      lane: laneOverride ?? (role === 'reviewer' || role === 'observer' ? 'review' : 'code'),
       kind: command.kind,
       actor,
       payload: {
@@ -256,6 +258,21 @@ async function executeArchitectCommands(
 
     if (kind === 'DB_VERIFY') {
       const result = await verifyDatabaseState(task.id, command);
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'PROTOTYPE') {
+      const prototypeResult = await executePrototype(task.id, command);
+      const result = prototypeResult as unknown as Record<string, unknown>;
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'PROMOTE') {
+      const result = { stub: true, note: 'PROMOTE handled via API endpoint' };
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
       continue;
@@ -386,252 +403,331 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
   let latestContext = '';
+  const needsPrototype = ['B', 'C', 'P'].includes(task.taskType);
+  const shouldRunPrototypeLane = needsPrototype && task.status !== 'planning' && task.status !== 'prototype_review';
 
   try {
-    for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
+    if (task.status === 'prototype_review') {
+      finalStatus = 'prototype_review';
+    } else if (shouldRunPrototypeLane) {
       await db
         .update(builderTasks)
-        .set({ status: 'planning', updatedAt: new Date() })
+        .set({ status: 'prototyping', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
 
-      const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-        system: buildArchitectSystemPrompt(task),
+      const protoResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
+        system: [
+          'Du bist der Builder-Prototype-Designer fuer Soulmatch.',
+          'Erzeuge eine HTML Quick Preview mit inline CSS/JS.',
+          'Antworte mit einem @PROTOTYPE kind:"html" { ... } Block.',
+          'Das HTML soll die geplante UI-Aenderung als statische Vorschau zeigen.',
+          "Nutze diese Farben: bg=#0f0f17 text=#e5e4ee gold=#d4af37 font='DM Sans'",
+        ].join('\n'),
         messages: [
           {
             role: 'user',
-            content: [
-              `Task title: ${task.title}`,
-              `Task goal: ${task.goal}`,
-              latestContext ? `Bisherige Beobachtungen:\n${latestContext}` : 'Noch keine Beobachtungen.',
-            ].join('\n\n'),
+            content: `Task: ${task.goal}\nScope: ${task.scope.join(', ')}`,
           },
         ],
-        maxTokens: 2000,
-        temperature: 0.7,
+        maxTokens: 3000,
+        temperature: 0.8,
       });
 
-      const architectTokens = estimateTokens(architectResponse);
-      totalTokens += architectTokens;
+      const protoTokens = estimateTokens(protoResponse);
+      totalTokens += protoTokens;
+      const protoCommands = parseBdl(protoResponse);
+      const protoCommand = protoCommands.find((command) => command.kind === 'PROTOTYPE');
+      const protoResults = protoCommands.map((command) => (
+        command.kind === 'PROTOTYPE'
+          ? (protoCommand
+              ? executePrototype(taskId, command)
+              : Promise.resolve({
+                  taskId,
+                  kind: 'html' as const,
+                  saved: false,
+                  artifactId: null,
+                  error: 'No prototype command',
+                }))
+          : Promise.resolve({ stub: true } as Record<string, unknown>)
+      ));
+      const resolvedProtoResults = await Promise.all(protoResults);
 
-      const architectCommands = parseBdl(architectResponse);
-      const architectExecution = await executeArchitectCommands(task, worktree.worktreePath, architectCommands);
-
-      const architectRound: DialogRound = {
-        roundNumber,
+      rounds.push({
+        roundNumber: 0,
         actor: 'claude',
         role: 'architect',
-        rawResponse: architectResponse,
-        commands: architectCommands,
-        tokensUsed: architectTokens,
+        rawResponse: protoResponse,
+        commands: protoCommands,
+        tokensUsed: protoTokens,
         timestamp: new Date().toISOString(),
-      };
-      rounds.push(architectRound);
+      });
 
       await saveCommandActions(
         taskId,
         'claude',
         'architect',
-        roundNumber,
-        architectCommands,
-        architectResponse,
-        architectTokens,
-        architectExecution.results,
+        0,
+        protoCommands,
+        protoResponse,
+        protoTokens,
+        resolvedProtoResults.map((result) => result as Record<string, unknown>),
+        'prototype',
       );
-
-      const architectBudget = checkTokenBudget(totalTokens, tokenBudget);
-      if (!architectBudget.ok) {
-        finalStatus = 'blocked';
-        abortReason = 'token_budget_exceeded';
-        break;
-      }
 
       await db
         .update(builderTasks)
-        .set({ status: 'reviewing', updatedAt: new Date() })
+        .set({ status: 'prototype_review', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
 
-      const reviewerResponse = await callProvider('openai', 'gpt-4.1-mini', {
-        system: buildReviewerSystemPrompt('primary'),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              `Task goal: ${task.goal}`,
-              `Architect BDL:\n${architectResponse}`,
-              architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
-            ].join('\n\n'),
-          },
-        ],
-        maxTokens: 2000,
-        temperature: 0.7,
-      });
+      finalStatus = 'prototype_review';
+    }
 
-      const reviewerTokens = estimateTokens(reviewerResponse);
-      totalTokens += reviewerTokens;
-      const reviewerCommands = parseBdl(reviewerResponse);
-      const reviewerReviewCommand = reviewerCommands.find((command) => command.kind === 'REVIEW');
-      const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse);
+    if (!needsPrototype || task.status === 'planning') {
+      for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
+        await db
+          .update(builderTasks)
+          .set({ status: 'planning', updatedAt: new Date() })
+          .where(eq(builderTasks.id, taskId));
 
-      const reviewerRound: DialogRound = {
-        roundNumber,
-        actor: 'chatgpt',
-        role: 'reviewer',
-        rawResponse: reviewerResponse,
-        commands: reviewerCommands,
-        tokensUsed: reviewerTokens,
-        timestamp: new Date().toISOString(),
-      };
-      rounds.push(reviewerRound);
-
-      await saveCommandActions(
-        taskId,
-        'chatgpt',
-        'reviewer',
-        roundNumber,
-        reviewerCommands,
-        reviewerResponse,
-        reviewerTokens,
-        reviewerCommands.map(() => ({ stub: true })),
-      );
-
-      await saveReview(taskId, 'chatgpt', reviewerReview);
-
-      const reviewerBudget = checkTokenBudget(totalTokens, tokenBudget);
-      if (!reviewerBudget.ok) {
-        finalStatus = 'blocked';
-        abortReason = 'token_budget_exceeded';
-        break;
-      }
-
-      const claudeReviewerResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-        system: buildReviewerSystemPrompt('secondary'),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              `Task goal: ${task.goal}`,
-              `Architect BDL:\n${architectResponse}`,
-              architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
-              `Erstes Review (ChatGPT):\n${reviewerResponse}`,
-            ].join('\n\n'),
-          },
-        ],
-        maxTokens: 2000,
-        temperature: 0.5,
-      });
-
-      const claudeReviewerTokens = estimateTokens(claudeReviewerResponse);
-      totalTokens += claudeReviewerTokens;
-      const claudeReviewerCommands = parseBdl(claudeReviewerResponse);
-      const claudeReviewCommand = claudeReviewerCommands.find((command) => command.kind === 'REVIEW');
-      const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse);
-
-      const claudeReviewerRound: DialogRound = {
-        roundNumber,
-        actor: 'claude',
-        role: 'reviewer',
-        rawResponse: claudeReviewerResponse,
-        commands: claudeReviewerCommands,
-        tokensUsed: claudeReviewerTokens,
-        timestamp: new Date().toISOString(),
-      };
-      rounds.push(claudeReviewerRound);
-
-      await saveCommandActions(
-        taskId,
-        'claude',
-        'reviewer',
-        roundNumber,
-        claudeReviewerCommands,
-        claudeReviewerResponse,
-        claudeReviewerTokens,
-        claudeReviewerCommands.map(() => ({ stub: true })),
-      );
-
-      const agreement = computeAgreement(reviewerReview, claudeReview);
-      await saveReview(taskId, 'claude', claudeReview, agreement);
-
-      const claudeReviewerBudget = checkTokenBudget(totalTokens, tokenBudget);
-      if (!claudeReviewerBudget.ok) {
-        finalStatus = 'blocked';
-        abortReason = 'token_budget_exceeded';
-        break;
-      }
-
-      let observerReview: ParsedReview | null = null;
-      const observerResult = await runObserver(
-        task,
-        agreement,
-        [
-          `Architect BDL:\n${architectResponse}`,
-          architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
-          `Review 1 (ChatGPT):\n${reviewerResponse}`,
-          `Review 2 (Claude):\n${claudeReviewerResponse}`,
-        ].filter(Boolean).join('\n\n'),
-      );
-
-      if (observerResult) {
-        observerReview = observerResult.review;
-        rounds.push({
-          roundNumber,
-          actor: 'deepseek',
-          role: 'observer',
-          rawResponse: observerResult.rawResponse,
-          commands: observerResult.commands,
-          tokensUsed: observerResult.tokensUsed,
-          timestamp: new Date().toISOString(),
+        const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
+          system: buildArchitectSystemPrompt(task),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                `Task title: ${task.title}`,
+                `Task goal: ${task.goal}`,
+                latestContext ? `Bisherige Beobachtungen:\n${latestContext}` : 'Noch keine Beobachtungen.',
+              ].join('\n\n'),
+            },
+          ],
+          maxTokens: 2000,
+          temperature: 0.7,
         });
+
+        const architectTokens = estimateTokens(architectResponse);
+        totalTokens += architectTokens;
+
+        const architectCommands = parseBdl(architectResponse);
+        const architectExecution = await executeArchitectCommands(task, worktree.worktreePath, architectCommands);
+
+        const architectRound: DialogRound = {
+          roundNumber,
+          actor: 'claude',
+          role: 'architect',
+          rawResponse: architectResponse,
+          commands: architectCommands,
+          tokensUsed: architectTokens,
+          timestamp: new Date().toISOString(),
+        };
+        rounds.push(architectRound);
 
         await saveCommandActions(
           taskId,
-          'deepseek',
-          'observer',
+          'claude',
+          'architect',
           roundNumber,
-          observerResult.commands,
-          observerResult.rawResponse,
-          observerResult.tokensUsed,
-          observerResult.commands.map(() => ({ stub: true })),
+          architectCommands,
+          architectResponse,
+          architectTokens,
+          architectExecution.results,
         );
 
-        totalTokens += observerResult.tokensUsed;
-        await saveReview(taskId, 'deepseek', observerReview, agreement);
-
-        const observerBudget = checkTokenBudget(totalTokens, tokenBudget);
-        if (!observerBudget.ok) {
+        const architectBudget = checkTokenBudget(totalTokens, tokenBudget);
+        if (!architectBudget.ok) {
           finalStatus = 'blocked';
           abortReason = 'token_budget_exceeded';
           break;
         }
-      }
 
-      latestContext = [
-        architectExecution.contextText,
-        reviewerResponse,
-        claudeReviewerResponse,
-        observerResult?.rawResponse ?? '',
-        `agreement:${agreement.level}`,
-        agreement.dissentPoints.length > 0 ? `dissent:${agreement.dissentPoints.join(', ')}` : '',
-      ].filter(Boolean).join('\n\n');
+        await db
+          .update(builderTasks)
+          .set({ status: 'reviewing', updatedAt: new Date() })
+          .where(eq(builderTasks.id, taskId));
 
-      const combinedVerdict = observerReview
-        ? observerReview.verdict
-        : decideVerdict([reviewerReview.verdict, claudeReview.verdict]);
+        const reviewerResponse = await callProvider('openai', 'gpt-4.1-mini', {
+          system: buildReviewerSystemPrompt('primary'),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                `Task goal: ${task.goal}`,
+                `Architect BDL:\n${architectResponse}`,
+                architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
+              ].join('\n\n'),
+            },
+          ],
+          maxTokens: 2000,
+          temperature: 0.7,
+        });
 
-      if (combinedVerdict === 'block') {
-        finalStatus = 'blocked';
-        abortReason = observerReview ? 'observer_blocked' : 'dual_review_blocked';
-        break;
-      }
+        const reviewerTokens = estimateTokens(reviewerResponse);
+        totalTokens += reviewerTokens;
+        const reviewerCommands = parseBdl(reviewerResponse);
+        const reviewerReviewCommand = reviewerCommands.find((command) => command.kind === 'REVIEW');
+        const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse);
 
-      if (combinedVerdict === 'ok') {
-        finalStatus = 'push_candidate';
-        break;
-      }
+        const reviewerRound: DialogRound = {
+          roundNumber,
+          actor: 'chatgpt',
+          role: 'reviewer',
+          rawResponse: reviewerResponse,
+          commands: reviewerCommands,
+          tokensUsed: reviewerTokens,
+          timestamp: new Date().toISOString(),
+        };
+        rounds.push(reviewerRound);
 
-      if (roundNumber === maxRounds) {
-        finalStatus = 'needs_human_review';
-        abortReason = 'review_issue_unresolved';
-        break;
+        await saveCommandActions(
+          taskId,
+          'chatgpt',
+          'reviewer',
+          roundNumber,
+          reviewerCommands,
+          reviewerResponse,
+          reviewerTokens,
+          reviewerCommands.map(() => ({ stub: true })),
+        );
+
+        await saveReview(taskId, 'chatgpt', reviewerReview);
+
+        const reviewerBudget = checkTokenBudget(totalTokens, tokenBudget);
+        if (!reviewerBudget.ok) {
+          finalStatus = 'blocked';
+          abortReason = 'token_budget_exceeded';
+          break;
+        }
+
+        const claudeReviewerResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
+          system: buildReviewerSystemPrompt('secondary'),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                `Task goal: ${task.goal}`,
+                `Architect BDL:\n${architectResponse}`,
+                architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
+                `Erstes Review (ChatGPT):\n${reviewerResponse}`,
+              ].join('\n\n'),
+            },
+          ],
+          maxTokens: 2000,
+          temperature: 0.5,
+        });
+
+        const claudeReviewerTokens = estimateTokens(claudeReviewerResponse);
+        totalTokens += claudeReviewerTokens;
+        const claudeReviewerCommands = parseBdl(claudeReviewerResponse);
+        const claudeReviewCommand = claudeReviewerCommands.find((command) => command.kind === 'REVIEW');
+        const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse);
+
+        const claudeReviewerRound: DialogRound = {
+          roundNumber,
+          actor: 'claude',
+          role: 'reviewer',
+          rawResponse: claudeReviewerResponse,
+          commands: claudeReviewerCommands,
+          tokensUsed: claudeReviewerTokens,
+          timestamp: new Date().toISOString(),
+        };
+        rounds.push(claudeReviewerRound);
+
+        await saveCommandActions(
+          taskId,
+          'claude',
+          'reviewer',
+          roundNumber,
+          claudeReviewerCommands,
+          claudeReviewerResponse,
+          claudeReviewerTokens,
+          claudeReviewerCommands.map(() => ({ stub: true })),
+        );
+
+        const agreement = computeAgreement(reviewerReview, claudeReview);
+        await saveReview(taskId, 'claude', claudeReview, agreement);
+
+        const claudeReviewerBudget = checkTokenBudget(totalTokens, tokenBudget);
+        if (!claudeReviewerBudget.ok) {
+          finalStatus = 'blocked';
+          abortReason = 'token_budget_exceeded';
+          break;
+        }
+
+        let observerReview: ParsedReview | null = null;
+        const observerResult = await runObserver(
+          task,
+          agreement,
+          [
+            `Architect BDL:\n${architectResponse}`,
+            architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
+            `Review 1 (ChatGPT):\n${reviewerResponse}`,
+            `Review 2 (Claude):\n${claudeReviewerResponse}`,
+          ].filter(Boolean).join('\n\n'),
+        );
+
+        if (observerResult) {
+          observerReview = observerResult.review;
+          rounds.push({
+            roundNumber,
+            actor: 'deepseek',
+            role: 'observer',
+            rawResponse: observerResult.rawResponse,
+            commands: observerResult.commands,
+            tokensUsed: observerResult.tokensUsed,
+            timestamp: new Date().toISOString(),
+          });
+
+          await saveCommandActions(
+            taskId,
+            'deepseek',
+            'observer',
+            roundNumber,
+            observerResult.commands,
+            observerResult.rawResponse,
+            observerResult.tokensUsed,
+            observerResult.commands.map(() => ({ stub: true })),
+          );
+
+          totalTokens += observerResult.tokensUsed;
+          await saveReview(taskId, 'deepseek', observerReview, agreement);
+
+          const observerBudget = checkTokenBudget(totalTokens, tokenBudget);
+          if (!observerBudget.ok) {
+            finalStatus = 'blocked';
+            abortReason = 'token_budget_exceeded';
+            break;
+          }
+        }
+
+        latestContext = [
+          architectExecution.contextText,
+          reviewerResponse,
+          claudeReviewerResponse,
+          observerResult?.rawResponse ?? '',
+          `agreement:${agreement.level}`,
+          agreement.dissentPoints.length > 0 ? `dissent:${agreement.dissentPoints.join(', ')}` : '',
+        ].filter(Boolean).join('\n\n');
+
+        const combinedVerdict = observerReview
+          ? observerReview.verdict
+          : decideVerdict([reviewerReview.verdict, claudeReview.verdict]);
+
+        if (combinedVerdict === 'block') {
+          finalStatus = 'blocked';
+          abortReason = observerReview ? 'observer_blocked' : 'dual_review_blocked';
+          break;
+        }
+
+        if (combinedVerdict === 'ok') {
+          finalStatus = 'push_candidate';
+          break;
+        }
+
+        if (roundNumber === maxRounds) {
+          finalStatus = 'needs_human_review';
+          abortReason = 'review_issue_unresolved';
+          break;
+        }
       }
     }
 

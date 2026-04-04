@@ -26,6 +26,8 @@ interface BuilderBubble {
 const STATUS_COLORS: Record<string, string> = {
   queued: TOKENS.text2,
   classifying: TOKENS.cyan,
+  prototyping: TOKENS.purple,
+  prototype_review: TOKENS.gold,
   planning: TOKENS.purple,
   reviewing: TOKENS.gold,
   counterexampling: TOKENS.rose,
@@ -284,6 +286,7 @@ export function BuilderStudioPage() {
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
   const compact = viewportWidth < 1180;
+  const previewUrl = activeTask ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}` : null;
 
   const refreshTasks = useCallback(async () => {
     const nextTasks = await api.getTasks();
@@ -465,6 +468,47 @@ export function BuilderStudioPage() {
       setIsBusy(false);
     }
   }, [api, commitHash, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
+
+  const handleApprovePrototype = useCallback(async () => {
+    if (!selectedTaskId) {
+      return;
+    }
+
+    setIsBusy(true);
+    setPageError(null);
+    try {
+      await api.approvePrototype(selectedTaskId);
+      await refreshTasks();
+      await refreshTaskDetail(selectedTaskId);
+      await refreshDialog(selectedTaskId, dialogFormat);
+      await refreshEvidence(selectedTaskId);
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Prototype konnte nicht freigegeben werden');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [api, dialogFormat, refreshDialog, refreshEvidence, refreshTaskDetail, refreshTasks, selectedTaskId]);
+
+  const handleRevisePrototype = useCallback(async () => {
+    if (!selectedTaskId) {
+      return;
+    }
+
+    const notes = window.prompt('Revisionshinweis für den Prototype', 'Bitte Layout oder Flow überarbeiten.') ?? undefined;
+
+    setIsBusy(true);
+    setPageError(null);
+    try {
+      await api.revisePrototype(selectedTaskId, notes);
+      await refreshTasks();
+      await refreshTaskDetail(selectedTaskId);
+      await refreshDialog(selectedTaskId, dialogFormat);
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Prototype konnte nicht zur Revision gesendet werden');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [api, dialogFormat, refreshDialog, refreshTaskDetail, refreshTasks, selectedTaskId]);
 
   const handleRevertTask = useCallback(async () => {
     if (!selectedTaskId) {
@@ -715,6 +759,26 @@ export function BuilderStudioPage() {
                     <button onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve</button>
                     <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revert</button>
                   </div>
+                  {activeTask?.status === 'prototype_review' && previewUrl ? (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
+                      <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Prototype Preview</div>
+                        <div style={{ marginTop: 6, fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          Der Builder stoppt hier bewusst. Preview prüfen und dann explizit freigeben, überarbeiten lassen oder verwerfen.
+                        </div>
+                        <iframe
+                          title={`Prototype Preview ${activeTask.id}`}
+                          src={previewUrl}
+                          style={{ width: '100%', height: 400, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, marginTop: 12, background: '#0f0f17' }}
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
+                        <button onClick={() => { void handleApprovePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve Prototype</button>
+                        <button onClick={() => { void handleRevisePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revise</button>
+                        <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Discard</button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </BuilderPanel>

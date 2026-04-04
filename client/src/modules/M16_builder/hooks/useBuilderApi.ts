@@ -168,6 +168,20 @@ export function useBuilderApi(token: string | null) {
     });
   }, [requestJson]);
 
+  const approvePrototype = useCallback((taskId: string, approved?: string[], exclude?: string[]) => {
+    return requestJson<{ promoted: boolean; notes: string }>(`/tasks/${encodeURIComponent(taskId)}/approve-prototype`, {
+      method: 'POST',
+      body: JSON.stringify({ approved, exclude }),
+    });
+  }, [requestJson]);
+
+  const revisePrototype = useCallback((taskId: string, notes?: string) => {
+    return requestJson<{ status: string; notes: string }>(`/tasks/${encodeURIComponent(taskId)}/revise-prototype`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }, [requestJson]);
+
   const revertTask = useCallback((taskId: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/revert`, {
       method: 'POST',
@@ -184,6 +198,8 @@ export function useBuilderApi(token: string | null) {
     getDialog,
     getEvidence,
     approveTask,
+    approvePrototype,
+    revisePrototype,
     revertTask,
   };
 }

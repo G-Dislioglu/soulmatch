@@ -11,9 +11,40 @@ import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
+import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 
 const router = Router();
+
+// GET /api/builder/preview/:taskId — prototype preview without dev token
+router.get('/preview/:taskId', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [task] = await db
+      .select({ id: builderTasks.id })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.taskId))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).send('Task not found');
+      return;
+    }
+
+    const html = await getPrototypeHtml(req.params.taskId);
+    if (!html) {
+      res.status(404).send('No preview available');
+      return;
+    }
+
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('[builder] GET /preview/:taskId error:', err);
+    res.status(500).send('Preview error');
+  }
+});
 
 router.use(requireDevToken);
 
@@ -252,6 +283,55 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
     res.json(updated);
   } catch (err) {
     console.error('[builder] POST /tasks/:id/approve error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// POST /api/builder/tasks/:id/approve-prototype — promote preview and continue code lane
+router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) => {
+  try {
+    const { approved, exclude } = req.body as { approved?: string[]; exclude?: string[] };
+    const result = await promotePrototype(req.params.id, approved ?? [], exclude ?? []);
+
+    if (!result.promoted) {
+      res.status(400).json({ error: result.notes });
+      return;
+    }
+
+    void runDialogEngine(req.params.id).catch((error) => {
+      console.error('[builder] engine error:', error);
+    });
+
+    res.status(202).json(result);
+  } catch (err) {
+    console.error('[builder] POST /tasks/:id/approve-prototype error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// POST /api/builder/tasks/:id/revise-prototype — send task back to prototype lane
+router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) => {
+  try {
+    const { notes } = req.body as { notes?: string };
+    const db = getDb();
+    const [updated] = await db
+      .update(builderTasks)
+      .set({ status: 'prototyping', updatedAt: new Date() })
+      .where(eq(builderTasks.id, req.params.id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    void runDialogEngine(req.params.id).catch((error) => {
+      console.error('[builder] engine error:', error);
+    });
+
+    res.status(202).json({ status: 'prototyping', notes: notes ?? 'Revision requested' });
+  } catch (err) {
+    console.error('[builder] POST /tasks/:id/revise-prototype error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
