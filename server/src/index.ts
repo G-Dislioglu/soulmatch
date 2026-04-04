@@ -21,6 +21,7 @@ import { healthRouter } from './routes/health.js';
 import { metaRouter } from './routes/meta.js';
 import { journeyRouter } from './routes/journey.js';
 import { zimageRouter } from './routes/zimage.js';
+import { builderRouter } from './routes/builder.js';
 import { devLogger } from './devLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +54,7 @@ app.use('/api/health', healthRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/journey', journeyRouter);
 app.use('/api', zimageRouter);
+app.use('/api/builder', builderRouter);
 
 devLogger.info('system', 'Server starting', { port: PORT });
 
