@@ -10,6 +10,7 @@ import { TASK_TYPE_TO_PROFILE, type TaskType } from '../lib/builderPolicyProfile
 import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
+import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
@@ -47,6 +48,24 @@ router.get('/preview/:taskId', async (req: Request, res: Response) => {
 });
 
 router.use(requireDevToken);
+
+// GET /api/builder/canary — current canary config and promotion status
+router.get('/canary', async (_req: Request, res: Response) => {
+  try {
+    const current = getCurrentCanaryStage();
+    const promotion = await getCanaryPromotionStatus();
+    res.json({
+      currentStage: current.stage,
+      config: current.config,
+      manualPromotion: current.manualPromotion,
+      envVar: current.envVar,
+      promotion,
+    });
+  } catch (err) {
+    console.error('[builder] GET /canary error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
 // GET /api/builder/files — list repo files or a subdirectory
 router.get('/files', async (req: Request, res: Response) => {
@@ -259,6 +278,23 @@ router.get('/tasks/:id/evidence', async (req: Request, res: Response) => {
     res.json(artifact.jsonPayload);
   } catch (err) {
     console.error('[builder] GET /tasks/:id/evidence error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /api/builder/tasks/:id/audit — canary audit summary for a task
+router.get('/tasks/:id/audit', async (req: Request, res: Response) => {
+  try {
+    const audit = await buildTaskAudit(req.params.id);
+
+    if (!audit) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    res.json(audit);
+  } catch (err) {
+    console.error('[builder] GET /tasks/:id/audit error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });

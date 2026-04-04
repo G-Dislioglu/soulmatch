@@ -27,6 +27,7 @@ import {
   type ReviewVerdict,
 } from './builderReviewLane.js';
 import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
+import { evaluateCanaryGate } from './builderCanary.js';
 
 export interface DialogRound {
   roundNumber: number;
@@ -50,7 +51,10 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
-function buildArchitectSystemPrompt(task: typeof builderTasks.$inferSelect) {
+function buildArchitectSystemPrompt(
+  task: typeof builderTasks.$inferSelect,
+  laneFlags: { browser: boolean },
+) {
   return [
     'Du bist der Builder-Architect fuer Soulmatch.',
     'Antworte NUR in BDL (Builder Dialog Language).',
@@ -59,7 +63,7 @@ function buildArchitectSystemPrompt(task: typeof builderTasks.$inferSelect) {
     `Not-Scope: ${task.notScope.join(', ') || '(leer)'}`,
     `Policy: ${task.policyProfile ?? TASK_TYPE_TO_PROFILE[task.taskType as keyof typeof TASK_TYPE_TO_PROFILE]}`,
     'Regel: @FIND_PATTERN ist Pflicht vor jedem @PLAN.',
-    ['B', 'C'].includes(task.taskType)
+    laneFlags.browser && ['B', 'C'].includes(task.taskType)
       ? 'Fuer Typ B/C musst du mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
       : '',
   ].join('\n');
@@ -410,6 +414,38 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
     throw new Error(`Task ${taskId} not found`);
   }
 
+  const canaryGate = await evaluateCanaryGate(task);
+  if (!canaryGate.allowed) {
+    await db
+      .update(builderTasks)
+      .set({ status: 'blocked', updatedAt: new Date() })
+      .where(eq(builderTasks.id, taskId));
+
+    await db.insert(builderActions).values({
+      taskId,
+      lane: 'review',
+      kind: 'BLOCK',
+      actor: 'system',
+      payload: {
+        taskId,
+        stage: canaryGate.stage,
+        reasons: canaryGate.reasons,
+      },
+      result: { error: canaryGate.summary },
+      tokenCount: 0,
+    });
+
+    return {
+      taskId,
+      rounds: [],
+      finalStatus: 'blocked',
+      totalTokens: 0,
+      abortReason: canaryGate.summary,
+    };
+  }
+
+  const laneFlags = canaryGate.laneFlags;
+
   const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
   const maxRounds = policy?.max_rounds ?? 3;
@@ -421,7 +457,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
   let latestContext = '';
-  const needsPrototype = ['B', 'C', 'P'].includes(task.taskType);
+  const needsPrototype = laneFlags.prototype && ['B', 'C', 'P'].includes(task.taskType);
   const shouldRunPrototypeLane = needsPrototype && task.status !== 'planning' && task.status !== 'prototype_review';
 
   try {
@@ -501,7 +537,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           .where(eq(builderTasks.id, taskId));
 
         const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildArchitectSystemPrompt(task),
+          system: buildArchitectSystemPrompt(task, laneFlags),
           messages: [
             {
               role: 'user',
@@ -730,7 +766,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         if (combinedVerdict === 'ok') {
-          if (['B', 'C'].includes(task.taskType)) {
+          if (laneFlags.browser && ['B', 'C'].includes(task.taskType)) {
             const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
 
             await db
@@ -813,7 +849,8 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       abortReason = 'max_rounds_exceeded';
     }
 
-    const needsCounterexamples = policy?.counterexamples_required === true
+    const needsCounterexamples = laneFlags.counterexample
+      && policy?.counterexamples_required === true
       && (task.risk === 'medium' || task.risk === 'high');
 
     if (needsCounterexamples && finalStatus === 'push_candidate') {
