@@ -130,7 +130,7 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-04-05`
 - `quality`: `live_in_code_deploy_schema_pending`
-- `known_gap`: Builder kann jetzt append-sicher in bestehende Dateien schreiben und hat eine neue Memory-Kette im Code, aber die persistente Ebene braucht auf Render noch den manuellen Schema-Push fuer `builder_memory`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
+- `known_gap`: Builder blockt jetzt bekannte Blacklist-Dateien schon im Chat und erklaert geblockte Laeufe genauer, aber die persistente Ebene braucht auf Render noch den manuellen Schema-Push fuer `builder_memory`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
 - `next_recommended_step`: Nach dem manuellen Render-`drizzle-kit push` einen echten Builder-Chat- oder Task-Lauf gegen die Zielruntime fahren und pruefen, ob Episode-, Semantic- und Worker-Profileintraege wirklich geschrieben werden.
 - `evidence`: `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`.
 

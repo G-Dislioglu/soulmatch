@@ -11,14 +11,14 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `b55cf2e`
+- `current_repo_head`: `2f87a39`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-05`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder append-safe patching + Maya 3-layer Builder memory`
+- `last_completed_block`: `Builder append-safe patching + Maya 3-layer Builder memory + gemini-3-flash-preview upgrade`
 - `next_recommended_block`: `Render-Schema-Push fuer builder_memory und Live-Verifikation der Builder-Memory-Kette`
 - `read_order_version`: `v1`
 
@@ -108,7 +108,12 @@ fuer Maya im Builder eine neue 3-Layer-Memory verdrahtet: Arbeitsgedaechtnis
 lebt kurzzeitig im Prozess-RAM, Episoden, semantische Verdichtung und Worker-
 Profile liegen im neuen `builder_memory`-Pfad und werden an Task-Uebergaengen
 synchronisiert. Vor dem manuellen Schema-Push auf Render degradieren diese
-DB-Zugriffe bewusst weich statt den Builder zu brechen.
+DB-Zugriffe bewusst weich statt den Builder zu brechen. Darauf aufbauend ist
+der Builder-Chat jetzt auch enger an die realen Schutzgatter gezogen: Maya
+blockt namentlich bekannte Blacklist-Dateien bereits im Chat vor der
+Task-Erstellung, erklaert geblockte oder review-beduerftige Tasks im Status mit
+einem konkreteren Fehlerbild, und `retry` startet den letzten blockierten Lauf
+gezielt erneut.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -218,6 +223,10 @@ Runtime-Wahrheit fuer Soulmatch.
   `server/src/lib/builderDialogEngine.ts` und `server/src/routes/builder.ts`
   verdrahten jetzt eine Builder-Memory-Kette mit RAM-Arbeitsgedaechtnis,
   episodischer Persistenz, semantischer Verdichtung und Worker-Profilen.
+- `server/src/lib/builderFusionChat.ts` kennt jetzt die Builder-Blacklist
+  namentlich, blockt solche Ziel-Dateien direkt im Chat vor jeder Task-Erzeugung,
+  erklaert geblockte oder `review_needed`-Tasks im Status ueber Actions/Reviews
+  genauer nach und akzeptiert `retry` fuer den letzten retry-faehigen Lauf.
 - `server/src/schema/builder.ts` definiert jetzt die Tabelle `builder_memory`;
   bis zum manuellen Schema-Push auf Render fangen die neuen Builder-Memory-
   Pfade fehlende Tabellenzugriffe bewusst ab und loggen nur Fehler.
@@ -237,7 +246,7 @@ Runtime-Wahrheit fuer Soulmatch.
   `profiles` allein.
 - `server/src/routes/dev.ts` akzeptiert weiter ein eingebautes Fallback-Passwort,
   falls `DEV_TOKEN` nicht gesetzt ist.
-- Der Git-Stand ist auf `main` bei `b55cf2e`; der Working Tree ist dirty,
+- Der Git-Stand ist auf `main` bei `2f87a39`; der Working Tree ist dirty,
   aktuell vor allem durch `client/test-results`.
 
 ## Current Working Assumptions

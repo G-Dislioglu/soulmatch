@@ -31,7 +31,7 @@ export interface ChatResponse {
 }
 
 interface ClassifiedIntent {
-  intent: 'task' | 'status' | 'approve' | 'revert' | 'delete' | 'detail' | 'chat';
+  intent: 'task' | 'status' | 'approve' | 'revert' | 'delete' | 'detail' | 'retry' | 'chat';
   title?: string;
   goal?: string;
   risk?: string;
@@ -39,6 +39,22 @@ interface ClassifiedIntent {
   taskId?: string;
   message?: string;
 }
+
+const CHAT_VISIBLE_BLACKLIST = [
+  'server/src/routes/builder.ts',
+  'server/src/lib/builderEngine.ts',
+  'server/src/lib/builderGates.ts',
+  'server/src/lib/builderFileIO.ts',
+  'server/src/lib/builderExecutor.ts',
+  'server/src/db.ts',
+  '.env',
+  '.env.example',
+  'package.json',
+  'server/package.json',
+  'node_modules/',
+] as const;
+
+const RETRYABLE_TASK_STATUSES = new Set(['blocked', 'review_needed', 'needs_human_review']);
 
 const SYSTEM_PROMPT = `Du bist Maya, die KI-Assistentin im Builder Studio von Soulmatch.
 Du sprichst Deutsch, locker und direkt. Du steuerst die gesamte Builder-Engine.
@@ -83,6 +99,9 @@ TASK LOESCHEN — wenn der User sagt "loesch", "delete", "entferne":
 TASK-DETAILS — wenn der User Details, Dialog, Ergebnis eines Tasks sehen will:
 {"intent":"detail","taskId":"ID oder 'latest'"}
 
+TASK ERNEUT STARTEN — wenn der User sagt "retry", "nochmal", "erneut starten":
+{"intent":"retry","taskId":"ID oder 'latest'"}
+
 CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 {"intent":"chat","message":"Deine Antwort"}
 
@@ -93,6 +112,8 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - blocked = ein Reviewer hat geblockt oder Build fehlgeschlagen
 - review_needed = GitHub Action hatte Probleme
 - Dateien in der GLOBAL_BLACKLIST koennen nicht geaendert werden (builder eigene Dateien)
+- Namentlich gesperrt sind aktuell: ${CHAT_VISIBLE_BLACKLIST.join(', ')}
+- Wenn der User eine gesperrte Datei nennt, antworte mit intent=chat und blocke SOFORT im Chat. Erzeuge dann KEINEN Task.
 - Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
 
 async function buildSystemPrompt() {
@@ -151,6 +172,165 @@ function looksLikeTaskRequest(message: string): boolean {
   return taskVerb.test(normalized) || fileHint.test(normalized);
 }
 
+function normalizeForPathMatching(value: string): string {
+  return value.toLowerCase().replace(/\\/g, '/');
+}
+
+function toBlacklistAlias(entry: string): string {
+  const normalized = normalizeForPathMatching(entry).replace(/\/+$/, '');
+  const segments = normalized.split('/').filter(Boolean);
+  return segments[segments.length - 1] ?? normalized;
+}
+
+function findBlacklistedTargets(text: string): string[] {
+  const normalized = normalizeForPathMatching(text);
+  const matches = new Set<string>();
+
+  for (const entry of CHAT_VISIBLE_BLACKLIST) {
+    const normalizedEntry = normalizeForPathMatching(entry).replace(/\/+$/, '');
+    const alias = toBlacklistAlias(entry);
+
+    if (normalized.includes(normalizedEntry) || normalized.includes(alias)) {
+      matches.add(entry);
+    }
+  }
+
+  return Array.from(matches);
+}
+
+function buildBlacklistBlockMessage(targets: string[]): string {
+  const listedTargets = targets.join(', ');
+  return `Das blocke ich direkt im Chat: ${listedTargets} steht auf der Builder-Blacklist. Beschreibe die Aenderung bitte ueber erlaubte Dateien oder als Ziel statt ueber diese geschuetzten Builder-Dateien.`;
+}
+
+function collapseWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function summarizeFailureReason(reason: string): string {
+  const normalized = reason.toLowerCase();
+  const compactReason = collapseWhitespace(reason);
+
+  if (normalized.includes('path is globally blocked') || normalized.includes('scope_violation') || normalized.includes('outside task scope')) {
+    return 'Task blockiert - Ziel lag auf einer geschuetzten oder ausserhalb des erlaubten Scopes liegenden Datei.';
+  }
+
+  if (normalized.includes('token_budget_exceeded')) {
+    return 'Task blockiert - Token-Budget ueberschritten.';
+  }
+
+  if (normalized.includes('observer_blocked') || normalized.includes('dual_review_blocked') || normalized.includes('counterexample_blocked')) {
+    return 'Task blockiert - Review hat einen echten Blocker gefunden.';
+  }
+
+  if (normalized.includes('browser_lane_error') || normalized.includes('browser lane')) {
+    return 'Browser-Pruefung fehlgeschlagen - der Fix ist in der Laufzeitpruefung haengengeblieben.';
+  }
+
+  if (
+    normalized.includes('syntax')
+    || normalized.includes('unexpected token')
+    || normalized.includes('parse error')
+    || normalized.includes('parsing error')
+    || /\bts\d{3,5}\b/.test(normalized)
+  ) {
+    return 'Build fehlgeschlagen - vermutlich Syntax- oder TypeScript-Fehler.';
+  }
+
+  if (
+    normalized.includes('build')
+    || normalized.includes('tsc')
+    || normalized.includes('typecheck')
+    || normalized.includes('compile')
+    || normalized.includes('vite')
+  ) {
+    return 'Build fehlgeschlagen - vermutlich Syntax-, TypeScript- oder Build-Fehler.';
+  }
+
+  if (normalized.includes('canary')) {
+    return 'Task blockiert - Canary-Gate hat den Lauf gestoppt.';
+  }
+
+  if (compactReason.length === 0) {
+    return 'Task blockiert - Ursache noch unklar.';
+  }
+
+  return `Task blockiert - ${compactReason.slice(0, 220)}${compactReason.length > 220 ? '...' : ''}`;
+}
+
+async function explainRetryableTask(taskId: string, status: string): Promise<string | null> {
+  const db = getDb();
+  const actions = await db
+    .select({ kind: builderActions.kind, result: builderActions.result, createdAt: builderActions.createdAt })
+    .from(builderActions)
+    .where(eq(builderActions.taskId, taskId))
+    .orderBy(desc(builderActions.createdAt))
+    .limit(12);
+
+  const reviews = await db
+    .select({ verdict: builderReviews.verdict, notes: builderReviews.notes, dissentPoints: builderReviews.dissentPoints })
+    .from(builderReviews)
+    .where(eq(builderReviews.taskId, taskId))
+    .orderBy(desc(builderReviews.createdAt))
+    .limit(3);
+
+  const tests = await db
+    .select({ testName: builderTestResults.testName, passed: builderTestResults.passed, details: builderTestResults.details })
+    .from(builderTestResults)
+    .where(eq(builderTestResults.taskId, taskId))
+    .orderBy(desc(builderTestResults.createdAt))
+    .limit(3);
+
+  const explicitError = actions.find((action) => typeof action.result?.error === 'string')?.result?.error;
+  if (typeof explicitError === 'string' && explicitError.trim().length > 0) {
+    return `${summarizeFailureReason(explicitError)} Sag "retry" oder beschreibe den Task nochmal.`;
+  }
+
+  const githubAction = actions.find((action) => action.kind === 'GITHUB_ACTION_RESULT');
+  if (githubAction?.result) {
+    const tscOk = githubAction.result.tsc_ok as boolean | undefined;
+    const buildOk = githubAction.result.build_ok as boolean | undefined;
+    const actionError = githubAction.result.error;
+
+    if (tscOk === false || buildOk === false) {
+      return 'Build fehlgeschlagen - vermutlich Syntax-, TypeScript- oder Build-Fehler. Sag "retry" oder beschreibe den Task nochmal.';
+    }
+
+    if (typeof actionError === 'string' && actionError.trim().length > 0) {
+      return `${summarizeFailureReason(actionError)} Sag "retry" oder beschreibe den Task nochmal.`;
+    }
+  }
+
+  const failedTest = tests.find((test) => test.passed !== 'true');
+  if (failedTest) {
+    const details = failedTest.details ? ` ${collapseWhitespace(failedTest.details).slice(0, 180)}` : '';
+    return `Test fehlgeschlagen - ${failedTest.testName}.${details} Sag "retry" oder beschreibe den Task nochmal.`;
+  }
+
+  const blockingReview = reviews.find((review) => review.verdict === 'block');
+  if (blockingReview) {
+    const notes = [blockingReview.notes, ...(blockingReview.dissentPoints ?? [])]
+      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      .map((entry) => collapseWhitespace(entry));
+
+    if (notes.length > 0) {
+      return `Task blockiert - Review meldet: ${notes.join(' | ').slice(0, 220)}${notes.join(' | ').length > 220 ? '...' : ''} Sag "retry" oder beschreibe den Task nochmal.`;
+    }
+
+    return 'Task blockiert - Review hat einen echten Blocker gefunden. Sag "retry" oder beschreibe den Task nochmal.';
+  }
+
+  if (status === 'review_needed') {
+    return 'Task braucht Nacharbeit - der letzte Lauf ist in Review oder Runtime-Pruefung haengengeblieben. Sag "retry" oder beschreibe den Task nochmal.';
+  }
+
+  if (status === 'needs_human_review') {
+    return 'Task braucht menschliche Sichtung - die Engine hat keinen sauberen Abschluss gefunden. Sag "retry" oder beschreibe den Task nochmal.';
+  }
+
+  return null;
+}
+
 function buildFallbackTaskIntent(message: string): ClassifiedIntent {
   const title = message
     .replace(/\s+/g, ' ')
@@ -167,6 +347,20 @@ function buildFallbackTaskIntent(message: string): ClassifiedIntent {
 }
 
 function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent): ClassifiedIntent {
+  const blockedTargets = findBlacklistedTargets([
+    message,
+    classified.title,
+    classified.goal,
+    classified.message,
+  ].filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).join('\n'));
+
+  if (blockedTargets.length > 0) {
+    return {
+      intent: 'chat',
+      message: buildBlacklistBlockMessage(blockedTargets),
+    };
+  }
+
   if (classified.intent === 'task') {
     return {
       ...classified,
@@ -228,6 +422,22 @@ async function resolveTaskId(taskId: string | undefined): Promise<string | null>
   }
 
   return taskId;
+}
+
+async function resolveRetryableTask(taskId: string | undefined): Promise<string | null> {
+  if (taskId && taskId !== 'latest') {
+    return taskId;
+  }
+
+  const db = getDb();
+  const tasks = await db
+    .select({ id: builderTasks.id, status: builderTasks.status })
+    .from(builderTasks)
+    .orderBy(desc(builderTasks.updatedAt))
+    .limit(10);
+
+  const retryableTask = tasks.find((task) => RETRYABLE_TASK_STATUSES.has(task.status));
+  return retryableTask?.id ?? tasks[0]?.id ?? null;
 }
 
 async function summarizeTaskDialog(taskId: string): Promise<string> {
@@ -300,6 +510,16 @@ export async function handleBuilderChat(
     const db = getDb();
 
     if (classified.intent === 'task' && classified.title && classified.goal) {
+      const blockedTargets = findBlacklistedTargets(`${classified.title}\n${classified.goal}`);
+      if (blockedTargets.length > 0) {
+        const blockedMessage = buildBlacklistBlockMessage(blockedTargets);
+        rememberBuilderAssistantMessage(blockedMessage);
+        return {
+          type: 'chat',
+          message: blockedMessage,
+        };
+      }
+
       const taskType = (classified.taskType || 'A') as TaskType;
       const policyProfile = TASK_TYPE_TO_PROFILE[taskType] ?? null;
 
@@ -356,7 +576,53 @@ export async function handleBuilderChat(
         return `• ${task.title} — ${status}`;
       });
 
-      return { type: 'task_status', message: `Aktuelle Tasks:\n${lines.join('\n')}` };
+      const retryableTask = tasks.find((task) => RETRYABLE_TASK_STATUSES.has(task.status));
+      const retryHint = retryableTask
+        ? await explainRetryableTask(retryableTask.id, retryableTask.status)
+        : null;
+
+      return {
+        type: 'task_status',
+        message: `Aktuelle Tasks:\n${lines.join('\n')}${retryHint ? `\n\n${retryHint}` : ''}`,
+      };
+    }
+
+    if (classified.intent === 'retry') {
+      const taskId = await resolveRetryableTask(classified.taskId);
+      if (!taskId) {
+        return { type: 'error', message: 'Kein retry-faehiger Task gefunden.' };
+      }
+
+      const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
+      if (!task) {
+        return { type: 'error', message: 'Task nicht gefunden.' };
+      }
+
+      if (!RETRYABLE_TASK_STATUSES.has(task.status)) {
+        return {
+          type: 'error',
+          message: `"${task.title}" ist aktuell ${task.status} und nicht retry-faehig.`,
+          taskId,
+        };
+      }
+
+      await db
+        .update(builderTasks)
+        .set({ status: 'classifying', updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+
+      void runDialogEngine(taskId).catch((err) => {
+        console.error('[fusion] retry engine error:', err);
+      });
+
+      setActiveBuilderTask(taskId);
+      rememberBuilderAssistantMessage(`Task erneut gestartet: ${task.title}`);
+
+      return {
+        type: 'task_action',
+        message: `Ich starte "${task.title}" erneut. Ich melde mich, sobald der neue Lauf durch ist.`,
+        taskId,
+      };
     }
 
     if (classified.intent === 'approve') {
