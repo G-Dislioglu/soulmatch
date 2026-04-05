@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `aacc932`
+- `current_repo_head`: `b55cf2e`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-03-29`
+- `last_verified_against_code`: `2026-04-05`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Crush v1.1 Discuss UX Hardening`
-- `next_recommended_block`: `Real-Provider-Verifikation fuer SSE- und TTS-Latenz`
+- `last_completed_block`: `Builder append-safe patching + Maya 3-layer Builder memory`
+- `next_recommended_block`: `Render-Schema-Push fuer builder_memory und Live-Verifikation der Builder-Memory-Kette`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -100,6 +100,15 @@ der ersten Preview in `prototype_review`, die Vorschau ist im Builder-UI direkt
 eingebettet, und normale `Run`-/`Approve`-/`Revert`-Pfade greifen dort nicht
 mehr still weiter. Stattdessen laufen Freigabe, Revision und Verwerfen jetzt
 ueber eigene Prototype-Review-Routen und einen separaten `discarded`-Status.
+
+Direkt danach ist auch der Builder-Arbeitsfluss selbst haerter geworden: Reine
+`+`-Patches werden im GitHub-Executor bei bestehenden Dateien nicht mehr als
+stilles Overwrite behandelt, sondern append-sicher angewandt. Parallel dazu ist
+fuer Maya im Builder eine neue 3-Layer-Memory verdrahtet: Arbeitsgedaechtnis
+lebt kurzzeitig im Prozess-RAM, Episoden, semantische Verdichtung und Worker-
+Profile liegen im neuen `builder_memory`-Pfad und werden an Task-Uebergaengen
+synchronisiert. Vor dem manuellen Schema-Push auf Render degradieren diese
+DB-Zugriffe bewusst weich statt den Builder zu brechen.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -201,6 +210,17 @@ Runtime-Wahrheit fuer Soulmatch.
 - Prototype-Review ist jetzt statusstrikt: `approve-prototype`,
   `revise-prototype` und `discard` akzeptieren nur `prototype_review`, waehrend
   die normale `approve`-/`revert`-Logik diesen Zustand explizit zurueckweist.
+- `server/src/lib/builderGithubBridge.ts` markiert reine Additions-Patches fuer
+  bestehende Dateien jetzt als `append`, und `.github/workflows/builder-executor.yml`
+  wendet diese Patches append-sicher an statt existierende Dateien still zu
+  ueberschreiben.
+- `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`,
+  `server/src/lib/builderDialogEngine.ts` und `server/src/routes/builder.ts`
+  verdrahten jetzt eine Builder-Memory-Kette mit RAM-Arbeitsgedaechtnis,
+  episodischer Persistenz, semantischer Verdichtung und Worker-Profilen.
+- `server/src/schema/builder.ts` definiert jetzt die Tabelle `builder_memory`;
+  bis zum manuellen Schema-Push auf Render fangen die neuen Builder-Memory-
+  Pfade fehlende Tabellenzugriffe bewusst ab und loggen nur Fehler.
 - `server/src/lib/personaRouter.ts` verwendet aktuell Gemini, DeepSeek, OpenAI
   und Grok/xAI im Persona-Umfeld; Gemini ist fuer mehrere Personas aktiv.
 - `server/src/routes/studio.ts` hat provider-seitige Konfiguration fuer
@@ -217,7 +237,7 @@ Runtime-Wahrheit fuer Soulmatch.
   `profiles` allein.
 - `server/src/routes/dev.ts` akzeptiert weiter ein eingebautes Fallback-Passwort,
   falls `DEV_TOKEN` nicht gesetzt ist.
-- Der Git-Stand ist auf `main` bei `f6457a4`; der Working Tree ist dirty,
+- Der Git-Stand ist auf `main` bei `b55cf2e`; der Working Tree ist dirty,
   aktuell vor allem durch `client/test-results`.
 
 ## Current Working Assumptions
@@ -235,6 +255,10 @@ Runtime-Wahrheit fuer Soulmatch.
 - Credits-/Monetarisierungslogik ist noch kein sauberes aktives Runtime-System,
   obwohl in `server/src/studioPrompt.ts` und `server/src/routes/studio.ts`
   bereits Kosten- bzw. Credit-Signale auftauchen.
+- Die neue Builder-Memory-Persistenz ist repo-sichtbar verdrahtet, aber auf der
+  Deploy-Runtime erst nach einem manuellen `drizzle-kit push` fuer
+  `builder_memory` voll wirksam; bis dahin ist nur das RAM-Arbeitsgedaechtnis
+  sicher aktiv.
 - Das Repo braucht fuer kuenftige Arbeit eine harte Trennung zwischen
   repo-sichtbarer Wahrheit, Review-Ableitung und Proposal-Material, weil mehrere
   vorhandene Docs noch zu grob vereinfachen.

@@ -9,6 +9,13 @@ import {
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js';
 import { runDialogEngine } from './builderDialogEngine.js';
+import {
+  buildBuilderMemoryContext,
+  rememberBuilderAssistantMessage,
+  rememberBuilderChatHistory,
+  rememberBuilderUserMessage,
+  setActiveBuilderTask,
+} from './builderMemory.js';
 import { callProvider } from './providers.js';
 
 export interface ChatMessage {
@@ -87,6 +94,15 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - review_needed = GitHub Action hatte Probleme
 - Dateien in der GLOBAL_BLACKLIST koennen nicht geaendert werden (builder eigene Dateien)
 - Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
+
+async function buildSystemPrompt() {
+  const memoryContext = await buildBuilderMemoryContext();
+  if (!memoryContext) {
+    return SYSTEM_PROMPT;
+  }
+
+  return `${SYSTEM_PROMPT}\n\n=== MAYA MEMORY ===\n${memoryContext}`;
+}
 
 function inferTaskTypeFromMessage(message: string): TaskType {
   const normalized = message.toLowerCase();
@@ -172,8 +188,9 @@ async function classifyIntent(
   message: string,
   history: ChatMessage[] = [],
 ): Promise<ClassifiedIntent> {
+  const systemPrompt = await buildSystemPrompt();
   const response = await callProvider('gemini', 'gemini-2.5-flash', {
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [
       ...history.map((entry) => ({ role: entry.role, content: entry.content })),
       { role: 'user' as const, content: message },
@@ -277,6 +294,8 @@ export async function handleBuilderChat(
   history: ChatMessage[] = [],
 ): Promise<ChatResponse> {
   try {
+    rememberBuilderChatHistory(history);
+    rememberBuilderUserMessage(message);
     const classified = await classifyIntent(message, history);
     const db = getDb();
 
@@ -307,6 +326,9 @@ export async function handleBuilderChat(
       void runDialogEngine(created.id).catch((err) => {
         console.error('[fusion] engine error:', err);
       });
+
+      setActiveBuilderTask(created.id);
+      rememberBuilderAssistantMessage(`Task erstellt: ${classified.title}`);
 
       return {
         type: 'task_created',
@@ -353,6 +375,9 @@ export async function handleBuilderChat(
         .set({ status: 'done', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
 
+      setActiveBuilderTask(taskId);
+      rememberBuilderAssistantMessage(`Task genehmigt: ${task.title}`);
+
       return {
         type: 'task_action',
         message: `"${task.title}" genehmigt und auf done gesetzt.`,
@@ -375,6 +400,9 @@ export async function handleBuilderChat(
         .update(builderTasks)
         .set({ status: 'reverted', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
+
+      setActiveBuilderTask(taskId);
+      rememberBuilderAssistantMessage(`Task revertiert: ${task.title}`);
 
       return {
         type: 'task_action',
@@ -422,6 +450,11 @@ export async function handleBuilderChat(
       await db.delete(builderReviews).where(eq(builderReviews.taskId, taskId));
       await db.delete(builderTasks).where(eq(builderTasks.id, taskId));
 
+      if (taskId === task.id) {
+        setActiveBuilderTask(null);
+      }
+      rememberBuilderAssistantMessage(`Task geloescht: ${task.title}`);
+
       return {
         type: 'task_action',
         message: `"${task.title}" wurde geloescht.`,
@@ -436,15 +469,21 @@ export async function handleBuilderChat(
       }
 
       const summary = await summarizeTaskDialog(taskId);
+      setActiveBuilderTask(taskId);
+      rememberBuilderAssistantMessage(summary);
       return { type: 'task_status', message: summary, taskId };
     }
 
+    const fallbackMessage = classified.message || 'Ich bin Maya, dein Builder-Assistent. Sag mir was du aendern willst!';
+    rememberBuilderAssistantMessage(fallbackMessage);
+
     return {
       type: 'chat',
-      message: classified.message || 'Ich bin Maya, dein Builder-Assistent. Sag mir was du aendern willst!',
+      message: fallbackMessage,
     };
   } catch (error) {
     console.error('[fusion] chat error:', error);
+    rememberBuilderAssistantMessage(`Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
     return {
       type: 'error',
       message: `Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,

@@ -15,6 +15,7 @@ import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
 import { handleBuilderChat, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
+import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 
@@ -356,6 +357,8 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
       return;
     }
 
+    await syncBuilderMemoryForTask(req.params.id);
+
     res.json(updated);
   } catch (err) {
     console.error('[builder] POST /tasks/:id/approve error:', err);
@@ -476,6 +479,8 @@ router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
       return;
     }
 
+    await syncBuilderMemoryForTask(req.params.id);
+
     res.json(updated);
   } catch (err) {
     console.error('[builder] POST /tasks/:id/discard error:', err);
@@ -514,6 +519,8 @@ router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
       return;
     }
 
+    await syncBuilderMemoryForTask(req.params.id);
+
     res.json(updated);
   } catch (err) {
     console.error('[builder] POST /tasks/:id/revert error:', err);
@@ -536,6 +543,7 @@ router.delete('/tasks/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    await deleteBuilderMemoryForTask(taskId);
     await db.delete(builderArtifacts).where(eq(builderArtifacts.taskId, taskId));
     await db.delete(builderActions).where(eq(builderActions.taskId, taskId));
     await db.delete(builderTestResults).where(eq(builderTestResults.taskId, taskId));
@@ -581,6 +589,7 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
           updatedAt: new Date(),
         })
         .where(eq(builderTasks.id, taskId));
+      await syncBuilderMemoryForTask(taskId);
     } else if (tsc === 'true' && build === 'true') {
       // Build-result callback (first call from GitHub Action)
       await db
@@ -596,6 +605,7 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         .update(builderTasks)
         .set({ status: 'review_needed', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
+      await syncBuilderMemoryForTask(taskId);
     }
 
     res.json({ received: true });

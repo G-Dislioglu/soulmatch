@@ -97,3 +97,15 @@ export const builderArtifacts = pgTable('builder_artifacts', {
   jsonPayload: jsonb('json_payload'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const builderMemory = pgTable('builder_memory', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  layer: varchar('layer', { length: 30 }).notNull(),
+  key: varchar('key', { length: 120 }).notNull(),
+  taskId: uuid('task_id').references(() => builderTasks.id),
+  worker: varchar('worker', { length: 20 }),
+  summary: text('summary').notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

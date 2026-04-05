@@ -219,6 +219,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Soulmatch braucht eine ehrliche Sicht darauf, welche DB-Tabellen wirklich produktiv genutzt werden und welche nur Schema-Vorrat sind.
 - `evidence`: `session_memories` ist aktiv im Code; `persona_memories` und `voice_profiles` sind im Schema sichtbar.
 
+### Kandidat F2 - Builder Memory Live Verification
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: Der Codeblock ist gebaut und typgeprueft; offen ist jetzt nicht mehr Architektur, sondern der manuelle Deploy-Schritt fuer die neue Tabelle und der Live-Nachweis der Persistenzkette.
+- `non_scope`: weitere Builder-Architektur, neuer Prompt-Umbau, breite Persistenzvereinheitlichung ueber das Gesamtprodukt
+- `risk`: mittel; ohne manuellen Render-Schema-Push bleibt die neue Builder-Memory im Deploy nur teilweise wirksam, obwohl der Code bereits darauf vertraut und nur weich degradiert.
+- `betroffene_bereiche`: `server/src/schema/builder.ts`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/routes/builder.ts`, Deploy-Runtime
+- `kurzurteil`: Der naechste saubere Block ist die echte Laufzeitverifikation der neuen Maya-Builder-Memory nach manuellem Schema-Push.
+- `evidence`: `builder_memory` ist im Schema angelegt; Builder chat, engine und routes synchronisieren Memory bereits im Code; Fehlerpfade fuer fehlende Tabelle sind abgefedert.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

@@ -30,6 +30,7 @@ import {
 } from './builderReviewLane.js';
 import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
 import { evaluateCanaryGate } from './builderCanary.js';
+import { setActiveBuilderTask, syncBuilderMemoryForTask } from './builderMemory.js';
 
 type ComplexityTier = 1 | 2 | 3;
 
@@ -555,6 +556,7 @@ async function executeArchitectCommands(
 
 export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   const db = getDb();
+  setActiveBuilderTask(taskId);
   const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
   if (!task) {
     throw new Error(`Task ${taskId} not found`);
@@ -1112,6 +1114,12 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
     await saveEvidencePack(taskId, evidencePack);
   } catch (evidenceError) {
     console.error('[builder] Evidence pack generation failed:', evidenceError);
+  }
+
+  try {
+    await syncBuilderMemoryForTask(taskId);
+  } catch (memoryError) {
+    console.error('[builder] Builder memory sync failed:', memoryError);
   }
 
   return {
