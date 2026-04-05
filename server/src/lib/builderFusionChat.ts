@@ -11,6 +11,7 @@ import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js'
 import { runDialogEngine } from './builderDialogEngine.js';
 import {
   buildBuilderMemoryContext,
+  deleteBuilderMemoryForTask,
   rememberBuilderAssistantMessage,
   rememberBuilderChatHistory,
   rememberBuilderUserMessage,
@@ -686,6 +687,7 @@ export async function handleBuilderChat(
 
         let count = 0;
         for (const task of blocked) {
+          await deleteBuilderMemoryForTask(task.id);
           await db.delete(builderArtifacts).where(eq(builderArtifacts.taskId, task.id));
           await db.delete(builderActions).where(eq(builderActions.taskId, task.id));
           await db.delete(builderTestResults).where(eq(builderTestResults.taskId, task.id));
@@ -710,6 +712,7 @@ export async function handleBuilderChat(
         return { type: 'error', message: 'Task nicht gefunden.' };
       }
 
+  await deleteBuilderMemoryForTask(taskId);
       await db.delete(builderArtifacts).where(eq(builderArtifacts.taskId, taskId));
       await db.delete(builderActions).where(eq(builderActions.taskId, taskId));
       await db.delete(builderTestResults).where(eq(builderTestResults.taskId, taskId));
