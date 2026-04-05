@@ -9,6 +9,7 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
+import { triggerGithubAction, convertBdlPatchesToPayload } from './builderGithubBridge.js';
 import { runBrowserLane } from './builderBrowserLane.js';
 import { executePrototype } from './builderPrototypeLane.js';
 import {
@@ -335,15 +336,39 @@ async function executeArchitectCommands(
     }
 
     if (kind === 'APPLY') {
-      const patchResults = [];
-      for (const patch of pendingPatches) {
-        patchResults.push(
-          await applyPatch(worktreePath, patch.file, patch.body, task.scope, forbiddenFiles),
-        );
-      }
-      pendingPatches.length = 0;
+      const hasGithubPat = !!process.env.GITHUB_PAT;
+      let result: Record<string, unknown>;
 
-      const result = { patches: patchResults };
+      if (hasGithubPat) {
+        const patchPayloads = convertBdlPatchesToPayload(
+          pendingPatches.map((p) => ({
+            kind: 'PATCH' as const,
+            params: { file: p.file },
+            body: p.body,
+            raw: '',
+          })),
+        );
+        const triggerResult = await triggerGithubAction(task.id, patchPayloads);
+        pendingPatches.length = 0;
+        result = {
+          mode: 'github_actions',
+          triggered: triggerResult.triggered,
+          error: triggerResult.error || null,
+          note: triggerResult.triggered
+            ? 'Patches sent to GitHub Actions. Results will arrive via callback.'
+            : 'GitHub bridge not available. Patches saved but not executed.',
+        };
+      } else {
+        const patchResults = [];
+        for (const patch of pendingPatches) {
+          patchResults.push(
+            await applyPatch(worktreePath, patch.file, patch.body, task.scope, forbiddenFiles),
+          );
+        }
+        pendingPatches.length = 0;
+        result = { mode: 'local', patches: patchResults };
+      }
+
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
       continue;

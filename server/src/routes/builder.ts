@@ -497,4 +497,49 @@ router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/builder/tasks/:id/execution-result — GitHub Actions callback
+router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request, res: Response) => {
+  try {
+    const { tsc, build, diff, run_id, run_url, commit_hash, committed } = req.body;
+    const db = getDb();
+    const taskId = req.params.id;
+
+    await db.insert(builderActions).values({
+      taskId,
+      lane: 'code',
+      kind: 'GITHUB_ACTION_RESULT',
+      actor: 'system',
+      payload: { tsc, build, diff, run_id, run_url },
+      result: {
+        tsc_ok: tsc === 'true',
+        build_ok: build === 'true',
+        committed: committed || false,
+        commit_hash: commit_hash || null,
+      },
+      tokenCount: 0,
+    });
+
+    if (tsc === 'true' && build === 'true') {
+      await db
+        .update(builderTasks)
+        .set({
+          status: committed ? 'push_candidate' : 'reviewing',
+          commitHash: commit_hash || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(builderTasks.id, taskId));
+    } else {
+      await db
+        .update(builderTasks)
+        .set({ status: 'review_needed', updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[builder] POST /tasks/:id/execution-result error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 export { router as builderRouter };

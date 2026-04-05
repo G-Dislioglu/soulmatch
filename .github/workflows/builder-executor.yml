@@ -1,0 +1,123 @@
+name: Builder Executor
+
+on:
+  repository_dispatch:
+    types: [builder-task]
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install server deps
+        run: pnpm --dir server install --frozen-lockfile
+
+      - name: Install client deps
+        run: pnpm --dir client install --frozen-lockfile
+
+      - name: Apply patches
+        run: |
+          echo '${{ toJson(github.event.client_payload.patches) }}' > /tmp/patches.json
+          node -e "
+            const fs = require('fs');
+            const patches = JSON.parse(fs.readFileSync('/tmp/patches.json', 'utf8'));
+            for (const patch of patches) {
+              const dir = require('path').dirname(patch.file);
+              fs.mkdirSync(dir, { recursive: true });
+              if (patch.action === 'write') {
+                fs.writeFileSync(patch.file, patch.content, 'utf8');
+                console.log('WRITE', patch.file);
+              } else if (patch.action === 'replace') {
+                const current = fs.readFileSync(patch.file, 'utf8');
+                const updated = current.replace(patch.oldText, patch.newText);
+                if (updated === current) {
+                  console.error('REPLACE_FAILED', patch.file);
+                  process.exit(1);
+                }
+                fs.writeFileSync(patch.file, updated, 'utf8');
+                console.log('REPLACE', patch.file);
+              }
+            }
+          "
+
+      - name: Run tsc (client)
+        id: tsc
+        run: pnpm --dir client typecheck 2>&1 | head -50 || true
+
+      - name: Run build (server)
+        id: build
+        run: pnpm --dir server build 2>&1 | head -50 || true
+
+      - name: Check results
+        id: check
+        run: |
+          TSC_OK=true
+          BUILD_OK=true
+          pnpm --dir client typecheck || TSC_OK=false
+          pnpm --dir server build || BUILD_OK=false
+          echo "tsc_ok=$TSC_OK" >> $GITHUB_OUTPUT
+          echo "build_ok=$BUILD_OK" >> $GITHUB_OUTPUT
+
+      - name: Git diff stat
+        id: diff
+        run: |
+          DIFF=$(git diff --stat 2>/dev/null || echo "no diff")
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Report results back to Render
+        if: always()
+        env:
+          BUILDER_API: ${{ github.event.client_payload.callback_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+          TASK_ID: ${{ github.event.client_payload.task_id }}
+        run: |
+          curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"tsc\": \"${{ steps.check.outputs.tsc_ok }}\",
+              \"build\": \"${{ steps.check.outputs.build_ok }}\",
+              \"diff\": $(echo '${{ steps.diff.outputs.diff }}' | jq -Rs .),
+              \"run_id\": \"${{ github.run_id }}\",
+              \"run_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+            }"
+
+      - name: Commit and push if green
+        if: steps.check.outputs.tsc_ok == 'true' && steps.check.outputs.build_ok == 'true'
+        env:
+          TASK_ID: ${{ github.event.client_payload.task_id }}
+          BUILDER_API: ${{ github.event.client_payload.callback_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+        run: |
+          git config user.name "Builder Studio"
+          git config user.email "builder@soulmatch.app"
+          git add -A
+          CHANGES=$(git diff --cached --name-only | wc -l)
+          if [ "$CHANGES" -gt "0" ]; then
+            git commit -m "feat(builder): task $TASK_ID — auto-applied patches"
+            git push
+            HASH=$(git rev-parse HEAD)
+            echo "Committed: $HASH"
+            curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"commit_hash\": \"$HASH\", \"committed\": true}"
+          else
+            echo "No changes to commit"
+          fi
