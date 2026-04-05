@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { checkDestructive } from './builderGates.js';
@@ -56,8 +57,20 @@ export function getRepoRoot() {
 
 export function createWorktree(taskId: string) {
   if (!isGitAvailable()) {
-    const fallbackPath = process.cwd();
-    console.log(`[builder] No git repo - using fallback path: ${fallbackPath}`);
+    let fallbackPath = process.cwd();
+
+    if (
+      fs.existsSync(path.join(fallbackPath, 'src'))
+      && !fs.existsSync(path.join(fallbackPath, 'server'))
+      && fs.existsSync(path.join(fallbackPath, '..', 'server'))
+      && fs.existsSync(path.join(fallbackPath, '..', 'client'))
+    ) {
+      fallbackPath = path.resolve(fallbackPath, '..');
+      console.log(`[builder] Detected server/ as cwd, using project root: ${fallbackPath}`);
+    } else {
+      console.log(`[builder] No git repo - using fallback path: ${fallbackPath}`);
+    }
+
     return { worktreePath: fallbackPath, branch: `builder/${taskId}` };
   }
 
