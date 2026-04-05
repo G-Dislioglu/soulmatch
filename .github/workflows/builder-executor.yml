@@ -46,8 +46,23 @@ jobs:
               const dir = path.dirname(patch.file);
               fs.mkdirSync(dir, { recursive: true });
               if (patch.action === 'write') {
-                fs.writeFileSync(patch.file, patch.content, 'utf8');
-                console.log('WRITE', patch.file, '(' + patch.content.length + ' chars)');
+                if (fs.existsSync(patch.file)) {
+                  const existing = fs.readFileSync(patch.file, 'utf8');
+                  fs.writeFileSync(patch.file, existing + '\n' + patch.content, 'utf8');
+                  console.log('APPEND', patch.file, '(' + patch.content.length + ' chars added)');
+                } else {
+                  fs.writeFileSync(patch.file, patch.content, 'utf8');
+                  console.log('WRITE', patch.file, '(' + patch.content.length + ' chars)');
+                }
+              } else if (patch.action === 'append') {
+                if (fs.existsSync(patch.file)) {
+                  const existing = fs.readFileSync(patch.file, 'utf8');
+                  fs.writeFileSync(patch.file, existing + '\n' + patch.content, 'utf8');
+                  console.log('APPEND', patch.file, '(' + patch.content.length + ' chars added)');
+                } else {
+                  fs.writeFileSync(patch.file, patch.content, 'utf8');
+                  console.log('CREATE', patch.file, '(' + patch.content.length + ' chars)');
+                }
               } else if (patch.action === 'replace') {
                 const current = fs.readFileSync(patch.file, 'utf8');
                 const updated = current.replace(patch.oldText, patch.newText);

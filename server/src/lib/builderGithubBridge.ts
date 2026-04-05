@@ -3,7 +3,7 @@ import type { BdlCommand } from './builderBdlParser.js';
 
 export interface PatchPayload {
   file: string;
-  action: 'write' | 'replace';
+  action: 'write' | 'replace' | 'append';
   content?: string;
   oldText?: string;
   newText?: string;
@@ -90,7 +90,7 @@ export function convertBdlPatchesToPayload(
     if (oldLines.length === 0 && newLines.length > 0) {
       payloads.push({
         file,
-        action: 'write',
+        action: 'append',
         content: newLines.join('\n'),
       });
     } else {
