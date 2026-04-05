@@ -43,6 +43,18 @@ export interface BuilderCreateTaskInput {
   taskType: string;
 }
 
+export interface BuilderChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface BuilderChatResponse {
+  type: 'task_created' | 'task_status' | 'chat' | 'error';
+  message: string;
+  taskId?: string;
+  taskTitle?: string;
+}
+
 export interface BuilderEvidencePack {
   taskId: string;
   title: string;
@@ -200,6 +212,13 @@ export function useBuilderApi(token: string | null) {
     });
   }, [requestJson]);
 
+  const sendChat = useCallback((message: string, history: BuilderChatMessage[] = []) => {
+    return requestJson<BuilderChatResponse>('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history }),
+    });
+  }, [requestJson]);
+
   return {
     listFiles,
     readFile,
@@ -215,5 +234,6 @@ export function useBuilderApi(token: string | null) {
     discardPrototype,
     revertTask,
     deleteTask,
+    sendChat,
   };
 }

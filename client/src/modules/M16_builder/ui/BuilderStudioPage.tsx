@@ -6,6 +6,7 @@ import { TOKENS } from '../../../design/tokens';
 import {
   useBuilderApi,
   type BuilderAction,
+  type BuilderChatMessage,
   type BuilderCreateTaskInput,
   type BuilderEvidencePack,
   type BuilderTask,
@@ -275,6 +276,9 @@ export function BuilderStudioPage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [chatMessages, setChatMessages] = useState<BuilderChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
   const [commitHash, setCommitHash] = useState('');
   const [draft, setDraft] = useState<BuilderCreateTaskInput>({
     title: '',
@@ -298,6 +302,7 @@ export function BuilderStudioPage() {
     discardPrototype: discardBuilderPrototype,
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
+    sendChat,
   } = useBuilderApi(token || null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
@@ -309,10 +314,15 @@ export function BuilderStudioPage() {
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     dialogFormatRef.current = dialogFormat;
   }, [dialogFormat]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatLoading, chatMessages]);
 
   useEffect(() => () => {
     if (confirmDeleteTimer.current) {
@@ -632,6 +642,37 @@ export function BuilderStudioPage() {
     }
   }, [confirmDelete, deleteBuilderTask, refreshTasks, selectedTaskId]);
 
+  const handleSendChat = useCallback(async () => {
+    const message = chatInput.trim();
+    if (!message || chatLoading) {
+      return;
+    }
+
+    const userMessage: BuilderChatMessage = { role: 'user', content: message };
+    setChatMessages((current) => [...current, userMessage]);
+    setChatInput('');
+    setChatLoading(true);
+    setPageError(null);
+
+    try {
+      const response = await sendChat(message, chatMessages);
+      const assistantMessage: BuilderChatMessage = { role: 'assistant', content: response.message };
+      setChatMessages((current) => [...current, assistantMessage]);
+
+      if (response.type === 'task_created' && response.taskId) {
+        await refreshTasks();
+        setSelectedTaskId(response.taskId);
+      }
+    } catch {
+      setChatMessages((current) => [...current, { role: 'assistant', content: 'Fehler bei der Verbindung.' }]);
+    } finally {
+      setChatLoading(false);
+      window.setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [chatInput, chatLoading, chatMessages, refreshTasks, sendChat]);
+
   if (!authenticated) {
     return (
       <BuilderAuthGate
@@ -773,6 +814,112 @@ export function BuilderStudioPage() {
           </div>
 
           <BuilderPanel title="Dialog Viewer" subtitle="BDL oder Textansicht mit Bubble-Gruppierung pro Akteur und Runde." accent={TOKENS.gold}>
+            <div
+              style={{
+                background: TOKENS.bg2,
+                borderRadius: 22,
+                border: `1px solid ${TOKENS.b1}`,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  color: TOKENS.gold,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  marginBottom: 10,
+                  fontFamily: TOKENS.font.display,
+                }}
+              >
+                Gemini Chat
+              </div>
+              <div
+                style={{
+                  maxHeight: 240,
+                  overflowY: 'auto',
+                  marginBottom: 10,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                {chatMessages.length === 0 ? (
+                  <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
+                    Beschreibe was du aendern willst — Gemini erstellt den Task automatisch.
+                  </div>
+                ) : null}
+                {chatMessages.map((message, index) => (
+                  <div
+                    key={`${message.role}-${index}`}
+                    style={{
+                      alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                      background: message.role === 'user' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${message.role === 'user' ? `${TOKENS.gold}30` : TOKENS.b1}`,
+                      borderRadius: 14,
+                      padding: '8px 12px',
+                      maxWidth: '85%',
+                      fontSize: 13,
+                      color: TOKENS.text,
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {message.content}
+                  </div>
+                ))}
+                {chatLoading ? (
+                  <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
+                    Gemini denkt nach...
+                  </div>
+                ) : null}
+                <div ref={chatEndRef} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={chatInput}
+                  onChange={(event) => setChatInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSendChat();
+                    }
+                  }}
+                  placeholder="z.B. 'Erstelle einen Health-Check Endpoint'"
+                  style={{
+                    flex: 1,
+                    borderRadius: 12,
+                    border: `1.5px solid ${TOKENS.b1}`,
+                    background: TOKENS.bg,
+                    color: TOKENS.text,
+                    padding: '10px 12px',
+                    fontSize: 13,
+                    outline: 'none',
+                  }}
+                  disabled={chatLoading}
+                />
+                <button
+                  onClick={() => {
+                    void handleSendChat();
+                  }}
+                  disabled={chatLoading || !chatInput.trim()}
+                  style={{
+                    borderRadius: 12,
+                    border: `1.5px solid ${TOKENS.gold}`,
+                    background: 'rgba(212,175,55,0.12)',
+                    color: TOKENS.gold,
+                    padding: '10px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: chatLoading ? 'not-allowed' : 'pointer',
+                    opacity: chatLoading || !chatInput.trim() ? 0.5 : 1,
+                  }}
+                >
+                  Senden
+                </button>
+              </div>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div style={{ color: TOKENS.text2, fontSize: 13 }}>
                 Aktiver Task: {activeTask?.title ?? '—'}
