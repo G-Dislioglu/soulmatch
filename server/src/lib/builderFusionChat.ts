@@ -189,7 +189,7 @@ async function classifyIntent(
   history: ChatMessage[] = [],
 ): Promise<ClassifiedIntent> {
   const systemPrompt = await buildSystemPrompt();
-  const response = await callProvider('gemini', 'gemini-2.5-flash', {
+  const response = await callProvider('gemini', 'gemini-3-flash-preview', {
     system: systemPrompt,
     messages: [
       ...history.map((entry) => ({ role: entry.role, content: entry.content })),

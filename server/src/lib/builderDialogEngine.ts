@@ -36,7 +36,7 @@ type ComplexityTier = 1 | 2 | 3;
 
 async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promise<ComplexityTier> {
   try {
-    const response = await callProvider('gemini', 'gemini-2.5-flash', {
+    const response = await callProvider('gemini', 'gemini-3-flash-preview', {
       system: 'Klassifiziere die Komplexitaet dieses Builder-Tasks. Antworte NUR mit 1, 2 oder 3.\n1 = einfach (neue Datei, kleiner Fix, 1 Datei)\n2 = mittel (mehrere Dateien, Pattern-Suche noetig, Logik-Aenderung)\n3 = komplex (Architektur, mehrere Module, Abhaengigkeiten)',
       messages: [{ role: 'user', content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nRisk: ${task.risk}` }],
       maxTokens: 10,
