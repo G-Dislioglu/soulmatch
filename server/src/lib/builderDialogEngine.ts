@@ -10,6 +10,7 @@ import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
 import { triggerGithubAction, convertBdlPatchesToPayload } from './builderGithubBridge.js';
+import { webSearch } from './builderSearch.js';
 import { runBrowserLane } from './builderBrowserLane.js';
 import { executePrototype } from './builderPrototypeLane.js';
 import {
@@ -76,13 +77,15 @@ function buildArchitectSystemPrompt(
     '  -> Aenderung an einer Datei. Fuer neue Dateien: nur + Zeilen.',
     '@APPLY',
     '  -> Fuehrt alle gepufferten @PATCH Befehle aus. PFLICHT nach @PATCH.',
+    '@SEARCH query:"suchbegriff oder technische frage"',
+    '  -> Web-Suche. Nutze wenn du eine API-Referenz, ein Pattern oder aktuelle Doku brauchst.',
     '',
     '=== VERBOTEN ===',
     '@EXECUTE, @READ_FILE, @VERIFY, @BASH - existieren NICHT.',
     'Nutze @READ statt @READ_FILE. Nutze @PATCH + @APPLY statt @EXECUTE.',
     '',
     '=== Ablauf ===',
-    '1. @FIND_PATTERN (Pflicht) -> 2. @READ (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
+    '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
     '',
     `Task: ${task.goal}`,
     `Scope: ${task.scope.join(', ') || '(leer - alle Dateien erlaubt)'}`,
@@ -243,6 +246,26 @@ async function executeArchitectCommands(
       const result = { pattern, matches };
       results.push(result);
       outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'SEARCH') {
+      const query = command.params.query || command.params.q || command.params.arg1 || (command.body ?? '').split('\n')[0].trim() || '';
+      if (!query) {
+        const result = { error: 'missing_query_param' };
+        results.push(result);
+        outputs.push(summarizeCommandResult(command, result));
+        continue;
+      }
+
+      const searchResult = await webSearch(query);
+      const result = {
+        query: searchResult.query,
+        summary: searchResult.summary,
+        error: searchResult.error || null,
+      };
+      results.push(result);
+      outputs.push(`SEARCH "${query}": ${searchResult.summary.slice(0, 500)}`);
       continue;
     }
 

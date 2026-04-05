@@ -38,6 +38,7 @@ const KNOWN_KINDS = new Set([
   'COUNTEREXAMPLE',
   'FAILURE_PATH',
   'GOLDEN_PATH',
+  'SEARCH',
 ]);
 
 function parseParams(input: string) {
