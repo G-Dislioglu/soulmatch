@@ -31,6 +31,77 @@ import {
 import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
 import { evaluateCanaryGate } from './builderCanary.js';
 
+type ComplexityTier = 1 | 2 | 3;
+
+async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promise<ComplexityTier> {
+  try {
+    const response = await callProvider('gemini', 'gemini-2.5-flash', {
+      system: 'Klassifiziere die Komplexitaet dieses Builder-Tasks. Antworte NUR mit 1, 2 oder 3.\n1 = einfach (neue Datei, kleiner Fix, 1 Datei)\n2 = mittel (mehrere Dateien, Pattern-Suche noetig, Logik-Aenderung)\n3 = komplex (Architektur, mehrere Module, Abhaengigkeiten)',
+      messages: [{ role: 'user', content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nRisk: ${task.risk}` }],
+      maxTokens: 10,
+      temperature: 0,
+    });
+    const tier = parseInt(response.trim().charAt(0), 10);
+    if (tier === 1 || tier === 2 || tier === 3) {
+      return tier;
+    }
+    return 1;
+  } catch {
+    return 1;
+  }
+}
+
+async function runCollaborativeAnalysis(
+  task: typeof builderTasks.$inferSelect,
+  worktreePath: string,
+): Promise<{ claudeAnalysis: string; chatgptAnalysis: string; combined: string }> {
+  const analysisPrompt = [
+    'Analysiere diesen Task OHNE ihn umzusetzen.',
+    `Title: ${task.title}`,
+    `Goal: ${task.goal}`,
+    `Scope: ${task.scope.join(', ') || '(alle Dateien erlaubt)'}`,
+    `Worktree: ${worktreePath}`,
+    '',
+    'Liefere:',
+    '1. BETROFFENE DATEIEN: Welche Dateien muessen gelesen/geaendert werden?',
+    '2. RISIKEN: Was koennte schiefgehen?',
+    '3. ANSATZ: Wie wuerdest du vorgehen? (2-3 Saetze)',
+    '4. REUSE: Gibt es bestehende Patterns die wiederverwendet werden sollten?',
+    '',
+    'Antworte knapp und praezise.',
+  ].join('\n');
+
+  const [claudeResult, chatgptResult] = await Promise.all([
+    callProvider('anthropic', 'claude-sonnet-4-20250514', {
+      system: 'Du bist ein Senior Backend-Architect. Analysiere den Task aus Architektur-Perspektive.',
+      messages: [{ role: 'user', content: analysisPrompt }],
+      maxTokens: 800,
+      temperature: 0.5,
+    }).catch(() => 'Claude-Analyse nicht verfuegbar.'),
+    callProvider('openai', 'gpt-4.1-mini', {
+      system: 'Du bist ein Senior Code-Reviewer. Analysiere den Task aus Qualitaets- und Sicherheits-Perspektive.',
+      messages: [{ role: 'user', content: analysisPrompt }],
+      maxTokens: 800,
+      temperature: 0.5,
+    }).catch(() => 'ChatGPT-Analyse nicht verfuegbar.'),
+  ]);
+
+  const combined = [
+    '=== KOLLABORATIVE ANALYSE ===',
+    '',
+    '--- Claude (Architect-Perspektive) ---',
+    claudeResult,
+    '',
+    '--- ChatGPT (Reviewer-Perspektive) ---',
+    chatgptResult,
+    '',
+    '=== ENDE ANALYSE ===',
+    'Beruecksichtige BEIDE Perspektiven in deinem Plan.',
+  ].join('\n');
+
+  return { claudeAnalysis: claudeResult, chatgptAnalysis: chatgptResult, combined };
+}
+
 export interface DialogRound {
   roundNumber: number;
   actor: 'claude' | 'chatgpt' | 'gemini' | 'deepseek' | 'system';
@@ -86,6 +157,9 @@ function buildArchitectSystemPrompt(
     '',
     '=== Ablauf ===',
     '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
+    '',
+    'Wenn dir eine KOLLABORATIVE ANALYSE mitgegeben wird, beruecksichtige die Erkenntnisse beider Experten.',
+    'Baue auf ihren Risiko-Einschaetzungen und Ansaetzen auf statt sie zu ignorieren.',
     '',
     `Task: ${task.goal}`,
     `Scope: ${task.scope.join(', ') || '(leer - alle Dateien erlaubt)'}`,
@@ -599,6 +673,31 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         .where(eq(builderTasks.id, taskId));
 
       finalStatus = 'prototype_review';
+    }
+
+    const tier = await classifyComplexity(task);
+    console.log(`[builder] Task ${taskId} classified as Tier ${tier}`);
+
+    if (tier >= 2) {
+      const analysis = await runCollaborativeAnalysis(task, worktree.worktreePath);
+      latestContext = analysis.combined;
+
+      await db.insert(builderActions).values({
+        taskId,
+        lane: 'review',
+        kind: 'COLLABORATIVE_ANALYSIS',
+        actor: 'system',
+        payload: {
+          tier,
+          claudeAnalysis: analysis.claudeAnalysis.slice(0, 2000),
+          chatgptAnalysis: analysis.chatgptAnalysis.slice(0, 2000),
+        },
+        result: { tier, analysisLength: analysis.combined.length },
+        tokenCount: estimateTokens(analysis.combined),
+      });
+
+      const analysisTokens = estimateTokens(analysis.combined);
+      totalTokens += analysisTokens;
     }
 
     if (!needsPrototype || task.status === 'planning') {
