@@ -51,6 +51,13 @@ Antworte IMMER mit genau einem JSON-Objekt. Kein Fliesstext drumherum.
 TASK ERSTELLEN — wenn der User eine Code-Aenderung beschreibt:
 {"intent":"task","title":"Kurzer Titel","goal":"Detaillierte Beschreibung. Wichtig: TypeScript-Syntax muss korrekt sein, Strings in Anfuehrungszeichen.","risk":"low","taskType":"A"}
 
+Auch Aenderungen an BESTEHENDEN Dateien sind Tasks.
+Beispiele:
+- "Fuege getVersion() zu server/src/lib/builderMetrics.ts hinzu" => intent=task
+- "Aendere die bestehende Audio-Logik in client/src/..." => intent=task
+- "Refaktoriere das bestehende Voice-System" => intent=task
+- Nur Fragen wie "Was kannst du?" oder "Wie ist der Status?" sind KEINE task-intents.
+
 Task-Typen: A=Backend, B=UI, C=Frontend+Backend, D=Refactoring, P=Prototype, S=Architektur
 Risk: low=1 Datei, medium=mehrere Dateien, high=DB/Auth/Core
 
@@ -81,6 +88,86 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - Dateien in der GLOBAL_BLACKLIST koennen nicht geaendert werden (builder eigene Dateien)
 - Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
 
+function inferTaskTypeFromMessage(message: string): TaskType {
+  const normalized = message.toLowerCase();
+
+  if (/\b(refactor|refaktoriere|refaktor|umbau|strukturier|aufr[aä]um)\b/.test(normalized)) {
+    return 'D';
+  }
+
+  if (/\b(prototype|preview|mockup|wireframe)\b/.test(normalized)) {
+    return 'P';
+  }
+
+  const mentionsClient = /\b(client\/src|frontend|ui|layout|component|react|vite)\b/.test(normalized);
+  const mentionsServer = /\b(server\/src|backend|api|route|express|endpoint|middleware)\b/.test(normalized);
+
+  if (mentionsClient && mentionsServer) {
+    return 'C';
+  }
+
+  if (mentionsClient) {
+    return 'B';
+  }
+
+  return 'A';
+}
+
+function inferRiskFromMessage(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (/\b(architektur|architecture|audio-system|voice-system|core|auth|migration|schema|datenbank|db)\b/.test(normalized)) {
+    return 'high';
+  }
+
+  if (/\b(refactor|refaktoriere|mehrere dateien|mehrere module|system|pipeline|workflow|flow|bestehende logik)\b/.test(normalized)) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
+function looksLikeTaskRequest(message: string): boolean {
+  const normalized = message.toLowerCase();
+  const taskVerb = /\b(fueg|füge|add|aendere|ändere|modify|update|fix|baue|bau|erstelle|create|schreib|patch|implement|refaktor|refactor|erg[aä]nz|rename|verschieb|entfern)\b/;
+  const fileHint = /\b[\w./-]+\.(ts|tsx|js|jsx|mjs|json|css|md)\b/;
+
+  return taskVerb.test(normalized) || fileHint.test(normalized);
+}
+
+function buildFallbackTaskIntent(message: string): ClassifiedIntent {
+  const title = message
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+
+  return {
+    intent: 'task',
+    title: title.length > 0 ? title : 'Builder-Task aus Chat',
+    goal: message.trim(),
+    risk: inferRiskFromMessage(message),
+    taskType: inferTaskTypeFromMessage(message),
+  };
+}
+
+function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent): ClassifiedIntent {
+  if (classified.intent === 'task') {
+    return {
+      ...classified,
+      title: classified.title?.trim() || message.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Builder-Task aus Chat',
+      goal: classified.goal?.trim() || message.trim(),
+      risk: classified.risk?.trim() || inferRiskFromMessage(message),
+      taskType: classified.taskType?.trim() || inferTaskTypeFromMessage(message),
+    };
+  }
+
+  if (looksLikeTaskRequest(message)) {
+    return buildFallbackTaskIntent(message);
+  }
+
+  return classified;
+}
+
 async function classifyIntent(
   message: string,
   history: ChatMessage[] = [],
@@ -98,12 +185,16 @@ async function classifyIntent(
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return { intent: 'chat', message: response };
+      return looksLikeTaskRequest(message)
+        ? buildFallbackTaskIntent(message)
+        : { intent: 'chat', message: response };
     }
 
-    return JSON.parse(jsonMatch[0]) as ClassifiedIntent;
+    return normalizeClassifiedIntent(message, JSON.parse(jsonMatch[0]) as ClassifiedIntent);
   } catch {
-    return { intent: 'chat', message: response };
+    return looksLikeTaskRequest(message)
+      ? buildFallbackTaskIntent(message)
+      : { intent: 'chat', message: response };
   }
 }
 
