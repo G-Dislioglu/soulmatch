@@ -8,3 +8,6 @@ export function getMetrics() {
 export function getVersion() {
 	return '0.2.0';
 }
+export function getBuildCount(): number {
+ return 3;
+}
