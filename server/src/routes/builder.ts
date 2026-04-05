@@ -13,6 +13,7 @@ import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
+import { handleBuilderChat, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
@@ -50,6 +51,27 @@ router.get('/preview/:taskId', async (req: Request, res: Response) => {
 });
 
 router.use(requireDevToken);
+
+// POST /api/builder/chat — natural language chat with Gemini
+router.post('/chat', async (req: Request, res: Response) => {
+  try {
+    const { message, history } = req.body as {
+      message: string;
+      history?: ChatMessage[];
+    };
+
+    if (!message) {
+      res.status(400).json({ error: 'message is required' });
+      return;
+    }
+
+    const response = await handleBuilderChat(message, history ?? []);
+    res.json(response);
+  } catch (err) {
+    console.error('[builder] POST /chat error:', err);
+    res.status(500).json({ error: 'Chat error' });
+  }
+});
 
 // GET /api/builder/canary — current canary config and promotion status
 router.get('/canary', async (_req: Request, res: Response) => {
