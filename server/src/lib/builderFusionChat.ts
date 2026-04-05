@@ -42,7 +42,15 @@ interface ClassifiedIntent {
 }
 
 const CHAT_VISIBLE_BLACKLIST = [
+  'server/src/index.ts',
+  'server/src/app.ts',
   'server/src/routes/builder.ts',
+  'server/src/schema/builder.ts',
+  'server/src/schema/arcana.ts',
+  'server/src/schema/personaMemories.ts',
+  'server/src/lib/builderFusionChat.ts',
+  'server/src/lib/builderDialogEngine.ts',
+  'server/src/lib/builderMemory.ts',
   'server/src/lib/builderEngine.ts',
   'server/src/lib/builderGates.ts',
   'server/src/lib/builderFileIO.ts',
