@@ -549,16 +549,27 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
       tokenCount: 0,
     });
 
-    if (tsc === 'true' && build === 'true') {
+    if (committed && commit_hash) {
+      // Commit-confirmation callback (second call from GitHub Action)
       await db
         .update(builderTasks)
         .set({
-          status: committed ? 'push_candidate' : 'reviewing',
-          commitHash: commit_hash || null,
+          status: 'done',
+          commitHash: commit_hash,
           updatedAt: new Date(),
         })
         .where(eq(builderTasks.id, taskId));
-    } else {
+    } else if (tsc === 'true' && build === 'true') {
+      // Build-result callback (first call from GitHub Action)
+      await db
+        .update(builderTasks)
+        .set({
+          status: 'push_candidate',
+          updatedAt: new Date(),
+        })
+        .where(eq(builderTasks.id, taskId));
+    } else if (tsc || build) {
+      // Build failed
       await db
         .update(builderTasks)
         .set({ status: 'review_needed', updatedAt: new Date() })
