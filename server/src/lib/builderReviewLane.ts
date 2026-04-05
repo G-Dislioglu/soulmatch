@@ -136,9 +136,17 @@ function extractNotes(text: string) {
   return quoted ? [quoted.trim()] : [];
 }
 
+function normalizeVerdict(raw: string | undefined): 'ok' | 'issue' | 'block' {
+  if (!raw) return 'issue';
+  const value = raw.trim().toLowerCase().replace(/[",]/g, '');
+  if (value === 'ok' || value === 'approve' || value === 'approved' || value === 'pass' || value === 'passed') return 'ok';
+  if (value === 'block' || value === 'reject' || value === 'rejected' || value === 'fail' || value === 'failed') return 'block';
+  return 'issue';
+}
+
 function parseReviewBodyBlock(body: string) {
   return {
-    verdict: parseEnum(extractField(body, 'verdict'), ['ok', 'issue', 'block'] as const) ?? 'issue',
+    verdict: normalizeVerdict(extractField(body, 'verdict')),
     lane: extractField(body, 'lane')?.replace(/,$/, '') ?? 'overall',
     scopeOk: parseBoolean(extractField(body, 'scope_ok')) ?? true,
     blocking: parseBoolean(extractField(body, 'blocking')) ?? false,
