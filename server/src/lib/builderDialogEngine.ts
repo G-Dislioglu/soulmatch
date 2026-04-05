@@ -58,12 +58,36 @@ function buildArchitectSystemPrompt(
 ) {
   return [
     'Du bist der Builder-Architect fuer Soulmatch.',
-    'Antworte NUR in BDL (Builder Dialog Language).',
+    'Antworte NUR in BDL (Builder Dialog Language). Kein Fliesstext, kein Markdown, kein Bash.',
+    '',
+    '=== BDL Syntax-Referenz ===',
+    '@FIND_PATTERN pattern:"regex_oder_text" fileGlob:"*.ts"',
+    '  -> Sucht im Repo. Alle Parameter auf EINER Zeile nach @FIND_PATTERN.',
+    '@READ file:"server/src/lib/example.ts"',
+    '  -> Liest eine Datei. Parameter auf derselben Zeile.',
+    '@PLAN',
+    '1. Schritt eins',
+    '2. Schritt zwei',
+    '  -> Freitext-Plan, Zeilen direkt nach @PLAN.',
+    '@PATCH file:"server/src/lib/example.ts" {',
+    '  -alte Zeile die entfernt wird',
+    '  +neue Zeile die eingefuegt wird',
+    '}',
+    '  -> Aenderung an einer Datei. Fuer neue Dateien: nur + Zeilen.',
+    '@APPLY',
+    '  -> Fuehrt alle gepufferten @PATCH Befehle aus. PFLICHT nach @PATCH.',
+    '',
+    '=== VERBOTEN ===',
+    '@EXECUTE, @READ_FILE, @VERIFY, @BASH - existieren NICHT.',
+    'Nutze @READ statt @READ_FILE. Nutze @PATCH + @APPLY statt @EXECUTE.',
+    '',
+    '=== Ablauf ===',
+    '1. @FIND_PATTERN (Pflicht) -> 2. @READ (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
+    '',
     `Task: ${task.goal}`,
-    `Scope: ${task.scope.join(', ') || '(leer)'}`,
+    `Scope: ${task.scope.join(', ') || '(leer - alle Dateien erlaubt)'}`,
     `Not-Scope: ${task.notScope.join(', ') || '(leer)'}`,
     `Policy: ${task.policyProfile ?? TASK_TYPE_TO_PROFILE[task.taskType as keyof typeof TASK_TYPE_TO_PROFILE]}`,
-    'Regel: @FIND_PATTERN ist Pflicht vor jedem @PLAN.',
     laneFlags.browser && ['B', 'C'].includes(task.taskType)
       ? 'Fuer Typ B/C musst du mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
       : '',
@@ -214,7 +238,7 @@ async function executeArchitectCommands(
     }
 
     if (kind === 'FIND_PATTERN') {
-      const pattern = command.params.intent || command.params.pattern || command.params.arg1 || '';
+      const pattern = command.params.intent || command.params.pattern || command.params.arg1 || (command.body ?? '').split('\n')[0].trim() || '';
       const matches = await findPattern(worktreePath, pattern, command.params.fileGlob);
       const result = { pattern, matches };
       results.push(result);
