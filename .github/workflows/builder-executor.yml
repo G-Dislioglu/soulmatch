@@ -32,17 +32,20 @@ jobs:
         run: pnpm --dir client install --frozen-lockfile
 
       - name: Apply patches
+        env:
+          PATCHES_JSON: ${{ toJson(github.event.client_payload.patches) }}
         run: |
-          echo '${{ toJson(github.event.client_payload.patches) }}' > /tmp/patches.json
           node -e "
             const fs = require('fs');
-            const patches = JSON.parse(fs.readFileSync('/tmp/patches.json', 'utf8'));
+            const path = require('path');
+            const patches = JSON.parse(process.env.PATCHES_JSON);
+            console.log('Patches to apply:', patches.length);
             for (const patch of patches) {
-              const dir = require('path').dirname(patch.file);
+              const dir = path.dirname(patch.file);
               fs.mkdirSync(dir, { recursive: true });
               if (patch.action === 'write') {
                 fs.writeFileSync(patch.file, patch.content, 'utf8');
-                console.log('WRITE', patch.file);
+                console.log('WRITE', patch.file, '(' + patch.content.length + ' chars)');
               } else if (patch.action === 'replace') {
                 const current = fs.readFileSync(patch.file, 'utf8');
                 const updated = current.replace(patch.oldText, patch.newText);
@@ -54,6 +57,7 @@ jobs:
                 console.log('REPLACE', patch.file);
               }
             }
+            console.log('All patches applied successfully');
           "
 
       - name: Run tsc (client)
