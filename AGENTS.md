@@ -35,6 +35,9 @@ Vor jedem Soulmatch-Block explizit pruefen:
 - Ist der naechste Block eng genug, um in einem Satz formulierbar zu sein?
 - Beruehrt der Block Voice, Provider, Persistenz, Scoring oder globale App-Steuerung?
 - Gibt es dokumentierte Drift, die den Block neu rahmen sollte?
+- Bei Reuse-Fragen, strukturellen Entscheidungen oder trunk-uebergreifenden
+	Patterns zuerst `aicos-registry/treegraphos/TREEGRAPHOS-SPEC-v0.3.2.md`
+	pruefen; sie ist Cross-System-Referenz, aber keine lokale Runtime-Wahrheit.
 
 ### Act
 

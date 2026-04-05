@@ -94,10 +94,22 @@ sondern sendet Text erst nach fertiger Provider-Antwort ins SSE. Der naechste
 saubere Produktblock ist damit weniger UI als ehrliche Real-Provider-
 Verifikation der Restlatenz und der TTS-/Abort-Fehlerpfade unter echten Keys.
 
+Parallel dazu ist die Builder-Studio-Prototyping-Lane jetzt als echter Gate-
+Schritt enger an die Spezifikation gezogen: Typen `B`, `C` und `P` halten nach
+der ersten Preview in `prototype_review`, die Vorschau ist im Builder-UI direkt
+eingebettet, und normale `Run`-/`Approve`-/`Revert`-Pfade greifen dort nicht
+mehr still weiter. Stattdessen laufen Freigabe, Revision und Verwerfen jetzt
+ueber eigene Prototype-Review-Routen und einen separaten `discarded`-Status.
+
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
 `DESIGN.md` komprimiert Maya-Designkonstanten fuer Soulmatch, und `CANON.md`
 trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
+Die Cross-System-Treegraphos-Spezifikation liegt jetzt bewusst im
+`aicos-registry/treegraphos/`-Bereich statt unter `docs/`, damit sie nicht als
+Soulmatch-interne Produktdoku gelesen wird; fuer Reuse-, Struktur- und andere
+trunk-uebergreifende Entscheidungen ist sie Referenz, aber keine direkte
+Runtime-Wahrheit fuer Soulmatch.
 
 ## Current Repo-Visible Truth
 
@@ -111,6 +123,10 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
   ausfuehrlicheren Zerquetsch-Check bei diffusen oder scope-gefaehrdeten Aufgaben.
 - `DESIGN.md` ist jetzt die kompakte Maya-Designreferenz fuer Soulmatch.
 - `CANON.md` definiert Mayas Identitaetskonstanten innerhalb von Soulmatch.
+- `aicos-registry/treegraphos/TREEGRAPHOS-SPEC-v0.3.2.md` ist jetzt die aktive
+  Cross-System-Spezifikation fuer Reuse-, Graph-, Case- und Strukturfragen;
+  die zugehoerigen Hardening-Runs und Legacy-Referenzen liegen daneben unter
+  `aicos-registry/treegraphos/hardening/` und `aicos-registry/treegraphos/legacy/`.
 - `client/src/modules/M00_home/` enthaelt jetzt die neue Startseite mit Greeting,
   Tagesenergie, Profil-/Score-Karte, Guides, Insights und Soul-Card-Vorschau.
 - `client/src/modules/M01_app-shell/` enthaelt jetzt die aktive Shell fuer Sidebar,
@@ -167,11 +183,24 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
 - `client/scripts/visual-check.mjs` laeuft nach dem Tab-Block weiter gruen, ist
   aber aktuell primaer auf Home, Sidebar und Chat als Sichtbarkeitscheck
   ausgerichtet.
+- `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx` ist die aktive
+  Builder-Oberflaeche fuer Task-Liste, Dialogansicht, Evidence Packs und
+  eingebettete Prototype-Previews.
 - Der Server nutzt Express im ESM-Modus; API-Routen werden in
   `server/src/index.ts` gemountet.
 - `server/src/index.ts` mountet aktuell u. a. `/api/health`, `/api/meta`,
   `/api/profile`, `/api/scoring`, `/api/numerology`, `/api/astro`, `/api/match`,
   `/api/journey`, `/api/geo`, `/api/studio`, `/api/guide` und Zimage-Routen.
+- `server/src/routes/builder.ts` stellt eine eigene Builder-API bereit; die
+  Preview-Route `/api/builder/preview/:taskId` ist bewusst ohne Dev-Token
+  lesbar, waehrend Mutation-Routen weiter hinter `requireDevToken` liegen.
+- `server/src/lib/builderDialogEngine.ts` fuehrt fuer Task-Typen `B`, `C` und
+  `P` hoechstens das erste `@PROTOTYPE`-Kommando aus, speichert die Vorschau als
+  Artifact und stoppt danach in `prototype_review` statt still in die Code-Lane
+  weiterzulaufen.
+- Prototype-Review ist jetzt statusstrikt: `approve-prototype`,
+  `revise-prototype` und `discard` akzeptieren nur `prototype_review`, waehrend
+  die normale `approve`-/`revert`-Logik diesen Zustand explizit zurueckweist.
 - `server/src/lib/personaRouter.ts` verwendet aktuell Gemini, DeepSeek, OpenAI
   und Grok/xAI im Persona-Umfeld; Gemini ist fuer mehrere Personas aktiv.
 - `server/src/routes/studio.ts` hat provider-seitige Konfiguration fuer
@@ -196,6 +225,10 @@ trennt Mayas Rolle sauber von Spezialisten- oder Wahrheitsinstanz-Drift.
 - Der Nutzer hat den aktiven Fokus fuer die naechsten UI-Bloecke explizit auf den
   Redesign-Pfad gesetzt; diese Priorisierung hat Vorrang vor der zuvor empfohlenen
   Voice-Audit-Reihenfolge.
+- Treegraphos soll fuer Soulmatch nur dann aktiv konsultiert werden, wenn ein
+  Block Reuse, Cross-System-Patterns, strukturelle Orientierung oder die
+  Grenze zwischen Proposal und operativer Arbeitswahrheit betrifft; fuer
+  normale Produkt- und Runtime-Fragen bleibt der lokale Code vorrangig.
 - Die Audio-/Discuss-Linie ist bereits wichtig genug, dass ihre Fehlergrenzen
   explizit beobachtet und dokumentiert werden sollten, bevor neue Audio-Ideen
   hinzukommen.

@@ -118,6 +118,7 @@ Copy `.env.example` to `.env` in the repo root before running locally.
 6. **Never say "done" without having run typecheck green.**
 7. **If a fix requires changes in more than 3 files, pause and summarize what you are about to change before proceeding.**
 8. **After every push to main, run `bash tools/wait-for-deploy.sh` to confirm the live Render deployment succeeded before marking a task done.** Never assume a push == a successful deploy.
+9. **For reuse questions, cross-system patterns, or structural decisions, inspect `aicos-registry/treegraphos/TREEGRAPHOS-SPEC-v0.3.2.md` first.** Treat it as cross-system reference, not as direct Soulmatch runtime truth.
 
 ## Testing Rules
 
