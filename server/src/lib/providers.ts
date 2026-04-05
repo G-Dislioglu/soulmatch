@@ -192,7 +192,9 @@ export async function callProvider(
               { role: 'system', content: params.system },
               ...params.messages,
             ],
-            reasoning: { effort: 'low' },
+            ...(model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')
+              ? { reasoning: { effort: 'low' } }
+              : {}),
             max_output_tokens: 2000,
           }
         : {
