@@ -194,6 +194,12 @@ export function useBuilderApi(token: string | null) {
     });
   }, [requestJson]);
 
+  const deleteTask = useCallback((taskId: string) => {
+    return requestJson<{ deleted: boolean; taskId: string }>(`/tasks/${encodeURIComponent(taskId)}`, {
+      method: 'DELETE',
+    });
+  }, [requestJson]);
+
   return {
     listFiles,
     readFile,
@@ -208,5 +214,6 @@ export function useBuilderApi(token: string | null) {
     revisePrototype,
     discardPrototype,
     revertTask,
+    deleteTask,
   };
 }

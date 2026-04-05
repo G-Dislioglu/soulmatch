@@ -274,6 +274,7 @@ export function BuilderStudioPage() {
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [commitHash, setCommitHash] = useState('');
   const [draft, setDraft] = useState<BuilderCreateTaskInput>({
     title: '',
@@ -296,6 +297,7 @@ export function BuilderStudioPage() {
     revisePrototype: reviseBuilderPrototype,
     discardPrototype: discardBuilderPrototype,
     revertTask: revertBuilderTask,
+    deleteTask: deleteBuilderTask,
   } = useBuilderApi(token || null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
@@ -306,10 +308,25 @@ export function BuilderStudioPage() {
   const previewUrl = activeTask ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}` : null;
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
+  const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     dialogFormatRef.current = dialogFormat;
   }, [dialogFormat]);
+
+  useEffect(() => () => {
+    if (confirmDeleteTimer.current) {
+      clearTimeout(confirmDeleteTimer.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    setConfirmDelete(false);
+    if (confirmDeleteTimer.current) {
+      clearTimeout(confirmDeleteTimer.current);
+      confirmDeleteTimer.current = null;
+    }
+  }, [selectedTaskId]);
 
   const refreshTasks = useCallback(async () => {
     const nextTasks = await getBuilderTasks();
@@ -576,6 +593,45 @@ export function BuilderStudioPage() {
     }
   }, [discardBuilderPrototype, isPrototypeReview, refreshTaskDetail, refreshTasks, revertBuilderTask, selectedTaskId]);
 
+  const handleDeleteTask = useCallback(async () => {
+    if (!selectedTaskId) {
+      return;
+    }
+
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      if (confirmDeleteTimer.current) {
+        clearTimeout(confirmDeleteTimer.current);
+      }
+      confirmDeleteTimer.current = setTimeout(() => {
+        setConfirmDelete(false);
+        confirmDeleteTimer.current = null;
+      }, 3000);
+      return;
+    }
+
+    if (confirmDeleteTimer.current) {
+      clearTimeout(confirmDeleteTimer.current);
+      confirmDeleteTimer.current = null;
+    }
+
+    setConfirmDelete(false);
+    setIsBusy(true);
+    setPageError(null);
+    try {
+      await deleteBuilderTask(selectedTaskId);
+      setSelectedTaskId(null);
+      setTaskDetail(null);
+      setDialogActions([]);
+      setEvidencePack(null);
+      await refreshTasks();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelöscht werden');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [confirmDelete, deleteBuilderTask, refreshTasks, selectedTaskId]);
+
   if (!authenticated) {
     return (
       <BuilderAuthGate
@@ -808,6 +864,25 @@ export function BuilderStudioPage() {
                     <button onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
                     <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
                   </div>
+                  <button
+                    onClick={() => { void handleDeleteTask(); }}
+                    disabled={isBusy || !selectedTaskId}
+                    style={{
+                      borderRadius: 999,
+                      border: `1.5px solid ${confirmDelete ? '#ef4444' : TOKENS.b1}`,
+                      background: confirmDelete ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.03)',
+                      color: confirmDelete ? '#ef4444' : TOKENS.text2,
+                      padding: '8px 14px',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      marginTop: 6,
+                      width: '100%',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {confirmDelete ? 'Wirklich löschen?' : 'Task löschen'}
+                  </button>
                   {isPrototypeReview && previewUrl ? (
                     <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
                       <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
