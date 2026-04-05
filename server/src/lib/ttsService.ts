@@ -3,7 +3,7 @@ import { buildTtsPrompt } from './voicePromptBuilder.js';
 import { ACCENT_CATALOG, SYSTEM_PERSONA_VOICES, VOICE_CATALOG } from './voiceCatalog.js';
 import { getPersonaVoice, getPersonaVoiceDirector } from './personaVoices.js';
 
-interface TTSResult {
+export interface TTSResult {
   audioBuffer: Buffer;
   mimeType: string;
   engine: string;
@@ -99,6 +99,40 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, channels = 1, bitDepth 
   return Buffer.concat([header, pcmBuffer]);
 }
 
+function estimateAudioDurationMs(text: string): number {
+  const normalized = text.trim();
+  if (!normalized) {
+    return 0;
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean).length;
+  const punctuationBreaks = (normalized.match(/[.,!?;:]/g) ?? []).length;
+  const baseDuration = words * 340;
+  const punctuationDuration = punctuationBreaks * 120;
+  return Math.max(1200, baseDuration + punctuationDuration);
+}
+
+function splitFirstSentence(text: string): { first: string; rest: string } {
+  const normalized = text.trim();
+  if (!normalized) {
+    return { first: '', rest: '' };
+  }
+
+  const match = normalized.match(/^(.{20,}?[.!?])(?:\s+|$)([\s\S]*)$/);
+  if (match) {
+    const first = match[1]?.trim() ?? normalized;
+    const rest = match[2]?.trim() ?? '';
+    return { first, rest };
+  }
+
+  return { first: normalized, rest: '' };
+}
+
+export interface FastFirstTTSResult {
+  firstChunk: TTSResult;
+  restChunk?: TTSResult;
+}
+
 export async function generateTTS(
   text: string,
   personaId: string,
@@ -146,7 +180,10 @@ export async function generateTTS(
           success: true,
           timestamp: new Date().toISOString(),
         });
-        return result;
+        return {
+          ...result,
+          durationEstimate: estimateAudioDurationMs(text),
+        };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         errors.push(`gemini: ${message}`);
@@ -175,7 +212,10 @@ export async function generateTTS(
         success: true,
         timestamp: new Date().toISOString(),
       });
-      return result;
+      return {
+        ...result,
+        durationEstimate: estimateAudioDurationMs(text),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`openai: ${message}`);
@@ -198,6 +238,64 @@ export async function generateTTS(
     timestamp: new Date().toISOString(),
   });
   throw new Error(`Alle TTS Engines fehlgeschlagen (${priority})`);
+}
+
+export async function generateTTSFastFirst(
+  text: string,
+  personaId: string,
+  geminiApiKey: string | undefined,
+  openaiApiKey: string | undefined,
+  personaSettings?: { accentProfile?: 'off' | 'subtle' | 'strict'; voice?: string; accent?: string },
+  onFirstChunk?: (result: TTSResult) => void,
+): Promise<FastFirstTTSResult> {
+  const { first, rest } = splitFirstSentence(text);
+
+  if (!first) {
+    throw new Error('Kein TTS-Text verfuegbar');
+  }
+
+  if (!rest) {
+    const result = await generateTTS(first, personaId, geminiApiKey, openaiApiKey, personaSettings);
+    onFirstChunk?.(result);
+    return { firstChunk: result };
+  }
+
+  console.log('[TTS FastFirst] start', {
+    personaId,
+    firstChars: first.length,
+    restChars: rest.length,
+  });
+
+  const firstPromise = generateTTS(first, personaId, geminiApiKey, openaiApiKey, personaSettings);
+  const restPromise = generateTTS(rest, personaId, geminiApiKey, openaiApiKey, personaSettings);
+
+  const firstResult = await firstPromise;
+  onFirstChunk?.(firstResult);
+
+  console.log('[TTS FastFirst] first chunk ready', {
+    personaId,
+    audioBytes: firstResult.audioBuffer.length,
+    durationEstimate: firstResult.durationEstimate,
+  });
+
+  try {
+    const restResult = await restPromise;
+    console.log('[TTS FastFirst] rest chunk ready', {
+      personaId,
+      audioBytes: restResult.audioBuffer.length,
+      durationEstimate: restResult.durationEstimate,
+    });
+    return {
+      firstChunk: firstResult,
+      restChunk: restResult,
+    };
+  } catch (error) {
+    console.error('[TTS FastFirst] rest chunk failed', {
+      personaId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { firstChunk: firstResult };
+  }
 }
 
 async function geminiPreviewTTS(text: string, voiceName: string, apiKey: string, directorPrompt: string): Promise<TTSResult> {

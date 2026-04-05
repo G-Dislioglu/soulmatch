@@ -182,6 +182,11 @@ Runtime-Wahrheit fuer Soulmatch.
   Stop-/Abort-Pfad.
 - `server/src/routes/studio.ts` akzeptiert fuer `/api/discuss` jetzt `appMode`
   und sendet im Stream-Modus ein fruehes `typing`-Event vor dem Text-Event.
+- `server/src/lib/ttsService.ts` und `server/src/routes/studio.ts` schneiden
+  Discuss-TTS im SSE-Pfad jetzt in einen fruehen ersten Satz plus Rest-Chunk:
+  beide TTS-Laeufe starten parallel, der erste Audio-Chunk kann frueher
+  ankommen, und der Rest wird zeitlich so nachgeschoben, dass die bestehende
+  Client-Wiedergabe den ersten Teil nicht sofort hart ueberschreibt.
 - `server/src/routes/studio.ts` unterdrueckt fuer `/api/discuss` jetzt spaete
   `text`-, `audio`- und `audio_error`-Events aus bereits ueberholten Runden,
   damit ein neuer Request mit derselben `userId` keinen alten SSE-Nachlauf mehr
@@ -311,9 +316,10 @@ Runtime-Wahrheit fuer Soulmatch.
 - Der konkrete Freisprechen-Bruch lag in der letzten Meile der Eventkette:
   sichtbarer Speech-Entwurf und Silence-Auto-Send waren nicht robust genug an
   das Chat-Input bzw. an Interim-only-Ergebnisse gekoppelt.
-- Die TTS-Kette fuer Discuss nutzt weiter `generateTTS` in `server/src/lib/ttsService.ts`,
-  aber die Voice-Wahl kommt jetzt aus dem Client statt nur aus starren
-  Persona-Mappings.
+- Die TTS-Kette fuer Discuss nutzt in `server/src/lib/ttsService.ts` jetzt
+  zusaetzlich einen Fast-First-Pfad fuer den SSE-Stream: erster Satz frueh,
+  Rest-Chunk parallel vorbereitet; die Voice-Wahl kommt weiter aus dem Client
+  statt nur aus starren Persona-Mappings.
 - Die TTS-Fallback-Kette in `server/src/lib/ttsService.ts` akzeptiert jetzt auch
   nur einen verfuegbaren Provider-Key; fehlende Engines werden uebersprungen,
   statt den gesamten Audio-Pfad still zu sperren.

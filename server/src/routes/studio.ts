@@ -9,7 +9,7 @@ import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioA
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 import { getProviderForPersona, getPersonaDefinition, shouldUseDeepMode } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
-import { generateTTS } from '../lib/ttsService.js';
+import { generateTTS, generateTTSFastFirst } from '../lib/ttsService.js';
 import { handleDeepModeRequest } from '../lib/deepModeHandler.js';
 import { getDb, profiles } from '../db.js';
 import { getUserMemoryContext, saveSessionMemory } from '../lib/memoryService.js';
@@ -790,6 +790,16 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+function delay(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function loadMemories(args: {
   userId: string;
   personaId: string;
@@ -1235,44 +1245,93 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
 
         if ((geminiApiKey || openaiApiKey) && !isRoundCanceled()) {
           if (wantsStream) {
-            // Fire-and-forget TTS — send audio SSE event when ready
+            // Fire-and-forget TTS — send first chunk early, rest chunk once the
+            // first playback should be near completion so the client does not
+            // immediately interrupt itself.
             ttsPromise = (async () => {
+              let firstChunkSentAt = 0;
+              let firstChunkDurationMs = 0;
+              let firstChunkDelivered = false;
+
               try {
-                const ttsResult = await withTimeout(
-                  generateTTS(
+                const fastResult = await withTimeout(
+                  generateTTSFastFirst(
                     text,
                     personaId,
                     geminiApiKey,
                     openaiApiKey,
                     body.personaSettings?.[personaId],
+                    (firstChunk) => {
+                      if (isRoundCanceled()) {
+                        devLogger.info('llm', 'Discuss: dropping fast-first audio for canceled round', { userId, personaId });
+                        return;
+                      }
+
+                      ttsEngineUsed = firstChunk.engine;
+                      ttsMimeType = firstChunk.mimeType;
+                      firstChunkDelivered = true;
+                      firstChunkSentAt = Date.now();
+                      firstChunkDurationMs = firstChunk.durationEstimate ?? 0;
+                      const audioBase64 = firstChunk.audioBuffer.toString('base64');
+
+                      devLogger.info('llm', 'Discuss: fast-first audio ready', {
+                        personaId,
+                        ttsEngineUsed: firstChunk.engine,
+                        mimeType: firstChunk.mimeType,
+                        audioBytes: firstChunk.audioBuffer.length,
+                        durationEstimate: firstChunk.durationEstimate,
+                        base64Length: audioBase64.length,
+                      });
+
+                      sendSseEvent({
+                        type: 'audio',
+                        persona: personaId,
+                        audio_url: `data:${firstChunk.mimeType};base64,${audioBase64}`,
+                        tts_engine_used: firstChunk.engine,
+                        tts_mime_type: firstChunk.mimeType,
+                      });
+                    },
                   ),
-                  30000,
+                  60000,
                 );
-                ttsEngineUsed = ttsResult.engine;
-                ttsMimeType = ttsResult.mimeType;
-                const audioBase64 = ttsResult.audioBuffer.toString('base64');
-                devLogger.info('llm', 'Discuss: stream audio ready', {
-                  personaId,
-                  ttsEngineUsed,
-                  mimeType: ttsResult.mimeType,
-                  audioBytes: ttsResult.audioBuffer.length,
-                  base64Length: audioBase64.length,
-                });
-                if (isRoundCanceled()) {
-                  devLogger.info('llm', 'Discuss: dropping late audio for canceled round', { userId, personaId });
+
+                if (!fastResult.restChunk) {
                   return;
                 }
+
+                const elapsedSinceFirstChunk = firstChunkSentAt ? Date.now() - firstChunkSentAt : 0;
+                const waitBeforeRestMs = Math.max(0, firstChunkDurationMs - elapsedSinceFirstChunk);
+                await delay(waitBeforeRestMs);
+
+                if (isRoundCanceled()) {
+                  devLogger.info('llm', 'Discuss: dropping late rest audio for canceled round', { userId, personaId });
+                  return;
+                }
+
+                const restBase64 = fastResult.restChunk.audioBuffer.toString('base64');
+                devLogger.info('llm', 'Discuss: fast-first rest audio ready', {
+                  personaId,
+                  ttsEngineUsed: fastResult.restChunk.engine,
+                  mimeType: fastResult.restChunk.mimeType,
+                  audioBytes: fastResult.restChunk.audioBuffer.length,
+                  durationEstimate: fastResult.restChunk.durationEstimate,
+                  base64Length: restBase64.length,
+                  delayedByMs: waitBeforeRestMs,
+                });
                 sendSseEvent({
                   type: 'audio',
                   persona: personaId,
-                  audio_url: `data:${ttsResult.mimeType};base64,${audioBase64}`,
-                  tts_engine_used: ttsEngineUsed,
-                  tts_mime_type: ttsMimeType,
+                  audio_url: `data:${fastResult.restChunk.mimeType};base64,${restBase64}`,
+                  tts_engine_used: fastResult.restChunk.engine,
+                  tts_mime_type: fastResult.restChunk.mimeType,
                 });
               } catch (e) {
-                devLogger.error('llm', 'TTS block failed', { error: String(e), personaId });
+                devLogger.error('llm', 'TTS fast-first failed', { error: String(e), personaId });
                 if (isRoundCanceled()) {
                   devLogger.info('llm', 'Discuss: suppressing audio_error for canceled round', { userId, personaId });
+                  return;
+                }
+                if (firstChunkDelivered) {
                   return;
                 }
                 sendSseEvent({
