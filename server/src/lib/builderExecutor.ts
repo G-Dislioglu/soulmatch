@@ -27,6 +27,20 @@ function trimOutput(output: string) {
   return output.length > 2000 ? `${output.slice(0, 2000)}\n...[truncated]` : output;
 }
 
+function isGitAvailable() {
+  try {
+    execSync('git rev-parse --is-inside-work-tree', {
+      encoding: 'utf-8',
+      timeout: 3_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getRepoRoot() {
   try {
     return execSync('git rev-parse --show-toplevel', {
@@ -41,6 +55,12 @@ export function getRepoRoot() {
 }
 
 export function createWorktree(taskId: string) {
+  if (!isGitAvailable()) {
+    const fallbackPath = process.cwd();
+    console.log(`[builder] No git repo - using fallback path: ${fallbackPath}`);
+    return { worktreePath: fallbackPath, branch: `builder/${taskId}` };
+  }
+
   const repoRoot = getRepoRoot();
   const branch = `builder/${taskId}`;
   const worktreePath = path.join(os.tmpdir(), `builder-${taskId}`);
@@ -49,6 +69,10 @@ export function createWorktree(taskId: string) {
 }
 
 export function removeWorktree(taskId: string) {
+  if (!isGitAvailable()) {
+    return;
+  }
+
   const repoRoot = getRepoRoot();
   const branch = `builder/${taskId}`;
   const worktreePath = path.join(os.tmpdir(), `builder-${taskId}`);
