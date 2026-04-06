@@ -14,20 +14,36 @@ interface ScoutTask {
   scope?: string[];
 }
 
-function buildPromptWithProjectDna(basePrompt: string): string {
+function buildPromptWithContext(basePrompt: string, graphBriefing?: string): string {
   const projectDna = loadProjectDna();
-  if (!projectDna) {
-    return basePrompt;
+
+  const sections = [];
+
+  if (projectDna) {
+    sections.push(projectDna);
   }
 
-  return `${projectDna}\n\n${basePrompt}`;
+  if (graphBriefing?.trim()) {
+    sections.push(
+      [
+        '=== REPO-KONTEXT (Architecture Graph) ===',
+        'Referenziere NUR Dateien die im Architecture Graph oder in der Project DNA erwaehnt werden. Erfinde keine Pfade.',
+        graphBriefing.trim(),
+      ].join('\n'),
+    );
+  }
+
+  sections.push(basePrompt);
+
+  return sections.join('\n\n');
 }
 
-async function runCodebaseScout(task: ScoutTask): Promise<ChatPoolMessage> {
+async function runCodebaseScout(task: ScoutTask, graphBriefing: string): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
   const content = await callProvider('xai', 'grok-4-1-fast', {
-    system: buildPromptWithProjectDna(
+    system: buildPromptWithContext(
       `Du bist der Codebase-Scout. Dein Job: Durchsuche das Repo und liefere eine Übersicht. Task: ${task.goal}. Liefere: 1) Relevante Dateien, 2) Ähnliche Implementierungen, 3) Patterns/Konventionen, 4) Zu ändernde Dateien. Kein Code schreiben, nur recherchieren.`,
+      graphBriefing,
     ),
     messages: [{ role: 'user', content: task.goal }],
     maxTokens: 1500,
@@ -46,11 +62,12 @@ async function runCodebaseScout(task: ScoutTask): Promise<ChatPoolMessage> {
   });
 }
 
-async function runPatternScout(task: ScoutTask): Promise<ChatPoolMessage> {
+async function runPatternScout(task: ScoutTask, graphBriefing: string): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
   const content = await callProvider('zhipu', 'glm-4.7-flash', {
-    system: buildPromptWithProjectDna(
+    system: buildPromptWithContext(
       `Du bist der Pattern-Scout. Extrahiere Muster und Konventionen. Liefere: 1) Code-Konventionen, 2) Duplikat-Risiken, 3) Edge-Cases, 4) Komplexität. Kein Code schreiben.`,
+      graphBriefing,
     ),
     messages: [{ role: 'user', content: task.goal }],
     maxTokens: 800,
@@ -61,7 +78,7 @@ async function runPatternScout(task: ScoutTask): Promise<ChatPoolMessage> {
     taskId: task.id,
     round: 0,
     phase: 'scout',
-    actor: 'gpt-nano',
+    actor: 'glm-pattern',
     model: 'glm-4.7-flash',
     content,
     tokensUsed: 0,
@@ -120,8 +137,8 @@ export async function runScoutPhase(task: ScoutTask): Promise<ChatPoolMessage[]>
   messages.push(graphMessage);
 
   const scoutResults = await Promise.allSettled([
-    runCodebaseScout(task),
-    runPatternScout(task),
+    runCodebaseScout(task, graphBriefing),
+    runPatternScout(task, graphBriefing),
     runWebScout(task),
   ]);
 
