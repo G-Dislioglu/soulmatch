@@ -1,5 +1,5 @@
 import { integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { builderTasks } from './builder.js';
+import { builderTasks } from './builder';
 
 export const builderChatpool = pgTable('builder_chatpool', {
   id: uuid('id').primaryKey().defaultRandom(),
