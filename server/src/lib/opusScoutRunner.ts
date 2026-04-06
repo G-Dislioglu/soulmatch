@@ -25,25 +25,7 @@ function buildPromptWithProjectDna(basePrompt: string): string {
 
 async function runCodebaseScout(task: ScoutTask): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
-  let deepseekModel = 'deepseek-chat';
-
-  try {
-    const routeDecision = await callProvider('gemini', 'gemini-3-flash-preview', {
-      system: 'Bewerte ob diese Aufgabe tiefes Schritt-für-Schritt-Reasoning braucht oder ein schneller Scan reicht. Antworte NUR mit dem Wort "chat" oder "reasoner".',
-      messages: [{ role: 'user', content: task.goal }],
-      maxTokens: 10,
-      temperature: 0.1,
-      forceJsonObject: false,
-    });
-
-    if (routeDecision.trim().toLowerCase().includes('reasoner')) {
-      deepseekModel = 'deepseek-reasoner';
-    }
-  } catch {
-    deepseekModel = 'deepseek-chat';
-  }
-
-  const content = await callProvider('deepseek', deepseekModel, {
+  const content = await callProvider('xai', 'grok-4-1-fast', {
     system: buildPromptWithProjectDna(
       `Du bist der Codebase-Scout. Dein Job: Durchsuche das Repo und liefere eine Übersicht. Task: ${task.goal}. Liefere: 1) Relevante Dateien, 2) Ähnliche Implementierungen, 3) Patterns/Konventionen, 4) Zu ändernde Dateien. Kein Code schreiben, nur recherchieren.`,
     ),
@@ -56,8 +38,8 @@ async function runCodebaseScout(task: ScoutTask): Promise<ChatPoolMessage> {
     taskId: task.id,
     round: 0,
     phase: 'scout',
-    actor: 'deepseek',
-    model: deepseekModel,
+    actor: 'grok',
+    model: 'grok-4-1-fast',
     content,
     tokensUsed: 0,
     durationMs: Date.now() - startedAt,
