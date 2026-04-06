@@ -1,3 +1,4 @@
+// swarm-e2e-verified-2026-04-06
 export interface EndpointTest {
   name: string;
   method: 'GET' | 'POST';
