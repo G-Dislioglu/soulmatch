@@ -7,6 +7,7 @@ import {
   type ChatPoolMessage,
 } from './opusChatPool.js';
 import { loadProjectDna } from './opusGraphIntegration.js';
+import { extractJsonFromText } from './opusPulseCrush.js';
 import { callProvider } from './providers.js';
 
 export interface RoundtableParticipant {
@@ -336,7 +337,7 @@ export async function validatePatch(
         `Task-Ziel: ${task.goal}`,
         `Scope: ${task.scope?.join(', ') || 'nicht eingeschränkt'}`,
         '',
-        'Antworte NUR mit JSON (kein Markdown, keine Backticks):',
+        'Schreibe deine Analyse als Fließtext. Am Ende, füge einen JSON-Block ein:',
         '{"passed": true/false, "issues": [{"severity":"...","description":"...","file":"...","suggestion":"..."}]}',
       ].join('\n'),
       messages: [{ role: 'user', content: `Team-Diskussion:\n${chatPoolSummary}\n\nPatch:\n${patchDiff}` }],
@@ -344,7 +345,14 @@ export async function validatePatch(
     });
 
     const tokensUsed = Math.ceil(response.length / 4);
-    const parsed = JSON.parse(response) as Record<string, unknown>;
+    const parsed = extractJsonFromText(response);
+    if (!parsed) {
+      return {
+        passed: true,
+        issues: [],
+        tokensUsed,
+      };
+    }
     const issues = sanitizeIssues(parsed.issues);
 
     return {

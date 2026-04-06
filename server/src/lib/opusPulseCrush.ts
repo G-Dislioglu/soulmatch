@@ -35,6 +35,38 @@ function normalizeStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
 }
 
+export function extractJsonFromText(text: string): Record<string, unknown> | null {
+  const lastBrace = text.lastIndexOf('}');
+  if (lastBrace === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  let start = -1;
+  for (let index = lastBrace; index >= 0; index -= 1) {
+    if (text[index] === '}') {
+      depth += 1;
+    }
+    if (text[index] === '{') {
+      depth -= 1;
+    }
+    if (depth === 0) {
+      start = index;
+      break;
+    }
+  }
+
+  if (start === -1) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text.slice(start, lastBrace + 1)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function determineCrushIntensity(
   task: {
     risk?: string;
@@ -126,17 +158,19 @@ ${blockReason ? `Block-Grund: ${blockReason}` : ''}
 Team-Diskussion:
 ${chatPoolSummary}
 
-Antworte NUR mit JSON:
-{"st":{"heat":"...","drain":"...","resonance":"..."},"dtt":{"working":"...","debt":"...","debtRisk":"..."},"mb":["...","..."],"recommendation":"..."}`,
+Schreibe deine Analyse als Fließtext. Am Ende deiner Antwort,
+füge einen JSON-Block ein der deine Ergebnisse zusammenfasst:
+{"st":{"heat":"...","drain":"...","resonance":"..."},"dtt":{"working":"...","debt":"...","debtRisk":"..."},"mb":["..."],"recommendation":"..."}`,
     messages: [{ role: 'user', content: 'Analysiere den Fall.' }],
     maxTokens: 1000,
     forceJsonObject: false,
   });
 
   const tokensUsed = Math.ceil(response.length / 4);
+  const extracted = extractJsonFromText(response);
 
-  try {
-    const parsed = JSON.parse(response) as CaseCrushParsed;
+  if (extracted) {
+    const parsed = extracted as CaseCrushParsed;
     return {
       st: {
         heat: normalizeText(parsed.st?.heat, 'medium'),
@@ -152,15 +186,15 @@ Antworte NUR mit JSON:
       recommendation: normalizeText(parsed.recommendation, ''),
       tokensUsed,
     };
-  } catch {
-    return {
-      st: { heat: 'medium', drain: 'medium', resonance: 'medium' },
-      dtt: { working: '', debt: '', debtRisk: 'medium' },
-      mb: [],
-      recommendation: '',
-      tokensUsed,
-    };
   }
+
+  return {
+    st: { heat: 'medium', drain: 'medium', resonance: 'medium' },
+    dtt: { working: '', debt: '', debtRisk: 'medium' },
+    mb: [],
+    recommendation: '',
+    tokensUsed,
+  };
 }
 
 export async function runHeavyCrush(
