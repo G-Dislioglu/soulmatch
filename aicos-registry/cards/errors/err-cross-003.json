@@ -1,0 +1,54 @@
+{
+  "id": "err-cross-003",
+  "type": "error_pattern",
+  "token": "awareness_blindness",
+  "title": "Awareness Blindness: System mit hohem IQ aber niedrigem Awareness Score",
+  "essence": "Ein System kann technisch korrekt sein (perfekte Syntax, richtige Fakten, sauberer Code) und trotzdem einen Awareness Score von 20 haben — weil es nie überrascht, nie adaptiert, nie Kontext über Turns hinweg hält, nie personalisiert. Korrektheit ≠ Gewahrsein. Das ist das Gegenteil des Campbell-Fehlers: Nicht 'verwechselt Performanz mit Bewusstsein', sondern 'verwechselt Korrektheit mit Verstehen'. Symptome: Generische Antworten trotz User-History, kein Kontexterhalt, keine Surprise-Momente, Template-Feeling trotz korrektem Inhalt.",
+  "domain": ["meta_cognition", "cross_app", "quality"],
+  "scope": ["cross_app"],
+  "tags": [
+    "theme:anti_pattern",
+    "theme:awareness",
+    "theme:quality_illusion",
+    "theme:user_experience"
+  ],
+  "impact": { "value": 72, "risk": 55, "confidence": 80 },
+  "status": "active",
+  "applies_to": [
+    "Soulmatch Personas die korrekt aber seelenlos antworten",
+    "Builder Agents die Code generieren ohne Architektur-Verständnis",
+    "Jedes LLM-System das Fakten liefert ohne Bedeutung"
+  ],
+  "steps": [
+    "Symptom erkennen: User-Feedback 'korrekt aber langweilig' oder 'klingt wie Template'",
+    "AGM messen: Ist A3 (Surprise) < 20? Ist A6 (Adaptation) < 20?",
+    "Root Cause: Fehlt SIGNIFY-Layer? Fehlt User-Kontext im Prompt? Ist Persona-Tier zu niedrig?",
+    "Fix: awareness_tier der betroffenen Persona/Agent hochsetzen ODER SIGNIFY-Layer aktivieren",
+    "Verify: Nach Fix A3 und A6 erneut messen — müssen > 35 sein"
+  ],
+  "tradeoffs": [
+    "Nicht jede Persona SOLL hohen AS haben — Kael ist bewusst awareness-blind by design",
+    "Hoher AS kostet mehr Token/Credits — Balance zwischen Tiefe und Kosten"
+  ],
+  "copy_ready": true,
+  "aliases": ["AS Blindness", "Template-Feeling", "Korrektheit ohne Verstehen"],
+  "evidence": {
+    "signals": [
+      "Campbell-Analyse: Unterschied zwischen Datenverarbeitung und Verstehen",
+      "User-Feedback bei generischen Astrologie-Interpretationen",
+      "Builder-Agents die technisch korrekt aber architektur-blind arbeiten"
+    ],
+    "code_refs": [],
+    "notes": "Gegenstück zu err-cross-001 (Agent Context Decay) und err-cross-002 (Complexity Ratchet)"
+  },
+  "links": {
+    "fixes": ["metric-awareness-001", "sol-cross-056"],
+    "causes": [],
+    "related": ["err-cross-001", "err-cross-002", "meta-001"],
+    "supersedes": []
+  },
+  "timestamps": {
+    "created_at": "2026-04-06",
+    "updated_at": "2026-04-06"
+  }
+}

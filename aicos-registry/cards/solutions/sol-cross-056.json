@@ -1,0 +1,60 @@
+{
+  "id": "sol-cross-056",
+  "type": "solution_proof",
+  "token": "signify_operator",
+  "title": "SIGNIFY: 13. Crush-Operator für den Sprung von Information zu personalisierter Bedeutung",
+  "essence": "SYNTHESIZE sagt was wahr ist. SIGNIFY sagt was es für DICH bedeutet. Nimmt SYNTHESIZE-Output + User-Kontext-Vektor + Affekt-Zustand (affect_core) + Temporal-Kontext (Freshness Sentinel) und verwandelt Fakten in personalisierte Bedeutung. Crush-Kaskade: Daten → Information (DECOMPOSE, CONTRAST, SCAN) → Bedeutung (SYNTHESIZE, REFRAME, ANCHOR) → Personalisierte Bedeutung (SIGNIFY). Verankert durch Claim Lineage (sol-cross-034), Mirror Overlay (meta-001) und Surprise Kernel (sol-cross-055).",
+  "domain": ["crush", "meta_cognition", "cross_app"],
+  "scope": ["cross_app"],
+  "tags": [
+    "theme:crush",
+    "theme:personalization",
+    "theme:meaning",
+    "theme:signify",
+    "theme:cascade",
+    "meta:gürcan_dna"
+  ],
+  "impact": { "value": 85, "risk": 15, "confidence": 78 },
+  "status": "active",
+  "applies_to": [
+    "Soulmatch Astrologie-Interpretation (Lian, Stella, Sibyl)",
+    "Maya Core personalisierte Reflexion",
+    "Crush v4.2 als 13. Operator"
+  ],
+  "steps": [
+    "SYNTHESIZE-Output empfangen (was ist faktisch wahr?)",
+    "User-Kontext-Vektor laden (wer fragt, welche History, welches Ziel?)",
+    "Affekt-Zustand abfragen (affect_core: wie fühlt sich der User gerade?)",
+    "Temporal-Kontext prüfen (Freshness: wann? Ist Timing relevant?)",
+    "Bedeutungs-Transformation: Fakt X + Kontext Y = 'Das bedeutet für dich Z, weil W'",
+    "Claim Lineage anhängen: woher kommt diese Bedeutung?",
+    "Mirror-Check: Confidence der SIGNIFY-Aussage angeben",
+    "Surprise-Flag: ist diese Bedeutung unerwartet? Markieren."
+  ],
+  "tradeoffs": [
+    "SIGNIFY ohne guten User-Kontext-Vektor degeneriert zu generischer Interpretation",
+    "Über-Personalisierung kann zu Confirmation Bias führen — braucht Gegengewicht (CONTRAST)",
+    "Nicht jede Persona braucht SIGNIFY — Kael ist bewusst auf SYNTHESIZE begrenzt"
+  ],
+  "copy_ready": true,
+  "aliases": ["Signify", "Bedeutungs-Operator", "Crush Op 13"],
+  "evidence": {
+    "signals": [
+      "Campbell: Daten vs Information vs Bedeutung Unterscheidung",
+      "Soulmatch BaZi-Pipeline: Rohdaten → Interpretation fehlt personalisierter Schritt",
+      "Crush v4.1 hat 12 Operatoren, SIGNIFY schließt die Lücke zwischen SYNTHESIZE und User"
+    ],
+    "code_refs": [],
+    "notes": "Spec: specs/awareness-gradient-metrik-v0.2.md Abschnitt 5"
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-001", "meta-004", "sol-cross-034", "sol-cross-055", "metric-awareness-001"],
+    "supersedes": []
+  },
+  "timestamps": {
+    "created_at": "2026-04-06",
+    "updated_at": "2026-04-06"
+  }
+}
