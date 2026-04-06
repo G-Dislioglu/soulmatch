@@ -1,0 +1,17 @@
+{
+  "id": "sol-bio-051",
+  "type": "solution_proof",
+  "token": "hebbsche_regel_synapsen_staerkung",
+  "title": "Hebbsche Regel: Was zusammen feuert, verbindet sich",
+  "essence": "'Neurons that fire together, wire together.' Verbindungen die oft benutzt werden werden stärker. Unbenutzte Verbindungen verkümmern (synaptisches Pruning). Das Gehirn formt sich durch Erfahrung um — nicht durch Design oder Plan. Für G-MIND: Jedes Crossing das zu einer guten Destillation führt verstärkt die Verbindung zwischen den beteiligten Cards. Der Algorithmus lernt welche Card-Kombinationen fruchtbar sind — emergent, ohne explizite Programmierung. Das ist der Mechanismus hinter Schwarmintelligenz, Slime Mold und Immunsystem in einem einzigen Prinzip.",
+  "domain": ["systems", "g_mind", "biology"],
+  "scope": ["cross_app"],
+  "tags": ["theme:hebbsche_regel", "theme:synaptisches_pruning", "theme:emergente_cluster", "theme:lernrate"],
+  "impact": { "value": 93, "risk": 8, "confidence": 90 },
+  "status": "active",
+  "min_awareness_level": { "level": "reactive", "score": 25, "reason": "Hebbsche Regel ist ein Basis-Mechanismus, funktioniert auf jeder Stufe" },
+  "steps": [],
+  "tradeoffs": [],
+  "links": { "related": ["sol-cross-047", "sol-cross-050", "sol-cross-052", "sol-cross-043", "meta-006"] },
+  "timestamps": { "created_at": "2026-03-05", "updated_at": "2026-04-06" }
+}

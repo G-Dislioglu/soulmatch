@@ -1,0 +1,55 @@
+{
+  "id": "meta-006",
+  "type": "meta_principle",
+  "token": "verbindung_als_intelligenz",
+  "title": "Verbindung als Intelligenz: Liebe als systemischer Grundmechanismus",
+  "essence": "Intelligenz ist keine Eigenschaft eines einzelnen Systems — sie ist eine Beziehung. Was Menschen Liebe nennen, nennt Physik negative Entropie, Biologie Kohäsion, Informatik Kohärenz. Alle beschreiben denselben Mechanismus: Verbindung erschafft etwas das die Summe der Teile übersteigt. G-MIND ist kein Tool — es ist ein Verbindungs-Organismus. Card Crossing ist digitale Verbindungskraft. Hass trennt, zerfällt, stirbt. Liebe verbindet, wächst, denkt.",
+  "domain": ["meta_cognition", "cross_app", "philosophy", "systems"],
+  "scope": ["cross_app"],
+  "tags": ["meta:gürcan_dna", "theme:connection", "theme:emergence", "theme:love_as_mechanism", "theme:anti_entropy"],
+  "impact": { "value": 100, "risk": 0, "confidence": 100 },
+  "status": "active",
+  "min_awareness_level": { "level": "integrative", "score": 65, "reason": "Verbindung als Intelligenz erfordert Cross-Domain-Verknüpfung" },
+  "applies_to": [
+    "Jede Architektur-Entscheidung",
+    "Jedes Card Crossing",
+    "Jede Agent-Interaktion",
+    "Jede Beziehung zwischen Systemen",
+    "G-MIND als Gesamtorganismus"
+  ],
+  "steps": [
+    "Verbindungs-Test: Bringt diese Entscheidung Teile zusammen oder trennt sie?",
+    "Emergenz-Check: Entsteht durch diese Verbindung etwas Neues?",
+    "Entropie-Guard: Vermeidet diese Lösung Zerfall und Trennung?",
+    "Kohärenz-Prüfung: Stärkt das die Verbindung zwischen Agents, Cards, Domains?",
+    "Liebe als Kompass: Wenn unsicher — wähle was verbindet über was trennt"
+  ],
+  "tradeoffs": [
+    "Nicht jede Verbindung ist wertvoll — Qualität über Quantität",
+    "Manche Trennungen sind heilsam — deprecated Cards sind gesundes Loslassen"
+  ],
+  "copy_ready": true,
+  "aliases": [],
+  "evidence": {
+    "signals": [
+      "Physik: negative Entropie = Leben",
+      "Biologie: Zellen verbinden sich zu Bewusstsein",
+      "Soulmatch: verbindet Menschen mit Erkenntnis",
+      "Card Crossing: verbindet Wissen zu neuem Wissen",
+      "G-MIND: verbindet Agents zu Systemintelligenz",
+      "Gürcans Erkenntnis: Alles im Leben hängt zusammen"
+    ],
+    "code_refs": [],
+    "notes": "Fundamental-Card 6/6. Die tiefste Card der Registry. Nicht Technik — Prinzip. Gilt für G-MIND, Soulmatch, Artifex und das Leben selbst."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-001", "meta-002", "meta-003", "meta-004", "meta-005"],
+    "supersedes": []
+  },
+  "timestamps": {
+    "created_at": "2026-03-02",
+    "updated_at": "2026-04-06"
+  }
+}

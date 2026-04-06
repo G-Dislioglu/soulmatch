@@ -1,0 +1,26 @@
+{
+  "id": "sol-cross-034",
+  "type": "solution_proof",
+  "token": "ui_agent_transparency_stack",
+  "title": "UI-Agent Transparency Stack: Maya Sight + Mirror + Claim Lineage",
+  "essence": "Maya Sight (UI Awareness) + Mirror Overlay (Reasoning Transparency) + Claim Lineage (Provenance) = vollständige Transparenz: AI sieht UI, exponiert Reasoning, trackt Provenance — User versteht alles.",
+  "domain": ["frontend", "meta_cognition", "ai_governance", "cross_app"],
+  "scope": ["cross_app"],
+  "tags": ["theme:transparency", "theme:ui_intelligence", "theme:provenance", "theme:explainability"],
+  "impact": { "value": 89, "risk": 28, "confidence": 80 },
+  "status": "proposed",
+  "min_awareness_level": { "level": "adaptive", "score": 50, "reason": "Transparency Stack braucht Claim Lineage + Mirror aktiv" },
+  "applies_to": ["AI-powered UIs", "Explainable AI Systems", "Trust-critical Applications"],
+  "steps": [
+    "UI-AWARENESS: DOM Introspection + Struggle Tracking (Maya Sight)",
+    "REASONING-TRANSPARENCY: Confidence Scores + Reasoning Steps sichtbar (Mirror)",
+    "PROVENANCE: Jeder Claim rückverfolgbar zur Source (Lineage)",
+    "INTEGRATION: Unified Transparency Dashboard für User",
+    "DRILLDOWN: User kann Herkunft und Confidence jedes Claims erkunden"
+  ],
+  "tradeoffs": ["Information Overload Risiko", "Privacy Concerns bei Reasoning-Exposition"],
+  "copy_ready": false,
+  "evidence": { "signals": ["sol-ux-001: Maya Sight", "meta-001: Mirror Overlay", "meta-002: Claim Lineage"], "code_refs": [], "notes": "GLM5: Vollständigster Transparency Stack — Differenzierungsmerkmal für Soulmatch/Artifex" },
+  "links": { "fixes": [], "causes": [], "related": ["sol-ux-001", "meta-001", "meta-002"], "supersedes": [] },
+  "timestamps": { "created_at": "2026-03-01", "updated_at": "2026-04-06" }
+}

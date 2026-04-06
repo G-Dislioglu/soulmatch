@@ -1,0 +1,26 @@
+{
+  "id": "sol-cross-013",
+  "type": "solution_proof",
+  "token": "self_monitoring_agent_stack",
+  "title": "Self-Monitoring Agent Stack: Mirror + Freshness + Regime Exit",
+  "essence": "Mirror Overlay (Selbstwahrnehmung) + Freshness Sentinel (temporale Validierung) + Regime Exit (Loop-Prävention) bilden einen vollständigen Self-Monitoring Stack für autonome Agents.",
+  "domain": ["ai_governance", "meta_cognition", "cross_app"],
+  "scope": ["cross_app"],
+  "tags": ["theme:self_monitoring", "theme:anti_hallucination", "theme:temporal_awareness", "theme:anti_loop"],
+  "impact": { "value": 93, "risk": 18, "confidence": 86 },
+  "status": "proposed",
+  "min_awareness_level": { "level": "adaptive", "score": 50, "reason": "Self-Monitoring Stack braucht alle drei Layer aktiv" },
+  "applies_to": ["Autonome AI Agents", "Long-running Reasoning Systems", "Multi-step AI Workflows"],
+  "steps": [
+    "MIRROR LAYER: Real-time Confidence Scoring für jeden Reasoning Step",
+    "FRESHNESS LAYER: Timestamp Validation + Staleness Detection für alle Inputs",
+    "REGIME LAYER: Loop Detection + Timeout + Resource Limits + Exit Triggers",
+    "INTEGRATION: Alle drei Layer reporten an unified Monitoring Dashboard",
+    "ALERT: Jeder Layer Trigger → Pause + Notify + Await Human Review"
+  ],
+  "tradeoffs": ["Computational Overhead für Meta-Monitoring", "Kann valides langes Reasoning vorzeitig beenden"],
+  "copy_ready": false,
+  "evidence": { "signals": ["meta-001: mirror overlay", "meta-004: freshness sentinel", "meta-003: regime exit"], "code_refs": [], "notes": "GLM5: Drei Maya-Cards als vollständiger Stack — elegant und operationell" },
+  "links": { "fixes": [], "causes": [], "related": ["meta-001", "meta-003", "meta-004"], "supersedes": [] },
+  "timestamps": { "created_at": "2026-03-01", "updated_at": "2026-04-06" }
+}

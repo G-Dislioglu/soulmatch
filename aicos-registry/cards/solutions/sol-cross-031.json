@@ -1,0 +1,26 @@
+{
+  "id": "sol-cross-031",
+  "type": "solution_proof",
+  "token": "self_aware_coding_agent",
+  "title": "Self-Aware Coding Agent: Mirror Overlay für Coding Patterns",
+  "essence": "Mirror Overlay (AI Selbst-Monitoring) + Split-Role Validation: Agent beobachtet eigene Coding-Patterns, flaggt potentielle Issues bevor sie Bugs werden, korrigiert sich während Implementierung.",
+  "domain": ["ai_governance", "devserver"],
+  "scope": ["cross_app"],
+  "tags": ["theme:self_awareness", "theme:quality_control", "theme:meta_cognition", "theme:pattern_recognition"],
+  "impact": { "value": 87, "risk": 25, "confidence": 78 },
+  "status": "proposed",
+  "min_awareness_level": { "level": "adaptive", "score": 45, "reason": "Self-Aware Coding braucht Pattern-Erkennung über eigenes Verhalten" },
+  "applies_to": ["Komplexe Logik und kritische Features", "Pattern-intensive Codebasen", "Wenn Fehler sich wiederholen"],
+  "steps": [
+    "Agent trackt eigene Implementierungs-Entscheidungen in Echtzeit",
+    "Pattern Recognition: 'Diesen Fehler mache ich oft'",
+    "Self-Questioning: 'Warum habe ich diesen Ansatz gewählt?'",
+    "Auto-Flag: 'Das sieht aus wie vorheriges Bug-Pattern'",
+    "PROOF CORE Integration: Mirror Layer für Coding als neues Gate"
+  ],
+  "tradeoffs": ["Signifikanter Computational Overhead", "Kann einfache Tasks verlangsamen"],
+  "copy_ready": false,
+  "evidence": { "signals": ["Mirror overlay improves reasoning quality", "Split-role catches errors early"], "code_refs": [], "notes": "Kimi: Mirror Overlay Prinzip auf Coding angewendet" },
+  "links": { "fixes": [], "causes": [], "related": ["meta-001", "sol-dev-006"], "supersedes": [] },
+  "timestamps": { "created_at": "2026-03-01", "updated_at": "2026-04-06" }
+}
