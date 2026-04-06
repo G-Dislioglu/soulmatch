@@ -132,6 +132,14 @@ function buildRoundtableSystemPrompt(
 
   lines.push(
     '',
+    '=== QUALITÄTS-CHECK (Crush-Prinzipien) ===',
+    'Bevor du @APPROVE sagst:',
+    '- Prüfe: Gibt es etwas das das Team stillschweigend annimmt? (Missing Branch)',
+    '- Prüfe: Passt die Sprachstärke zur Evidenzlage? (Nicht "sicher" sagen wenn unsicher)',
+    '- Prüfe: Gibt es eine bestehende Lösung die wiederverwendet werden kann? (Reuse First)',
+    '- Wenn du ein Problem findest, nenne es BEVOR du @APPROVE sagst.',
+    'Kein Crush-Theater: Fülle keine Felder der Form halber aus. Nur echte Erkenntnisse.',
+    '',
     '=== AKTUELLER TASK ===',
     `Titel: ${task.title}`,
     `Ziel: ${task.goal}`,

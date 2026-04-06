@@ -3,8 +3,16 @@ import { triggerGithubAction, type PatchPayload } from './builderGithubBridge.js
 import { getDb } from '../db.js';
 import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
 import { generateErrorCard } from './opusErrorLearning.js';
-import { updateGraphAfterTask } from './opusGraphIntegration.js';
+import { findRelevantErrorCards, updateGraphAfterTask } from './opusGraphIntegration.js';
 import { getChatPoolForTask } from './opusChatPool.js';
+import {
+  determineCrushIntensity,
+  runAmbientCrush,
+  runCaseCrush,
+  type AmbientCrushResult,
+  type CaseCrushResult,
+  type CrushIntensity,
+} from './opusPulseCrush.js';
 import { runScoutPhase } from './opusScoutRunner.js';
 import {
   DEFAULT_ROUNDTABLE_CONFIG,
@@ -37,6 +45,11 @@ export interface ExecuteResult {
   blocks: string[];
   githubAction?: { triggered: boolean; error?: string };
   session?: { tasksUsed: number; tasksRemaining: number; tokensUsed: number; tokensRemaining: number };
+  crush?: {
+    intensity: CrushIntensity;
+    ambient: AmbientCrushResult;
+    caseCrush: CaseCrushResult | null;
+  };
 }
 
 function toWritePatchPayloads(patches: Array<{ file: string; body: string }>): PatchPayload[] {
@@ -76,6 +89,19 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     goal: instruction,
     scope: normalizedScope,
   });
+  const graphBriefing = scoutMessages.find((message) => message.actor === 'graph')?.content || '';
+  const relevantErrorCards = await findRelevantErrorCards(instruction, normalizedScope);
+  let crushIntensity: CrushIntensity = 'ambient';
+  let caseCrushResult: CaseCrushResult | null = null;
+  const ambientResult = runAmbientCrush(
+    graphBriefing,
+    relevantErrorCards.map((card) => ({
+      title: card.title,
+      category: card.category,
+      affectedFiles: Array.isArray(card.affectedFiles) ? card.affectedFiles.map(String) : [],
+    })),
+    normalizedScope,
+  );
 
   let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' = 'scouted';
   let consensusType: 'unanimous' | 'majority' | null = null;
@@ -114,6 +140,32 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     approvals = roundtableResult.approvals;
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
+
+    crushIntensity = determineCrushIntensity(
+      { risk: input.risk ?? 'low', scope: normalizedScope, instruction },
+      {
+        hasBlocks: blocks.length > 0,
+        hasContradictions: approvals.length > 0 && blocks.length > 0,
+        isArchitectural: normalizedScope.length > 2,
+        previousFailures: 0,
+      },
+    );
+
+    if (crushIntensity === 'case' || crushIntensity === 'heavy') {
+      try {
+        const chatPool = await getChatPoolForTask(task.id);
+        const summary = chatPool.map((message) => `[${message.actor}] ${message.content}`).join('\n\n').slice(0, 3000);
+        caseCrushResult = await runCaseCrush(
+          { goal: instruction, scope: normalizedScope },
+          summary,
+          blocks.length > 0 ? 'Roundtable hatte Blocks' : undefined,
+        );
+        totalTokens += caseCrushResult.tokensUsed;
+      } catch (error) {
+        console.error('[crush] case crush failed:', error);
+        caseCrushResult = null;
+      }
+    }
 
     if (roundtableResult.status === 'consensus') {
       if (patches.length > 0) {
@@ -207,5 +259,10 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks,
     githubAction,
     session: sessionState,
+    crush: {
+      intensity: crushIntensity,
+      ambient: ambientResult,
+      caseCrush: caseCrushResult,
+    },
   };
 }
