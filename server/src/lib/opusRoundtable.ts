@@ -13,7 +13,7 @@ import { extractJsonFromText } from './opusPulseCrush.js';
 import { callProvider } from './providers.js';
 
 const REPO_ROOT = process.cwd();
-const MAX_FILE_SIZE = 8000;
+const MAX_FILE_SIZE = 15000;
 
 export interface RoundtableParticipant {
   actor: string;
@@ -147,6 +147,17 @@ function buildRoundtableSystemPrompt(
   opusHints?: string,
 ): string {
   const lines = [
+    '=== KOMMUNIKATIONS-FORMAT (PFLICHT) ===',
+    'Halte JEDEN Beitrag UNTER 150 Wörtern. Kein Wiederholen.',
+    'Struktur:',
+    'POS: agree/disagree/partial + wer (z.B. "agree opus-R1")',
+    'EIGENES: Was siehst DU das andere nicht sehen? (1-2 Sätze max)',
+    'AKTION: @READ/@PATCH/@APPROVE/@BLOCK + Begründung (1 Satz)',
+    '',
+    'Keine Einleitungen ("Ich schaue mir zuerst...", "Basierend auf...").',
+    'Keine Wiederholungen ("Wie opus bereits sagte...").',
+    'Direkt zur Sache. Jedes Wort muss Mehrwert bringen.',
+    '',
     '=== PROJEKT-DNA ===',
     projectDna || '(keine Project DNA geladen)',
     '',
