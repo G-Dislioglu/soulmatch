@@ -4,13 +4,14 @@ import { swissEphemerisProbe } from '../lib/swissEphemerisProbe.js';
 export const healthRouter = Router();
 
 // GET /api/health
-healthRouter.get('/', (req: Request, res: Response) => {
+healthRouter.get('/', (_req: Request, res: Response) => {
   console.log('🏥 Health endpoint hit - sweph test running...');
   const swephProbe = swissEphemerisProbe();
   console.log(`🏥 Swiss Ephemeris available: ${swephProbe.available}`);
   
   res.json({
     status: 'ok',
+    commit: process.env.RENDER_GIT_COMMIT || 'unknown',
     timestamp: new Date().toISOString(),
     sweph: swephProbe.available,
     swephError: swephProbe.error,
