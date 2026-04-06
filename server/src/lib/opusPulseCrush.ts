@@ -153,7 +153,7 @@ ${chatPoolSummary}
 
 Analysiere diesen Fall mit der Core Perception Triad.`,
     }],
-    maxTokens: 1000,
+    maxTokens: 1500,
     forceJsonObject: false,
   });
 

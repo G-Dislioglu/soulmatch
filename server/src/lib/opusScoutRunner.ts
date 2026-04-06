@@ -66,7 +66,7 @@ async function runCodebaseScout(task: ScoutTask): Promise<ChatPoolMessage> {
 
 async function runPatternScout(task: ScoutTask): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
-  const content = await callProvider('openai', 'gpt-5-nano', {
+  const content = await callProvider('zhipu', 'glm-4.7-flash', {
     system: buildPromptWithProjectDna(
       `Du bist der Pattern-Scout. Extrahiere Muster und Konventionen. Liefere: 1) Code-Konventionen, 2) Duplikat-Risiken, 3) Edge-Cases, 4) Komplexität. Kein Code schreiben.`,
     ),
@@ -80,7 +80,7 @@ async function runPatternScout(task: ScoutTask): Promise<ChatPoolMessage> {
     round: 0,
     phase: 'scout',
     actor: 'gpt-nano',
-    model: 'gpt-5-nano',
+    model: 'glm-4.7-flash',
     content,
     tokensUsed: 0,
     durationMs: Date.now() - startedAt,
