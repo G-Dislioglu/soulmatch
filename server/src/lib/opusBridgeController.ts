@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { triggerGithubAction, type PatchPayload } from './builderGithubBridge.js';
 import { getDb } from '../db.js';
+import { generateErrorCard } from './opusErrorLearning.js';
 import { updateGraphAfterTask } from './opusGraphIntegration.js';
+import { getChatPoolForTask } from './opusChatPool.js';
 import { runScoutPhase } from './opusScoutRunner.js';
 import {
   DEFAULT_ROUNDTABLE_CONFIG,
@@ -122,6 +124,23 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       status = 'no_consensus';
     } else {
       status = 'error';
+    }
+
+    if (status !== 'consensus') {
+      try {
+        const chatPool = await getChatPoolForTask(task.id);
+        const summary = chatPool.map((message) => `[${message.actor}] ${message.content}`).join('\n\n');
+        await generateErrorCard({
+          taskId: task.id,
+          taskTitle: task.title,
+          taskGoal: instruction,
+          blockReason: status,
+          chatPoolSummary: summary.slice(0, 3000),
+          affectedFiles: normalizedScope,
+        });
+      } catch (error) {
+        console.error('[opusBridge] error card generation failed:', error);
+      }
     }
   }
 
