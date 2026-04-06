@@ -136,32 +136,23 @@ export async function runCaseCrush(
 ): Promise<CaseCrushResult> {
   const response = await callProvider('deepseek', 'deepseek-reasoner', {
     system: `Du bist ein Crush-Analyst. Wende die Core Perception Triad an:
+ST (Search Thermodynamics): heat, drain, resonance (jeweils high/medium/low)
+DTT (Dual-Track Truth): working truth, debt, debt risk
+MB (Missing Branches): Was wurde nicht diskutiert?
 
-1. ST (Search Thermodynamics):
-   - heat: Wie viel produktiver Suchdruck besteht? (high/medium/low)
-   - drain: Wie viel Energie fließt in Sackgassen? (high/medium/low)
-   - resonance: Gibt es Übereinstimmung zwischen den Team-Mitgliedern? (high/medium/low)
-
-2. DTT (Dual-Track Truth):
-   - working: Was ist die aktuelle Arbeitswahrheit?
-   - debt: Welche technische Schulden oder unbewiesene Annahmen gibt es?
-   - debt_risk: Wie gefährlich sind diese Schulden? (high/medium/low)
-
-3. MB (Missing Branches):
-   - Welche Aspekte hat das Team NICHT diskutiert?
-   - Was wurde stillschweigend angenommen?
-
-Task: ${task.goal}
+Schreibe deine Analyse als Fließtext. Am Ende, füge einen JSON-Block ein:
+{"st":{"heat":"...","drain":"...","resonance":"..."},"dtt":{"working":"...","debt":"...","debtRisk":"..."},"mb":["..."],"recommendation":"..."}`,
+    messages: [{
+      role: 'user',
+      content: `Task: ${task.goal}
 Scope: ${(task.scope ?? []).join(', ') || 'nicht eingeschränkt'}
 ${blockReason ? `Block-Grund: ${blockReason}` : ''}
 
 Team-Diskussion:
 ${chatPoolSummary}
 
-Schreibe deine Analyse als Fließtext. Am Ende deiner Antwort,
-füge einen JSON-Block ein der deine Ergebnisse zusammenfasst:
-{"st":{"heat":"...","drain":"...","resonance":"..."},"dtt":{"working":"...","debt":"...","debtRisk":"..."},"mb":["..."],"recommendation":"..."}`,
-    messages: [{ role: 'user', content: 'Analysiere den Fall.' }],
+Analysiere diesen Fall mit der Core Perception Triad.`,
+    }],
     maxTokens: 1000,
     forceJsonObject: false,
   });
