@@ -20,9 +20,43 @@ import {
   runRoundtable,
   validatePatch,
   type PatchValidation,
+  type RoundtableParticipant,
   type RoundtableConfig,
 } from './opusRoundtable.js';
 import { builderOpusLog, builderTasks } from '../schema/builder.js';
+
+const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
+  opus: {
+    actor: 'opus', model: 'claude-opus-4-6', provider: 'anthropic',
+    strengths: 'Architektur, Systemdesign, komplexe Logik, saubere Abstraktionen',
+    maxTokensPerRound: 2500,
+  },
+  sonnet: {
+    actor: 'sonnet', model: 'claude-sonnet-4-6', provider: 'anthropic',
+    strengths: 'Schneller Code-Schreiber, gutes Kosten-Leistungs-Verhaeltnis',
+    maxTokensPerRound: 2500,
+  },
+  gpt: {
+    actor: 'gpt-5.4', model: 'gpt-5.4', provider: 'openai',
+    strengths: 'Edge-Cases, Fehlersuche, alternative Ansaetze',
+    maxTokensPerRound: 2000,
+  },
+  glm: {
+    actor: 'glm-turbo', model: 'glm-5-turbo', provider: 'zhipu',
+    strengths: 'Agent-optimiert, niedrigste Tool-Error Rate',
+    maxTokensPerRound: 1500,
+  },
+  grok: {
+    actor: 'grok', model: 'grok-4-1-fast', provider: 'xai',
+    strengths: 'Schnell und guenstig, guter Code-Scout',
+    maxTokensPerRound: 1500,
+  },
+  deepseek: {
+    actor: 'deepseek', model: 'deepseek-chat', provider: 'deepseek',
+    strengths: 'Sehr guenstig, gutes Reasoning fuer Standard-Tasks',
+    maxTokensPerRound: 1500,
+  },
+};
 
 export interface ExecuteInput {
   instruction: string;
@@ -30,6 +64,7 @@ export interface ExecuteInput {
   risk?: string;
   opusHints?: string;
   skipRoundtable?: boolean;
+  codeWriter?: string;
   roundtableConfig?: Partial<RoundtableConfig>;
 }
 
@@ -119,8 +154,14 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const memoryContext = await buildBuilderMemoryContext().catch(() => '');
 
   if (!input.skipRoundtable) {
+    const baseParticipants = input.roundtableConfig?.participants ?? DEFAULT_ROUNDTABLE_CONFIG.participants;
+    const writerPreset = input.codeWriter ? CODE_WRITER_PRESETS[input.codeWriter] : undefined;
+    const participants = writerPreset
+      ? [writerPreset, ...baseParticipants.slice(1)]
+      : baseParticipants;
+
     const mergedConfig: RoundtableConfig = {
-      participants: input.roundtableConfig?.participants ?? DEFAULT_ROUNDTABLE_CONFIG.participants,
+      participants,
       maxRounds: input.roundtableConfig?.maxRounds ?? DEFAULT_ROUNDTABLE_CONFIG.maxRounds,
       consensusThreshold:
         input.roundtableConfig?.consensusThreshold ?? DEFAULT_ROUNDTABLE_CONFIG.consensusThreshold,
