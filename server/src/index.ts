@@ -55,8 +55,8 @@ app.use('/api/health', healthRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/journey', journeyRouter);
 app.use('/api', zimageRouter);
-app.use('/api/builder', builderRouter);
 app.use('/api/builder/opus-bridge', opusBridgeRouter);
+app.use('/api/builder', builderRouter);
 
 devLogger.info('system', 'Server starting', { port: PORT });
 
