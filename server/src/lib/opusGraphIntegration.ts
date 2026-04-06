@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb } from '../db.js';
-import { builderErrorCards } from '../schema/opusBridge.js';
+import { builderErrorCards } from '../schema/builder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -216,5 +216,62 @@ export function loadProjectDna(): string {
     return fs.readFileSync(filePath, 'utf8');
   } catch {
     return '';
+  }
+}
+
+export async function updateGraphAfterTask(
+  taskResult: { taskId: string; title: string; status: string; filesChanged?: string[] },
+): Promise<void> {
+  const now = new Date();
+  const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  const eventDir = path.resolve(REPO_ROOT, 'architecture/events');
+  const eventPath = path.resolve(eventDir, `${monthKey}.jsonl`);
+
+  try {
+    fs.mkdirSync(eventDir, { recursive: true });
+    fs.appendFileSync(
+      eventPath,
+      `${JSON.stringify({
+        ts: now.toISOString(),
+        actor: 'opus-bridge',
+        type: 'task_completed',
+        target: taskResult.taskId,
+        reason: taskResult.title,
+        source: 'opus_bridge',
+      })}\n`,
+      'utf8',
+    );
+  } catch (error) {
+    console.error('[opusGraphIntegration] event ledger write failed:', error);
+  }
+
+  const trunkPath = path.resolve(REPO_ROOT, 'architecture/trunks/soulmatch.json');
+  if (!fs.existsSync(trunkPath)) {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(trunkPath, 'utf8')) as GraphTrunkFile;
+    if (!Array.isArray(parsed.nodes)) {
+      return;
+    }
+
+    const filesChanged = (taskResult.filesChanged ?? []).map((file) => normalizePath(file));
+    let changed = false;
+    for (const node of parsed.nodes) {
+      if (!node.path || !filesChanged.includes(normalizePath(node.path))) {
+        continue;
+      }
+
+      node.status = 'done';
+      (node as GraphTrunkNode & { verification?: string }).verification = 'repo_verified';
+      changed = true;
+    }
+
+    if (changed) {
+      fs.writeFileSync(trunkPath, JSON.stringify(parsed, null, 2), 'utf8');
+    }
+  } catch (error) {
+    console.error('[opusGraphIntegration] trunk update failed:', error);
   }
 }
