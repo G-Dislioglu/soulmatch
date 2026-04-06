@@ -7,6 +7,11 @@ import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { executeTask } from '../lib/opusBridgeController.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
+import {
+  runMeisterValidation,
+  runWorkerSwarm,
+  type WorkerAssignment,
+} from '../lib/opusWorkerSwarm.js';
 import { getDb } from '../db.js';
 import { addChatPoolMessage, getChatPoolForTask } from '../lib/opusChatPool.js';
 import { callProvider } from '../lib/providers.js';
@@ -411,4 +416,41 @@ opusBridgeRouter.post('/reset-session', (_req: Request, res: Response) => {
     message: 'Session reset',
     session: state,
   });
+});
+
+opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
+  try {
+    const { taskId, goal, assignments, fileContents, skipMeister } = req.body as {
+      taskId?: string;
+      goal?: string;
+      assignments?: WorkerAssignment[];
+      fileContents?: Record<string, string>;
+      skipMeister?: boolean;
+    };
+
+    if (!goal || !Array.isArray(assignments) || assignments.length === 0) {
+      res.status(400).json({ error: 'goal and assignments[] are required' });
+      return;
+    }
+
+    const resolvedTaskId = taskId || `swarm-${Date.now()}`;
+    const workerResults = await runWorkerSwarm(resolvedTaskId, assignments, goal, fileContents);
+    const meister = skipMeister
+      ? null
+      : await runMeisterValidation(resolvedTaskId, goal, workerResults);
+
+    const patches = meister?.validatedPatches ?? workerResults
+      .filter((result) => result.patch)
+      .map((result) => result.patch as { file: string; body: string });
+
+    res.json({
+      taskId: resolvedTaskId,
+      goal,
+      workerResults,
+      meister,
+      patches,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
