@@ -5,6 +5,7 @@ import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.
 import { generateErrorCard } from './opusErrorLearning.js';
 import { findRelevantErrorCards, updateGraphAfterTask } from './opusGraphIntegration.js';
 import { getChatPoolForTask } from './opusChatPool.js';
+import { buildBuilderMemoryContext } from './builderMemory.js';
 import {
   determineCrushIntensity,
   runAmbientCrush,
@@ -112,6 +113,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let approvals: string[] = [];
   let blocks: string[] = [];
   let githubAction: { triggered: boolean; error?: string } | undefined;
+  const memoryContext = await buildBuilderMemoryContext().catch(() => '');
 
   if (!input.skipRoundtable) {
     const mergedConfig: RoundtableConfig = {
@@ -131,7 +133,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       },
       scoutMessages,
       mergedConfig,
-      input.opusHints,
+      [input.opusHints || '', memoryContext ? `\n\n=== BUILDER MEMORY ===\n${memoryContext}` : ''].join('').trim() || undefined,
     );
 
     rounds = roundtableResult.rounds;
