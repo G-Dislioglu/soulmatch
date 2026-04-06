@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { asc, desc, eq } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
@@ -445,7 +447,31 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
       .returning();
     const id = task.id;
 
-    const workerResults = await runWorkerSwarm(id, assignments, goal, fileContents);
+    const autoFileContents = new Map<string, string>();
+    if (fileContents) {
+      for (const [key, value] of Object.entries(fileContents)) {
+        autoFileContents.set(key, value);
+      }
+    }
+    for (const assignment of assignments) {
+      if (!autoFileContents.has(assignment.file)) {
+        const candidates = [
+          path.resolve(process.cwd(), assignment.file),
+          path.resolve(process.cwd(), '..', assignment.file),
+        ];
+        for (const candidate of candidates) {
+          try {
+            const content = fs.readFileSync(candidate, 'utf-8');
+            autoFileContents.set(assignment.file, content.slice(0, 15000));
+            break;
+          } catch {
+            // file not found, skip
+          }
+        }
+      }
+    }
+
+    const workerResults = await runWorkerSwarm(id, assignments, goal, Object.fromEntries(autoFileContents));
     const meister = skipMeister
       ? null
       : await runMeisterValidation(id, goal, workerResults);
@@ -454,12 +480,25 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
       .filter((result) => result.patch)
       .map((result) => result.patch as { file: string; body: string });
 
+    let githubAction: { triggered: boolean; error?: string } | undefined;
+    if (patches.length > 0) {
+      const patchPayloads = convertBdlPatchesToPayload(
+        patches.map((patch) => ({ kind: 'PATCH', params: { file: patch.file }, body: patch.body, raw: patch.body })),
+      );
+      githubAction = await triggerGithubAction(id, patchPayloads);
+      await db
+        .update(builderTasks)
+        .set({ status: githubAction.triggered ? 'applying' : 'error' })
+        .where(eq(builderTasks.id, id));
+    }
+
     res.json({
       taskId: id,
       goal,
       workerResults,
       meister,
       patches,
+      githubAction,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
