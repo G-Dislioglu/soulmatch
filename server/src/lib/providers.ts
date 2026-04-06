@@ -227,7 +227,7 @@ export async function callProvider(
 
   // Responses API (OpenAI GPT-5): output_text convenience field, then output[] items
   // Chat Completions (xAI, DeepSeek): choices[0].message.content
-  type Choices = Array<{ message?: { content?: string } }>;
+  type Choices = Array<{ message?: { content?: string; reasoning_content?: string } }>;
   type Output = Array<{ type?: string; content?: Array<{ type?: string; text?: string }>; text?: string }>;
 
   const choices = data.choices as Choices | undefined;
@@ -258,6 +258,11 @@ export async function callProvider(
     outputItemText ||
     choices?.[0]?.message?.content ||
     undefined;
+
+  // DeepSeek Reasoner: Wenn content leer, nutze reasoning_content als Fallback
+  if (!content && choices?.[0]?.message?.reasoning_content) {
+    content = choices[0].message.reasoning_content;
+  }
 
   if (!content) throw new Error(`No content in ${provider} response`);
 
