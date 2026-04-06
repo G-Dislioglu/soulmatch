@@ -1,4 +1,6 @@
-import { parseBdl } from './builderBdlParser.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { parseBdl, type BdlCommand } from './builderBdlParser.js';
 import {
   addChatPoolMessage,
   countApprovals,
@@ -9,6 +11,9 @@ import {
 import { loadProjectDna } from './opusGraphIntegration.js';
 import { extractJsonFromText } from './opusPulseCrush.js';
 import { callProvider } from './providers.js';
+
+const REPO_ROOT = process.cwd();
+const MAX_FILE_SIZE = 8000;
 
 export interface RoundtableParticipant {
   actor: string;
@@ -86,6 +91,34 @@ export const DEFAULT_ROUNDTABLE_CONFIG: RoundtableConfig = {
 
 function normalizeProvider(provider: string): string {
   return provider === 'google' ? 'gemini' : provider;
+}
+
+function resolveReadCommands(commands: BdlCommand[]): string {
+  const reads: string[] = [];
+
+  for (const cmd of commands) {
+    if (cmd.kind !== 'READ') continue;
+    const filePath = cmd.params?.file;
+    if (!filePath) continue;
+
+    const resolved = path.resolve(REPO_ROOT, filePath);
+    if (!resolved.startsWith(REPO_ROOT)) continue;
+
+    if (filePath.includes('.env') || filePath.includes('node_modules')) continue;
+
+    try {
+      const content = fs.readFileSync(resolved, 'utf-8');
+      if (content.length > MAX_FILE_SIZE) {
+        reads.push(`[FILE: ${filePath}] (${content.length} Zeichen, gekürzt auf ${MAX_FILE_SIZE})\n${content.slice(0, MAX_FILE_SIZE)}\n[...gekürzt...]`);
+      } else {
+        reads.push(`[FILE: ${filePath}]\n${content}`);
+      }
+    } catch {
+      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden oder nicht lesbar`);
+    }
+  }
+
+  return reads.join('\n\n');
 }
 
 function buildRoundtableSystemPrompt(
@@ -245,6 +278,28 @@ export async function runRoundtable(
       } catch (error) {
         console.error(`[opusRoundtable] participant ${participant.actor} failed`, error);
       }
+    }
+
+    const roundMessages = chatPool.filter((message) => message.round === round);
+    const allCommands = roundMessages.flatMap((message) =>
+      Array.isArray(message.commands) ? message.commands as BdlCommand[] : [],
+    );
+    const readResults = resolveReadCommands(allCommands);
+
+    if (readResults) {
+      const readMessage = await addChatPoolMessage({
+        taskId: task.id,
+        round,
+        phase: 'roundtable',
+        actor: 'system',
+        model: 'file-reader',
+        content: `=== DATEI-INHALTE (angefordert durch @READ) ===\n\n${readResults}`,
+        commands: [],
+        executionResults: {},
+        tokensUsed: 0,
+        durationMs: 0,
+      });
+      chatPool.push(readMessage);
     }
 
     const approvals = countApprovals(chatPool, round);
