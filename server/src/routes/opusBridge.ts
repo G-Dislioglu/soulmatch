@@ -4,6 +4,7 @@ import { requireOpusToken } from '../lib/opusBridgeAuth.js';
 import { triggerGithubAction, type PatchPayload } from '../lib/builderGithubBridge.js';
 import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
+import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { executeTask } from '../lib/opusBridgeController.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import { getDb } from '../db.js';
@@ -394,4 +395,13 @@ opusBridgeRouter.get('/memory', async (_req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+opusBridgeRouter.post('/reset-session', (_req: Request, res: Response) => {
+  resetSession();
+  const state = getSessionState();
+  res.json({
+    message: 'Session reset',
+    session: state,
+  });
 });

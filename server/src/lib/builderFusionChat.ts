@@ -61,6 +61,17 @@ const CHAT_VISIBLE_BLACKLIST = [
   'package.json',
   'server/package.json',
   'node_modules/',
+  'server/src/routes/opusBridge.ts',
+  'server/src/lib/opusBridgeAuth.ts',
+  'server/src/lib/opusBridgeController.ts',
+  'server/src/lib/opusChainController.ts',
+  'server/src/lib/opusChatPool.ts',
+  'server/src/lib/opusErrorLearning.ts',
+  'server/src/lib/opusGraphIntegration.ts',
+  'server/src/lib/opusRoundtable.ts',
+  'server/src/lib/opusScoutRunner.ts',
+  'server/src/lib/opusVerification.ts',
+  'server/src/schema/opusBridge.ts',
 ] as const;
 
 const RETRYABLE_TASK_STATUSES = new Set(['blocked', 'review_needed', 'needs_human_review']);

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { triggerGithubAction, type PatchPayload } from './builderGithubBridge.js';
 import { getDb } from '../db.js';
+import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
 import { generateErrorCard } from './opusErrorLearning.js';
 import { updateGraphAfterTask } from './opusGraphIntegration.js';
 import { getChatPoolForTask } from './opusChatPool.js';
@@ -35,6 +36,7 @@ export interface ExecuteResult {
   approvals: string[];
   blocks: string[];
   githubAction?: { triggered: boolean; error?: string };
+  session?: { tasksUsed: number; tasksRemaining: number; tokensUsed: number; tokensRemaining: number };
 }
 
 function toWritePatchPayloads(patches: Array<{ file: string; body: string }>): PatchPayload[] {
@@ -49,6 +51,11 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const instruction = input.instruction;
   if (!instruction || typeof instruction !== 'string') {
     throw new Error('instruction is required');
+  }
+
+  const budget = checkBudget();
+  if (!budget.allowed) {
+    throw new Error(`Budget-Gate: ${budget.reason}`);
   }
 
   const normalizedScope = Array.isArray(input.scope) ? input.scope : [];
@@ -174,6 +181,8 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     tokensUsed: totalTokens,
   });
 
+  recordTaskUsage(totalTokens);
+
   if (status === 'consensus') {
     await updateGraphAfterTask({
       taskId: task.id,
@@ -182,6 +191,8 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       filesChanged: patches.map((patch) => patch.file),
     });
   }
+
+  const sessionState = getSessionState();
 
   return {
     taskId: task.id,
@@ -195,5 +206,6 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     approvals,
     blocks,
     githubAction,
+    session: sessionState,
   };
 }

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { executeTask, type ExecuteResult } from './opusBridgeController.js';
+import { checkBudget } from './opusBudgetGate.js';
 import { callProvider } from './providers.js';
 import { builderChains, builderTasks } from '../schema/builder.js';
 
@@ -104,6 +105,11 @@ Entscheide: continue, adjust oder stop?`,
 }
 
 export async function runChain(config: ChainConfig): Promise<ChainResult> {
+  const budget = checkBudget();
+  if (!budget.allowed) {
+    throw new Error(`Budget-Gate: ${budget.reason}`);
+  }
+
   const db = getDb();
   const startedAt = Date.now();
   const [chain] = await db
