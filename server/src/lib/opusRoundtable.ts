@@ -101,10 +101,29 @@ function resolveReadCommands(commands: BdlCommand[]): string {
     const filePath = cmd.params?.file;
     if (!filePath) continue;
 
-    const resolved = path.resolve(REPO_ROOT, filePath);
-    if (!resolved.startsWith(REPO_ROOT)) continue;
-
     if (filePath.includes('.env') || filePath.includes('node_modules')) continue;
+
+    let resolved = '';
+    let found = false;
+    const candidates = [
+      path.resolve(REPO_ROOT, filePath),
+      path.resolve(REPO_ROOT, filePath.replace(/^server\//, '')),
+      path.resolve(REPO_ROOT, '..', filePath),
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate.startsWith(path.resolve(REPO_ROOT, '..'))) continue;
+      if (fs.existsSync(candidate)) {
+        resolved = candidate;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden (geprüfte Pfade: ${candidates.map((candidate) => candidate.replace(REPO_ROOT, '.')).join(', ')})`);
+      continue;
+    }
 
     try {
       const content = fs.readFileSync(resolved, 'utf-8');
