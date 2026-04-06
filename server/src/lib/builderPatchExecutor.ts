@@ -21,7 +21,52 @@ function stripPatchPrefix(line: string, prefix: '+' | '-') {
   return withoutLineNumber.startsWith(' ') ? withoutLineNumber.slice(1) : withoutLineNumber;
 }
 
+function parseSearchReplacePatchBody(body: string): { oldLines: string[]; newLines: string[] } | null {
+  const lines = body.split(/\r?\n/);
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+  let mode: 'search' | 'replace' | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('<<<SEARCH')) {
+      mode = 'search';
+      continue;
+    }
+
+    if (trimmed === '===REPLACE') {
+      mode = 'replace';
+      continue;
+    }
+
+    if (trimmed === '>>>') {
+      break;
+    }
+
+    if (mode === 'search') {
+      oldLines.push(line);
+      continue;
+    }
+
+    if (mode === 'replace') {
+      newLines.push(line);
+    }
+  }
+
+  if (oldLines.length === 0 && newLines.length === 0) {
+    return null;
+  }
+
+  return { oldLines, newLines };
+}
+
 export function parsePatchBody(body: string): { oldLines: string[]; newLines: string[] } {
+  const searchReplacePatch = parseSearchReplacePatchBody(body);
+  if (searchReplacePatch) {
+    return searchReplacePatch;
+  }
+
   const oldLines: string[] = [];
   const newLines: string[] = [];
 

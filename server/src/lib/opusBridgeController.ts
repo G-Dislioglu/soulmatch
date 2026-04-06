@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { triggerGithubAction, type PatchPayload } from './builderGithubBridge.js';
+import { convertBdlPatchesToPayload, triggerGithubAction } from './builderGithubBridge.js';
 import { getDb } from '../db.js';
 import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
 import { generateErrorCard } from './opusErrorLearning.js';
@@ -53,12 +53,15 @@ export interface ExecuteResult {
   };
 }
 
-function toWritePatchPayloads(patches: Array<{ file: string; body: string }>): PatchPayload[] {
-  return patches.map((patch) => ({
-    file: patch.file,
-    action: 'write',
-    content: patch.body,
-  }));
+function toPatchPayloads(patches: Array<{ file: string; body: string }>) {
+  return convertBdlPatchesToPayload(
+    patches.map((patch) => ({
+      kind: 'PATCH',
+      params: { file: patch.file },
+      body: patch.body,
+      raw: patch.body,
+    })),
+  );
 }
 
 export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
@@ -206,7 +209,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   }
 
   if (status === 'consensus' && patches.length > 0) {
-    githubAction = await triggerGithubAction(task.id, toWritePatchPayloads(patches));
+    githubAction = await triggerGithubAction(task.id, toPatchPayloads(patches));
     status = githubAction.triggered ? 'applying' : 'error';
   }
 

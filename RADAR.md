@@ -232,6 +232,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Der naechste saubere Block ist die echte Laufzeitverifikation der neuen Maya-Builder-Memory nach manuellem Schema-Push.
 - `evidence`: `builder_memory` ist im Schema angelegt; Builder chat, engine und routes synchronisieren Memory bereits im Code; Fehlerpfade fuer fehlende Tabelle sind abgefedert.
 
+### Kandidat F3 - Opus Bridge Live Verification
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `none`
+- `non_scope`: neuer Scout-Mix, Kostenpolitik fuer Default-Writer, Heavy-Crush-Ausbau
+- `risk`: mittel; der lokale Collector ist jetzt repariert, aber Render kann weiter an `@READ`-Pfaden, BDL-Disziplin oder fehlendem `GITHUB_PAT` scheitern.
+- `betroffene_bereiche`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/opusBridge.ts`, Ziel-Runtime auf Render
+- `kurzurteil`: Nach Provider-, `@READ`- und Patch-Collector-Hardening ist der naechste enge Block keine weitere Architektur, sondern der Live-Nachweis der kompletten Opus-Bridge von Roundtable-BDL bis GitHub-Commit.
+- `evidence`: `zhipu` ist im Provider-Layer sichtbar; Roundtable und Scout nutzen GLM-Modelle; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; Controller und Route normalisieren diese Bodies vor GitHub-Dispatch.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

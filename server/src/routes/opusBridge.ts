@@ -1,7 +1,7 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
-import { triggerGithubAction, type PatchPayload } from '../lib/builderGithubBridge.js';
+import { convertBdlPatchesToPayload, triggerGithubAction } from '../lib/builderGithubBridge.js';
 import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
@@ -146,15 +146,22 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
         message.phase === 'roundtable' && message.content.includes('@PATCH'),
       );
 
-      const allPatches: PatchPayload[] = [];
+      const patchCommands: Array<{ kind: string; params: { file?: string }; body?: string; raw: string }> = [];
       for (const message of patchMessages) {
         const commands = Array.isArray(message.commands) ? message.commands : [];
         for (const command of commands as Array<{ kind?: string; params?: { file?: string }; body?: string }>) {
           if (command.kind === 'PATCH' && command.params?.file && command.body) {
-            allPatches.push({ file: command.params.file, action: 'write', content: command.body });
+            patchCommands.push({
+              kind: 'PATCH',
+              params: { file: command.params.file },
+              body: command.body,
+              raw: command.body,
+            });
           }
         }
       }
+
+      const allPatches = convertBdlPatchesToPayload(patchCommands);
 
       if (allPatches.length > 0) {
         const ghResult = await triggerGithubAction(taskId, allPatches);

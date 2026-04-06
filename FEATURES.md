@@ -134,6 +134,16 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `next_recommended_step`: Nach dem manuellen Render-`drizzle-kit push` einen echten Builder-Chat- oder Task-Lauf gegen die Zielruntime fahren und pruefen, ob Episode-, Semantic- und Worker-Profileintraege wirklich geschrieben werden.
 - `evidence`: `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`.
 
+### Opus-Bridge orchestration
+
+- `status`: `active`
+- `truth_basis`: `repo_visible`
+- `last_checked`: `2026-04-06`
+- `quality`: `pipeline_live_local_verification_done`
+- `known_gap`: Scout, Roundtable, `@READ` und SEARCH/REPLACE-`@PATCH` sind jetzt repo-sichtbar verdrahtet, aber der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile und automatischen GitHub-Commit steht noch aus.
+- `next_recommended_step`: Einen echten Opus-Bridge-Task gegen die Zielruntime fahren und dabei pruefen, ob `@READ` als `[system]`-Dateiinhalt ankommt, ob `patches[]` nicht leer bleibt und ob `GITHUB_PAT` den Dispatch/Commit wirklich erlaubt.
+- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/opusBridge.ts`.
+
 ### Schema fuer persona_memories und voice_profiles
 
 - `status`: `schema_present_usage_unclear`

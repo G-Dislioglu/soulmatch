@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `2f87a39`
+- `current_repo_head`: `225093f`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-05`
+- `last_verified_against_code`: `2026-04-06`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder append-safe patching + Maya 3-layer Builder memory + gemini-3-flash-preview upgrade`
-- `next_recommended_block`: `Render-Schema-Push fuer builder_memory und Live-Verifikation der Builder-Memory-Kette`
+- `last_completed_block`: `Opus-Bridge provider/roundtable hardening + Patch-Collector Fix fuer SEARCH/REPLACE @PATCH-Bodies`
+- `next_recommended_block`: `Live-Verifikation von @READ-File-Injection, Roundtable-BDL-Ausgabe und GitHub-Bridge auf Render`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -114,6 +114,18 @@ blockt namentlich bekannte Blacklist-Dateien bereits im Chat vor der
 Task-Erstellung, erklaert geblockte oder review-beduerftige Tasks im Status mit
 einem konkreteren Fehlerbild, und `retry` startet den letzten blockierten Lauf
 gezielt erneut.
+
+Parallel dazu ist auch die Opus-Bridge-Lane enger an ihre reale Laufzeitwahrheit
+gezogen worden: `providers.ts` kennt jetzt `zhipu`, der Scout nutzt
+`glm-4.7-flash`, der Roundtable faehrt mit `glm-5-turbo`, `@READ` kann Dateien
+per Multi-Pfad-Aufloesung in den ChatPool injizieren, und die L1-/BDL-Regeln
+sind auf eigene Befehlszeilen zugeschnitten. Der akute Patch-Collector-Bruch
+ist jetzt an der Parser-Naht gefixt: `@PATCH` mit folgendem
+`<<<SEARCH ... ===REPLACE ... >>>`-Block wird wieder als echter Patch-Body
+erkannt und vor dem GitHub-Dispatch in `replace`-/`append`-Payloads
+normalisiert statt still als leerer Patch zu verschwinden. Offen ist damit
+nicht mehr der lokale Collector, sondern die Live-Verifikation des gesamten
+Pfads auf Render inklusive `@READ`-Injection und GitHub-Commit.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -228,6 +240,11 @@ Runtime-Wahrheit fuer Soulmatch.
   `server/src/lib/builderDialogEngine.ts` und `server/src/routes/builder.ts`
   verdrahten jetzt eine Builder-Memory-Kette mit RAM-Arbeitsgedaechtnis,
   episodischer Persistenz, semantischer Verdichtung und Worker-Profilen.
+- `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`,
+  `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`,
+  `server/src/lib/opusBridgeController.ts` und `server/src/routes/opusBridge.ts`
+  tragen jetzt die aktive Opus-Bridge-Kette mit Zhipu/GLM-Modellen,
+  `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
 - `server/src/lib/builderFusionChat.ts` kennt jetzt die Builder-Blacklist
   namentlich, blockt solche Ziel-Dateien direkt im Chat vor jeder Task-Erzeugung,
   erklaert geblockte oder `review_needed`-Tasks im Status ueber Actions/Reviews
