@@ -1,3 +1,4 @@
+// health-check-verified-2026-04-06
 import type { NextFunction, Request, Response } from 'express';
 
 function getBearerToken(headerValue: string | undefined): string | null {
