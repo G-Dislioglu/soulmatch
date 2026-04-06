@@ -420,8 +420,7 @@ opusBridgeRouter.post('/reset-session', (_req: Request, res: Response) => {
 
 opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
   try {
-    const { taskId, goal, assignments, fileContents, skipMeister } = req.body as {
-      taskId?: string;
+    const { goal, assignments, fileContents, skipMeister } = req.body as {
       goal?: string;
       assignments?: WorkerAssignment[];
       fileContents?: Record<string, string>;
@@ -433,18 +432,30 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
       return;
     }
 
-    const resolvedTaskId = taskId || `swarm-${Date.now()}`;
-    const workerResults = await runWorkerSwarm(resolvedTaskId, assignments, goal, fileContents);
+    const db = getDb();
+    const [task] = await db
+      .insert(builderTasks)
+      .values({
+        title: goal.slice(0, 100),
+        goal,
+        scope: assignments.map((assignment: { file: string }) => assignment.file),
+        risk: 'low',
+        status: 'swarm',
+      })
+      .returning();
+    const id = task.id;
+
+    const workerResults = await runWorkerSwarm(id, assignments, goal, fileContents);
     const meister = skipMeister
       ? null
-      : await runMeisterValidation(resolvedTaskId, goal, workerResults);
+      : await runMeisterValidation(id, goal, workerResults);
 
     const patches = meister?.validatedPatches ?? workerResults
       .filter((result) => result.patch)
       .map((result) => result.patch as { file: string; body: string });
 
     res.json({
-      taskId: resolvedTaskId,
+      taskId: id,
       goal,
       workerResults,
       meister,
