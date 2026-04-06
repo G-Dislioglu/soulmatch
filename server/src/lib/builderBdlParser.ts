@@ -107,6 +107,40 @@ function parseCommandAt(lines: string[], startIndex: number) {
   const params = parseParams(paramsPart);
 
   if (braceIndex < 0) {
+    // For PATCH commands, look for <<<SEARCH...===REPLACE...>>> body on following lines
+    if (kind === 'PATCH') {
+      let searchStart = -1;
+      for (let i = startIndex + 1; i < Math.min(startIndex + 3, lines.length); i += 1) {
+        if (lines[i]?.trimStart().startsWith('<<<SEARCH')) {
+          searchStart = i;
+          break;
+        }
+      }
+      if (searchStart >= 0) {
+        const rawLines: string[] = [line];
+        const bodyLines: string[] = [];
+        let endIndex = searchStart;
+        for (let i = searchStart; i < lines.length; i += 1) {
+          rawLines.push(lines[i] ?? '');
+          bodyLines.push(lines[i] ?? '');
+          if (lines[i]?.trimStart().startsWith('>>>')) {
+            endIndex = i;
+            break;
+          }
+          endIndex = i;
+        }
+        return {
+          command: {
+            kind,
+            params,
+            body: bodyLines.join('\n').trim(),
+            raw: rawLines.join('\n'),
+          } satisfies BdlCommand,
+          endIndex,
+        };
+      }
+    }
+
     return {
       command: {
         kind: KNOWN_KINDS.has(kind) ? kind : kind,
