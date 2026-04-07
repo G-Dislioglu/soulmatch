@@ -289,11 +289,40 @@ function buildFullFilePatchBody(_previousContent: string | undefined, nextConten
   return ['<<<SEARCH', '===REPLACE', nextContent, '>>>'].join('\n');
 }
 
+const KNOWN_WORKERS = new Set(Object.keys(WORKER_PRESETS));
+
+function resolveWorkerName(params: Record<string, string>): string {
+  // Direct match: @SCORE worker:deepseek
+  if (params.worker && KNOWN_WORKERS.has(params.worker)) {
+    return params.worker;
+  }
+  // Worker name might be in a positional arg: @SCORE deepseek quality:95
+  for (const key of ['arg1', 'arg2']) {
+    const val = params[key];
+    if (val && KNOWN_WORKERS.has(val)) {
+      return val;
+    }
+  }
+  // If worker param exists but is not a known preset (e.g. "58"), check if
+  // any positional arg is a known worker
+  if (params.worker && !KNOWN_WORKERS.has(params.worker)) {
+    // Maybe quality landed in worker field: @SCORE worker:58 deepseek ...
+    for (const key of ['arg1', 'arg2', 'arg3']) {
+      const val = params[key];
+      if (val && KNOWN_WORKERS.has(val)) {
+        return val;
+      }
+    }
+  }
+  // Fallback: return whatever was in worker, or unknown
+  return params.worker || 'unknown';
+}
+
 function extractScores(commands: BdlCommand[]): MeisterScore[] {
   return commands
     .filter((command) => command.kind === 'SCORE')
     .map((command) => ({
-      worker: command.params.worker || 'unknown',
+      worker: resolveWorkerName(command.params),
       quality: Number.parseInt(command.params.quality || '0', 10) || 0,
       notes: command.params.notes || command.params.reason || '',
     }));
