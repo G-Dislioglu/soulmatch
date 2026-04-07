@@ -282,7 +282,7 @@ function extractMarkedFullFileContent(response: string): string | null {
 }
 
 function buildFullFilePatchBody(_previousContent: string | undefined, nextContent: string): string {
-  return ['<<<SEARCH', '', '===REPLACE', nextContent, '>>>'].join('\n');
+  return ['<<<SEARCH', '===REPLACE', nextContent, '>>>'].join('\n');
 }
 
 function extractScores(commands: BdlCommand[]): MeisterScore[] {
