@@ -56,6 +56,9 @@ interface MeisterCouncilResponse {
   tokensUsed: number;
 }
 
+const FILE_START_MARKER = '---FILE_START---';
+const FILE_END_MARKER = '---FILE_END---';
+
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
   deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 1800 },
   sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 2200 },
@@ -91,7 +94,12 @@ function buildWorkerPrompt(
   dependencyPatch?: { file: string; body: string },
 ): string {
   const projectDna = loadProjectDna();
-  const workerExample = [
+  const fullFileExample = [
+    FILE_START_MARKER,
+    'export const value = newCall();',
+    FILE_END_MARKER,
+  ].join('\n');
+  const patchExample = [
     `@PATCH file:"${assignment.file}"`,
     '<<<SEARCH',
     'const value = oldCall();',
@@ -132,17 +140,14 @@ function buildWorkerPrompt(
 
   sections.push(
     '',
-    'ANTWORTE NUR IN BDL.',
-    'Genau ein @PATCH fuer deine Datei. Kein Fliesstext.',
-    'Nutze exakt dieses Format. Das ist ein konkretes Beispiel, keine abstrakte Schablone:',
-    workerExample,
+    'BEVORZUGTES FORMAT: Gib den vollstaendigen neuen Datei-Inhalt zwischen den Markern aus. Kein Fliesstext, keine Erklaerung.',
+    'Beispiel fuer das bevorzugte Format:',
+    fullFileExample,
     '',
-    'Jetzt antworte fuer deine echte Aenderung wieder genau in diesem Format:',
-    `@PATCH file:"${assignment.file}"`,
-    '<<<SEARCH',
-    '===REPLACE',
-    '[vollstaendiger Datei-Inhalt oder gezielter Replace-Block]',
-    '>>>',
+    'Falls dein Modell SEARCH/REPLACE sicher beherrscht, ist auch dieses BDL-Format erlaubt:',
+    patchExample,
+    '',
+    'Antworte jetzt nur mit einem der beiden Formate. Bevorzugt ist der vollstaendige Datei-Inhalt mit Markern.',
   );
 
   return sections.join('\n');
@@ -241,6 +246,27 @@ function extractPatchForAssignment(commands: BdlCommand[], assignment: WorkerAss
   }
 
   return { file: firstPatch.params.file, body: firstPatch.body };
+}
+
+function extractMarkedFullFileContent(response: string): string | null {
+  const startIndex = response.indexOf(FILE_START_MARKER);
+  const endIndex = response.indexOf(FILE_END_MARKER);
+
+  if (startIndex < 0 || endIndex < 0 || endIndex <= startIndex) {
+    return null;
+  }
+
+  const content = response
+    .slice(startIndex + FILE_START_MARKER.length, endIndex)
+    .replace(/^\r?\n/, '')
+    .replace(/\r?\n$/, '');
+
+  return content.trim().length > 0 ? content : '';
+}
+
+function buildFullFilePatchBody(previousContent: string | undefined, nextContent: string): string {
+  const searchBlock = previousContent ?? '';
+  return ['<<<SEARCH', searchBlock, '===REPLACE', nextContent, '>>>'].join('\n');
 }
 
 function extractScores(commands: BdlCommand[]): MeisterScore[] {
@@ -369,8 +395,14 @@ async function runSingleWorker(
       forceJsonObject: false,
     });
 
-    const commands = parseBdl(response);
-    const patch = extractPatchForAssignment(commands, assignment);
+    const fullFileContent = extractMarkedFullFileContent(response);
+    const commands = fullFileContent === null ? parseBdl(response) : [];
+    const patch = fullFileContent !== null
+      ? {
+          file: assignment.file,
+          body: buildFullFilePatchBody(fileContents?.[assignment.file], fullFileContent),
+        }
+      : extractPatchForAssignment(commands, assignment);
     const tokensUsed = estimateTokens(response);
     const durationMs = Date.now() - startedAt;
 
@@ -386,6 +418,7 @@ async function runSingleWorker(
         file: assignment.file,
         writer: assignment.writer,
         hasPatch: Boolean(patch),
+        responseFormat: fullFileContent !== null ? 'full-file' : 'bdl',
       },
       tokensUsed,
       durationMs,
