@@ -446,6 +446,10 @@ opusBridgeRouter.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true, uptime: process.uptime() });
 });
 
+opusBridgeRouter.get('/deploy-status', (_req: Request, res: Response) => {
+  res.json({ uptime: process.uptime(), version: process.version });
+});
+
 opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
   try {
     const { goal, assignments, fileContents, skipMeister } = req.body as {
