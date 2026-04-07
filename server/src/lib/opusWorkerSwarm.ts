@@ -91,6 +91,14 @@ function buildWorkerPrompt(
   dependencyPatch?: { file: string; body: string },
 ): string {
   const projectDna = loadProjectDna();
+  const workerExample = [
+    `@PATCH file:"${assignment.file}"`,
+    '<<<SEARCH',
+    'const value = oldCall();',
+    '===REPLACE',
+    'const value = newCall();',
+    '>>>',
+  ].join('\n');
   const sections = [
     'Du bist ein Worker im Opus Worker-Swarm.',
     'Arbeite nur an deiner zugewiesenen Datei.',
@@ -126,6 +134,10 @@ function buildWorkerPrompt(
     '',
     'ANTWORTE NUR IN BDL.',
     'Genau ein @PATCH fuer deine Datei. Kein Fliesstext.',
+    'Nutze exakt dieses Format. Das ist ein konkretes Beispiel, keine abstrakte Schablone:',
+    workerExample,
+    '',
+    'Jetzt antworte fuer deine echte Aenderung wieder genau in diesem Format:',
     `@PATCH file:"${assignment.file}"`,
     '<<<SEARCH',
     '===REPLACE',
@@ -142,6 +154,18 @@ function buildMeisterPrompt(
   fileContents?: Record<string, string>,
 ): string {
   const projectDna = loadProjectDna();
+  const firstWorker = workerResults[0]?.assignment.writer || 'worker-a';
+  const secondWorker = workerResults[1]?.assignment.writer || 'worker-b';
+  const meisterExample = [
+    `@SCORE worker:${firstWorker} quality:95 notes:"korrekt"`,
+    `@SCORE worker:${secondWorker} quality:82 notes:"kleiner Fix noetig"`,
+    '@PATCH file:"server/src/example.ts"',
+    '<<<SEARCH',
+    'return oldValue;',
+    '===REPLACE',
+    'return newValue;',
+    '>>>',
+  ].join('\n');
   const workerSummary = workerResults.map((result) => {
     const header = `[${result.assignment.writer}] ${result.assignment.file}`;
     if (result.error) {
@@ -156,7 +180,8 @@ function buildMeisterPrompt(
     'Gib fuer jeden Worker genau einen @SCORE aus.',
     'Wenn du Reparaturen brauchst, schreibe zusaetzliche @PATCH-Bloecke.',
     'WICHTIG: Deine SEARCH-Bloecke muessen EXAKT zum aktuellen Datei-Inhalt passen (siehe AKTUELLE DATEIEN unten).',
-    'Antwort nur in BDL, kein Fliesstext.',
+    'SEI KURZ. Antwort nur in BDL, kein Fliesstext.',
+    'Wenn kein Repair noetig ist, antworte nur mit den @SCORE-Zeilen.',
     '',
     `TASK-ZIEL: ${taskGoal}`,
   ];
@@ -176,8 +201,12 @@ function buildMeisterPrompt(
   sections.push('', '=== WORKER-ERGEBNISSE ===', workerSummary);
   sections.push(
     '',
-    'FORMAT:',
+    'FORMAT-BEISPIEL:',
+    meisterExample,
+    '',
+    'REGELN:',
     '@SCORE worker:<writer> quality:<0-100> notes:"Kurzbegruendung"',
+    'Nur wenn wirklich noetig: @PATCH file:"..." + SEARCH/REPLACE.',
     '@PATCH file:"..."',
     '<<<SEARCH',
     '===REPLACE',
