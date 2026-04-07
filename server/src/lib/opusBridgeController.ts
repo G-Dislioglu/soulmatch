@@ -32,6 +32,7 @@ import {
   saveWorkerScores,
   type WorkerAssignment,
 } from './opusWorkerSwarm.js';
+import { decompose } from './opusDecomposer.js';
 import { builderOpusLog, builderTasks } from '../schema/builder.js';
 
 const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
@@ -211,14 +212,23 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
 
-    // Phase S2: Roundtable → Swarm — wenn Assignments kamen (Vorrang über Patches)
+    // Phase S2: Decomposer Pipeline — algorithmic task decomposition
     const rtAssignments = roundtableResult.assignments ?? [];
     if (rtAssignments.length > 0 && roundtableResult.status === 'consensus') {
-      console.log(`[S2] Roundtable delegated ${rtAssignments.length} assignments to swarm`);
+      console.log(`[S2] Roundtable requested decomposition for ${rtAssignments.length} files`);
 
-      // Datei-Inhalte laden für Worker
+      // Run algorithmic decomposer (stages 1-4, $0)
+      const decomposition = await decompose({
+        taskGoal: instruction,
+        scope: rtAssignments.map((a) => a.file),
+        risk: (input.risk ?? 'low') as 'low' | 'medium' | 'high',
+      });
+
+      console.log(`[S2] Decomposer: ${decomposition.stats.totalUnits} units, ${decomposition.stats.totalBlocks} blocks`);
+
+      // Load file contents for workers
       const fileContents: Record<string, string> = {};
-      for (const a of rtAssignments) {
+      for (const a of decomposition.assignments) {
         if (!fileContents[a.file]) {
           for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
             try {
@@ -229,14 +239,18 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         }
       }
 
-      const workerAssignments: WorkerAssignment[] = rtAssignments.map((a) => ({
+      // Enrich worker assignments with cut-unit context
+      const workerAssignments: WorkerAssignment[] = decomposition.assignments.map((a) => ({
         file: a.file,
-        writer: a.writer || 'minimax',
-        reason: a.reason,
+        writer: a.writer,
+        reason: `${a.reason}\n\n=== KONTEXT (Imports+Types) ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
         dependsOn: a.dependsOn,
       }));
 
+      // Stage 5: Swarm execution ($$$)
       const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
+
+      // Stage 7: Meister validation ($$$)
       const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
       totalTokens += workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0);
       totalTokens += meister.tokensUsed ?? 0;

@@ -589,6 +589,64 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   }
 });
 
+// ==================== DECOMPOSER (dry-run, $0) ====================
+import { decompose } from '../lib/opusDecomposer.js';
+
+opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
+  try {
+    const { goal, scope, risk } = req.body as {
+      goal?: string;
+      scope?: string[];
+      risk?: string;
+    };
+
+    if (!goal || !Array.isArray(scope) || scope.length === 0) {
+      res.status(400).json({ error: 'goal and scope[] required' });
+      return;
+    }
+
+    const result = await decompose({
+      taskGoal: goal,
+      scope,
+      risk: (risk ?? 'low') as 'low' | 'medium' | 'high',
+    });
+
+    res.json({
+      stats: result.stats,
+      graphContext: {
+        nodesFound: result.graphContext.nodes.length,
+        edgesFound: result.graphContext.edges.length,
+        entryOrder: result.graphContext.entryOrder,
+        reuseCandidates: result.graphContext.reuseCandidates,
+        forbiddenZones: result.graphContext.forbiddenZones,
+        seams: result.graphContext.seams,
+      },
+      cutUnits: result.cutUnits.map((u) => ({
+        id: u.id,
+        file: u.file,
+        totalLines: u.totalLines,
+        complexity: u.complexity,
+        dependsOn: u.dependsOn,
+        blocks: u.blocks.map((b) => ({
+          name: b.name,
+          type: b.blockType,
+          lines: `${b.startLine}-${b.endLine}`,
+          lineCount: b.lineCount,
+        })),
+      })),
+      assignments: result.assignments.map((a) => ({
+        file: a.file,
+        writer: a.writer,
+        complexity: a.cutUnit.complexity,
+        blocks: a.cutUnit.blocks.map((b) => b.name).join(', '),
+        dependsOn: a.dependsOn,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ==================== RENDER CONTROL ====================
 import {
   getDeployStatus,
