@@ -212,56 +212,72 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
 
-    // Phase S2: Decomposer Pipeline — algorithmic task decomposition
-    const rtAssignments = roundtableResult.assignments ?? [];
-    if (rtAssignments.length > 0 && roundtableResult.status === 'consensus') {
-      console.log(`[S2] Roundtable requested decomposition for ${rtAssignments.length} files`);
-
-      // Run algorithmic decomposer (stages 1-4, $0)
-      const decomposition = await decompose({
-        taskGoal: instruction,
-        scope: rtAssignments.map((a) => a.file),
-        risk: (input.risk ?? 'low') as 'low' | 'medium' | 'high',
+    // Phase S2: Auto-Decomposer — wenn Patches große Dateien betreffen (>200 Zeilen),
+    // automatisch durch die Decomposer-Pipeline routen statt direkt anwenden.
+    // Der Roundtable entscheidet WAS gebaut wird, der Decomposer entscheidet WIE.
+    const LARGE_FILE_THRESHOLD = 200;
+    if (roundtableResult.status === 'consensus' && patches.length > 0) {
+      const largeFilePatches = patches.filter((p) => {
+        try {
+          for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+            const resolved = path.resolve(base, p.file);
+            if (fs.existsSync(resolved)) {
+              const lineCount = fs.readFileSync(resolved, 'utf-8').split('\n').length;
+              return lineCount > LARGE_FILE_THRESHOLD;
+            }
+          }
+        } catch { /* ignore */ }
+        return false;
       });
 
-      console.log(`[S2] Decomposer: ${decomposition.stats.totalUnits} units, ${decomposition.stats.totalBlocks} blocks`);
+      if (largeFilePatches.length > 0) {
+        console.log(`[S2] Auto-decomposer: ${largeFilePatches.length} patches target large files`);
 
-      // Load file contents for workers
-      const fileContents: Record<string, string> = {};
-      for (const a of decomposition.assignments) {
-        if (!fileContents[a.file]) {
-          for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
-            try {
-              fileContents[a.file] = fs.readFileSync(path.resolve(base, a.file), 'utf-8');
-              break;
-            } catch { /* not found */ }
+        const decomposition = await decompose({
+          taskGoal: instruction,
+          scope: largeFilePatches.map((p) => p.file),
+          risk: (input.risk ?? 'low') as 'low' | 'medium' | 'high',
+        });
+
+        console.log(`[S2] Decomposer: ${decomposition.stats.totalUnits} units, ${decomposition.stats.totalBlocks} blocks`);
+
+        // Load file contents
+        const fileContents: Record<string, string> = {};
+        for (const a of decomposition.assignments) {
+          if (!fileContents[a.file]) {
+            for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+              try {
+                fileContents[a.file] = fs.readFileSync(path.resolve(base, a.file), 'utf-8');
+                break;
+              } catch { /* not found */ }
+            }
           }
         }
+
+        // Roundtable patches become specification context for workers
+        const patchSpec = largeFilePatches.map((p) => `[PATCH ${p.file}]\n${p.body}`).join('\n\n');
+
+        const workerAssignments: WorkerAssignment[] = decomposition.assignments.map((a) => ({
+          file: a.file,
+          writer: a.writer,
+          reason: `Roundtable-Spezifikation:\n${patchSpec}\n\n=== KONTEXT ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
+          dependsOn: a.dependsOn,
+        }));
+
+        const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
+        const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
+        totalTokens += workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0);
+        totalTokens += meister.tokensUsed ?? 0;
+
+        if (meister.scores) {
+          await saveWorkerScores(task.id, meister.scores);
+        }
+
+        // Replace patches with decomposer output
+        patches = meister.validatedPatches ?? workerResults
+          .filter((r) => r.patch)
+          .map((r) => r.patch as { file: string; body: string });
       }
-
-      // Enrich worker assignments with cut-unit context
-      const workerAssignments: WorkerAssignment[] = decomposition.assignments.map((a) => ({
-        file: a.file,
-        writer: a.writer,
-        reason: `${a.reason}\n\n=== KONTEXT (Imports+Types) ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
-        dependsOn: a.dependsOn,
-      }));
-
-      // Stage 5: Swarm execution ($$$)
-      const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
-
-      // Stage 7: Meister validation ($$$)
-      const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
-      totalTokens += workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0);
-      totalTokens += meister.tokensUsed ?? 0;
-
-      if (meister.scores) {
-        await saveWorkerScores(task.id, meister.scores);
-      }
-
-      patches = meister.validatedPatches ?? workerResults
-        .filter((r) => r.patch)
-        .map((r) => r.patch as { file: string; body: string });
     }
 
     crushIntensity = determineCrushIntensity(
