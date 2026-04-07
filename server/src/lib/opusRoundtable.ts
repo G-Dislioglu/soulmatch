@@ -13,7 +13,7 @@ import { extractJsonFromText } from './opusPulseCrush.js';
 import { callProvider } from './providers.js';
 
 const REPO_ROOT = process.cwd();
-const MAX_FILE_SIZE = 15000;
+const MAX_FILE_SIZE = 25000;
 
 export interface RoundtableParticipant {
   actor: string;
@@ -136,7 +136,9 @@ function resolveReadCommands(commands: BdlCommand[]): string {
     try {
       const content = fs.readFileSync(resolved, 'utf-8');
       if (content.length > MAX_FILE_SIZE) {
-        reads.push(`[FILE: ${filePath}] (${content.length} Zeichen, gekürzt auf ${MAX_FILE_SIZE})\n${content.slice(0, MAX_FILE_SIZE)}\n[...gekürzt...]`);
+        const headSize = Math.floor(MAX_FILE_SIZE * 0.6);
+        const tailSize = MAX_FILE_SIZE - headSize;
+        reads.push(`[FILE: ${filePath}] (${content.length} Zeichen, Anfang+Ende gezeigt)\n${content.slice(0, headSize)}\n\n[... ${content.length - headSize - tailSize} Zeichen ausgelassen ...]\n\n${content.slice(-tailSize)}`);
       } else {
         reads.push(`[FILE: ${filePath}]\n${content}`);
       }
