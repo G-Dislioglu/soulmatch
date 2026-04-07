@@ -207,6 +207,7 @@ function buildRoundtableSystemPrompt(
     '@ASSIGN file:"server/src/other.ts" writer:deepseek reason:"Import anpassen" dependsOn:"server/src/example.ts"',
     'Writer-Optionen: minimax, deepseek, sonnet, kimi, qwen, gpt, glm',
     'Nutze dependsOn wenn eine Datei von einer anderen abhängt.',
+    'WICHTIG: Pro Datei nur EIN @ASSIGN. Wenn ein anderer Teilnehmer bereits @ASSIGN für eine Datei geschrieben hat, schreibe KEIN zweites. Der erste @ASSIGN gilt.',
     'Für kleine, isolierte Änderungen (<50 Zeilen): Nutze weiterhin @PATCH direkt.',
     '',
     '=== ENTSCHEIDUNGEN ===',

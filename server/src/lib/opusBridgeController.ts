@@ -211,9 +211,9 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
 
-    // Phase S2: Roundtable → Swarm — wenn Assignments statt Patches kamen
+    // Phase S2: Roundtable → Swarm — wenn Assignments kamen (Vorrang über Patches)
     const rtAssignments = roundtableResult.assignments ?? [];
-    if (rtAssignments.length > 0 && patches.length === 0 && roundtableResult.status === 'consensus') {
+    if (rtAssignments.length > 0 && roundtableResult.status === 'consensus') {
       console.log(`[S2] Roundtable delegated ${rtAssignments.length} assignments to swarm`);
 
       // Datei-Inhalte laden für Worker

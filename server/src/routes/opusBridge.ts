@@ -580,3 +580,54 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ==================== RENDER CONTROL ====================
+import {
+  getDeployStatus,
+  triggerRedeploy,
+  listEnvVars,
+  updateEnvVar,
+  getServerInfo,
+} from '../lib/opusRenderBridge.js';
+
+opusBridgeRouter.get('/render/status', async (_req: Request, res: Response) => {
+  try {
+    const [deploy, server] = await Promise.all([getDeployStatus(), Promise.resolve(getServerInfo())]);
+    res.json({ server, deploy });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.post('/render/redeploy', async (_req: Request, res: Response) => {
+  try {
+    const result = await triggerRedeploy();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/render/env', async (_req: Request, res: Response) => {
+  try {
+    const result = await listEnvVars();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.put('/render/env/:key', async (req: Request, res: Response) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body as { value?: string };
+    if (!value) {
+      res.status(400).json({ error: 'value is required' });
+      return;
+    }
+    const result = await updateEnvVar(key, value);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
