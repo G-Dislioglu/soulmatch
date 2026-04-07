@@ -442,10 +442,6 @@ opusBridgeRouter.get('/worker-stats', async (_req: Request, res: Response) => {
   }
 });
 
-opusBridgeRouter.get('/health', (_req: Request, res: Response) => {
-  res.json({ ok: true, uptime: process.uptime() });
-});
-
 opusBridgeRouter.get('/deploy-status', (_req: Request, res: Response) => {
   res.json({ uptime: process.uptime(), version: process.version });
 });
@@ -538,6 +534,10 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+opusBridgeRouter.get('/health', (req: Request, res: Response) => {
+  res.json({ ok: true });
 });
 
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
