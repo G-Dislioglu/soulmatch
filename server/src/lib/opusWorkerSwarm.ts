@@ -58,6 +58,8 @@ interface MeisterCouncilResponse {
 
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
+const WORKER_TOKEN_HEADROOM = 900;
+const WORKER_MAX_TOKEN_CAP = 7000;
 
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
   deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 1800 },
@@ -81,6 +83,21 @@ const MEISTER_COUNCIL: MeisterCouncilMember[] = [
 
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function resolveWorkerMaxTokens(
+  preset: WorkerPreset,
+  fileContent?: string,
+  dependencyPatch?: { file: string; body: string },
+): number {
+  const estimatedOutputTokens = estimateTokens(fileContent ?? '');
+  const dependencyTokens = estimateTokens(dependencyPatch?.body ?? '');
+  const suggestedTokens = estimatedOutputTokens + dependencyTokens + WORKER_TOKEN_HEADROOM;
+
+  return Math.min(
+    WORKER_MAX_TOKEN_CAP,
+    Math.max(preset.maxTokens, suggestedTokens),
+  );
 }
 
 function normalizeAssignmentReason(value: string | undefined): string {
@@ -384,13 +401,18 @@ async function runSingleWorker(
   dependencyPatch?: { file: string; body: string },
 ): Promise<WorkerResult> {
   const preset = WORKER_PRESETS[assignment.writer] ?? WORKER_PRESETS.deepseek;
+  const requestedMaxTokens = resolveWorkerMaxTokens(
+    preset,
+    fileContents?.[assignment.file],
+    dependencyPatch,
+  );
   const startedAt = Date.now();
 
   try {
     const response = await callProvider(preset.provider, preset.model, {
       system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch),
       messages: [{ role: 'user', content: assignment.reason }],
-      maxTokens: preset.maxTokens,
+      maxTokens: requestedMaxTokens,
       temperature: 0.2,
       forceJsonObject: false,
     });
@@ -419,6 +441,7 @@ async function runSingleWorker(
         writer: assignment.writer,
         hasPatch: Boolean(patch),
         responseFormat: fullFileContent !== null ? 'full-file' : 'bdl',
+        requestedMaxTokens,
       },
       tokensUsed,
       durationMs,
@@ -446,6 +469,7 @@ async function runSingleWorker(
         file: assignment.file,
         writer: assignment.writer,
         failed: true,
+        requestedMaxTokens,
       },
       tokensUsed: 0,
       durationMs,
