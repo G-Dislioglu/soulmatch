@@ -170,3 +170,12 @@ export const builderErrorCards = pgTable('builder_error_cards', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
 });
+
+export const builderWorkerScores = pgTable('builder_worker_scores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  taskId: uuid('task_id').references(() => builderTasks.id).notNull(),
+  worker: varchar('worker', { length: 30 }).notNull(),
+  quality: integer('quality').notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

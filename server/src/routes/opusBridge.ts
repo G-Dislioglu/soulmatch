@@ -11,6 +11,7 @@ import { executeTask } from '../lib/opusBridgeController.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import {
   runMeisterValidation,
+  saveWorkerScores,
   runWorkerSwarm,
   type WorkerAssignment,
 } from '../lib/opusWorkerSwarm.js';
@@ -471,10 +472,15 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
       }
     }
 
-    const workerResults = await runWorkerSwarm(id, assignments, goal, Object.fromEntries(autoFileContents));
+    const fileContentsObj = Object.fromEntries(autoFileContents);
+    const workerResults = await runWorkerSwarm(id, assignments, goal, fileContentsObj);
     const meister = skipMeister
       ? null
-      : await runMeisterValidation(id, goal, workerResults);
+      : await runMeisterValidation(id, goal, workerResults, fileContentsObj);
+
+    if (meister?.scores) {
+      await saveWorkerScores(id, meister.scores);
+    }
 
     const patches = meister?.validatedPatches ?? workerResults
       .filter((result) => result.patch)

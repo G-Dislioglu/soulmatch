@@ -2,6 +2,8 @@ import { parseBdl, type BdlCommand } from './builderBdlParser.js';
 import { addChatPoolMessage } from './opusChatPool.js';
 import { loadProjectDna } from './opusGraphIntegration.js';
 import { callProvider } from './providers.js';
+import { getDb } from '../db.js';
+import { builderWorkerScores } from '../schema/builder.js';
 
 interface WorkerPreset {
   actor: string;
@@ -107,7 +109,11 @@ function buildWorkerPrompt(
   return sections.join('\n');
 }
 
-function buildMeisterPrompt(taskGoal: string, workerResults: WorkerResult[]): string {
+function buildMeisterPrompt(
+  taskGoal: string,
+  workerResults: WorkerResult[],
+  fileContents?: Record<string, string>,
+): string {
   const projectDna = loadProjectDna();
   const workerSummary = workerResults.map((result) => {
     const header = `[${result.assignment.writer}] ${result.assignment.file}`;
@@ -122,6 +128,7 @@ function buildMeisterPrompt(taskGoal: string, workerResults: WorkerResult[]): st
     'Pruefe ob die Worker-Patches zusammenpassen.',
     'Gib fuer jeden Worker genau einen @SCORE aus.',
     'Wenn du Reparaturen brauchst, schreibe zusaetzliche @PATCH-Bloecke.',
+    'WICHTIG: Deine SEARCH-Bloecke muessen EXAKT zum aktuellen Datei-Inhalt passen (siehe AKTUELLE DATEIEN unten).',
     'Antwort nur in BDL, kein Fliesstext.',
     '',
     `TASK-ZIEL: ${taskGoal}`,
@@ -129,6 +136,14 @@ function buildMeisterPrompt(taskGoal: string, workerResults: WorkerResult[]): st
 
   if (projectDna) {
     sections.push('', '=== PROJECT DNA ===', projectDna);
+  }
+
+  if (fileContents && Object.keys(fileContents).length > 0) {
+    sections.push('', '=== AKTUELLE DATEIEN (vor Worker-Patches) ===');
+    for (const [filePath, content] of Object.entries(fileContents)) {
+      const truncated = content.length > 5000 ? `${content.slice(0, 5000)}\n... (truncated)` : content;
+      sections.push(`\n[FILE: ${filePath}]\n${truncated}`);
+    }
   }
 
   sections.push('', '=== WORKER-ERGEBNISSE ===', workerSummary);
@@ -309,14 +324,38 @@ export async function runWorkerSwarm(
   return results;
 }
 
+export async function saveWorkerScores(
+  taskId: string,
+  scores: Array<{ worker: string; quality: number; notes?: string }>,
+): Promise<void> {
+  if (!scores || scores.length === 0) {
+    return;
+  }
+
+  try {
+    const db = getDb();
+    for (const score of scores) {
+      await db.insert(builderWorkerScores).values({
+        taskId,
+        worker: score.worker,
+        quality: Math.max(0, Math.min(100, score.quality)),
+        notes: score.notes ?? null,
+      });
+    }
+  } catch (err) {
+    console.error('[saveWorkerScores] failed:', err);
+  }
+}
+
 export async function runMeisterValidation(
   taskId: string,
   taskGoal: string,
   workerResults: WorkerResult[],
+  fileContents?: Record<string, string>,
 ): Promise<MeisterResult> {
   const startedAt = Date.now();
   const response = await callProvider('anthropic', 'claude-opus-4-6', {
-    system: buildMeisterPrompt(taskGoal, workerResults),
+    system: buildMeisterPrompt(taskGoal, workerResults, fileContents),
     messages: [{ role: 'user', content: 'Pruefe die Worker-Ergebnisse und antworte nur in BDL.' }],
     maxTokens: 2500,
     temperature: 0.2,
