@@ -1,4 +1,3 @@
-// score-persistence-test
 // swarm-e2e-verified-2026-04-06
 interface SessionState {
   tasksUsed: number;
