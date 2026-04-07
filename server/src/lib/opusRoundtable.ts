@@ -29,12 +29,20 @@ export interface RoundtableConfig {
   consensusThreshold: number;
 }
 
+export interface RoundtableAssignment {
+  file: string;
+  writer: string;
+  reason: string;
+  dependsOn?: string;
+}
+
 export interface RoundtableResult {
   status: 'consensus' | 'no_consensus' | 'error';
   consensusType?: 'unanimous' | 'majority';
   rounds: number;
   totalTokens: number;
   patches: Array<{ file: string; body: string }>;
+  assignments: RoundtableAssignment[];
   approvals: string[];
   blocks: string[];
 }
@@ -192,6 +200,15 @@ function buildRoundtableSystemPrompt(
     '>>>',
     '@SEARCH query:"..." (nur wenn du Web-Zugang hast)',
     '',
+    '=== TASK-ZERLEGUNG (bei großen Dateien) ===',
+    'Wenn eine Datei >200 Zeilen ist oder der Task mehrere Dateien betrifft:',
+    'Schreibe @ASSIGN statt @PATCH, damit der Worker-Swarm die Arbeit übernimmt.',
+    '@ASSIGN file:"server/src/example.ts" writer:minimax reason:"Neue Funktion X hinzufügen"',
+    '@ASSIGN file:"server/src/other.ts" writer:deepseek reason:"Import anpassen" dependsOn:"server/src/example.ts"',
+    'Writer-Optionen: minimax, deepseek, sonnet, kimi, qwen, gpt, glm',
+    'Nutze dependsOn wenn eine Datei von einer anderen abhängt.',
+    'Für kleine, isolierte Änderungen (<50 Zeilen): Nutze weiterhin @PATCH direkt.',
+    '',
     '=== ENTSCHEIDUNGEN ===',
     'Sage @APPROVE wenn du mit dem aktuellen Code-Stand zufrieden bist.',
     'Sage @BLOCK mit Begründung wenn du ein Problem siehst.',
@@ -264,6 +281,29 @@ function collectPatchCommands(
   }
 }
 
+function collectAssignmentCommands(
+  assignmentMap: Map<string, RoundtableAssignment>,
+  commands: ReturnType<typeof parseBdl>,
+) {
+  for (const command of commands) {
+    if (command.kind !== 'ASSIGN') {
+      continue;
+    }
+
+    const file = command.params.file;
+    if (!file) {
+      continue;
+    }
+
+    assignmentMap.set(file, {
+      file,
+      writer: command.params.writer || 'minimax',
+      reason: command.params.reason || command.body?.trim() || 'Roundtable-Zuweisung',
+      dependsOn: command.params.dependsOn || undefined,
+    });
+  }
+}
+
 export async function runRoundtable(
   task: { id: string; title: string; goal: string; scope?: string[]; risk?: string },
   existingChatPool: ExistingChatPoolMessage[],
@@ -273,6 +313,7 @@ export async function runRoundtable(
   const projectDna = loadProjectDna();
   const chatPool = existingChatPool.map((message, index) => toLocalChatPoolMessage(task.id, message, index));
   const patchMap = new Map<string, { file: string; body: string }>();
+  const assignmentMap = new Map<string, RoundtableAssignment>();
   let totalTokens = 0;
 
   for (let round = 1; round <= config.maxRounds; round += 1) {
@@ -295,6 +336,7 @@ export async function runRoundtable(
 
         const commands = parseBdl(response);
         collectPatchCommands(patchMap, commands);
+        collectAssignmentCommands(assignmentMap, commands);
 
         const tokensUsed = Math.ceil(response.length / 4);
         totalTokens += tokensUsed;
@@ -350,6 +392,7 @@ export async function runRoundtable(
         rounds: round,
         totalTokens,
         patches: [...patchMap.values()],
+        assignments: [...assignmentMap.values()],
         approvals: approvals.actors,
         blocks: blocks.actors,
       };
@@ -365,6 +408,7 @@ export async function runRoundtable(
     rounds: config.maxRounds,
     totalTokens,
     patches: [...patchMap.values()],
+    assignments: [...assignmentMap.values()],
     approvals: finalApprovals.actors,
     blocks: finalBlocks.actors,
   };

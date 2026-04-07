@@ -1,4 +1,6 @@
 import { eq } from 'drizzle-orm';
+import fs from 'node:fs';
+import path from 'node:path';
 import { convertBdlPatchesToPayload, triggerGithubAction } from './builderGithubBridge.js';
 import { getDb } from '../db.js';
 import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
@@ -22,7 +24,14 @@ import {
   type PatchValidation,
   type RoundtableParticipant,
   type RoundtableConfig,
+  type RoundtableAssignment,
 } from './opusRoundtable.js';
+import {
+  runWorkerSwarm,
+  runMeisterValidation,
+  saveWorkerScores,
+  type WorkerAssignment,
+} from './opusWorkerSwarm.js';
 import { builderOpusLog, builderTasks } from '../schema/builder.js';
 
 const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
@@ -201,6 +210,45 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     approvals = roundtableResult.approvals;
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
+
+    // Phase S2: Roundtable → Swarm — wenn Assignments statt Patches kamen
+    const rtAssignments = roundtableResult.assignments ?? [];
+    if (rtAssignments.length > 0 && patches.length === 0 && roundtableResult.status === 'consensus') {
+      console.log(`[S2] Roundtable delegated ${rtAssignments.length} assignments to swarm`);
+
+      // Datei-Inhalte laden für Worker
+      const fileContents: Record<string, string> = {};
+      for (const a of rtAssignments) {
+        if (!fileContents[a.file]) {
+          for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+            try {
+              fileContents[a.file] = fs.readFileSync(path.resolve(base, a.file), 'utf-8');
+              break;
+            } catch { /* not found */ }
+          }
+        }
+      }
+
+      const workerAssignments: WorkerAssignment[] = rtAssignments.map((a) => ({
+        file: a.file,
+        writer: a.writer || 'minimax',
+        reason: a.reason,
+        dependsOn: a.dependsOn,
+      }));
+
+      const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
+      const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
+      totalTokens += workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0);
+      totalTokens += meister.tokensUsed ?? 0;
+
+      if (meister.scores) {
+        await saveWorkerScores(task.id, meister.scores);
+      }
+
+      patches = meister.validatedPatches ?? workerResults
+        .filter((r) => r.patch)
+        .map((r) => r.patch as { file: string; body: string });
+    }
 
     crushIntensity = determineCrushIntensity(
       { risk: input.risk ?? 'low', scope: normalizedScope, instruction },
