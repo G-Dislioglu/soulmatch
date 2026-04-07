@@ -647,6 +647,8 @@ opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
   }
 });
 
+opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({ pipeline: 'decomposer-v1', stages: 7, algorithmicStages: 5, llmStages: 2 }));
+
 // ==================== RENDER CONTROL ====================
 import {
   getDeployStatus,
