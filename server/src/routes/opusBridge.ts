@@ -531,3 +531,52 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ==================== DIRECT PUSH (no LLM, just commit files) ====================
+opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
+  try {
+    const { files, message } = req.body as {
+      files?: Array<{ file: string; content: string }>;
+      message?: string;
+    };
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      res.status(400).json({ error: 'files[] with {file, content} required' });
+      return;
+    }
+
+    const patches = files.map((f) => ({
+      file: f.file,
+      action: 'overwrite' as const,
+      content: f.content,
+    }));
+
+    const db = getDb();
+    const [task] = await db
+      .insert(builderTasks)
+      .values({
+        title: (message || 'direct push').slice(0, 100),
+        goal: message || 'Direct file push via /push endpoint',
+        scope: files.map((f) => f.file),
+        risk: 'low',
+        status: 'applying',
+      })
+      .returning();
+
+    const result = await triggerGithubAction(task.id, patches);
+
+    if (!result.triggered) {
+      await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id));
+    }
+
+    res.json({
+      taskId: task.id,
+      triggered: result.triggered,
+      error: result.error,
+      files: files.map((f) => f.file),
+      message: message || 'direct push',
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
