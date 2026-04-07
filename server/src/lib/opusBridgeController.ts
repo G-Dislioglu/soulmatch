@@ -57,17 +57,17 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 1500,
   },
   minimax: {
-    actor: 'minimax', model: 'minimax/minimax-m2', provider: 'openrouter',
+    actor: 'minimax', model: 'minimax/minimax-m2.7', provider: 'openrouter',
     strengths: 'Schneller Utility- und Glue-Code, gut fuer guenstige Standard-Tasks',
     maxTokensPerRound: 1500,
   },
   qwen: {
-    actor: 'qwen', model: 'qwen/qwen-2.5-coder-32b-instruct', provider: 'openrouter',
+    actor: 'qwen', model: 'qwen/qwen3.6-plus', provider: 'openrouter',
     strengths: 'Stark bei TypeScript- und Service-Code, guenstig fuer Mid-Complexity',
     maxTokensPerRound: 1500,
   },
   kimi: {
-    actor: 'kimi', model: 'moonshotai/kimi-k2', provider: 'openrouter',
+    actor: 'kimi', model: 'moonshotai/kimi-k2.5', provider: 'openrouter',
     strengths: 'Sauber bei laengerem Kontext und mehrteiligen Datei-Aenderungen',
     maxTokensPerRound: 1500,
   },
