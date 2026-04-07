@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
 import { convertBdlPatchesToPayload, triggerGithubAction } from '../lib/builderGithubBridge.js';
@@ -28,6 +28,7 @@ import {
   builderReviews,
   builderTasks,
   builderTestResults,
+  builderWorkerScores,
 } from '../schema/builder.js';
 
 export const opusBridgeRouter = Router();
@@ -419,6 +420,26 @@ opusBridgeRouter.post('/reset-session', (_req: Request, res: Response) => {
     message: 'Session reset',
     session: state,
   });
+});
+
+opusBridgeRouter.get('/worker-stats', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const result = await db.execute(sql`
+      SELECT
+        worker,
+        ROUND(AVG(quality)) as avg_quality,
+        COUNT(*) as task_count,
+        MIN(quality) as min_quality,
+        MAX(quality) as max_quality
+      FROM builder_worker_scores
+      GROUP BY worker
+      ORDER BY avg_quality DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
