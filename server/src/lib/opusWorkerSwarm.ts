@@ -281,6 +281,10 @@ function extractMarkedFullFileContent(response: string): string | null {
   return content.trim().length > 0 ? content : '';
 }
 
+function isFullFileOverwritePatchBody(body: string): boolean {
+  return body.startsWith('<<<SEARCH\n===REPLACE\n') || body.startsWith('<<<SEARCH\r\n===REPLACE\r\n');
+}
+
 function buildFullFilePatchBody(_previousContent: string | undefined, nextContent: string): string {
   return ['<<<SEARCH', '===REPLACE', nextContent, '>>>'].join('\n');
 }
@@ -370,21 +374,31 @@ function mergeCouncilRepairs(
   responses: MeisterCouncilResponse[],
 ): Array<{ file: string; body: string }> {
   const patchMap = new Map<string, { file: string; body: string }>();
+  const protectedFullFilePatches = new Set<string>();
 
   for (const result of workerResults) {
     if (result.patch) {
       patchMap.set(result.patch.file, result.patch);
+      if (isFullFileOverwritePatchBody(result.patch.body)) {
+        protectedFullFilePatches.add(result.patch.file);
+      }
     }
   }
 
   for (const response of responses.filter((item) => item.actor !== 'meister-opus')) {
     for (const repair of response.repairs) {
+      if (protectedFullFilePatches.has(repair.file)) {
+        continue;
+      }
       patchMap.set(repair.file, repair);
     }
   }
 
   for (const response of responses.filter((item) => item.actor === 'meister-opus')) {
     for (const repair of response.repairs) {
+      if (protectedFullFilePatches.has(repair.file)) {
+        continue;
+      }
       patchMap.set(repair.file, repair);
     }
   }
