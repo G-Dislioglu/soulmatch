@@ -1,3 +1,4 @@
+/** Budget-Gate Session State — tracks task and token usage per session */
 interface SessionState {
   tasksUsed: number;
   tokensUsed: number;
