@@ -13,6 +13,7 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
   openai:   { apiUrl: 'https://api.openai.com/v1/responses',        envKey: 'OPENAI_API_KEY' },
   xai:      { apiUrl: 'https://api.x.ai/v1/chat/completions',       envKey: 'XAI_API_KEY' },
   deepseek: { apiUrl: 'https://api.deepseek.com/chat/completions',   envKey: 'DEEPSEEK_API_KEY' },
+  openrouter: { apiUrl: 'https://openrouter.ai/api/v1/chat/completions', envKey: 'OPENROUTER_API_KEY' },
   zhipu:    { apiUrl: 'https://api.z.ai/api/paas/v4/chat/completions', envKey: 'ZHIPU_API_KEY' },
 };
 
@@ -199,7 +200,7 @@ export async function callProvider(
             max_output_tokens: 2000,
           }
         : {
-            // Chat Completions format (xAI, DeepSeek)
+            // Chat Completions format (xAI, DeepSeek, OpenRouter, Zhipu)
             model,
             messages: [
               { role: 'system', content: params.system },

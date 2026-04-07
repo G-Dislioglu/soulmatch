@@ -12,6 +12,13 @@ interface WorkerPreset {
   maxTokens: number;
 }
 
+interface MeisterCouncilMember {
+  actor: string;
+  provider: string;
+  model: string;
+  maxTokens: number;
+}
+
 export interface WorkerAssignment {
   file: string;
   writer: string;
@@ -40,14 +47,34 @@ export interface MeisterResult {
   tokensUsed: number;
 }
 
+interface MeisterCouncilResponse {
+  actor: string;
+  model: string;
+  commands: BdlCommand[];
+  scores: MeisterScore[];
+  repairs: Array<{ file: string; body: string }>;
+  tokensUsed: number;
+}
+
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
   deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 1800 },
   sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 2200 },
   gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 1800 },
   glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 1800 },
+  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flash', maxTokens: 1600 },
   grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 1800 },
   opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 2500 },
+  minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2', maxTokens: 1800 },
+  qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen-2.5-coder-32b-instruct', maxTokens: 1800 },
+  kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2', maxTokens: 1800 },
 };
+
+const MEISTER_COUNCIL: MeisterCouncilMember[] = [
+  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 2500 },
+  { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 2000 },
+  { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 1800 },
+  { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2', maxTokens: 1800 },
+];
 
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
@@ -195,6 +222,103 @@ function extractScores(commands: BdlCommand[]): MeisterScore[] {
       quality: Number.parseInt(command.params.quality || '0', 10) || 0,
       notes: command.params.notes || command.params.reason || '',
     }));
+}
+
+async function runSingleMeister(
+  taskId: string,
+  member: MeisterCouncilMember,
+  taskGoal: string,
+  workerResults: WorkerResult[],
+  fileContents?: Record<string, string>,
+): Promise<MeisterCouncilResponse> {
+  const startedAt = Date.now();
+  const response = await callProvider(member.provider, member.model, {
+    system: buildMeisterPrompt(taskGoal, workerResults, fileContents),
+    messages: [{ role: 'user', content: 'Pruefe die Worker-Ergebnisse und antworte nur in BDL.' }],
+    maxTokens: member.maxTokens,
+    temperature: 0.2,
+    forceJsonObject: false,
+  });
+
+  const commands = parseBdl(response);
+  const scores = extractScores(commands);
+  const repairs = commands
+    .filter((command) => command.kind === 'PATCH' && command.params.file && command.body)
+    .map((command) => ({ file: command.params.file, body: command.body as string }));
+  const tokensUsed = estimateTokens(response);
+
+  await addChatPoolMessage({
+    taskId,
+    round: 2,
+    phase: 'roundtable',
+    actor: member.actor,
+    model: member.model,
+    content: response,
+    commands,
+    executionResults: {
+      scoreCount: scores.length,
+      repairCount: repairs.length,
+    },
+    tokensUsed,
+    durationMs: Date.now() - startedAt,
+  });
+
+  return {
+    actor: member.actor,
+    model: member.model,
+    commands,
+    scores,
+    repairs,
+    tokensUsed,
+  };
+}
+
+function averageCouncilScores(responses: MeisterCouncilResponse[]): MeisterScore[] {
+  const grouped = new Map<string, { qualities: number[]; notes: string[] }>();
+
+  for (const response of responses) {
+    for (const score of response.scores) {
+      const entry = grouped.get(score.worker) ?? { qualities: [], notes: [] };
+      entry.qualities.push(score.quality);
+      if (score.notes) {
+        entry.notes.push(`[${response.actor}] ${score.notes}`);
+      }
+      grouped.set(score.worker, entry);
+    }
+  }
+
+  return [...grouped.entries()].map(([worker, entry]) => ({
+    worker,
+    quality: Math.round(entry.qualities.reduce((sum, value) => sum + value, 0) / Math.max(1, entry.qualities.length)),
+    notes: entry.notes.join(' | '),
+  }));
+}
+
+function mergeCouncilRepairs(
+  workerResults: WorkerResult[],
+  responses: MeisterCouncilResponse[],
+): Array<{ file: string; body: string }> {
+  const patchMap = new Map<string, { file: string; body: string }>();
+
+  for (const result of workerResults) {
+    if (result.patch) {
+      patchMap.set(result.patch.file, result.patch);
+    }
+  }
+
+  for (const response of responses.filter((item) => item.actor !== 'meister-opus')) {
+    for (const repair of response.repairs) {
+      patchMap.set(repair.file, repair);
+    }
+  }
+
+  for (const response of responses.filter((item) => item.actor === 'meister-opus')) {
+    for (const repair of response.repairs) {
+      patchMap.set(repair.file, repair);
+    }
+  }
+
+  return [...patchMap.values()];
 }
 
 async function runSingleWorker(
@@ -353,51 +477,25 @@ export async function runMeisterValidation(
   workerResults: WorkerResult[],
   fileContents?: Record<string, string>,
 ): Promise<MeisterResult> {
-  const startedAt = Date.now();
-  const response = await callProvider('anthropic', 'claude-opus-4-6', {
-    system: buildMeisterPrompt(taskGoal, workerResults, fileContents),
-    messages: [{ role: 'user', content: 'Pruefe die Worker-Ergebnisse und antworte nur in BDL.' }],
-    maxTokens: 2500,
-    temperature: 0.2,
-    forceJsonObject: false,
-  });
+  const settledResponses = await Promise.allSettled(
+    MEISTER_COUNCIL.map((member) => runSingleMeister(taskId, member, taskGoal, workerResults, fileContents)),
+  );
 
-  const commands = parseBdl(response);
-  const scores = extractScores(commands);
-  const repairs = commands
-    .filter((command) => command.kind === 'PATCH' && command.params.file && command.body)
-    .map((command) => ({ file: command.params.file, body: command.body as string }));
+  const responses = settledResponses
+    .filter((item): item is PromiseFulfilledResult<MeisterCouncilResponse> => item.status === 'fulfilled')
+    .map((item) => item.value);
 
-  const validatedPatchMap = new Map<string, { file: string; body: string }>();
-  for (const result of workerResults) {
-    if (result.patch) {
-      validatedPatchMap.set(result.patch.file, result.patch);
-    }
-  }
-  for (const repair of repairs) {
-    validatedPatchMap.set(repair.file, repair);
+  if (responses.length === 0) {
+    throw new Error('All meister council members failed');
   }
 
-  const tokensUsed = estimateTokens(response);
-
-  await addChatPoolMessage({
-    taskId,
-    round: 2,
-    phase: 'roundtable',
-    actor: 'meister-opus',
-    model: 'claude-opus-4-6',
-    content: response,
-    commands,
-    executionResults: {
-      scoreCount: scores.length,
-      repairCount: repairs.length,
-    },
-    tokensUsed,
-    durationMs: Date.now() - startedAt,
-  });
+  const scores = averageCouncilScores(responses);
+  const validatedPatches = mergeCouncilRepairs(workerResults, responses);
+  const repairs = mergeCouncilRepairs([], responses);
+  const tokensUsed = responses.reduce((sum, response) => sum + response.tokensUsed, 0);
 
   return {
-    validatedPatches: [...validatedPatchMap.values()],
+    validatedPatches,
     scores,
     repairs,
     tokensUsed,
