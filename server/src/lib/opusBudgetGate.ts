@@ -1,4 +1,4 @@
-/** Budget-Gate Session State — tracks task and token usage per session */
+/** Tracks per-session budget limits for the Opus Bridge */
 interface SessionState {
   tasksUsed: number;
   tokensUsed: number;
