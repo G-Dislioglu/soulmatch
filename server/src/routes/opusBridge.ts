@@ -463,7 +463,7 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
         for (const candidate of candidates) {
           try {
             const content = fs.readFileSync(candidate, 'utf-8');
-            autoFileContents.set(assignment.file, content.slice(0, 15000));
+            autoFileContents.set(assignment.file, content);
             break;
           } catch {
             // file not found, skip

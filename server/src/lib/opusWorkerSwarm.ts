@@ -58,6 +58,7 @@ interface MeisterCouncilResponse {
 
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
+const PATCH_CONTEXT_LINES = 2;
 const WORKER_TOKEN_HEADROOM = 900;
 const WORKER_MAX_TOKEN_CAP = 7000;
 
@@ -281,9 +282,46 @@ function extractMarkedFullFileContent(response: string): string | null {
   return content.trim().length > 0 ? content : '';
 }
 
+function splitPatchLines(text: string): string[] {
+  if (text.length === 0) {
+    return [];
+  }
+
+  return text.split(/\r?\n/);
+}
+
 function buildFullFilePatchBody(previousContent: string | undefined, nextContent: string): string {
-  const searchBlock = previousContent ?? '';
-  return ['<<<SEARCH', searchBlock, '===REPLACE', nextContent, '>>>'].join('\n');
+  const previousLines = splitPatchLines(previousContent ?? '');
+  const nextLines = splitPatchLines(nextContent);
+
+  let prefix = 0;
+  while (
+    prefix < previousLines.length &&
+    prefix < nextLines.length &&
+    previousLines[prefix] === nextLines[prefix]
+  ) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < previousLines.length - prefix &&
+    suffix < nextLines.length - prefix &&
+    previousLines[previousLines.length - 1 - suffix] === nextLines[nextLines.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  const contextStart = Math.max(0, prefix - PATCH_CONTEXT_LINES);
+  const oldChangedEnd = previousLines.length - suffix;
+  const newChangedEnd = nextLines.length - suffix;
+  const searchEnd = Math.min(previousLines.length, oldChangedEnd + PATCH_CONTEXT_LINES);
+  const replaceEnd = Math.min(nextLines.length, newChangedEnd + PATCH_CONTEXT_LINES);
+
+  const searchBlock = previousLines.slice(contextStart, searchEnd).join('\n');
+  const replaceBlock = nextLines.slice(contextStart, replaceEnd).join('\n');
+
+  return ['<<<SEARCH', searchBlock, '===REPLACE', replaceBlock, '>>>'].join('\n');
 }
 
 function extractScores(commands: BdlCommand[]): MeisterScore[] {
