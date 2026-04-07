@@ -72,6 +72,9 @@ jobs:
                 }
                 fs.writeFileSync(patch.file, updated, 'utf8');
                 console.log('REPLACE', patch.file);
+              } else if (patch.action === 'overwrite') {
+                fs.writeFileSync(patch.file, patch.content, 'utf8');
+                console.log('OVERWRITE', patch.file, '(' + patch.content.length + ' chars)');
               }
             }
             console.log('All patches applied successfully');

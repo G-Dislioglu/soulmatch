@@ -3,10 +3,14 @@ import type { BdlCommand } from './builderBdlParser.js';
 
 export interface PatchPayload {
   file: string;
-  action: 'write' | 'replace' | 'append';
+  action: 'write' | 'replace' | 'append' | 'overwrite';
   content?: string;
   oldText?: string;
   newText?: string;
+}
+
+function isSearchReplacePatchBody(body: string): boolean {
+  return body.trimStart().startsWith('<<<SEARCH');
 }
 
 export interface ExecutionResult {
@@ -90,7 +94,7 @@ export function convertBdlPatchesToPayload(
     if (oldLines.length === 0 && newLines.length > 0) {
       payloads.push({
         file,
-        action: 'append',
+        action: isSearchReplacePatchBody(cmd.body) ? 'overwrite' : 'append',
         content: newLines.join('\n'),
       });
     } else {
