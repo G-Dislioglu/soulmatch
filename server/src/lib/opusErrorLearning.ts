@@ -1,4 +1,3 @@
-// gpt-writer-test
 import { getDb } from '../db.js';
 import { callProvider } from './providers.js';
 import { builderErrorCards } from '../schema/builder.js';

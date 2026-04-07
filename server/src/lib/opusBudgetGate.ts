@@ -1,5 +1,4 @@
 // swarm-e2e-verified-2026-04-06
-// grok-writer-test
 interface SessionState {
   tasksUsed: number;
   tokensUsed: number;
