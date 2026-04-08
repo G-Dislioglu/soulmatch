@@ -109,3 +109,49 @@ export function convertBdlPatchesToPayload(
 
   return payloads;
 }
+export async function triggerGithubActionChunked(
+  taskId: string,
+  patches: PatchPayload[],
+): Promise<{ triggered: boolean; chunks: number; error?: string }> {
+  const payloadSize = JSON.stringify(patches).length;
+
+  if (payloadSize < 50000) {
+    const result = await triggerGithubAction(taskId, patches);
+    return { triggered: result.triggered, chunks: 1, error: result.error };
+  }
+
+  const chunks: PatchPayload[][] = [];
+  let currentChunk: PatchPayload[] = [];
+  let currentChunkSize = 0;
+
+  for (const patch of patches) {
+    const patchSize = JSON.stringify(patch).length;
+
+    if (patchSize >= 50000) {
+      return { triggered: false, chunks: 0, error: `Single patch exceeds 50KB (${patchSize} bytes)` };
+    }
+
+    if (currentChunkSize + patchSize >= 50000) {
+      if (currentChunk.length > 0) chunks.push(currentChunk);
+      currentChunk = [patch];
+      currentChunkSize = patchSize;
+    } else {
+      currentChunk.push(patch);
+      currentChunkSize += patchSize;
+    }
+  }
+
+  if (currentChunk.length > 0) chunks.push(currentChunk);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const result = await triggerGithubAction(taskId, chunks[i]);
+    if (!result.triggered) {
+      return { triggered: false, chunks: i + 1, error: `Chunk ${i + 1}/${chunks.length}: ${result.error}` };
+    }
+    if (i < chunks.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
+  return { triggered: true, chunks: chunks.length };
+}
