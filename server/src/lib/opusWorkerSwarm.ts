@@ -60,26 +60,26 @@ interface MeisterCouncilResponse {
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
 const WORKER_TOKEN_HEADROOM = 900;
-const WORKER_MAX_TOKEN_CAP = 7000;
+const WORKER_MAX_TOKEN_CAP = 10000;
 
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
-  deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 1800 },
-  sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 2200 },
-  gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 1800 },
-  glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 1800 },
-  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flash', maxTokens: 1600 },
-  grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 1800 },
-  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 2500 },
-  minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 1800 },
-  qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 1800 },
-  kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 1800 },
+  deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 4000 },
+  sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 4000 },
+  gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 4000 },
+  glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 4000 },
+  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flash', maxTokens: 3000 },
+  grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 4000 },
+  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 4000 },
+  minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 4000 },
+  qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 4000 },
+  kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 4000 },
 };
 
 const MEISTER_COUNCIL: MeisterCouncilMember[] = [
-  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 2500 },
-  { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 2000 },
-  { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 1800 },
-  { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 1800 },
+  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 3500 },
+  { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 3000 },
+  { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 3000 },
+  { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 3000 },
 ];
 
 function estimateTokens(text: string): number {
@@ -727,13 +727,15 @@ export async function getWorkerRanking(): Promise<Array<{ worker: string; avgSco
 }
 
 export function getRecommendedWriter(complexity: string): string {
-  const map: Record<string, string> = {
-    trivial: 'deepseek',
-    simple: 'minimax',
-    medium: 'minimax',
-    complex: 'opus',
+  const map: Record<string, string[]> = {
+    trivial: ['deepseek', 'glm'],
+    simple: ['minimax', 'glm', 'deepseek'],
+    medium: ['glm', 'minimax'],
+    complex: ['opus'],
   };
-  return map[complexity] || 'minimax';
+  const candidates = map[complexity] || ['minimax'];
+  // Round-robin via timestamp to distribute load
+  return candidates[Math.floor(Date.now() / 1000) % candidates.length];
 }
 
 export async function runMeisterValidation(
