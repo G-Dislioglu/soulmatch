@@ -60,7 +60,7 @@ interface MeisterCouncilResponse {
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
 const WORKER_TOKEN_HEADROOM = 900;
-const WORKER_MAX_TOKEN_CAP = 7000;
+const WORKER_MAX_TOKEN_CAP = 10000;
 
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
   deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 6000 },
@@ -727,13 +727,15 @@ export async function getWorkerRanking(): Promise<Array<{ worker: string; avgSco
 }
 
 export function getRecommendedWriter(complexity: string): string {
-  const map: Record<string, string> = {
-    trivial: 'deepseek',
-    simple: 'minimax',
-    medium: 'minimax',
-    complex: 'opus',
+  const map: Record<string, string[]> = {
+    trivial: ['deepseek', 'glm'],
+    simple: ['minimax', 'glm', 'deepseek'],
+    medium: ['glm', 'minimax'],
+    complex: ['opus'],
   };
-  return map[complexity] || 'minimax';
+  const candidates = map[complexity] || ['minimax'];
+  // Round-robin via timestamp to distribute load
+  return candidates[Math.floor(Date.now() / 1000) % candidates.length];
 }
 
 export async function runMeisterValidation(
