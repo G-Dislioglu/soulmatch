@@ -1,1 +1,2 @@
-export const getTimestamp = (): string => new Date().toISOString();
+// DEPRECATED — file unused, pending git rm
+export {};

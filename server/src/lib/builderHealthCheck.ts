@@ -1,9 +1,2 @@
-export interface HealthCheckResult {
- status: 'ok';
-}
-
-export function builderHealthCheck(): HealthCheckResult {
- return {
-   status: 'ok'
- };
-}
+// DEPRECATED — file unused, pending git rm
+export {};

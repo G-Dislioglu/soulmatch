@@ -1,3 +1,2 @@
-export function builderPing(): string {
- return 'pong';
-}
+// DEPRECATED — file unused, pending git rm
+export {};
