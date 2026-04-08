@@ -624,6 +624,16 @@ export async function getWorkerRanking(): Promise<Array<{ worker: string; avgSco
   }
 }
 
+export function getRecommendedWriter(complexity: string): string {
+  const map: Record<string, string> = {
+    trivial: 'deepseek',
+    simple: 'minimax',
+    medium: 'minimax',
+    complex: 'opus',
+  };
+  return map[complexity] || 'minimax';
+}
+
 export async function runMeisterValidation(
   taskId: string,
   taskGoal: string,
