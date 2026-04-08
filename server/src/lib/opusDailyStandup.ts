@@ -24,6 +24,7 @@ export interface StandupReport {
   insights: StandupInsight[];
   mapRecommendation: Record<string, string[]>;
   actionItems: string[];
+  recentTaskTitles: string[];
 }
 
 interface WorkerRankEntry {
@@ -146,12 +147,21 @@ export async function runDailyStandup(): Promise<StandupReport> {
   // Action items
   const actionItems = generateActionItems(ranking, insights);
 
+  const recentTasks = await db
+    .select({ title: builderTasks.title })
+    .from(builderTasks)
+    .orderBy(desc(builderTasks.createdAt))
+    .limit(5);
+
+  const recentTaskTitles = recentTasks.map((task) => task.title);
+
   return {
     timestamp: new Date().toISOString(),
     ranking,
     insights,
     mapRecommendation,
     actionItems,
+    recentTaskTitles,
   };
 }
 
