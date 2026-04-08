@@ -519,10 +519,28 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks,
     githubAction,
     session: sessionState,
-    crush: {
+        crush: {
       intensity: crushIntensity,
       ambient: ambientResult,
       caseCrush: caseCrushResult,
     },
+  };
+}
+
+export async function getTaskSummary(taskId: string) {
+  const db = getDb();
+  const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
+  if (!task) throw new Error(`Task ${taskId} not found`);
+  const chatPool = await getChatPoolForTask(taskId);
+  const rounds = chatPool.length > 0 ? Math.max(...chatPool.map((m) => m.round ?? 0)) : 0;
+  const participants = [...new Set(chatPool.map((m) => m.actor))];
+  return {
+    taskId,
+    title: task.title,
+    status: task.status,
+    rounds,
+    participants,
+    tokenCount: task.tokenCount ?? 0,
+    createdAt: task.createdAt,
   };
 }
