@@ -354,7 +354,7 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
     const responseText = await callProvider(provider, model, {
       system: system || 'Du bist ein hilfreicher Assistent.',
       messages: [{ role: 'user', content: message }],
-      maxTokens: maxTokens || 2000,
+            maxTokens: maxTokens || 6000,
       temperature: 0.7,
       forceJsonObject: false,
     });
