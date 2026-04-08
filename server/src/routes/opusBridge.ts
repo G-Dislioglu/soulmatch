@@ -422,6 +422,10 @@ opusBridgeRouter.post('/reset-session', (_req: Request, res: Response) => {
   });
 });
 
+opusBridgeRouter.get('/session-info', (_req: Request, res: Response) => {
+  res.json({ ...getSessionState(), serverUptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 opusBridgeRouter.get('/worker-stats', async (_req: Request, res: Response) => {
   try {
     const db = getDb();
