@@ -79,8 +79,8 @@ async function waitForDeploy(opts: {
   const start = Date.now();
   const notBeforeMs = opts.notBefore ? new Date(opts.notBefore).getTime() : 0;
 
-  // Initial delay: GitHub Action needs ~20-40s to commit, Render needs time to detect
-  await new Promise((r) => setTimeout(r, 45_000));
+  // Initial delay: GitHub Action needs ~20-30s to commit, Render needs time to detect
+  await new Promise((r) => setTimeout(r, 30_000));
 
   while (Date.now() - start < maxWait) {
     const result = await getDeployStatus();
