@@ -111,12 +111,9 @@ function buildWorkerPrompt(
   fileContent?: string,
   dependencyPatch?: { file: string; body: string },
 ): string {
-  const projectDna = loadProjectDna();
-  const fullFileExample = [
-    FILE_START_MARKER,
-    'export const value = newCall();',
-    FILE_END_MARKER,
-  ].join('\n');
+  const isOpusOrSonnet = assignment.writer === 'opus' || assignment.writer === 'sonnet';
+  const projectDna = isOpusOrSonnet ? loadProjectDna() : null;
+
   const patchExample = [
     `@PATCH file:"${assignment.file}"`,
     '<<<SEARCH',
@@ -125,6 +122,7 @@ function buildWorkerPrompt(
     'const value = newCall();',
     '>>>',
   ].join('\n');
+
   const sections = [
     'Du bist ein Worker im Opus Worker-Swarm.',
     'Arbeite nur an deiner zugewiesenen Datei.',
@@ -145,7 +143,22 @@ function buildWorkerPrompt(
   }
 
   if (fileContent) {
-    sections.push('', '=== AKTUELLER DATEI-INHALT ===', fileContent);
+    const lines = fileContent.split('\n');
+    if (lines.length > 300) {
+      const first50 = lines.slice(0, 50).join('\n');
+      const last50 = lines.slice(-50).join('\n');
+      sections.push(
+        '',
+        '=== AKTUELLER DATEI-INHALT (gekuerzt) ===',
+        '// --- ANFANG (Zeile 1-50) ---',
+        first50,
+        '',
+        `// --- ENDE (Zeile ${lines.length - 49}-${lines.length}) ---`,
+        last50,
+      );
+    } else {
+      sections.push('', '=== AKTUELLER DATEI-INHALT ===', fileContent);
+    }
   }
 
   if (dependencyPatch) {
@@ -158,14 +171,11 @@ function buildWorkerPrompt(
 
   sections.push(
     '',
-    'BEVORZUGTES FORMAT: Gib den vollstaendigen neuen Datei-Inhalt zwischen den Markern aus. Kein Fliesstext, keine Erklaerung.',
-    'Beispiel fuer das bevorzugte Format:',
-    fullFileExample,
-    '',
-    'Falls dein Modell SEARCH/REPLACE sicher beherrscht, ist auch dieses BDL-Format erlaubt:',
+    'Erforderliches Format: Nutze ausschliesslich das SEARCH/REPLACE-Format (BDL) fuer alle Aenderungen.',
+    'Beispiel:',
     patchExample,
     '',
-    'Antworte jetzt nur mit einem der beiden Formate. Bevorzugt ist der vollstaendige Datei-Inhalt mit Markern.',
+    'Antworte NUR mit dem PATCH-Format. Kein Fliesstext, keine Erklaerung.',
   );
 
   return sections.join('\n');
