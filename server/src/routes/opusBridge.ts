@@ -8,6 +8,8 @@ import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { executeTask } from '../lib/opusBridgeController.js';
+import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
+import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import {
   runMeisterValidation,
@@ -719,6 +721,41 @@ opusBridgeRouter.put('/render/env/:key', async (req: Request, res: Response) => 
       return;
     }
     const result = await updateEnvVar(key, value);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+// ==================== POST /build — All-in-One Builder Proxy ====================
+
+opusBridgeRouter.post('/build', async (req: Request, res: Response) => {
+  try {
+    const input = req.body as BuildInput;
+    if (!input.instruction) {
+      res.status(400).json({ error: 'instruction is required' });
+      return;
+    }
+    // Long-running — increase timeout
+    req.setTimeout(300_000); // 5 min
+    const result = await runBuildPipeline(input);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ==================== POST /self-test — Builder tests itself ====================
+
+opusBridgeRouter.post('/self-test', async (req: Request, res: Response) => {
+  try {
+    const { checks } = req.body as { checks?: SelfTestCheck[] };
+    if (!checks || !Array.isArray(checks)) {
+      // Quick health check if no checks provided
+      const healthy = await selfHealthCheck();
+      res.json({ allPassed: healthy, mode: 'quick-health' });
+      return;
+    }
+    const result = await selfVerify(checks);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
