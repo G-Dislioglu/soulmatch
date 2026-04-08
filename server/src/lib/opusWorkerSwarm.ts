@@ -105,6 +105,112 @@ function normalizeAssignmentReason(value: string | undefined): string {
   return value?.trim() || 'Kein Grund angegeben';
 }
 
+function extractRelevantScope(fileContent: string, hints: string): string {
+  const lines = fileContent.split('\n');
+  const totalLines = lines.length;
+  if (totalLines <= 200) return '=== AKTUELLER DATEI-INHALT ===\n' + fileContent;
+
+  const ranges: Array<[number, number]> = [];
+  const addRange = (s: number, e: number) => {
+    const cs = Math.max(0, s);
+    const ce = Math.min(totalLines - 1, e);
+    if (cs <= ce) ranges.push([cs, ce]);
+  };
+
+  // Immer: Imports (0-19) + Exports (letzte 10)
+  addRange(0, 19);
+  addRange(totalLines - 10, totalLines - 1);
+
+  // 1. Zeilennummern aus hints ("Zeile 150", "line 150-160")
+  const lineRx = /(?:Zeile|line|Line)\s*(\d+)(?:\s*[-–]\s*(\d+))?/gi;
+  let m: RegExpExecArray | null;
+  while ((m = lineRx.exec(hints)) !== null) {
+    const start = parseInt(m[1], 10) - 1;
+    const end = m[2] ? parseInt(m[2], 10) - 1 : start;
+    addRange(start - 30, end + 30);
+  }
+
+  // 2. Code-Identifier (camelCase/PascalCase — require mixed case to filter natural language)
+  const identRx = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b|\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/g;
+  const identifiers: string[] = [...(hints.match(identRx) || [])];
+
+  // 3. Quoted strings
+  const quotedRx = /['"`]([^'"`]{3,})['"`]/g;
+  while ((m = quotedRx.exec(hints)) !== null) identifiers.push(m[1]);
+
+  // Keyword-Search in Datei
+  for (const kw of identifiers) {
+    for (let i = 0; i < totalLines; i++) {
+      if (lines[i].includes(kw)) {
+        addRange(i - 30, i + 30);
+      }
+    }
+  }
+
+  // Merge overlapping/adjacent ranges (gap <=5)
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [];
+  for (const r of ranges) {
+    if (merged.length === 0) {
+      merged.push([...r]);
+    } else {
+      const last = merged[merged.length - 1];
+      if (r[0] <= last[1] + 5) {
+        last[1] = Math.max(last[1], r[1]);
+      } else {
+        merged.push([...r]);
+      }
+    }
+  }
+
+  // Fallback: nur Imports+Exports gefunden → zeige 60+40
+  if (merged.length === 2 && merged[0][1] <= 19 && merged[1][0] >= totalLines - 10) {
+    return [
+      '=== AKTUELLER DATEI-INHALT (gekuerzt, kein Scope-Match) ===',
+      '// --- ANFANG (Zeile 1-60) ---',
+      lines.slice(0, 60).join('\n'),
+      '',
+      `// --- ENDE (Zeile ${totalLines - 39}-${totalLines}) ---`,
+      lines.slice(-40).join('\n'),
+    ].join('\n');
+  }
+
+  // Max ~200 Zeilen: Ranges beschneiden
+  let totalSelected = merged.reduce((s, r) => s + (r[1] - r[0] + 1), 0);
+  if (totalSelected > 200) {
+    const limited: Array<[number, number]> = [];
+    let count = 0;
+    for (const r of merged) {
+      const size = r[1] - r[0] + 1;
+      if (count + size <= 200) {
+        limited.push(r);
+        count += size;
+      } else {
+        const remaining = 200 - count;
+        if (remaining > 10) limited.push([r[0], r[0] + remaining - 1]);
+        break;
+      }
+    }
+    // Sicherstellen: Exports am Ende
+    const lastLimited = limited[limited.length - 1];
+    if (lastLimited && lastLimited[1] < totalLines - 10) {
+      limited.push([totalLines - 10, totalLines - 1]);
+    }
+    merged.length = 0;
+    merged.push(...limited);
+  }
+
+  // Output formatieren
+  const out: string[] = ['=== AKTUELLER DATEI-INHALT (scope-basiert) ==='];
+  for (const [s, e] of merged) {
+    out.push(`// --- BEREICH (Zeile ${s + 1}-${e + 1}) ---`);
+    out.push(lines.slice(s, e + 1).join('\n'));
+    out.push('');
+  }
+  out.push(`// --- GESAMT: ${totalLines} Zeilen ---`);
+  return out.join('\n');
+}
+
 function buildWorkerPrompt(
   taskGoal: string,
   assignment: WorkerAssignment,
@@ -143,22 +249,8 @@ function buildWorkerPrompt(
   }
 
   if (fileContent) {
-    const lines = fileContent.split('\n');
-    if (lines.length > 300) {
-      const first50 = lines.slice(0, 50).join('\n');
-      const last50 = lines.slice(-50).join('\n');
-      sections.push(
-        '',
-        '=== AKTUELLER DATEI-INHALT (gekuerzt) ===',
-        '// --- ANFANG (Zeile 1-50) ---',
-        first50,
-        '',
-        `// --- ENDE (Zeile ${lines.length - 49}-${lines.length}) ---`,
-        last50,
-      );
-    } else {
-      sections.push('', '=== AKTUELLER DATEI-INHALT ===', fileContent);
-    }
+    const hints = [taskGoal, assignment?.reason].filter(Boolean).join(' ');
+    sections.push('', extractRelevantScope(fileContent, hints));
   }
 
   if (dependencyPatch) {
@@ -226,7 +318,7 @@ function buildMeisterPrompt(
   if (fileContents && Object.keys(fileContents).length > 0) {
     sections.push('', '=== AKTUELLE DATEIEN (vor Worker-Patches) ===');
     for (const [filePath, content] of Object.entries(fileContents)) {
-      const truncated = content.length > 5000 ? `${content.slice(0, 5000)}\n... (truncated)` : content;
+      const truncated = extractRelevantScope(content, taskGoal);
       sections.push(`\n[FILE: ${filePath}]\n${truncated}`);
     }
   }
