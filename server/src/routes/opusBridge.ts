@@ -550,20 +550,32 @@ opusBridgeRouter.get('/health', (req: Request, res: Response) => {
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
     const { files, message } = req.body as {
-      files?: Array<{ file: string; content: string }>;
+      files?: Array<{ file: string; content?: string; search?: string; replace?: string }>;
       message?: string;
     };
 
     if (!files || !Array.isArray(files) || files.length === 0) {
-      res.status(400).json({ error: 'files[] with {file, content} required' });
+      res.status(400).json({ error: 'files[] with {file, content} or {file, search, replace} required' });
       return;
     }
 
-    const patches = files.map((f) => ({
-      file: f.file,
-      action: 'overwrite' as const,
-      content: f.content,
-    }));
+    const patches = files.map((f) => {
+      if (f.search !== undefined && f.replace !== undefined) {
+        // SEARCH/REPLACE mode — small patch on large file
+        return {
+          file: f.file,
+          action: 'replace' as const,
+          oldText: f.search,
+          newText: f.replace,
+        };
+      }
+      // Full overwrite mode
+      return {
+        file: f.file,
+        action: 'overwrite' as const,
+        content: f.content || '',
+      };
+    });
 
     const db = getDb();
     const [task] = await db
