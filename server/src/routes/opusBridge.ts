@@ -3,7 +3,7 @@ import * as path from 'path';
 import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
-import { convertBdlPatchesToPayload, triggerGithubAction } from '../lib/builderGithubBridge.js';
+import { convertBdlPatchesToPayload, triggerGithubAction, triggerGithubActionChunked } from '../lib/builderGithubBridge.js';
 import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
@@ -589,7 +589,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       })
       .returning();
 
-    const result = await triggerGithubAction(task.id, patches);
+    const result = await triggerGithubActionChunked(task.id, patches);
 
     if (!result.triggered) {
       await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id));
@@ -598,6 +598,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     res.json({
       taskId: task.id,
       triggered: result.triggered,
+      chunks: result.chunks,
       error: result.error,
       files: files.map((f) => f.file),
       message: message || 'direct push',
