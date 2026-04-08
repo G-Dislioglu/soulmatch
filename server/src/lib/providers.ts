@@ -19,7 +19,7 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
 
 const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRY_DELAY_MS = [250, 800];
-const PROVIDER_TIMEOUT_MS = 60_000; // 60s per request — prevents infinite hangs
+const PROVIDER_TIMEOUT_MS = 90_000; // 90s per request — large files need more time
 const ANTHROPIC_ENV_KEY = 'ANTHROPIC_API_KEY';
 
 function sleep(ms: number): Promise<void> {
