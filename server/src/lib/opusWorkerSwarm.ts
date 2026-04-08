@@ -1,3 +1,4 @@
+import { desc, sql } from 'drizzle-orm';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
 import { addChatPoolMessage } from './opusChatPool.js';
 import { loadProjectDna } from './opusGraphIntegration.js';
@@ -596,6 +597,30 @@ export async function saveWorkerScores(
     }
   } catch (err) {
     console.error('[saveWorkerScores] failed:', err);
+  }
+}
+
+export async function getWorkerRanking(): Promise<Array<{ worker: string; avgScore: number; taskCount: number }>> {
+  try {
+    const db = getDb();
+    const rows = await db
+      .select({
+        worker: builderWorkerScores.worker,
+        avgScore: sql<number>`round(avg(${builderWorkerScores.quality})::numeric, 1)`,
+        taskCount: sql<number>`count(*)`,
+      })
+      .from(builderWorkerScores)
+      .groupBy(builderWorkerScores.worker)
+      .orderBy(desc(sql`avg(${builderWorkerScores.quality})`));
+
+    return rows.map((r) => ({
+      worker: r.worker,
+      avgScore: Number(r.avgScore) || 0,
+      taskCount: Number(r.taskCount) || 0,
+    }));
+  } catch (err) {
+    console.error('[getWorkerRanking] failed:', err);
+    return [];
   }
 }
 

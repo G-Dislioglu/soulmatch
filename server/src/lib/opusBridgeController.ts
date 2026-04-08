@@ -124,6 +124,73 @@ function toPatchPayloads(patches: Array<{ file: string; body: string }>) {
   );
 }
 
+/**
+ * For large files: apply SEARCH/REPLACE patches in memory and produce
+ * full-file overwrite payloads. This avoids the empty-SEARCH bug where
+ * the GitHub Action overwrites the file with just the snippet.
+ */
+function toSafeOverwritePayloads(
+  patches: Array<{ file: string; body: string }>,
+): Array<{ file: string; action: 'overwrite'; content: string }> | null {
+  const results: Array<{ file: string; action: 'overwrite'; content: string }> = [];
+
+  for (const patch of patches) {
+    // Read original file
+    let original = '';
+    for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+      try {
+        original = fs.readFileSync(path.resolve(base, patch.file), 'utf-8');
+        break;
+      } catch { /* skip */ }
+    }
+
+    if (!original) {
+      console.error(`[toSafeOverwrite] could not read ${patch.file}`);
+      return null; // Fall back to normal path
+    }
+
+    // Parse SEARCH/REPLACE from body
+    const searchMatch = patch.body.match(/<<<SEARCH\n?([\s\S]*?)\n?===REPLACE\n?([\s\S]*?)\n?>>>/);
+    if (!searchMatch) {
+      // Not a SEARCH/REPLACE patch — might be full-file content
+      if (patch.body.length > original.length * 0.5) {
+        results.push({ file: patch.file, action: 'overwrite', content: patch.body });
+      } else {
+        return null; // Unknown format, fall back
+      }
+      continue;
+    }
+
+    const searchBlock = searchMatch[1].trim();
+    const replaceBlock = searchMatch[2]; // Don't trim — preserve indentation
+
+    if (!searchBlock) {
+      // Empty SEARCH = new code to add. Try to find insertion point from context.
+      // Default: append before last line
+      const lines = original.split('\n');
+      const lastLine = lines[lines.length - 1];
+      if (lastLine?.trim() === '') {
+        lines.splice(lines.length - 1, 0, replaceBlock);
+      } else {
+        lines.push(replaceBlock);
+      }
+      results.push({ file: patch.file, action: 'overwrite', content: lines.join('\n') });
+      continue;
+    }
+
+    // Apply SEARCH/REPLACE in memory
+    if (!original.includes(searchBlock)) {
+      console.error(`[toSafeOverwrite] SEARCH block not found in ${patch.file}`);
+      return null; // Fall back to normal path
+    }
+
+    const updated = original.replace(searchBlock, replaceBlock);
+    results.push({ file: patch.file, action: 'overwrite', content: updated });
+  }
+
+  return results;
+}
+
 export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const instruction = input.instruction;
   if (!instruction || typeof instruction !== 'string') {
@@ -343,7 +410,11 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   }
 
   if (status === 'consensus' && patches.length > 0) {
-    githubAction = await triggerGithubAction(task.id, toPatchPayloads(patches));
+    // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
+    const safePayloads = toSafeOverwritePayloads(patches);
+    githubAction = safePayloads
+      ? await triggerGithubAction(task.id, safePayloads)
+      : await triggerGithubAction(task.id, toPatchPayloads(patches));
     status = githubAction.triggered ? 'applying' : 'error';
   }
 
