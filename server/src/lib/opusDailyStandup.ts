@@ -234,3 +234,37 @@ function generateActionItems(ranking: WorkerRankEntry[], insights: StandupInsigh
 
   return items;
 }
+
+// ============================================================
+// CLEANUP
+// ============================================================
+
+const KNOWN_WORKERS = new Set([
+  'deepseek', 'sonnet', 'gpt', 'glm', 'glm-flash', 'grok',
+  'opus', 'minimax', 'qwen', 'kimi',
+]);
+
+export async function cleanupInvalidScores(): Promise<{
+  deleted: number;
+  invalidWorkers: string[];
+}> {
+  const db = getDb();
+
+  const allWorkers = await db
+    .selectDistinct({ worker: builderWorkerScores.worker })
+    .from(builderWorkerScores);
+
+  const invalidWorkers = allWorkers
+    .map((r) => r.worker)
+    .filter((w) => !KNOWN_WORKERS.has(w));
+
+  let deleted = 0;
+  for (const worker of invalidWorkers) {
+    await db
+      .delete(builderWorkerScores)
+      .where(eq(builderWorkerScores.worker, worker));
+    deleted += 1;
+  }
+
+  return { deleted, invalidWorkers };
+}
