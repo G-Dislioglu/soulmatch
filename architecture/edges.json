@@ -1,66 +1,236 @@
 {
   "edges": [
     {
-      "id": "edge-pattern-from-discussion", "from": "audio-mic-pattern", "to": "discussion-chat-file",
-      "type": "derived_from", "verification": "human_asserted", "confidence": 0.91,
+      "id": "edge-pattern-from-discussion",
+      "from": "audio-mic-pattern",
+      "to": "discussion-chat-file",
+      "type": "derived_from",
+      "verification": "human_asserted",
+      "confidence": 0.91,
       "reason": "Pattern abstracted from canonical M08 file."
     },
     {
-      "id": "edge-arcana-reuse-discussion", "from": "arcana-creator-chat", "to": "discussion-chat-file",
-      "type": "reuse_candidate", "status": "active", "verification": "human_asserted", "confidence": 0.88,
-      "strength": 0.91, "recommended_action": "copy_exact",
+      "id": "edge-arcana-reuse-discussion",
+      "from": "arcana-creator-chat",
+      "to": "discussion-chat-file",
+      "type": "reuse_candidate",
+      "status": "active",
+      "verification": "human_asserted",
+      "confidence": 0.88,
+      "strength": 0.91,
+      "recommended_action": "copy_exact",
       "reason": "pauseSpeechForAudio + scheduleResumeSpeech overlap."
     },
     {
-      "id": "edge-arcana-uses-stt", "from": "arcana-creator-chat", "to": "use-speech-to-text",
-      "type": "uses", "verification": "repo_verified", "confidence": 0.93,
-      "recommended_action": "import_or_extend", "reason": "Speech behavior via central hook."
+      "id": "edge-arcana-uses-stt",
+      "from": "arcana-creator-chat",
+      "to": "use-speech-to-text",
+      "type": "uses",
+      "verification": "repo_verified",
+      "confidence": 0.93,
+      "recommended_action": "import_or_extend",
+      "reason": "Speech behavior via central hook."
     },
     {
-      "id": "edge-arcana-depends-api", "from": "arcana-creator-chat", "to": "arcana-api",
-      "type": "depends_on", "verification": "repo_verified", "confidence": 0.95,
+      "id": "edge-arcana-depends-api",
+      "from": "arcana-creator-chat",
+      "to": "arcana-api",
+      "type": "depends_on",
+      "verification": "repo_verified",
+      "confidence": 0.95,
       "reason": "Chat relies on SSE/TTS/extraction backend."
     },
     {
-      "id": "edge-rule-blocks-audio", "from": "audio-mic-rule", "to": "arcana-creator-chat",
-      "type": "blocked_by", "verification": "human_asserted", "confidence": 0.87,
-      "recommended_action": "forbid_rebuild", "reason": "No standalone audio/mic system allowed."
+      "id": "edge-rule-blocks-audio",
+      "from": "audio-mic-rule",
+      "to": "arcana-creator-chat",
+      "type": "blocked_by",
+      "verification": "human_asserted",
+      "confidence": 0.87,
+      "recommended_action": "forbid_rebuild",
+      "reason": "No standalone audio/mic system allowed."
     },
     {
-      "id": "edge-builder-related-arcana", "from": "builder-spec", "to": "m09-arcana",
-      "type": "related_to", "status": "planned", "verification": "human_asserted", "confidence": 0.62,
+      "id": "edge-builder-related-arcana",
+      "from": "builder-spec",
+      "to": "m09-arcana",
+      "type": "related_to",
+      "status": "planned",
+      "verification": "human_asserted",
+      "confidence": 0.62,
       "reason": "Builder and Arcana may share orchestration patterns."
     },
     {
-      "id": "edge-sm-to-maya-memory", "from": "m09-arcana", "to": "maya-memory-store",
-      "type": "cross_trunk_link", "status": "planned", "verification": "ai_inferred", "confidence": 0.56,
+      "id": "edge-sm-to-maya-memory",
+      "from": "m09-arcana",
+      "to": "maya-memory-store",
+      "type": "cross_trunk_link",
+      "status": "planned",
+      "verification": "ai_inferred",
+      "confidence": 0.56,
       "reason": "Persona memory integration across trunks."
     },
     {
-      "id": "edge-sm-to-maya-queue", "from": "m10-builder", "to": "maya-memory-store",
-      "type": "cross_trunk_link", "status": "planned", "verification": "human_asserted", "confidence": 0.52,
+      "id": "edge-sm-to-maya-queue",
+      "from": "m10-builder",
+      "to": "maya-memory-store",
+      "type": "cross_trunk_link",
+      "status": "planned",
+      "verification": "human_asserted",
+      "confidence": 0.52,
       "reason": "Shared task queue for parallel development (Wave 2)."
     },
     {
-      "id": "edge-sm-to-aicos-cards", "from": "m09-arcana", "to": "cof-operators",
-      "type": "cross_trunk_link", "status": "done", "verification": "human_asserted", "confidence": 0.78,
+      "id": "edge-sm-to-aicos-cards",
+      "from": "m09-arcana",
+      "to": "cof-operators",
+      "type": "cross_trunk_link",
+      "status": "done",
+      "verification": "human_asserted",
+      "confidence": 0.78,
       "reason": "Arcana Crush analysis uses AICOS card system."
     },
     {
-      "id": "edge-maya-to-aicos", "from": "maya-memory-store", "to": "resonance-paths",
-      "type": "cross_trunk_link", "status": "possible", "verification": "ai_inferred", "confidence": 0.50,
+      "id": "edge-maya-to-aicos",
+      "from": "maya-memory-store",
+      "to": "resonance-paths",
+      "type": "cross_trunk_link",
+      "status": "possible",
+      "verification": "ai_inferred",
+      "confidence": 0.5,
       "reason": "Maya sleep/dream cycle could use AICOS card crossings."
     },
     {
-      "id": "edge-bp-to-builder", "from": "bp-phase1", "to": "m10-builder",
-      "type": "cross_trunk_link", "status": "planned", "verification": "human_asserted", "confidence": 0.65,
+      "id": "edge-bp-to-builder",
+      "from": "bp-phase1",
+      "to": "m10-builder",
+      "type": "cross_trunk_link",
+      "status": "planned",
+      "verification": "human_asserted",
+      "confidence": 0.65,
       "reason": "Bluepilot Phase 1 informed Builder Studio design."
     },
     {
-      "id": "edge-fusion-reuse-maya-provider", "from": "fusion-spec", "to": "maya-provider-registry",
-      "type": "reuse_candidate", "verification": "human_asserted", "confidence": 0.75,
+      "id": "edge-fusion-reuse-maya-provider",
+      "from": "fusion-spec",
+      "to": "maya-provider-registry",
+      "type": "reuse_candidate",
+      "verification": "human_asserted",
+      "confidence": 0.75,
       "recommended_action": "adapt_pattern",
       "reason": "Fusion Engine should reuse Maya's role-based routing pattern."
+    },
+    {
+      "id": "e-route-ctrl",
+      "from": "opus-route",
+      "to": "opus-ctrl",
+      "type": "depends_on",
+      "reason": "Route calls executeTask()"
+    },
+    {
+      "id": "e-route-build",
+      "from": "opus-route",
+      "to": "opus-build",
+      "type": "depends_on",
+      "reason": "Route calls runBuildPipeline()"
+    },
+    {
+      "id": "e-route-self",
+      "from": "opus-route",
+      "to": "opus-self",
+      "type": "depends_on",
+      "reason": "Route calls selfVerify()"
+    },
+    {
+      "id": "e-build-ctrl",
+      "from": "opus-build",
+      "to": "opus-ctrl",
+      "type": "depends_on",
+      "reason": "Pipeline calls executeTask()"
+    },
+    {
+      "id": "e-build-render",
+      "from": "opus-build",
+      "to": "opus-render",
+      "type": "depends_on",
+      "reason": "Pipeline polls deploy status"
+    },
+    {
+      "id": "e-build-self",
+      "from": "opus-build",
+      "to": "opus-self",
+      "type": "depends_on",
+      "reason": "Pipeline calls selfVerify()"
+    },
+    {
+      "id": "e-ctrl-scout",
+      "from": "opus-ctrl",
+      "to": "opus-scout",
+      "type": "depends_on",
+      "reason": "executeTask() runs scouts"
+    },
+    {
+      "id": "e-ctrl-round",
+      "from": "opus-ctrl",
+      "to": "opus-round",
+      "type": "depends_on",
+      "reason": "executeTask() runs roundtable"
+    },
+    {
+      "id": "e-ctrl-swarm",
+      "from": "opus-ctrl",
+      "to": "opus-swarm",
+      "type": "depends_on",
+      "reason": "executeTask() runs swarm"
+    },
+    {
+      "id": "e-ctrl-decomp",
+      "from": "opus-ctrl",
+      "to": "opus-decomp",
+      "type": "depends_on",
+      "reason": "executeTask() uses decomposer"
+    },
+    {
+      "id": "e-ctrl-github",
+      "from": "opus-ctrl",
+      "to": "builder-github",
+      "type": "depends_on",
+      "reason": "Triggers GitHub Action"
+    },
+    {
+      "id": "e-ctrl-error",
+      "from": "opus-ctrl",
+      "to": "opus-error",
+      "type": "depends_on",
+      "reason": "Generates error cards"
+    },
+    {
+      "id": "e-scout-graph",
+      "from": "opus-scout",
+      "to": "opus-graph",
+      "type": "depends_on",
+      "reason": "Reads architecture graph"
+    },
+    {
+      "id": "e-scout-error",
+      "from": "opus-scout",
+      "to": "opus-error",
+      "type": "depends_on",
+      "reason": "Reads error cards"
+    },
+    {
+      "id": "e-swarm-bdl",
+      "from": "opus-swarm",
+      "to": "builder-bdl",
+      "type": "depends_on",
+      "reason": "Parses BDL output"
+    },
+    {
+      "id": "e-github-patch",
+      "from": "builder-github",
+      "to": "builder-patch",
+      "type": "depends_on",
+      "reason": "Applies patches"
     }
   ]
 }
