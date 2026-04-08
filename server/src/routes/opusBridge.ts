@@ -824,3 +824,38 @@ opusBridgeRouter.post('/cleanup', async (_req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ─── /benchmark: Alle Worker parallel, gesammelte Ergebnisse ───
+opusBridgeRouter.post('/benchmark', async (req: Request, res: Response) => {
+  try {
+    const { task, workers, maxTokens, system, featureKeywords, timeoutMs } = req.body as {
+      task: string;
+      workers?: string[];
+      maxTokens?: number;
+      system?: string;
+      featureKeywords?: string[];
+      timeoutMs?: number;
+    };
+    if (!task) { res.status(400).json({ error: 'task is required' }); return; }
+    const { runBenchmark } = await import('../lib/opusAssist.js');
+    const defaultWorkers = workers || ['deepseek', 'minimax', 'kimi', 'qwen', 'glm', 'grok'];
+    const result = await runBenchmark(task, defaultWorkers, { maxTokens, system, featureKeywords, timeoutMs });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ─── /deploy-wait: Wartet bis Render-Deploy live ist ───
+opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
+  try {
+    const { waitForDeploy } = await import('../lib/opusAssist.js');
+    const serviceId = process.env.RENDER_SERVICE_ID || '';
+    const apiKey = process.env.RENDER_API_KEY || '';
+    if (!serviceId || !apiKey) { res.status(500).json({ error: 'RENDER_SERVICE_ID or RENDER_API_KEY not set' }); return; }
+    const result = await waitForDeploy(serviceId, apiKey);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
