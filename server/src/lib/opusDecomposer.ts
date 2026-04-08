@@ -471,19 +471,22 @@ function buildCutUnit(
 // STAGE 4: WORKER MATCH ($0)
 // ============================================================
 
-const WORKER_COMPLEXITY_MAP: Record<string, string[]> = {
+const DEFAULT_COMPLEXITY_MAP: Record<string, string[]> = {
   trivial: ['deepseek', 'qwen', 'kimi', 'minimax'],
   simple: ['deepseek', 'minimax', 'kimi', 'sonnet'],
   medium: ['minimax', 'sonnet', 'deepseek', 'gpt'],
   complex: ['minimax', 'sonnet', 'opus'],
 };
 
+const MIN_TASKS_FOR_CONFIDENCE = 3;
+const RECENT_TASK_LIMIT = 20;
+
 export async function workerMatch(units: CutUnit[]): Promise<WorkerAssignment[]> {
-  // Load worker scores from DB
   const workerScores = await loadWorkerScores();
+  const liveMap = buildLiveComplexityMap(workerScores);
 
   return units.map((unit) => {
-    const preferredWorkers = WORKER_COMPLEXITY_MAP[unit.complexity] ?? ['minimax'];
+    const preferredWorkers = liveMap[unit.complexity] ?? DEFAULT_COMPLEXITY_MAP[unit.complexity] ?? ['minimax'];
     const writer = pickBestWorker(preferredWorkers, workerScores);
 
     return {
@@ -496,35 +499,89 @@ export async function workerMatch(units: CutUnit[]): Promise<WorkerAssignment[]>
   });
 }
 
-async function loadWorkerScores(): Promise<Map<string, number>> {
-  const scores = new Map<string, number>();
+/** Generate complexity map from live DB scores — removes bad workers automatically */
+function buildLiveComplexityMap(scores: Map<string, WorkerScore>): Record<string, string[]> {
+  if (scores.size < 3) return DEFAULT_COMPLEXITY_MAP; // Not enough data
+
+  const reliable = [...scores.values()]
+    .filter((w) => w.taskCount >= MIN_TASKS_FOR_CONFIDENCE && w.effectiveScore >= 45)
+    .sort((a, b) => b.effectiveScore - a.effectiveScore);
+
+  const budget = [...scores.values()]
+    .filter((w) => w.taskCount >= 2 && w.effectiveScore >= 35)
+    .sort((a, b) => b.effectiveScore - a.effectiveScore);
+
+  if (reliable.length < 2) return DEFAULT_COMPLEXITY_MAP;
+
+  return {
+    trivial: budget.slice(0, 4).map((w) => w.worker),
+    simple: budget.slice(0, 4).map((w) => w.worker),
+    medium: reliable.slice(0, 4).map((w) => w.worker),
+    complex: [...reliable.slice(0, 2).map((w) => w.worker), 'opus'],
+  };
+}
+
+export interface WorkerScore {
+  worker: string;
+  avgScore: number;
+  recentAvg: number;
+  taskCount: number;
+  confidence: number;   // 0-1, based on task count
+  effectiveScore: number; // confidence-weighted score
+}
+
+async function loadWorkerScores(): Promise<Map<string, WorkerScore>> {
+  const scores = new Map<string, WorkerScore>();
   try {
     const db = getDb();
-    const rows = await db
+
+    // Load all scores, ordered by recency
+    const allScores = await db
       .select({
         worker: builderWorkerScores.worker,
-        avgScore: sql<number>`avg(${builderWorkerScores.quality})`,
+        quality: builderWorkerScores.quality,
+        createdAt: builderWorkerScores.createdAt,
       })
       .from(builderWorkerScores)
-      .groupBy(builderWorkerScores.worker);
+      .orderBy(desc(builderWorkerScores.createdAt));
 
-    for (const row of rows) {
-      scores.set(row.worker, Number(row.avgScore) || 50);
+    // Group by worker
+    const grouped = new Map<string, number[]>();
+    for (const row of allScores) {
+      const list = grouped.get(row.worker) ?? [];
+      list.push(row.quality);
+      grouped.set(row.worker, list);
+    }
+
+    // Calculate scores per worker
+    for (const [worker, qualities] of grouped) {
+      const taskCount = qualities.length;
+      const avgScore = Math.round(qualities.reduce((a, b) => a + b, 0) / taskCount * 10) / 10;
+      const recentQualities = qualities.slice(0, RECENT_TASK_LIMIT);
+      const recentAvg = Math.round(recentQualities.reduce((a, b) => a + b, 0) / recentQualities.length * 10) / 10;
+      const confidence = Math.min(1, taskCount / (MIN_TASKS_FOR_CONFIDENCE * 2));
+
+      const blended = taskCount >= MIN_TASKS_FOR_CONFIDENCE
+        ? recentAvg * 0.7 + avgScore * 0.3
+        : 50;
+      const effectiveScore = Math.round((blended * confidence + 50 * (1 - confidence)) * 10) / 10;
+
+      scores.set(worker, { worker, avgScore, recentAvg, taskCount, confidence, effectiveScore });
     }
   } catch {
-    // DB not available — use defaults
+    // DB not available
   }
   return scores;
 }
 
-function pickBestWorker(preferred: string[], scores: Map<string, number>): string {
+function pickBestWorker(preferred: string[], scores: Map<string, WorkerScore>): string {
   if (scores.size === 0) return preferred[0] ?? 'minimax';
 
   let bestWorker = preferred[0] ?? 'minimax';
   let bestScore = -1;
 
   for (const w of preferred) {
-    const score = scores.get(w) ?? 50;
+    const score = scores.get(w)?.effectiveScore ?? 50;
     if (score > bestScore) {
       bestScore = score;
       bestWorker = w;

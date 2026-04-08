@@ -653,6 +653,27 @@ opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
 
 opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({ pipeline: 'decomposer-v1', stages: 7, algorithmicStages: 5, llmStages: 2 }));
 
+// ==================== DAILY STANDUP ($0, keine LLM-Kosten) ====================
+import { runDailyStandup, cleanupInvalidScores } from '../lib/opusDailyStandup.js';
+
+opusBridgeRouter.get('/standup', async (_req: Request, res: Response) => {
+  try {
+    const report = await runDailyStandup();
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.post('/standup/cleanup', async (_req: Request, res: Response) => {
+  try {
+    const result = await cleanupInvalidScores();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ==================== RENDER CONTROL ====================
 import {
   getDeployStatus,

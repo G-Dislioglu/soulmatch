@@ -19,6 +19,7 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
 
 const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRY_DELAY_MS = [250, 800];
+const PROVIDER_TIMEOUT_MS = 60_000; // 60s per request — prevents infinite hangs
 const ANTHROPIC_ENV_KEY = 'ANTHROPIC_API_KEY';
 
 function sleep(ms: number): Promise<void> {
@@ -36,7 +37,10 @@ async function fetchWithRetries(url: string, init: RequestInit, provider: string
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const response = await fetch(url, init);
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      });
       if (RETRYABLE_HTTP_STATUS.has(response.status) && attempt < maxAttempts) {
         const delayMs = RETRY_DELAY_MS[attempt - 1] ?? RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1] ?? 250;
         console.warn(`[providers] ${provider} transient HTTP ${response.status}, retrying`, { attempt, maxAttempts, delayMs });
