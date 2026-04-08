@@ -167,7 +167,22 @@ Respond ONLY in JSON: {"pick":1,"reasoning":"..."}  (pick = 1-indexed worker num
       temperature: 0.2,
       forceJsonObject: true,
     });
-    const parsed = JSON.parse(judgeResponse);
+    // Extract JSON even if wrapped in markdown or surrounding text
+    let parsed: any;
+    try {
+      parsed = JSON.parse(judgeResponse);
+    } catch {
+      const jsonMatch = judgeResponse.match(/\{[\s\S]*"pick"\s*:\s*(\d+)[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch {
+          parsed = { pick: parseInt(jsonMatch[1]) || 1, reasoning: 'Extracted from partial JSON' };
+        }
+      } else {
+        // Last resort: look for any number that could be the pick
+        const numMatch = judgeResponse.match(/(\d+)/);
+        parsed = { pick: numMatch ? parseInt(numMatch[1]) : 1, reasoning: 'Extracted number from response' };
+      }
+    }
     const pickIdx = (parsed.pick || 1) - 1;
     const selected = successResults[Math.min(pickIdx, successResults.length - 1)];
     return { selectedWorker: selected.worker, patch: selected.response, reasoning: parsed.reasoning || '' };
