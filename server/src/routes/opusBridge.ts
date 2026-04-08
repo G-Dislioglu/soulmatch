@@ -335,23 +335,47 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
       maxTokens?: number;
     };
 
-    if (!worker || !model || !message) {
-      res.status(400).json({ error: 'worker, model, and message are required' });
+    if (!worker || !message) {
+      res.status(400).json({ error: 'worker and message are required' });
       return;
     }
+
+    const defaultModelMap: Record<string, string> = {
+      opus: 'claude-opus-4-6',
+      claude: 'claude-opus-4-6',
+      sonnet: 'claude-sonnet-4-6',
+      gpt: 'gpt-5.4',
+      'gpt-5.4': 'gpt-5.4',
+      gemini: 'gemini-3-flash-preview',
+      deepseek: 'deepseek-chat',
+      glm: 'glm-5-turbo',
+      'glm-flash': 'glm-4.7-flash',
+      minimax: 'minimax/minimax-m2.7',
+      kimi: 'moonshotai/kimi-k2.5',
+      qwen: 'qwen/qwen3.6-plus',
+      grok: 'grok-4-1-fast',
+    };
+    const resolvedModel = model || defaultModelMap[worker] || worker;
 
     const providerMap: Record<string, string> = {
       opus: 'anthropic',
       claude: 'anthropic',
+      sonnet: 'anthropic',
       'gpt-5.4': 'openai',
       gpt: 'openai',
       gemini: 'gemini',
       deepseek: 'deepseek',
+      glm: 'zhipu',
+      'glm-flash': 'zhipu',
+      minimax: 'openrouter',
+      kimi: 'openrouter',
+      qwen: 'openrouter',
+      grok: 'xai',
     };
     const provider = providerMap[worker] || worker;
 
     const startedAt = Date.now();
-    const responseText = await callProvider(provider, model, {
+    const responseText = await callProvider(provider, resolvedModel, {
       system: system || 'Du bist ein hilfreicher Assistent.',
       messages: [{ role: 'user', content: message }],
       maxTokens: maxTokens || 6000,
