@@ -50,25 +50,32 @@ export interface BuildResult {
 async function waitForDeploy(opts: {
   maxWaitMs?: number;
   pollIntervalMs?: number;
-  afterCommit?: string;
+  notBefore?: string;  // ISO timestamp — ignore deploys created before this
 }): Promise<{ status: string; deploy?: DeployInfo; waitedMs: number }> {
-  const maxWait = opts.maxWaitMs ?? 180_000;    // 3 min
-  const interval = opts.pollIntervalMs ?? 10_000; // 10s
+  const maxWait = opts.maxWaitMs ?? 300_000;    // 5 min (Render free tier is slow)
+  const interval = opts.pollIntervalMs ?? 12_000; // 12s
   const start = Date.now();
+  const notBeforeMs = opts.notBefore ? new Date(opts.notBefore).getTime() : 0;
+
+  // Initial delay: GitHub Action needs ~20-40s to commit, Render needs time to detect
+  await new Promise((r) => setTimeout(r, 45_000));
 
   while (Date.now() - start < maxWait) {
     const result = await getDeployStatus();
     const latest = result.latest;
 
     if (latest) {
-      // If we have a commit ref, wait for THAT commit to deploy
-      if (opts.afterCommit && latest.commit?.id && !latest.commit.id.startsWith(opts.afterCommit)) {
-        // Still deploying old commit — keep waiting
+      const createdMs = new Date(latest.createdAt).getTime();
+      const isNewDeploy = !notBeforeMs || createdMs > notBeforeMs;
+
+      if (!isNewDeploy) {
+        // Still showing old deploy — keep waiting for new one
       } else if (latest.status === 'live') {
         return { status: 'live', deploy: latest, waitedMs: Date.now() - start };
       } else if (latest.status === 'build_failed' || latest.status === 'update_failed') {
         return { status: latest.status, deploy: latest, waitedMs: Date.now() - start };
       }
+      // else: build_in_progress — keep polling
     }
 
     await new Promise((r) => setTimeout(r, interval));
@@ -84,6 +91,7 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
   const duration = () => Date.now() - start;
 
   // --- Phase 1: Execute Task (Scout → Decompose/Roundtable → Swarm → GitHub) ---
+  const deployStartedAt = new Date().toISOString(); // record BEFORE execute — any deploy after this is ours
   let execResult: ExecuteResult;
   try {
     const execInput: ExecuteInput = {
@@ -131,7 +139,7 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     return { ...base, status: 'success', durationMs: duration() };
   }
 
-  const deployResult = await waitForDeploy({ maxWaitMs: 180_000 });
+  const deployResult = await waitForDeploy({ maxWaitMs: 300_000, notBefore: deployStartedAt });
   const deployInfo = {
     status: deployResult.status,
     commitId: deployResult.deploy?.commit?.id,
