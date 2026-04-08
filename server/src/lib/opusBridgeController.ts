@@ -89,6 +89,7 @@ export interface ExecuteInput {
   risk?: string;
   opusHints?: string;
   skipRoundtable?: boolean;
+  useDecomposer?: boolean;  // Skip Roundtable, go direct: Decompose → Swarm → Meister → GitHub
   codeWriter?: string;
   roundtableConfig?: Partial<RoundtableConfig>;
 }
@@ -245,7 +246,56 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let githubAction: { triggered: boolean; error?: string } | undefined;
   const memoryContext = await buildBuilderMemoryContext().catch(() => '');
 
-  if (!input.skipRoundtable) {
+  // === DIRECT DECOMPOSER PATH ===
+  // Skips Roundtable entirely: Decompose → Swarm → Meister → GitHub
+  if (input.useDecomposer && normalizedScope.length > 0) {
+    console.log(`[decomposer-direct] ${normalizedScope.length} files, goal: ${instruction.slice(0, 80)}`);
+
+    const decomposition = await decompose({
+      taskGoal: instruction,
+      scope: normalizedScope,
+      risk: (input.risk ?? 'low') as 'low' | 'medium' | 'high',
+    });
+
+    const fileContents: Record<string, string> = {};
+    for (const a of decomposition.assignments) {
+      if (!fileContents[a.file]) {
+        for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+          try {
+            fileContents[a.file] = fs.readFileSync(path.resolve(base, a.file), 'utf-8');
+            break;
+          } catch { /* not found */ }
+        }
+      }
+    }
+
+    const workerAssignments: WorkerAssignment[] = decomposition.assignments.map((a) => ({
+      file: a.file,
+      writer: a.writer,
+      reason: `${instruction}\n\n=== KONTEXT ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
+      dependsOn: a.dependsOn,
+    }));
+
+    const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
+    const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
+    totalTokens = workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0) + (meister.tokensUsed ?? 0);
+
+    if (meister.scores) {
+      await saveWorkerScores(task.id, meister.scores);
+    }
+
+    patches = meister.validatedPatches ?? workerResults
+      .filter((r) => r.patch)
+      .map((r) => r.patch as { file: string; body: string });
+
+    status = patches.length > 0 ? 'consensus' : 'no_consensus';
+    consensusType = 'unanimous';
+    rounds = 0;
+
+    console.log(`[decomposer-direct] ${decomposition.stats.totalUnits} units → ${patches.length} patches, ${totalTokens} tokens`);
+  }
+
+  if (!input.skipRoundtable && !input.useDecomposer) {
     const baseParticipants = input.roundtableConfig?.participants ?? DEFAULT_ROUNDTABLE_CONFIG.participants;
     const writerPreset = input.codeWriter ? CODE_WRITER_PRESETS[input.codeWriter] : undefined;
     const participants = writerPreset
