@@ -66,7 +66,7 @@ Task: ${instruction}`;
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1000,
       temperature: 0.3,
-      forceJsonObject: true,
+      forceJsonObject: false,
     });
     const parsed = JSON.parse(response);
     return {
@@ -161,11 +161,11 @@ Respond ONLY in JSON: {"pick":1,"reasoning":"..."}  (pick = 1-indexed worker num
 
   try {
     const judgeResponse = await callProvider('zhipu', 'glm-5-turbo', {
-      system: 'You are a senior code reviewer. Respond only in JSON.',
+      system: 'You are a senior code reviewer. Respond ONLY with JSON, no markdown, no explanation.',
       messages: [{ role: 'user', content: judgePrompt }],
       maxTokens: 500,
       temperature: 0.2,
-      forceJsonObject: true,
+      forceJsonObject: false,
     });
     // Extract JSON even if wrapped in markdown or surrounding text
     let parsed: any;
