@@ -38,8 +38,8 @@ interface PhaseResult {
 
 function internalUrl(path: string): string {
   const port = process.env.PORT || 3000;
-  const token = process.env.OPUS_BRIDGE_TOKEN;
-  if (!token) throw new Error('OPUS_BRIDGE_TOKEN env not set');
+  const token = process.env.OPUS_BRIDGE_SECRET;
+  if (!token) throw new Error('OPUS_BRIDGE_SECRET env not set');
   return `http://localhost:${port}/api/builder/opus-bridge${path}?opus_token=${token}`;
 }
 
