@@ -1,35 +1,39 @@
 /**
  * Zentrale Worker-Registry — Single Source of Truth
- * Alle Dateien importieren von hier statt eigene Maps zu pflegen.
+ * Kontext-Limits verifiziert April 2026.
  */
 
 export interface WorkerConfig {
   provider: string;
   model: string;
+  contextK: number;  // Kontext in Tausend Tokens (verifiziert)
 }
 
 export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   // Günstige Worker
-  deepseek:   { provider: 'deepseek',    model: 'deepseek-chat' },
-  minimax:    { provider: 'openrouter',   model: 'minimax/minimax-m2.7' },
-  kimi:       { provider: 'openrouter',   model: 'moonshotai/kimi-k2.5' },
-  qwen:       { provider: 'openrouter',   model: 'qwen/qwen3.6-plus' },
-  glm:        { provider: 'zhipu',        model: 'glm-5-turbo' },
-  'glm-flash': { provider: 'zhipu',       model: 'glm-4.7-flash' },
-  grok:       { provider: 'xai',          model: 'grok-4-1-fast' },
-  gemini:     { provider: 'gemini',       model: 'gemini-3-flash-preview' },
+  deepseek:    { provider: 'deepseek',    model: 'deepseek-chat',             contextK: 128 },
+  minimax:     { provider: 'openrouter',  model: 'minimax/minimax-m2.7',      contextK: 128 },
+  kimi:        { provider: 'openrouter',  model: 'moonshotai/kimi-k2.5',      contextK: 256 },
+  qwen:        { provider: 'openrouter',  model: 'qwen/qwen3.6-plus',         contextK: 128 },
+  glm:         { provider: 'zhipu',       model: 'glm-5-turbo',               contextK: 203 },
+  'glm-flash': { provider: 'zhipu',       model: 'glm-4.7-flash',             contextK: 203 },
+  grok:        { provider: 'xai',         model: 'grok-4-1-fast',             contextK: 128 },
+  gemini:      { provider: 'gemini',      model: 'gemini-3-flash-preview',    contextK: 1000 },
   // Premium (Meister/Roundtable)
-  opus:       { provider: 'anthropic',    model: 'claude-opus-4-6' },
-  sonnet:     { provider: 'anthropic',    model: 'claude-sonnet-4-6' },
-  gpt:        { provider: 'openai',       model: 'gpt-5.4' },
+  opus:        { provider: 'anthropic',   model: 'claude-opus-4-6',           contextK: 200 },
+  sonnet:      { provider: 'anthropic',   model: 'claude-sonnet-4-6',         contextK: 200 },
+  gpt:         { provider: 'openai',      model: 'gpt-5.4',                   contextK: 128 },
 };
 
 export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'qwen', 'grok'];
 
-export function getProvider(workerName: string): string {
-  return WORKER_REGISTRY[workerName]?.provider || workerName;
+// Judge: Gemini 3 Flash — 1M Kontext, keine Truncation nötig
+export const JUDGE_WORKER = 'gemini';
+
+export function getProvider(name: string): string {
+  return WORKER_REGISTRY[name]?.provider || name;
 }
 
-export function getModel(workerName: string): string {
-  return WORKER_REGISTRY[workerName]?.model || workerName;
+export function getModel(name: string): string {
+  return WORKER_REGISTRY[name]?.model || name;
 }

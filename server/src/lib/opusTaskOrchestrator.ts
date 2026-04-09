@@ -11,7 +11,7 @@
 
 import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
-import { WORKER_REGISTRY, DEFAULT_WORKERS } from './opusWorkerRegistry.js';
+import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
 
 interface OpusTaskInput {
   instruction: string;
@@ -95,7 +95,7 @@ async function runWorkerSwarm(
   }));
 }
 
-// ─── Phase 4: Judge (DeepSeek, 64K Kontext, günstig, zuverlässig) ───
+// ─── Phase 4: Judge (Gemini 3 Flash, 1M Kontext, günstig, zuverlässig) ───
 async function selectBestPatch(
   instruction: string,
   workerResults: Array<{ worker: string; response: string; durationMs: number; error?: string }>,
@@ -113,7 +113,7 @@ async function selectBestPatch(
   const judgePrompt = `Task: ${instruction}\n\n${ok.length} worker code responses. Pick the BEST — most complete, correct TypeScript, proper types, fewest bugs.\n\n${comparison}\n\nRespond ONLY JSON: {"pick":1,"reasoning":"..."} (1-indexed)`;
 
   try {
-    const config = WORKER_REGISTRY['deepseek'];
+    const config = WORKER_REGISTRY[JUDGE_WORKER];
     const judgeResponse = await callProvider(config.provider, config.model, {
       system: 'You are a code reviewer. Respond ONLY with JSON, no markdown.',
       messages: [{ role: 'user', content: judgePrompt }],
