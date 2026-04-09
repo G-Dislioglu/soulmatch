@@ -6,6 +6,7 @@
  */
 
 import { callProvider } from './providers.js';
+import { WORKER_REGISTRY, DEFAULT_WORKERS } from './opusWorkerRegistry.js';
 
 // ─── Deploy-Wait: Pollt Render bis Deploy live ───
 export async function waitForDeploy(
@@ -70,21 +71,8 @@ export async function runBenchmark(
     timeoutMs = 120_000,
   } = options;
 
-  // Worker short names → provider + model mapping
-  const WORKER_MAP: Record<string, { provider: string; model: string }> = {
-    deepseek: { provider: 'deepseek', model: 'deepseek-chat' },
-    minimax: { provider: 'openrouter', model: 'minimax/minimax-m2.7' },
-    kimi: { provider: 'openrouter', model: 'moonshotai/kimi-k2.5' },
-    qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
-    glm: { provider: 'zhipu', model: 'glm-5-turbo' },
-    'glm-flash': { provider: 'zhipu', model: 'glm-4.7-flash' },
-    grok: { provider: 'xai', model: 'grok-4-1-fast' },
-    sonnet: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-    gpt: { provider: 'openai', model: 'gpt-5.4' },
-  };
-
   const promises = workers.map(async (worker): Promise<BenchmarkResult> => {
-    const config = WORKER_MAP[worker];
+    const config = WORKER_REGISTRY[worker];
     if (!config) return { worker, status: 'error', responseLength: 0, durationMs: 0, featureChecks: {}, score: 0, error: `Unknown worker: ${worker}` };
 
     const start = Date.now();

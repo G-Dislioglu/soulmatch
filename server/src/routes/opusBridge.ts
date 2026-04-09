@@ -838,7 +838,8 @@ opusBridgeRouter.post('/benchmark', async (req: Request, res: Response) => {
     };
     if (!task) { res.status(400).json({ error: 'task is required' }); return; }
     const { runBenchmark } = await import('../lib/opusAssist.js');
-    const defaultWorkers = workers || ['deepseek', 'minimax', 'kimi', 'qwen', 'glm', 'grok'];
+    const { DEFAULT_WORKERS } = await import('../lib/opusWorkerRegistry.js');
+    const defaultWorkers = workers || DEFAULT_WORKERS;
     const result = await runBenchmark(task, defaultWorkers, { maxTokens, system, featureKeywords, timeoutMs });
     res.json(result);
   } catch (err) {
