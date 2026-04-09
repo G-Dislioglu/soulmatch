@@ -1,79 +1,63 @@
-# SESSION-STATE — Stand 09.04.2026, S10
+# SESSION-STATE — Stand 09.04.2026, S10 (K2-konsolidiert)
+
+## Kanonische Builder-Wahrheit
+
+- **Kanonischer Executor:** `/opus-task` (orchestrator v2)
+- **Shadow/Legacy:** `/build` (decomposer-v1, nicht für Standard-Deployments)
+- **Scope:** deterministisch via `builderScopeResolver.ts` + `server/data/builder-repo-index.json`
+- **Change Contract:** JSON Full-File-Overwrite (kein SEARCH/REPLACE im kanonischen Pfad)
+- **Judge:** GPT-5.4 (ersetzt Gemini seit S10)
+- **Worker-Swarm:** DeepSeek, MiniMax, GLM, Qwen, Kimi
+- **Promotion:** `triggered ≠ committed` — Action committed nur bei grünem Build, meldet Failure explizit
+- **Repo-Index:** 90 Server-Dateien (nicht 424 — Client-Dateien sind nicht indexiert)
 
 ## Aktive Entscheidungen
 
-1. **Pipeline: Pfad C (Minimal Viable Pipeline)** — gewählt nach Meta-Crush
-2. **/opus-task = einziger produktiver Executor** — /build wird Shadow-Track
-3. **Full-File JSON Overwrite** — kein SEARCH/REPLACE mehr
-4. **Deterministischer Scope** — builderScopeResolver.ts statt LLM-Raten
-5. **TypeScript-Syntax-Check vor Push** — ts.transpileModule()
-6. **dryRun: true als empfohlener Default** bis Pipeline verifiziert
-7. MiniMax **M2.7** (nicht M2.5)
-8. **Keine Free-Modelle** — bezahlt, kein Data Collection
-9. Preise/Specs: immer docs/provider-specs.md prüfen, nie aus Trainingsdaten
+1. `/opus-task` = einziger produktiver Executor
+2. `/build` = Shadow-Track (Scouts, Roundtable, Crush — nicht für direkte Deployments)
+3. Full-File JSON Overwrite als einziger Change-Contract
+4. SEARCH/REPLACE in `/push` bleibt als Legacy-Modus, ist aber nicht der kanonische Pfad
+5. MiniMax M2.7 (nicht M2.5)
+6. Keine Free-Modelle
+7. Preise/Specs: immer docs/provider-specs.md prüfen
 
-## Was in S10 gemacht wurde
+## S10 Ergebnisse (verifiziert)
 
-### Neue Dateien
-- `server/src/lib/builderScopeResolver.ts` — deterministischer Scope (kein LLM)
-- `docs/builder-repo-index.json` — 424 Dateien indexiert mit exports/keywords/imports
+### Pipeline v2 — funktioniert
+- 4/4 Tasks erfolgreich deployed (formatCredits, keepAlive uptime, rateLimiter, health detailed)
+- Scope Resolver: deterministisch, 1ms, 0 LLM-Calls
+- Validation: 5/5 Worker lieferten valides JSON-Overwrite
+- Typische Laufzeit: 30-90s pro Task, ~$0.02
 
-### Rewrite
-- `server/src/lib/opusTaskOrchestrator.ts` — v2 komplett neu: Scope Resolver, JSON Overwrite, TS-Check, dryRun, runId
+### Benchmark (11 Modelle, 1 Task)
+- Bester Code: Sonnet 4.6 (92/100)
+- Bester Preis/Leistung: DeepSeek (190 Score/$)
+- Bester Reviewer: GPT-5.4 (82/100, spec-treu)
+- Schwächste: Grok (62, switch-Bug), Qwen (70, zu langsam)
 
-### Bereinigt (gelöscht)
-- `builderHealthCheck.ts` — unused
-- `builderPing.ts` — unused
-- `builderPingTest.ts` — unused
-- `builderTimestamp.ts` — unused
-- `builderUptime.ts` — unused
+### Deadlock gefunden + gelöst
+- package.json ohne Lockfile-Update → Render-Build kaputt
+- GitHub Action verschluckte Commits still bei Build-Failure
+- Beides gefixt: Lockfile regeneriert, Action hat jetzt Retry + sichtbares Failure-Reporting
 
-### Verschoben
-- `typescript` von devDependencies zu dependencies (für Render-Runtime)
+### K2 Canonicalization (Ende S10)
+- /pipeline-info meldet jetzt ehrlich opus-task-v2 als kanonisch
+- /build als LEGACY/SHADOW markiert
+- SEARCH/REPLACE in /push als Legacy markiert
+- Action: 3× Retry bei Push-Konflikten, expliziter Failure-Report bei rotem Build
+- SESSION-STATE auf belegbaren Stand synchronisiert
 
-## Offene Tasks
+## Offene Probleme (ehrlich)
 
-1. **Push + Deploy + Verify** — S10-Änderungen live bringen
-2. **Erster dryRun-Test** — /opus-task mit dryRun:true auf echtem Task
-3. **Repo-Index in Deploy-Pipeline** — auto-regenerate nach jedem Push
-4. **/build → Shadow-Track** — Endpoints behalten, aber nicht als Executor nutzen
-5. **Soulmatch Features** — Crush-Score 52→70, Audio-Verifikation, Arcana Phase 6
+1. **Staging-Branch fehlt** — Pipeline pusht direkt auf main
+2. **Repo-Index Auto-Update fehlt** — Index wird nicht bei jedem Deploy regeneriert
+3. **Error-Cards Feedback-Loop** — generiert Cards, liest sie nicht zurück
+4. **TypeScript-Check ist optional** — ts nicht in production dependencies, Check läuft nur wenn devDep verfügbar
+5. **Neue Dateien brauchen manuellen Scope** — Resolver findet nur existierende Dateien im Index
+6. **Action-Callback wird nicht ausgewertet** — Builder empfängt execution-result, reagiert aber nicht darauf
 
-## Meister-Benchmark-Ergebnis (09.04.2026)
+## Nächste Prioritäten
 
-| Rolle | Modell | Score |
-|-------|--------|-------|
-| Code-Schreiber Qualität | Sonnet 4.6 | 92 |
-| Code-Schreiber Budget | DeepSeek Reasoner | 80 |
-| Judge/Reviewer | GPT-5.4 | 82 |
-| Architektur | Opus 4.6 | 90 |
-| Budget-Worker | GLM-5-Turbo | 88 |
-| Speed-Scout | Gemini 3 Flash | 65 |
-| Nicht empfohlen | Grok (Bugs), Qwen (zu langsam) | <70 |
-
-## Pipeline-Status (nach S10 Umbau)
-
-### Funktioniert ✅
-- Worker-Swarm (5 parallel) 
-- Worker-Direct
-- /push mit {file, content}
-- Deploy-Wait
-- Self-Test
-- Worker-Registry (zentral)
-- **NEU: Deterministischer Scope Resolver**
-- **NEU: JSON Overwrite Contract**
-- **NEU: TypeScript Syntax Check**
-
-### Noch zu verifizieren ⚠️
-- /opus-task v2 im Live-Betrieb (dryRun-Test steht aus)
-- Worker-JSON-Output-Qualität (können sie das Envelope-Format?)
-
-### Existiert als Shadow-Track 🔇
-- /build Pipeline (Scout, Roundtable, Crush, Error-Cards)
-- Architecture Graph (42 Nodes)
-- Meister-Council
-
-### Fehlt ❌
-- Staging-Branch (Phase E)
-- Repo-Index Auto-Update
-- Error-Cards Feedback-Loop
+1. Soulmatch-Features: Crush-Score 52→70, Audio-Verifikation
+2. Staging-Branch in GitHub Action
+3. Repo-Index Auto-Regeneration
