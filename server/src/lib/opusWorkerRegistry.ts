@@ -26,7 +26,7 @@ export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   gpt:         { provider: 'openai',      model: 'gpt-5.4',                   contextK: 128 },
 };
 
-export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'qwen', 'grok'];
+export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'qwen', 'kimi'];
 
 // Judge: GPT-5.4 — bester Reviewer im Benchmark (82/100, spec-treu, defensiv)
 export const JUDGE_WORKER = 'gpt';
