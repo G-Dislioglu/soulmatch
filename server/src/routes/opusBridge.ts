@@ -585,7 +585,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
 
     const patches = files.map((f) => {
       if (f.search !== undefined && f.replace !== undefined) {
-        // SEARCH/REPLACE mode — small patch on large file
+        // LEGACY: SEARCH/REPLACE mode — prefer full overwrite via {file, content}
         return {
           file: f.file,
           action: 'replace' as const,
@@ -690,7 +690,16 @@ opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
   }
 });
 
-opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({ pipeline: 'decomposer-v1', stages: 7, algorithmicStages: 5, llmStages: 2 }));
+opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
+  canonicalExecutor: '/opus-task',
+  pipeline: 'opus-task-v2',
+  scopeMethod: 'deterministic-index',
+  changeContract: 'json-overwrite',
+  judge: 'gpt-5.4',
+  workers: ['deepseek', 'minimax', 'glm', 'qwen', 'kimi'],
+  legacy: { path: '/build', status: 'shadow-only', pipeline: 'decomposer-v1' },
+  promotionNote: 'triggered ≠ committed — Action may reject on red build',
+}));
 
 // ==================== DAILY STANDUP ($0, keine LLM-Kosten) ====================
 import { runDailyStandup, cleanupInvalidScores } from '../lib/opusDailyStandup.js';
@@ -763,7 +772,9 @@ opusBridgeRouter.put('/render/env/:key', async (req: Request, res: Response) => 
     res.status(500).json({ error: String(err) });
   }
 });
-// ==================== POST /build — All-in-One Builder Proxy ====================
+// ==================== POST /build — LEGACY/SHADOW — Use /opus-task instead ====================
+// Kept for: advisory analysis, complex multi-file research, backward compatibility.
+// NOT the canonical executor. Do not use for standard deployments.
 
 opusBridgeRouter.post('/build', async (req: Request, res: Response) => {
   try {
@@ -861,7 +872,7 @@ opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
   }
 });
 
-// ─── /opus-task: Ein Call = Ein Feature (Orchestrator) ───
+// ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
     const { instruction, scope, workers, maxTokens, skipDeploy, dryRun } = req.body as {
