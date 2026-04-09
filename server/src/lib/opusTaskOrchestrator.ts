@@ -4,7 +4,7 @@
  * Fixes vs. v1:
  * - WORKER_MAP aus zentraler Registry (kein Drift mehr)
  * - Default 5 Worker statt 2
- * - Judge Preview 1500ch statt 3000ch (GLM kann das besser verarbeiten)
+ * - Judge: DeepSeek (64K Kontext) mit vollen Worker-Outputs statt truncated Preview
  * - Push via /push DIREKT statt via /build (kein doppelter Swarm!)
  * - Token nur aus Env (kein Hardcode-Fallback)
  */
@@ -95,7 +95,7 @@ async function runWorkerSwarm(
   }));
 }
 
-// ─── Phase 4: Judge (GLM-5-turbo, günstig) ───
+// ─── Phase 4: Judge (DeepSeek, 64K Kontext, günstig, zuverlässig) ───
 async function selectBestPatch(
   instruction: string,
   workerResults: Array<{ worker: string; response: string; durationMs: number; error?: string }>,
@@ -105,15 +105,15 @@ async function selectBestPatch(
   if (ok.length === 0) return { selectedWorker: 'none', patch: '', reasoning: 'All workers failed' };
   if (ok.length === 1) return { selectedWorker: ok[0].worker, patch: ok[0].response, reasoning: 'Only one worker succeeded' };
 
-  // FIX: Preview 1500 chars statt 3000 → GLM verarbeitet das sauber
+  // Volle Outputs senden — DeepSeek hat 64K Kontext, kein Truncation nötig
   const comparison = ok.map((r, i) =>
-    `=== Worker ${i + 1}: ${r.worker} (${r.response.length} chars) ===\n${r.response.slice(0, 1500)}`
+    `=== Worker ${i + 1}: ${r.worker} (${r.response.length} chars) ===\n${r.response}`
   ).join('\n\n');
 
-  const judgePrompt = `Task: ${instruction}\n\n${ok.length} worker responses. Pick the BEST — most complete, correct TypeScript, proper types, fewest bugs.\n\n${comparison}\n\nRespond ONLY JSON: {"pick":1,"reasoning":"..."} (1-indexed)`;
+  const judgePrompt = `Task: ${instruction}\n\n${ok.length} worker code responses. Pick the BEST — most complete, correct TypeScript, proper types, fewest bugs.\n\n${comparison}\n\nRespond ONLY JSON: {"pick":1,"reasoning":"..."} (1-indexed)`;
 
   try {
-    const config = WORKER_REGISTRY['glm'];
+    const config = WORKER_REGISTRY['deepseek'];
     const judgeResponse = await callProvider(config.provider, config.model, {
       system: 'You are a code reviewer. Respond ONLY with JSON, no markdown.',
       messages: [{ role: 'user', content: judgePrompt }],

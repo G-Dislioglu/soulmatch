@@ -17,6 +17,7 @@ export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   glm:        { provider: 'zhipu',        model: 'glm-5-turbo' },
   'glm-flash': { provider: 'zhipu',       model: 'glm-4.7-flash' },
   grok:       { provider: 'xai',          model: 'grok-4-1-fast' },
+  gemini:     { provider: 'gemini',       model: 'gemini-3-flash-preview' },
   // Premium (Meister/Roundtable)
   opus:       { provider: 'anthropic',    model: 'claude-opus-4-6' },
   sonnet:     { provider: 'anthropic',    model: 'claude-sonnet-4-6' },
