@@ -80,6 +80,7 @@ const MEISTER_COUNCIL: MeisterCouncilMember[] = [
   { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
   { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
   { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 6000 },
+  { actor: 'meister-deepseek-r', provider: 'deepseek', model: 'deepseek-reasoner', maxTokens: 6000 },
 ];
 
 function estimateTokens(text: string): number {

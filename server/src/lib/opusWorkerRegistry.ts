@@ -12,6 +12,7 @@ export interface WorkerConfig {
 export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   // Günstige Worker
   deepseek:    { provider: 'deepseek',    model: 'deepseek-chat',             contextK: 128 },
+  'deepseek-reasoner': { provider: 'deepseek', model: 'deepseek-reasoner',  contextK: 128 },
   minimax:     { provider: 'openrouter',  model: 'minimax/minimax-m2.7',      contextK: 128 },
   kimi:        { provider: 'openrouter',  model: 'moonshotai/kimi-k2.5',      contextK: 256 },
   qwen:        { provider: 'openrouter',  model: 'qwen/qwen3.6-plus',         contextK: 128 },
