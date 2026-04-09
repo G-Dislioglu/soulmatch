@@ -1,5 +1,6 @@
 const KEEP_ALIVE_URL = 'https://soulmatch-1.onrender.com/api/health';
 const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
+const SERVER_START = new Date();
 const SERVER_STARTED_AT = new Date();
 
 export function startKeepAlive(): void {
@@ -24,11 +25,11 @@ export function startKeepAlive(): void {
 
 export function getUptimeInfo(): { uptimeSeconds: number, startedAt: string, isHealthy: boolean } {
   const now = new Date();
-  const uptimeSeconds = Math.floor((now.getTime() - SERVER_STARTED_AT.getTime()) / 1000);
+  const uptimeSeconds = Math.floor((now.getTime() - SERVER_START.getTime()) / 1000);
   
   return {
     uptimeSeconds,
-    startedAt: SERVER_STARTED_AT.toISOString(),
+    startedAt: SERVER_START.toISOString(),
     isHealthy: uptimeSeconds > 0
   };
 }
