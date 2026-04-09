@@ -864,17 +864,17 @@ opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
 // ─── /opus-task: Ein Call = Ein Feature (Orchestrator) ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, workers, maxTokens, skipDeploy, skipWait } = req.body as {
+    const { instruction, scope, workers, maxTokens, skipDeploy, dryRun } = req.body as {
       instruction: string;
       scope?: string[];
       workers?: string[];
       maxTokens?: number;
       skipDeploy?: boolean;
-      skipWait?: boolean;
+      dryRun?: boolean;
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
-        const result = await orchestrateTask({ instruction, scope, workers, maxTokens, skipDeploy, skipWait });
+        const result = await orchestrateTask({ instruction, scope, workers, maxTokens, skipDeploy, skipWait: dryRun });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
