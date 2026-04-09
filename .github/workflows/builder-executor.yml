@@ -123,25 +123,44 @@ jobs:
               \"run_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
             }"
 
-      - name: Commit and push if green
-        if: steps.check.outputs.tsc_ok == 'true' && steps.check.outputs.build_ok == 'true'
+      - name: Commit and push
+        if: always()
         env:
           TASK_ID: ${{ github.event.client_payload.task_id }}
           BUILDER_API: ${{ github.event.client_payload.callback_url }}
           BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+          TSC_OK: ${{ steps.check.outputs.tsc_ok }}
+          BUILD_OK: ${{ steps.check.outputs.build_ok }}
         run: |
           git config user.name "Builder Studio"
           git config user.email "builder@soulmatch.app"
           git add -A
           CHANGES=$(git diff --cached --name-only | wc -l)
-          if [ "$CHANGES" -gt "0" ]; then
+          if [ "$CHANGES" -eq "0" ]; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          if [ "$TSC_OK" = "true" ] && [ "$BUILD_OK" = "true" ]; then
             git commit -m "feat(builder): task $TASK_ID — auto-applied patches"
-            git push
-            HASH=$(git rev-parse HEAD)
-            echo "Committed: $HASH"
+            for i in 1 2 3; do
+              if git push origin main; then
+                HASH=$(git rev-parse HEAD)
+                echo "Pushed to main: $HASH (attempt $i)"
+                curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"commit_hash\": \"$HASH\", \"committed\": true, \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\"}"
+                exit 0
+              fi
+              echo "Push conflict (attempt $i), rebasing..."
+              git pull --rebase origin main
+            done
+            echo "Push failed after 3 attempts"
             curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"commit_hash\": \"$HASH\", \"committed\": true}"
+              -d "{\"committed\": false, \"reason\": \"push_conflict_after_3_retries\"}"
           else
-            echo "No changes to commit"
+            echo "Build checks failed (tsc=$TSC_OK, build=$BUILD_OK) — NOT committing"
+            curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"committed\": false, \"reason\": \"checks_failed\", \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\"}"
           fi
