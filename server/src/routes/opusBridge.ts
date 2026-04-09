@@ -35,6 +35,10 @@ import {
 
 export const opusBridgeRouter = Router();
 
+opusBridgeRouter.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
+});
+
 opusBridgeRouter.use(requireOpusToken);
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
