@@ -86,7 +86,7 @@ async function runWorkerSwarm(
           messages: [{ role: 'user', content: fullPrompt }],
           maxTokens, temperature: 0.4, forceJsonObject: false,
         }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout')), 120_000)),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout')), 150_000)),
       ]) as string;
       return { worker, response, durationMs: Date.now() - start };
     } catch (e: any) {
@@ -122,7 +122,9 @@ async function selectBestPatch(
 
     let parsed: any;
     try {
-      parsed = JSON.parse(judgeResponse);
+      // Clean response: remove newlines inside JSON strings, strip markdown
+      const cleaned = judgeResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').replace(/\n/g, ' ').trim();
+      parsed = JSON.parse(cleaned);
     } catch {
       const m = judgeResponse.match(/\{[\s\S]*?"pick"\s*:\s*(\d+)[\s\S]*?\}/);
       if (m) {
