@@ -2,6 +2,7 @@
  * Opus-Assist: Verlängerte Hand für Claude Opus
  * Spart Tool-Calls indem teure Schleifen (Deploy-Wait, Parallel-Benchmark)
  * intern auf dem Server laufen statt als einzelne API-Calls.
+ * @author Claude Opus Worker Swarm
  */
 
 import { callProvider } from './providers.js';
