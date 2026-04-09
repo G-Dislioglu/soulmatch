@@ -216,6 +216,10 @@ export async function callProvider(
             ...(provider === 'deepseek' && model.includes('reasoner')
               ? { max_completion_tokens: params.maxTokens ?? 2000 }
               : {}),
+            // Disable always-on thinking for Qwen 3.6+ models to reduce OpenRouter latency.
+            ...(provider === 'openrouter' && model.startsWith('qwen/')
+              ? { reasoning: { enabled: false } }
+              : {}),
           },
     ),
   }, provider);
