@@ -35,10 +35,6 @@ import {
 
 export const opusBridgeRouter = Router();
 
-opusBridgeRouter.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
-});
-
 opusBridgeRouter.use(requireOpusToken);
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
@@ -877,9 +873,19 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
-    const result = await orchestrateTask({ instruction, scope, workers, maxTokens, skipDeploy, skipWait });
+        const result = await orchestrateTask({ instruction, scope, workers, maxTokens, skipDeploy, skipWait });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
+  res.json({
+    endpoints: 36,
+    workers: 6,
+    meisterTokens: 6000,
+    workerTokens: 6000,
+    features: ['benchmark', 'deploy-wait', 'opus-task', 'build', 'self-test'],
+  });
 });
