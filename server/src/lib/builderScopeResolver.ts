@@ -34,6 +34,7 @@ let cachedIndex: RepoIndex | null = null;
 function loadIndex(): RepoIndex {
   if (cachedIndex) return cachedIndex;
   const paths = [
+    resolve(process.cwd(), 'data/builder-repo-index.json'),
     resolve(process.cwd(), 'docs/builder-repo-index.json'),
     resolve(process.cwd(), '../docs/builder-repo-index.json'),
   ];
