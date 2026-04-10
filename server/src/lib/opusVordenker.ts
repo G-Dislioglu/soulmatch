@@ -38,7 +38,7 @@ export interface ScoutReport {
 
 const VORDENKER_MODEL = 'glm-5-turbo';
 const VORDENKER_PROVIDER = 'zhipu';
-const INDEX_PATH = 'server/data/builder-repo-index.json';
+const INDEX_PATH = 'data/builder-repo-index.json';
 
 // ─── Implementation ───
 
