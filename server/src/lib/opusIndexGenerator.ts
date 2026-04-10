@@ -192,7 +192,10 @@ async function pushIndex(payload: RepoIndexPayload): Promise<void> {
   const res = await fetch(url, {
     method: 'POST',
     headers: buildPushHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      files: [{ file: 'server/data/builder-repo-index.json', content: JSON.stringify(payload) }],
+      message: `chore: regen repo index (${payload.f.length} files)`,
+    }),
   });
 
   if (!res.ok) {
