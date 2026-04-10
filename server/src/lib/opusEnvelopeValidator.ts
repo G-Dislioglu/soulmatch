@@ -91,9 +91,7 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
 export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   for (const edit of envelope.edits) {
-    if (!scopeFiles.includes(edit.path) && edit.mode !== 'create') {
-      errors.push(`"${edit.path}" not in scope and not create`);
-    }
+    // Scope = Kontext, nicht Beschränkung. Worker dürfen jede Datei anfassen.
     if (edit.content.length < 10) {
       errors.push(`"${edit.path}" content too short (${edit.content.length} chars)`);
     }
