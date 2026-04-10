@@ -1,6 +1,6 @@
 /**
  * Opus-Task Orchestrator v2 — Minimal Viable Pipeline
- * 
+ *
  * Changes from v1:
  * - Deterministic scope via builderScopeResolver (no LLM guessing)
  * - Full-file overwrite instead of SEARCH/REPLACE
@@ -10,12 +10,18 @@
  * - dryRun mode for safe testing
  */
 
+let ts: typeof import('typescript') | null = null;
+try {
+  ts = await import('typescript');
+} catch {
+  // typescript not available at runtime — TS check will be skipped
+}
 import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
 import { resolveScope, fetchFileContents } from './builderScopeResolver.js';
 import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js';
-import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
+import { judgeValidCandidates } from './opusJudge.js';
 
 // ─── Types ───
 
@@ -43,6 +49,17 @@ interface PhaseResult {
   status: 'ok' | 'skipped' | 'error';
   durationMs: number;
   detail?: unknown;
+}
+
+/** The one and only change format. No SEARCH/REPLACE. No diff. No regex. */
+interface EditEnvelope {
+  edits: Array<{
+    path: string;
+    mode: 'overwrite' | 'create';
+    content: string;
+  }>;
+  summary: string;
+  worker: string;
 }
 
 // ─── Helpers ───
@@ -131,32 +148,63 @@ async function runWorkerSwarm(
   }));
 }
 
-// ─── Phase 4b: Judge (only among valid candidates) ───
+// ─── Phase 4: Parse + Validate ───
 
-async function judgeValidCandidates(
-  instruction: string, candidates: Array<{ envelope: EditEnvelope; worker: string }>,
-): Promise<EditEnvelope> {
-  if (candidates.length === 1) return candidates[0].envelope;
-
-  const judgeConfig = WORKER_REGISTRY[JUDGE_WORKER];
-  if (!judgeConfig) return candidates[0].envelope;
-
-  const comparison = candidates.map((c, i) =>
-    `=== Candidate ${i + 1}: ${c.worker} ===\nFiles: ${c.envelope.edits.map(e => e.path).join(', ')}\nSummary: ${c.envelope.summary}\nChars: ${c.envelope.edits.reduce((s, e) => s + e.content.length, 0)}`
-  ).join('\n\n');
-
+function parseEnvelope(raw: string, worker: string): EditEnvelope | null {
   try {
-    const response = await callProvider(judgeConfig.provider, judgeConfig.model, {
-      system: 'Pick the best code. Respond ONLY JSON: {"pick": 1, "reasoning": "..."}',
-      messages: [{ role: 'user', content: `Task: ${instruction}\n\n${comparison}` }],
-      maxTokens: 300, temperature: 0.1, forceJsonObject: false,
-    });
-    const m = response.match(/(\d+)/);
-    const idx = m ? Math.max(0, Math.min(parseInt(m[1]) - 1, candidates.length - 1)) : 0;
-    return candidates[idx].envelope;
+    const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (!parsed.edits || !Array.isArray(parsed.edits) || parsed.edits.length === 0) return null;
+    for (const edit of parsed.edits) {
+      if (!edit.path || typeof edit.path !== 'string') return null;
+      if (!edit.content || typeof edit.content !== 'string') return null;
+      if (!['overwrite', 'create'].includes(edit.mode)) edit.mode = 'overwrite';
+    }
+    return { edits: parsed.edits, summary: parsed.summary || '', worker };
   } catch {
-    return candidates[0].envelope;
+    return null;
   }
+}
+
+function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
+  if (!ts) return []; // typescript not available — skip check
+  const errors: string[] = [];
+  for (const edit of edits) {
+    if (!edit.path.endsWith('.ts') && !edit.path.endsWith('.tsx')) continue;
+    try {
+      const result = ts.transpileModule(edit.content, {
+        reportDiagnostics: true,
+        compilerOptions: {
+          target: ts.ScriptTarget.ESNext,
+          module: ts.ModuleKind.ESNext,
+          jsx: ts.JsxEmit.ReactJSX,
+          strict: false,
+        },
+      });
+      if (result.diagnostics?.length) {
+        for (const d of result.diagnostics) {
+          errors.push(`${edit.path}: ${ts.flattenDiagnosticMessageText(d.messageText, '\n')}`);
+        }
+      }
+    } catch (e: unknown) {
+      errors.push(`${edit.path}: transpile crashed — ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return errors;
+}
+
+function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  for (const edit of envelope.edits) {
+    if (!scopeFiles.includes(edit.path) && edit.mode !== 'create') {
+      errors.push(`"${edit.path}" not in scope and not create`);
+    }
+    if (edit.content.length < 10) {
+      errors.push(`"${edit.path}" content too short (${edit.content.length} chars)`);
+    }
+  }
+  errors.push(...checkTypeScriptSyntax(envelope.edits));
+  return { valid: errors.length === 0, errors };
 }
 
 // ─── Phase 5: Push ───
