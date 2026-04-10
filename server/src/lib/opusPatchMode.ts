@@ -1,4 +1,4 @@
-import { MAX_FILE_LINES_FOR_OVERWRITE } from './opusBridgeConfig';
+import { MAX_FILE_LINES_FOR_OVERWRITE } from './opusBridgeConfig.js';
 
 export type PatchEdit = { search: string; replace: string };
 
