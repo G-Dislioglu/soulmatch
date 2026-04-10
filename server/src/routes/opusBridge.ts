@@ -691,13 +691,19 @@ opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
 });
 
 opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
-  canonicalExecutor: '/opus-task',
-  pipeline: 'opus-task-v2',
+  canonicalExecutor: '/opus-feature',
+  pipeline: 'opus-feature-v4',
   scopeMethod: 'deterministic-index',
   changeContract: 'json-overwrite',
   judge: 'gpt-5.4',
   workers: ['deepseek', 'minimax', 'glm', 'qwen', 'kimi'],
-  legacy: { path: '/build', status: 'shadow-only', pipeline: 'decomposer-v1' },
+  denkerTriade: {
+    vordenker: 'opusVordenker.ts',
+    meisterPlan: 'opusMeisterPlan.ts',
+    nachdenker: 'opusNachdenker.ts',
+    orchestrator: 'opusFeatureOrchestrator.ts',
+  },
+  legacy: ['/opus-task', '/build'],
   promotionNote: 'triggered ≠ committed — Action may reject on red build',
 }));
 
@@ -886,6 +892,37 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
         const result = await orchestrateTask({ instruction, scope, workers, maxTokens, skipDeploy, dryRun });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.post('/opus-feature', async (req: Request, res: Response) => {
+  try {
+    const { intent, requirements, constraints, complexity, dryRun } = req.body as {
+      intent?: string;
+      requirements?: string[];
+      constraints?: string[];
+      complexity?: string;
+      dryRun?: boolean;
+    };
+
+    if (!intent) {
+      res.status(400).json({ error: 'intent required' });
+      return;
+    }
+
+    const featureId = `feat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const { orchestrateFeature } = await import('../lib/opusFeatureOrchestrator.js');
+    const result = await orchestrateFeature({
+      featureId,
+      description: intent,
+      context: JSON.stringify({ requirements, constraints, complexity }),
+      skipDryRun: !dryRun,
+      skipDeploy: !!dryRun,
+    });
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
