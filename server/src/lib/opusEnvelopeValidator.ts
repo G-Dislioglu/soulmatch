@@ -18,11 +18,49 @@ try {
 export interface EditEnvelope {
   edits: Array<{
     path: string;
-    mode: 'overwrite' | 'create';
-    content: string;
+    mode: 'overwrite' | 'create' | 'patch';
+    content?: string;
+    patches?: Array<{ search: string; replace: string }>;
   }>;
   summary: string;
   worker: string;
+}
+
+type ParsedEdit = {
+  path?: unknown;
+  mode?: unknown;
+  content?: unknown;
+  patches?: unknown;
+};
+
+function normalizeEdit(rawEdit: ParsedEdit): EditEnvelope['edits'][number] | null {
+  if (typeof rawEdit.path !== 'string' || rawEdit.path.length === 0) return null;
+
+  const inferredMode = Array.isArray(rawEdit.patches)
+    ? 'patch'
+    : rawEdit.mode === 'create'
+      ? 'create'
+      : rawEdit.mode === 'patch'
+        ? 'patch'
+        : 'overwrite';
+
+  if (inferredMode === 'patch') {
+    if (!Array.isArray(rawEdit.patches) || rawEdit.patches.length === 0) return null;
+    const patches = rawEdit.patches
+      .map((patch) => {
+        if (!patch || typeof patch !== 'object') return null;
+        const candidate = patch as { search?: unknown; replace?: unknown };
+        if (typeof candidate.search !== 'string' || typeof candidate.replace !== 'string') return null;
+        return { search: candidate.search, replace: candidate.replace };
+      })
+      .filter((patch): patch is { search: string; replace: string } => patch !== null);
+
+    if (patches.length === 0) return null;
+    return { path: rawEdit.path, mode: 'patch', patches };
+  }
+
+  if (typeof rawEdit.content !== 'string') return null;
+  return { path: rawEdit.path, mode: inferredMode, content: rawEdit.content };
 }
 
 // ─── Parse ───
@@ -35,14 +73,30 @@ export interface EditEnvelope {
 export function parseEnvelope(raw: string, worker: string): EditEnvelope | null {
   try {
     const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
-    const parsed = JSON.parse(cleaned);
-    if (!parsed.edits || !Array.isArray(parsed.edits) || parsed.edits.length === 0) return null;
-    for (const edit of parsed.edits) {
-      if (!edit.path || typeof edit.path !== 'string') return null;
-      if (!edit.content || typeof edit.content !== 'string') return null;
-      if (!['overwrite', 'create'].includes(edit.mode)) edit.mode = 'overwrite';
-    }
-    return { edits: parsed.edits, summary: parsed.summary || '', worker };
+    const parsed = JSON.parse(cleaned) as unknown;
+
+    const rawEdits = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === 'object' && Array.isArray((parsed as { edits?: unknown }).edits)
+        ? (parsed as { edits: unknown[] }).edits
+        : parsed && typeof parsed === 'object' && 'path' in (parsed as Record<string, unknown>)
+          ? [parsed]
+          : null;
+
+    if (!rawEdits || rawEdits.length === 0) return null;
+
+    const edits = rawEdits
+      .map((edit) => (edit && typeof edit === 'object' ? normalizeEdit(edit as ParsedEdit) : null))
+      .filter((edit): edit is EditEnvelope['edits'][number] => edit !== null);
+
+    if (edits.length === 0) return null;
+
+    const summary = parsed && typeof parsed === 'object' && 'summary' in (parsed as Record<string, unknown>)
+      && typeof (parsed as { summary?: unknown }).summary === 'string'
+      ? (parsed as { summary: string }).summary
+      : '';
+
+    return { edits, summary, worker };
   } catch {
     return null;
   }
@@ -58,9 +112,10 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
   if (!ts) return []; // typescript not available — skip check
   const errors: string[] = [];
   for (const edit of edits) {
+    if (edit.mode === 'patch') continue;
     if (!edit.path.endsWith('.ts') && !edit.path.endsWith('.tsx')) continue;
     try {
-      const result = ts.transpileModule(edit.content, {
+      const result = ts.transpileModule(edit.content ?? '', {
         reportDiagnostics: true,
         compilerOptions: {
           target: ts.ScriptTarget.ESNext,
@@ -92,8 +147,14 @@ export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): 
   const errors: string[] = [];
   for (const edit of envelope.edits) {
     // Scope = Kontext, nicht Beschränkung. Worker dürfen jede Datei anfassen.
-    if (edit.content.length < 10) {
-      errors.push(`"${edit.path}" content too short (${edit.content.length} chars)`);
+    if (edit.mode === 'patch') {
+      if (!edit.patches || edit.patches.length === 0) {
+        errors.push(`"${edit.path}" patch mode requires at least one patch`);
+      }
+      continue;
+    }
+    if ((edit.content?.length ?? 0) < 10) {
+      errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
   errors.push(...checkTypeScriptSyntax(envelope.edits));

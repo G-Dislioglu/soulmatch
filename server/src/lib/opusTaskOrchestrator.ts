@@ -23,6 +23,7 @@ import { resolveScope, fetchFileContents } from './builderScopeResolver.js';
 import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
 import { smartPush } from './opusSmartPush.js';
+import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
 
 // ─── Types ───
 
@@ -53,17 +54,6 @@ interface PhaseResult {
 }
 
 /** The one and only change format. No SEARCH/REPLACE. No diff. No regex. */
-interface EditEnvelope {
-  edits: Array<{
-    path: string;
-    mode: 'overwrite' | 'create' | 'patch';
-    content?: string;
-    patches?: Array<{ search: string; replace: string }>;
-  }>;
-  summary: string;
-  worker: string;
-}
-
 // ─── Helpers ───
 
 function generateRunId(): string {
@@ -152,77 +142,6 @@ async function runWorkerSwarm(
 
 // ─── Phase 4: Parse + Validate ───
 
-function parseEnvelope(raw: string, worker: string): EditEnvelope | null {
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
-    const parsed = JSON.parse(cleaned);
-    if (!parsed.edits || !Array.isArray(parsed.edits) || parsed.edits.length === 0) return null;
-    for (const edit of parsed.edits) {
-      if (!edit.path || typeof edit.path !== 'string') return null;
-      if (edit.mode === 'patch') {
-        if (!Array.isArray(edit.patches) || edit.patches.length === 0) return null;
-        for (const patch of edit.patches) {
-          if (!patch || typeof patch.search !== 'string' || typeof patch.replace !== 'string') return null;
-        }
-        continue;
-      }
-      if (!edit.content || typeof edit.content !== 'string') return null;
-      if (!['overwrite', 'create'].includes(edit.mode)) edit.mode = 'overwrite';
-    }
-    return { edits: parsed.edits, summary: parsed.summary || '', worker };
-  } catch {
-    return null;
-  }
-}
-
-function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
-  if (!ts) return []; // typescript not available — skip check
-  const errors: string[] = [];
-  for (const edit of edits) {
-    if (edit.mode === 'patch') continue;
-    if (!edit.path.endsWith('.ts') && !edit.path.endsWith('.tsx')) continue;
-    try {
-      const result = ts.transpileModule(edit.content ?? '', {
-        reportDiagnostics: true,
-        compilerOptions: {
-          target: ts.ScriptTarget.ESNext,
-          module: ts.ModuleKind.ESNext,
-          jsx: ts.JsxEmit.ReactJSX,
-          strict: false,
-        },
-      });
-      if (result.diagnostics?.length) {
-        for (const d of result.diagnostics) {
-          errors.push(`${edit.path}: ${ts.flattenDiagnosticMessageText(d.messageText, '\n')}`);
-        }
-      }
-    } catch (e: unknown) {
-      errors.push(`${edit.path}: transpile crashed — ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  return errors;
-}
-
-function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  for (const edit of envelope.edits) {
-    if (!scopeFiles.includes(edit.path) && edit.mode !== 'create') {
-      // Scope-Check entfernt — Builder ohne Beschränkungen
-    }
-    if (edit.mode === 'patch') {
-      if (!edit.patches || edit.patches.length === 0) {
-        errors.push(`"${edit.path}" patch mode requires at least one patch`);
-      }
-      continue;
-    }
-    if ((edit.content?.length ?? 0) < 10) {
-      errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
-    }
-  }
-  errors.push(...checkTypeScriptSyntax(envelope.edits));
-  return { valid: errors.length === 0, errors };
-}
-
 // ─── Phase 5: Push ───
 
 async function pushEdits(
@@ -308,6 +227,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const s4 = Date.now();
   const allParsed: Array<{ envelope: EditEnvelope; worker: string; errors: string[] }> = [];
   for (const r of okResults) {
+    console.log(`[validate] raw worker output (${r.worker}):`, r.response.slice(0, 500));
     const envelope = parseEnvelope(r.response, r.worker);
     if (!envelope) continue;
     const v = validateEnvelope(envelope, scope.files);
