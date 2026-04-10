@@ -946,6 +946,10 @@ opusBridgeRouter.post('/opus-feature', async (req: Request, res: Response) => {
   }
 });
 
+opusBridgeRouter.get('/version', (_req: Request, res: Response) => {
+  res.json({ version: "opus-bridge-v4", uptime: process.uptime() });
+});
+
 opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
   res.json({
     endpoints: 36,
