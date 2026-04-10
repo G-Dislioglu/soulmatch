@@ -98,6 +98,12 @@ function toApiPath(path: string) {
   return `/api/builder${path}`;
 }
 
+function appendTokenQuery(path: string, token: string) {
+  const separator = path.includes('?') ? '&' : '?';
+  const encodedToken = encodeURIComponent(token);
+  return `${path}${separator}token=${encodedToken}&opus_token=${encodedToken}`;
+}
+
 function encodeFilePath(filePath: string) {
   return filePath
     .split('/')
@@ -111,7 +117,7 @@ export function useBuilderApi(token: string | null) {
       throw new Error('Builder token missing');
     }
 
-    const response = await fetch(toApiPath(path), {
+    const response = await fetch(appendTokenQuery(toApiPath(path), token), {
       ...init,
       headers: {
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),

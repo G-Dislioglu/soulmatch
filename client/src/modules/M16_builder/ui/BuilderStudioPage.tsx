@@ -49,7 +49,26 @@ const ACTOR_COLORS: Record<string, string> = {
 
 function getInitialToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('builderToken') || params.get('token') || '';
+  return params.get('builderToken') || params.get('token') || params.get('opus_token') || '';
+}
+
+async function validateBuilderToken(token: string) {
+  const response = await fetch(`/api/builder/opus-bridge/pipeline-info?opus_token=${encodeURIComponent(token)}`);
+
+  if (response.status === 401) {
+    throw new Error('Ungültiger Token');
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const payload = await response.json() as { canonicalExecutor?: string };
+  if (typeof payload.canonicalExecutor !== 'string') {
+    throw new Error('Builder-Authentifizierung fehlgeschlagen');
+  }
+
+  return payload;
 }
 
 function useViewportWidth() {
@@ -190,13 +209,15 @@ function BuilderPanel(props: { title: string; subtitle?: string; children: React
 
 function BuilderAuthGate(props: {
   tokenInput: string;
+  tokenVisible: boolean;
   loading: boolean;
   error: string | null;
   onChange: (value: string) => void;
+  onToggleVisibility: () => void;
   onSubmit: () => void;
   onBack: () => void;
 }) {
-  const { tokenInput, loading, error, onChange, onSubmit, onBack } = props;
+  const { tokenInput, tokenVisible, loading, error, onChange, onToggleVisibility, onSubmit, onBack } = props;
 
   return (
     <div style={{ minHeight: '100vh', background: TOKENS.bg, color: TOKENS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -220,31 +241,92 @@ function BuilderAuthGate(props: {
           </div>
         ) : null}
         <div style={{ marginTop: 20, display: 'grid', gap: 12 }}>
-          <input
-            type="password"
-            value={tokenInput}
-            onChange={(event) => onChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                onSubmit();
-              }
-            }}
-            placeholder="Builder-Token"
-            autoFocus
+          <div
             style={{
-              width: '100%',
+              display: 'flex',
+              alignItems: 'stretch',
               borderRadius: 14,
               border: `1.5px solid ${TOKENS.b1}`,
               background: TOKENS.bg2,
-              color: TOKENS.text,
-              padding: '14px 16px',
-              fontSize: 14,
-              fontFamily: TOKENS.font.body,
+              overflow: 'hidden',
             }}
-          />
+          >
+            <input
+              type={tokenVisible ? 'text' : 'password'}
+              value={tokenInput}
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  onSubmit();
+                }
+              }}
+              placeholder="Builder-Token"
+              autoFocus
+              style={{
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
+                color: TOKENS.text,
+                padding: '14px 16px',
+                fontSize: 14,
+                fontFamily: TOKENS.font.body,
+                outline: 'none',
+              }}
+            />
+            <button
+              type="button"
+              onClick={onToggleVisibility}
+              aria-label={tokenVisible ? 'Token verbergen' : 'Token anzeigen'}
+              title={tokenVisible ? 'Token verbergen' : 'Token anzeigen'}
+              style={{
+                minWidth: 52,
+                border: 'none',
+                borderLeft: `1px solid ${TOKENS.b1}`,
+                background: 'rgba(255,255,255,0.03)',
+                color: TOKENS.text2,
+                cursor: 'pointer',
+                fontSize: 18,
+                transition: 'transform 0.18s ease, filter 0.18s ease, background 0.18s ease',
+              }}
+            >
+              {tokenVisible ? '🙈' : '👁'}
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={onSubmit} disabled={loading || tokenInput.trim().length === 0} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '11px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.65 : 1 }}>
-              {loading ? 'Prüfe…' : 'Verbinden'}
+            <button
+              onClick={onSubmit}
+              disabled={loading || tokenInput.trim().length === 0}
+              style={{
+                borderRadius: 999,
+                border: `1.5px solid ${TOKENS.gold}`,
+                background: 'rgba(212,175,55,0.14)',
+                color: TOKENS.text,
+                padding: '11px 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: loading ? 'progress' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+                transition: 'transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease, background 0.18s ease',
+              }}
+              onMouseEnter={(event) => {
+                if (loading || tokenInput.trim().length === 0) return;
+                event.currentTarget.style.transform = 'scale(1.02)';
+                event.currentTarget.style.filter = 'brightness(1.08)';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.transform = 'scale(1)';
+                event.currentTarget.style.filter = 'brightness(1)';
+              }}
+              onMouseDown={(event) => {
+                if (loading || tokenInput.trim().length === 0) return;
+                event.currentTarget.style.transform = 'scale(0.97)';
+              }}
+              onMouseUp={(event) => {
+                if (loading || tokenInput.trim().length === 0) return;
+                event.currentTarget.style.transform = 'scale(1.02)';
+              }}
+            >
+              {loading ? 'Verbinde...' : 'Verbinden'}
             </button>
             <button onClick={onBack} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '11px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               Zurück
@@ -261,6 +343,7 @@ export function BuilderStudioPage() {
   const viewportWidth = useViewportWidth();
   const [token, setToken] = useState(() => getInitialToken());
   const [tokenInput, setTokenInput] = useState(() => getInitialToken());
+  const [tokenVisible, setTokenVisible] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -310,7 +393,9 @@ export function BuilderStudioPage() {
   const compact = viewportWidth < 1180;
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
-  const previewUrl = activeTask ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}` : null;
+  const previewUrl = activeTask
+    ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`
+    : null;
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -401,6 +486,7 @@ export function BuilderStudioPage() {
       setAuthError(null);
       setPageError(null);
       try {
+        await validateBuilderToken(trimmedToken);
         const [nextTasks, nextFiles] = await Promise.all([getBuilderTasks(), listBuilderFiles()]);
         if (cancelled) {
           return;
@@ -416,7 +502,8 @@ export function BuilderStudioPage() {
         }
         bootstrappedTokenRef.current = null;
         setAuthenticated(false);
-        setAuthError(error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen');
+        const message = error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen';
+        setAuthError(message === 'HTTP 401' ? 'Ungültiger Token' : message);
       } finally {
         if (!cancelled) {
           setAuthLoading(false);
@@ -677,9 +764,11 @@ export function BuilderStudioPage() {
     return (
       <BuilderAuthGate
         tokenInput={tokenInput}
+        tokenVisible={tokenVisible}
         loading={authLoading}
         error={authError}
         onChange={setTokenInput}
+        onToggleVisibility={() => setTokenVisible((current) => !current)}
         onSubmit={handleAuthSubmit}
         onBack={() => navigate('/')}
       />
