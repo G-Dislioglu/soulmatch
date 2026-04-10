@@ -20,6 +20,7 @@ import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
 import { resolveScope, fetchFileContents } from './builderScopeResolver.js';
+import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js';
 
 // ─── Types ───
 
@@ -285,6 +286,13 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   // Phase 2: Fetch
   const s2 = Date.now();
   const fileContents = await fetchFileContents(scope.files);
+  
+  // ChangeRouter: Decide mode for each file
+  for (const [filePath, content] of fileContents.entries()) {
+    const changeMode = decideChangeMode(content);
+    console.log(`[ChangeRouter] ${filePath}: ${changeMode}`);
+  }
+
   phases.push({ phase: 'fetch', status: 'ok', durationMs: Date.now() - s2,
     detail: { fetched: fileContents.size, total: scope.files.length } });
 
