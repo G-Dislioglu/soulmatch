@@ -61,6 +61,7 @@ const PAGE_ASTRO = 3;
 const PAGE_JOURNEY = 4;
 const PAGE_SOULS = 5;
 const PAGE_STUDIO = 6;
+const PAGE_BUILDER = 7;
 const APP_PAGES: PageDef[] = [
   { label: 'Profil', icon: '👤', color: ACCENT },
   { label: 'Match', icon: '🔥', color: '#c084fc' },
@@ -69,6 +70,7 @@ const APP_PAGES: PageDef[] = [
   { label: 'Reise', icon: '✧', color: '#34d399' },
   { label: 'Seelen', icon: '♥', color: '#f472b6' },
   { label: 'Studio', icon: '◈', color: ACCENT },
+  { label: 'Builder', icon: '⚙', color: TOKENS.cyan },
 ];
 
 const HOME_PAGE_DEF: PageDef = { label: 'Start', icon: '✦', color: ACCENT };
@@ -470,6 +472,11 @@ function HomePage() {
     if (page === PAGE_STUDIO) {
       setMobileDrawerOpen(false);
       navigate('/studio');
+      return;
+    }
+    if (page === PAGE_BUILDER) {
+      setMobileDrawerOpen(false);
+      navigate('/builder');
       return;
     }
     setActivePage(page);
