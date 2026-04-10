@@ -27,6 +27,7 @@ import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js'
 export interface OpusTaskInput {
   instruction: string;
   scope?: string[];
+  targetFile?: string;
   workers?: string[];
   maxTokens?: number;
   skipDeploy?: boolean;
@@ -75,11 +76,16 @@ function internalUrl(path: string): string {
 
 // ─── Phase 1: Deterministic Scope ───
 
-function runScopePhase(instruction: string, manualScope?: string[]): { files: string[]; reasoning: string[]; method: string } {
+function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): { files: string[]; reasoning: string[]; method: string } {
   if (manualScope && manualScope.length > 0) {
     return { files: manualScope, reasoning: ['manual override'], method: 'manual' };
   }
-  return resolveScope(instruction);
+  const result = resolveScope(instruction);
+  if (targetFile && !result.files.includes(targetFile)) {
+    result.files.unshift(targetFile);
+    result.reasoning.unshift(`${targetFile} (forced): targetFile parameter`);
+  }
+  return result;
 }
 
 // ─── Phase 3: Worker Swarm (Full-File Overwrite) ───
@@ -272,7 +278,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 1: Deterministic Scope
   const s1 = Date.now();
-  const scope = runScopePhase(input.instruction, input.scope);
+  const scope = runScopePhase(input.instruction, input.scope, input.targetFile);
   phases.push({
     phase: 'scope', status: scope.files.length > 0 ? 'ok' : 'error',
     durationMs: Date.now() - s1,
