@@ -1,6 +1,6 @@
-export function echo(msg: string): { echo: string; timestamp: string } {
+export function echo(msg: string): { echo: string; ts: number } {
   return {
     echo: msg,
-    timestamp: new Date().toISOString(),
+    ts: Date.now(),
   };
 }
