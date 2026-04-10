@@ -20,6 +20,7 @@ import {
 import { getDb } from '../db.js';
 import { addChatPoolMessage, getChatPoolForTask } from '../lib/opusChatPool.js';
 import { callProvider } from '../lib/providers.js';
+import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
 import {
   builderActions,
   builderArtifacts,
@@ -627,8 +628,23 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       files: files.map((f) => f.file),
       message: message || 'direct push',
     });
+
+    // Auto-Regen Index nach erfolgreichem Push (fire-and-forget)
+    if (result.triggered) {
+      regenerateRepoIndex().catch(err => console.error('[regen-index] auto-regen failed:', err));
+    }
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  }
+});
+
+// ==================== REGEN-INDEX ====================
+opusBridgeRouter.get('/regen-index', async (_req: Request, res: Response) => {
+  try {
+    const result = await regenerateRepoIndex();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err) });
   }
 });
 
