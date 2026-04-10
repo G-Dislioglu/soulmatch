@@ -487,14 +487,13 @@ export function BuilderStudioPage() {
       setPageError(null);
       try {
         await validateBuilderToken(trimmedToken);
-        const [nextTasks, nextFiles] = await Promise.all([getBuilderTasks(), listBuilderFiles()]);
         if (cancelled) {
           return;
         }
-        setTasks(nextTasks);
-        setFiles(nextFiles);
-        setSelectedTaskId((current) => current ?? nextTasks[0]?.id ?? null);
-        setSelectedFilePath((current) => current ?? nextFiles[0] ?? null);
+        setTasks([]);
+        setFiles([]);
+        setSelectedTaskId(null);
+        setSelectedFilePath(null);
         setAuthenticated(true);
       } catch (error) {
         if (cancelled) {
@@ -514,10 +513,10 @@ export function BuilderStudioPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, getBuilderTasks, listBuilderFiles]);
+  }, [token]);
 
   useEffect(() => {
-    if (!authenticated) {
+    if (!authenticated || !selectedTaskId) {
       return;
     }
 
