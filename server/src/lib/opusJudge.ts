@@ -9,11 +9,21 @@ import { WORKER_REGISTRY, JUDGE_WORKER } from './opusWorkerRegistry.js';
 interface EditEnvelope {
   edits: Array<{
     path: string;
-    mode: 'overwrite' | 'create';
-    content: string;
+    mode: 'overwrite' | 'create' | 'patch';
+    content?: string;
+    patches?: Array<{ search: string; replace: string }>;
   }>;
   summary: string;
   worker: string;
+}
+
+function estimateEditSize(envelope: EditEnvelope): number {
+  return envelope.edits.reduce((sum, edit) => {
+    if (edit.mode === 'patch') {
+      return sum + (edit.patches?.reduce((patchSum, patch) => patchSum + patch.search.length + patch.replace.length, 0) ?? 0);
+    }
+    return sum + (edit.content?.length ?? 0);
+  }, 0);
 }
 
 // ─── Judge ───
@@ -32,7 +42,7 @@ export async function judgeValidCandidates(
   if (!judgeConfig) return candidates[0].envelope;
 
   const comparison = candidates.map((c, i) =>
-    `=== Candidate ${i + 1}: ${c.worker} ===\nFiles: ${c.envelope.edits.map(e => e.path).join(', ')}\nSummary: ${c.envelope.summary}\nChars: ${c.envelope.edits.reduce((s, e) => s + e.content.length, 0)}`
+    `=== Candidate ${i + 1}: ${c.worker} ===\nFiles: ${c.envelope.edits.map(e => e.path).join(', ')}\nSummary: ${c.envelope.summary}\nChars: ${estimateEditSize(c.envelope)}`
   ).join('\n\n');
 
   try {

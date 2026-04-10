@@ -22,6 +22,7 @@ import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegi
 import { resolveScope, fetchFileContents } from './builderScopeResolver.js';
 import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
+import { smartPush } from './opusSmartPush.js';
 
 // ─── Types ───
 
@@ -55,8 +56,9 @@ interface PhaseResult {
 interface EditEnvelope {
   edits: Array<{
     path: string;
-    mode: 'overwrite' | 'create';
-    content: string;
+    mode: 'overwrite' | 'create' | 'patch';
+    content?: string;
+    patches?: Array<{ search: string; replace: string }>;
   }>;
   summary: string;
   worker: string;
@@ -157,6 +159,13 @@ function parseEnvelope(raw: string, worker: string): EditEnvelope | null {
     if (!parsed.edits || !Array.isArray(parsed.edits) || parsed.edits.length === 0) return null;
     for (const edit of parsed.edits) {
       if (!edit.path || typeof edit.path !== 'string') return null;
+      if (edit.mode === 'patch') {
+        if (!Array.isArray(edit.patches) || edit.patches.length === 0) return null;
+        for (const patch of edit.patches) {
+          if (!patch || typeof patch.search !== 'string' || typeof patch.replace !== 'string') return null;
+        }
+        continue;
+      }
       if (!edit.content || typeof edit.content !== 'string') return null;
       if (!['overwrite', 'create'].includes(edit.mode)) edit.mode = 'overwrite';
     }
@@ -170,9 +179,10 @@ function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
   if (!ts) return []; // typescript not available — skip check
   const errors: string[] = [];
   for (const edit of edits) {
+    if (edit.mode === 'patch') continue;
     if (!edit.path.endsWith('.ts') && !edit.path.endsWith('.tsx')) continue;
     try {
-      const result = ts.transpileModule(edit.content, {
+      const result = ts.transpileModule(edit.content ?? '', {
         reportDiagnostics: true,
         compilerOptions: {
           target: ts.ScriptTarget.ESNext,
@@ -199,8 +209,14 @@ function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid
     if (!scopeFiles.includes(edit.path) && edit.mode !== 'create') {
       // Scope-Check entfernt — Builder ohne Beschränkungen
     }
-    if (edit.content.length < 10) {
-      errors.push(`"${edit.path}" content too short (${edit.content.length} chars)`);
+    if (edit.mode === 'patch') {
+      if (!edit.patches || edit.patches.length === 0) {
+        errors.push(`"${edit.path}" patch mode requires at least one patch`);
+      }
+      continue;
+    }
+    if ((edit.content?.length ?? 0) < 10) {
+      errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
   errors.push(...checkTypeScriptSyntax(envelope.edits));
@@ -214,14 +230,13 @@ async function pushEdits(
 ): Promise<{ pushed: boolean; filesCount: number; error?: string; durationMs: number }> {
   const start = Date.now();
   try {
-    const files = envelope.edits.map(e => ({ file: e.path, content: e.content }));
-    const res = await fetch(internalUrl('/push'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files, message: `feat(opus-task): ${instruction.slice(0, 80)}` }),
-    });
-    const data = await res.json() as Record<string, unknown>;
-    return { pushed: !!data.triggered, filesCount: files.length, durationMs: Date.now() - start };
+    const files = envelope.edits.map((edit) =>
+      edit.mode === 'patch'
+        ? { file: edit.path, patches: edit.patches }
+        : { file: edit.path, content: edit.content ?? '' },
+    );
+    const result = await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`);
+    return { pushed: result.pushed, filesCount: files.length, error: result.error, durationMs: Date.now() - start };
   } catch (e: unknown) {
     return { pushed: false, filesCount: 0, error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - start };
   }
@@ -279,7 +294,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 3: Swarm
   const s3 = Date.now();
-  const prompt = buildWorkerPrompt(input.instruction, fileContents, scope.files) + modePrompts.join('\n\n');
+  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files)}\n\n${modePrompts.join('\n\n')}`;
   const results = await runWorkerSwarm(prompt, workers, maxTokens);
   const okResults = results.filter(r => r.response.length > 50 && !r.error);
   phases.push({ phase: 'swarm', status: okResults.length > 0 ? 'ok' : 'error',
@@ -306,7 +321,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   if (valid.length === 0) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: `${allParsed.length} parsed, 0 valid. Workers can't produce valid JSON overwrite yet.` };
+      summary: `${allParsed.length} parsed, 0 valid. Workers can't produce a valid overwrite or patch envelope yet.` };
   }
 
   // Phase 4b: Judge
