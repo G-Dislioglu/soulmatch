@@ -288,9 +288,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const fileContents = await fetchFileContents(scope.files);
   
   // ChangeRouter: Decide mode for each file
+  const modePrompts: string[] = [];
   for (const [filePath, content] of fileContents.entries()) {
     const changeMode = decideChangeMode(content);
     console.log(`[ChangeRouter] ${filePath}: ${changeMode}`);
+    modePrompts.push(getWorkerPromptForMode(changeMode));
   }
 
   phases.push({ phase: 'fetch', status: 'ok', durationMs: Date.now() - s2,
@@ -298,7 +300,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 3: Swarm
   const s3 = Date.now();
-  const prompt = buildWorkerPrompt(input.instruction, fileContents, scope.files);
+  const prompt = buildWorkerPrompt(input.instruction, fileContents, scope.files) + modePrompts.join('\n\n');
   const results = await runWorkerSwarm(prompt, workers, maxTokens);
   const okResults = results.filter(r => r.response.length > 50 && !r.error);
   phases.push({ phase: 'swarm', status: okResults.length > 0 ? 'ok' : 'error',
