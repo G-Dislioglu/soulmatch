@@ -123,7 +123,7 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
       useDecomposer: input.useDecomposer ?? true,
       codeWriter: input.codeWriter,
     };
-    execResult = await executeTask(execInput);
+    execResult = await executeTask({ ...execInput, skipGithub: input.skipDeploy });
   } catch (err) {
     return {
       status: 'build_failed',
@@ -156,6 +156,11 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     };
   }
 
+  // --- skipDeploy: return immediately without GitHub push or deploy polling ---
+  if (input.skipDeploy) {
+    return { ...base, status: 'success', durationMs: duration() };
+  }
+
   // Auto-approve if task ended in review_needed (patches exist but weren't auto-committed)
   if (execResult.status === 'review_needed') {
     const approval = await autoApproveTask(execResult.taskId);
@@ -167,11 +172,6 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
         durationMs: duration(),
       };
     }
-  }
-
-  // --- Phase 2: Wait for Deploy ---
-  if (input.skipDeploy) {
-    return { ...base, status: 'success', durationMs: duration() };
   }
 
   const deployResult = await waitForDeploy({ maxWaitMs: 300_000, notBefore: deployStartedAt });

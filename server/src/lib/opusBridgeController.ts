@@ -90,6 +90,7 @@ export interface ExecuteInput {
   opusHints?: string;
   skipRoundtable?: boolean;
   useDecomposer?: boolean;  // Skip Roundtable, go direct: Decompose → Swarm → Meister → GitHub
+  skipGithub?: boolean;     // If true, produce patches but do NOT push to GitHub
   codeWriter?: string;
   roundtableConfig?: Partial<RoundtableConfig>;
 }
@@ -460,12 +461,17 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   }
 
   if (status === 'consensus' && patches.length > 0) {
-    // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
-    const safePayloads = toSafeOverwritePayloads(patches);
-    githubAction = safePayloads
-      ? await triggerGithubAction(task.id, safePayloads)
-      : await triggerGithubAction(task.id, toPatchPayloads(patches));
-    status = githubAction.triggered ? 'applying' : 'error';
+    if (input.skipGithub) {
+      // skipGithub: keep patches in DB but do NOT push to GitHub (used by /build with skipDeploy)
+      githubAction = { triggered: false };
+    } else {
+      // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
+      const safePayloads = toSafeOverwritePayloads(patches);
+      githubAction = safePayloads
+        ? await triggerGithubAction(task.id, safePayloads)
+        : await triggerGithubAction(task.id, toPatchPayloads(patches));
+      status = githubAction.triggered ? 'applying' : 'error';
+    }
   }
 
   await db

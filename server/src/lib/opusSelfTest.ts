@@ -185,4 +185,3 @@ export async function selfHealthCheck(): Promise<{
     return { healthy: allPassed, detail };
 }
 
-// S16 thinking-test verified
