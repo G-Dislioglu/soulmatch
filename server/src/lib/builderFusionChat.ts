@@ -137,7 +137,13 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
 
 async function buildSystemPrompt() {
-  const memoryContext = await buildBuilderMemoryContext();
+  let memoryContext: string;
+  try {
+    memoryContext = await buildBuilderMemoryContext();
+  } catch (error) {
+    console.warn('[fusion] buildBuilderMemoryContext failed, using fallback:', error instanceof Error ? error.message : error);
+    memoryContext = '[Builder-Memory nicht verfügbar - RAM-Modus aktiv]';
+  }
   if (!memoryContext) {
     return SYSTEM_PROMPT;
   }
