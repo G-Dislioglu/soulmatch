@@ -64,7 +64,7 @@ async function runCodebaseScout(task: ScoutTask, graphBriefing: string): Promise
 
 async function runPatternScout(task: ScoutTask, graphBriefing: string): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
-  const content = await callProvider('zhipu', 'glm-4.7-flash', {
+  const content = await callProvider('zhipu', 'glm-4.7-flashx', {
     system: buildPromptWithContext(
       `Du bist der Pattern-Scout. Extrahiere Muster und Konventionen. Liefere: 1) Code-Konventionen, 2) Duplikat-Risiken, 3) Edge-Cases, 4) Komplexität. Kein Code schreiben.`,
       graphBriefing,
@@ -79,7 +79,7 @@ async function runPatternScout(task: ScoutTask, graphBriefing: string): Promise<
     round: 0,
     phase: 'scout',
     actor: 'glm-pattern',
-    model: 'glm-4.7-flash',
+    model: 'glm-4.7-flashx',
     content,
     tokensUsed: 0,
     durationMs: Date.now() - startedAt,

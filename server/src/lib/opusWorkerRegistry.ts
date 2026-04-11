@@ -17,7 +17,7 @@ export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   kimi:        { provider: 'openrouter',  model: 'moonshotai/kimi-k2.5',      contextK: 256 },
   qwen:        { provider: 'openrouter',  model: 'qwen/qwen3.6-plus',         contextK: 128 },
   glm:         { provider: 'zhipu',       model: 'glm-5-turbo',               contextK: 203 },
-  'glm-flash': { provider: 'zhipu',       model: 'glm-4.7-flash',             contextK: 203 },
+  'glm-flash': { provider: 'zhipu',       model: 'glm-4.7-flashx',             contextK: 203 },
   grok:        { provider: 'xai',         model: 'grok-4-1-fast',             contextK: 128 },
   gemini:      { provider: 'gemini',      model: 'gemini-3-flash-preview',    contextK: 1000 },
   // Premium (Meister/Roundtable)

@@ -74,6 +74,8 @@ export interface CallProviderParams {
   temperature?: number;
   maxTokens?: number;
   forceJsonObject?: boolean;
+  /** Controls GLM thinking/reasoning mode. 'enabled' for workers (quality), 'disabled' for scouts (speed). Default: 'disabled'. */
+  thinking?: 'enabled' | 'disabled';
 }
 
 /**
@@ -220,9 +222,9 @@ export async function callProvider(
             ...(provider === 'openrouter' && model.startsWith('qwen/')
               ? { reasoning: { enabled: false } }
               : {}),
-            // Disable thinking mode for Zhipu GLM models to prevent reasoning leak into output.
+            // GLM thinking mode: enabled for workers (quality), disabled for scouts (speed).
             ...(provider === 'zhipu'
-              ? { thinking: { type: 'disabled' } }
+              ? { thinking: { type: params.thinking ?? 'disabled' } }
               : {}),
           },
     ),

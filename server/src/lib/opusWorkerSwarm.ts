@@ -67,7 +67,7 @@ const WORKER_PRESETS: Record<string, WorkerPreset> = {
   sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 6000 },
   gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
   glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
-  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flash', maxTokens: 6000 },
+  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', maxTokens: 6000 },
   grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 6000 },
   opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 6000 },
   minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 6000 },
@@ -561,6 +561,7 @@ async function runSingleWorker(
       maxTokens: requestedMaxTokens,
       temperature: 0.2,
       forceJsonObject: false,
+      thinking: preset.provider === 'zhipu' ? 'enabled' : undefined,
     });
 
     const fullFileContent = extractMarkedFullFileContent(response);
