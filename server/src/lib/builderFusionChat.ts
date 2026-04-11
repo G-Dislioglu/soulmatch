@@ -155,7 +155,7 @@ async function buildSystemPrompt(userId?: string) {
   try {
     const assembledContext = await assembleBuilderContext({ userId });
     if (assembledContext) {
-      parts.push(`\n\n=== BUILDER CONTEXT ===\n${assembledContext}`);
+      parts.push(`\n\n${assembledContext}`);
     }
   } catch (err: any) {
     console.warn('[buildSystemPrompt] assembleBuilderContext failed:', err?.message);

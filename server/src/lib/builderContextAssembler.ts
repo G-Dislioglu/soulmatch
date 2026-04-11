@@ -1,4 +1,4 @@
-import { desc } from 'drizzle-orm';
+import { desc, eq, notInArray, gte } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { builderTasks } from '../schema/builder.js';
 import { getUserMemoryContext } from './memoryService.js';
@@ -11,127 +11,115 @@ interface BuilderContextAssemblerOptions {
 }
 
 interface AssembledContext {
-  text: string;
+  operational: string;
+  conversation: string;
   gaps: string[];
   conflicts: string[];
 }
 
 export async function assembleBuilderContext(options: BuilderContextAssemblerOptions = {}): Promise<string> {
-  const result = await assembleBuilderContextFull(options);
-  return result.text;
-}
-
-export async function assembleBuilderContextFull(options: BuilderContextAssemblerOptions = {}): Promise<AssembledContext> {
   const { userId, taskId, lane, phase } = options;
-  const gaps: string[] = [];
-  const conflicts: string[] = [];
-  const contextParts: string[] = [];
+  const result: AssembledContext = {
+    operational: '',
+    conversation: '',
+    gaps: [],
+    conflicts: [],
+  };
 
-  // --- M1: Conversation Context (Session-Memory) ---
+  // === CONVERSATION CONTEXT (M1) ===
   if (userId) {
     try {
-      const conversationContext = await getUserMemoryContext(userId);
-      if (conversationContext) {
-        contextParts.push(`=== CONVERSATION CONTEXT ===\n${conversationContext}`);
-      } else {
-        gaps.push('Session-Memory leer — kein Gesprächsverlauf für diesen User');
-      }
+      result.conversation = await getUserMemoryContext(userId);
     } catch (error) {
-      console.warn('[assembler] getUserMemoryContext failed:', error);
-      gaps.push('Session-Memory nicht erreichbar');
+      console.warn('[assembler] Failed to get user memory context:', error);
+      result.gaps.push('Session-Memory nicht verfuegbar (Fehler beim Laden)');
     }
   } else {
-    gaps.push('Kein userId — Conversation Context nicht verfügbar');
+    result.gaps.push('Kein userId — Conversation-Memory nicht verfuegbar');
   }
 
-  // --- M3: Operational Context (DB-basiert) ---
+  // === OPERATIONAL CONTEXT (M3) ===
   try {
-    const opResult = await buildOperationalContext();
-    if (opResult.text) {
-      contextParts.push(`=== OPERATIONAL CONTEXT ===\n${opResult.text}`);
+    const db = getDb();
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Active/running tasks
+    const activeTasks = await db
+      .select({ id: builderTasks.id, title: builderTasks.title, status: builderTasks.status, updatedAt: builderTasks.updatedAt })
+      .from(builderTasks)
+      .where(notInArray(builderTasks.status, ['done', 'reverted', 'discarded']))
+      .orderBy(desc(builderTasks.updatedAt))
+      .limit(5);
+
+    // Last completed task
+    const lastDone = await db
+      .select({ id: builderTasks.id, title: builderTasks.title, commitHash: builderTasks.commitHash, updatedAt: builderTasks.updatedAt })
+      .from(builderTasks)
+      .where(eq(builderTasks.status, 'done'))
+      .orderBy(desc(builderTasks.updatedAt))
+      .limit(1);
+
+    // Blocked tasks (last 24h)
+    const blockedTasks = await db
+      .select({ id: builderTasks.id, title: builderTasks.title, updatedAt: builderTasks.updatedAt })
+      .from(builderTasks)
+      .where(eq(builderTasks.status, 'blocked'))
+      .orderBy(desc(builderTasks.updatedAt))
+      .limit(3);
+
+    const opParts: string[] = [];
+
+    if (lastDone.length > 0) {
+      const t = lastDone[0];
+      opParts.push(`Letzter abgeschlossener Task: "${t.title}" (${t.commitHash?.slice(0, 7) || 'kein Commit'})`);
     }
-    conflicts.push(...opResult.conflicts);
+
+    if (activeTasks.length > 0) {
+      const lines = activeTasks.map(t => `  - ${t.title} [${t.status}]`);
+      opParts.push(`Aktive Tasks (${activeTasks.length}):\n${lines.join('\n')}`);
+    } else {
+      opParts.push('Keine aktiven Tasks — Pipeline idle.');
+    }
+
+    if (blockedTasks.length > 0) {
+      const lines = blockedTasks.map(t => `  - ${t.title}`);
+      opParts.push(`BLOCKED (${blockedTasks.length}):\n${lines.join('\n')}`);
+
+      // === CONFLICT DETECTION ===
+      for (const bt of blockedTasks) {
+        result.conflicts.push(`Task "${bt.title}" ist blocked ohne Recovery-Vorschlag`);
+      }
+    }
+
+    result.operational = opParts.join('\n');
   } catch (error) {
-    console.warn('[assembler] buildOperationalContext failed:', error);
-    gaps.push('Operational Context nicht erreichbar (DB-Fehler)');
+    console.warn('[assembler] Operational context failed:', error);
+    result.gaps.push('Operational Context nicht verfuegbar (DB-Fehler)');
   }
 
-  // --- Active lane/phase/task info ---
-  if (lane) contextParts.push(`[LANE: ${lane.toUpperCase()}]`);
-  if (phase) contextParts.push(`[PHASE: ${phase.toUpperCase()}]`);
-  if (taskId) contextParts.push(`[TASK: ${taskId}]`);
+  // === ASSEMBLE OUTPUT ===
+  const outputParts: string[] = [];
 
-  // --- Gaps & Conflicts ---
-  if (gaps.length > 0) {
-    contextParts.push(`=== GAPS ===\n${gaps.map(g => '- ' + g).join('\n')}`);
-  }
-  if (conflicts.length > 0) {
-    contextParts.push(`=== CONFLICTS ===\n${conflicts.map(c => '⚠ ' + c).join('\n')}`);
+  if (result.operational) {
+    outputParts.push(`=== OPERATIONAL CONTEXT ===\n${result.operational}`);
   }
 
-  return {
-    text: contextParts.join('\n\n'),
-    gaps,
-    conflicts,
-  };
-}
-
-// --- Operational Context: compact summary from DB ---
-async function buildOperationalContext(): Promise<{ text: string; conflicts: string[] }> {
-  const db = getDb();
-  const parts: string[] = [];
-
-  // Last 5 tasks (any status) for overview
-  const recentTasks = await db
-    .select({
-      id: builderTasks.id,
-      title: builderTasks.title,
-      status: builderTasks.status,
-      commitHash: builderTasks.commitHash,
-      updatedAt: builderTasks.updatedAt,
-    })
-    .from(builderTasks)
-    .orderBy(desc(builderTasks.updatedAt))
-    .limit(5);
-
-  if (recentTasks.length === 0) {
-    return { text: '', conflicts: [] };
+  if (result.conversation) {
+    outputParts.push(`=== CONVERSATION CONTEXT ===\n${result.conversation}`);
   }
 
-  // Active tasks (queued, applying, classifying, planning, reviewing)
-  const activeStatuses = ['queued', 'applying', 'classifying', 'planning', 'reviewing'];
-  const active = recentTasks.filter(t => activeStatuses.includes(t.status));
-  const blocked = recentTasks.filter(t => t.status === 'blocked');
-  const done = recentTasks.filter(t => t.status === 'done');
-  const errored = recentTasks.filter(t => t.status === 'error');
+  if (lane) outputParts.push(`[LANE: ${lane.toUpperCase()}]`);
+  if (phase) outputParts.push(`[PHASE: ${phase.toUpperCase()}]`);
+  if (taskId) outputParts.push(`[TASK: ${taskId}]`);
 
-  if (active.length > 0) {
-    parts.push('Aktive Tasks: ' + active.map(t => `${t.title} (${t.status})`).join(', '));
-  }
-  if (blocked.length > 0) {
-    parts.push('Blockiert: ' + blocked.map(t => `${t.title}`).join(', '));
-  }
-  if (errored.length > 0) {
-    parts.push('Fehler: ' + errored.map(t => `${t.title}`).join(', '));
-  }
-  if (done.length > 0) {
-    const latest = done[0];
-    const commit = latest.commitHash ? ` (${latest.commitHash.slice(0, 7)})` : '';
-    parts.push(`Letzter erfolgreicher Task: ${latest.title}${commit}`);
+  if (result.gaps.length > 0) {
+    outputParts.push(`=== GAPS ===\n${result.gaps.map(g => '- ' + g).join('\n')}`);
   }
 
-  parts.push(`Pipeline: ${recentTasks.length} Tasks in letzter Übersicht — ${done.length} done, ${active.length} aktiv, ${blocked.length} blocked, ${errored.length} error`);
-
-  // Phase 2: Conflict detection
-  const detectedConflicts: string[] = [];
-  for (const task of recentTasks) {
-    if (task.status === 'blocked') {
-      detectedConflicts.push(`Task "${task.title}" ist blockiert — keine Recovery eingeleitet`);
-    }
-    if (task.status === 'error') {
-      detectedConflicts.push(`Task "${task.title}" hat Fehler — Retry oder manueller Eingriff nötig`);
-    }
+  if (result.conflicts.length > 0) {
+    outputParts.push(`=== CONFLICTS ===\n${result.conflicts.map(c => '⚠ ' + c).join('\n')}`);
   }
 
-  return { text: parts.join('\n'), conflicts: detectedConflicts };
+  return outputParts.join('\n\n');
 }
