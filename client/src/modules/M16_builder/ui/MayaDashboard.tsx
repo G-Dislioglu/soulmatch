@@ -41,7 +41,7 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
     setLoading(true);
     setErr('');
     try {
-      const r = await fetch(`/api/builder/opus-bridge/pipeline-info?opus_token=${encodeURIComponent(val)}`);
+      const r = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(val)}`);
       if (!r.ok) throw new Error('Ungültiger Token');
       onAuth(val);
     } catch (e) {
@@ -150,7 +150,7 @@ export function MayaDashboard() {
   // Auto-auth if token in URL
   useEffect(() => {
     if (token) {
-      fetch(`/api/builder/opus-bridge/pipeline-info?opus_token=${encodeURIComponent(token)}`)
+      fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`)
         .then(r => { if (r.ok) setAuthenticated(true); })
         .catch(() => {});
     }
