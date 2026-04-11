@@ -56,6 +56,7 @@ router.use(requireDevToken);
 // POST /api/builder/chat — natural language chat with Gemini
 router.post('/chat', async (req: Request, res: Response) => {
   try {
+    console.log("[builder-chat] userId:", req.body?.userId ?? "anonymous");
     const { message, history } = req.body as {
       message: string;
       history?: ChatMessage[];
