@@ -112,12 +112,49 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
 }
 
 // ─── Context Panel (right 35%) ───
-function ContextPanel({ ctx, loading }: { ctx: MayaContext | null; loading: boolean }) {
+function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote, onRefresh }: {
+  ctx: MayaContext | null; loading: boolean;
+  onDeleteMemory?: (id: string) => void;
+  onAddNote?: (summary: string) => void;
+  onRefresh?: () => void;
+}) {
+  const [newNote, setNewNote] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+
   if (!ctx && loading) return <div style={{ padding: 20, color: TOKENS.text2, fontSize: 13 }}>Lade Kontext...</div>;
   if (!ctx) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+      {/* Continuity Notes */}
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.gold, fontWeight: 600 }}>Continuity Notes</div>
+          <span onClick={() => setShowAdd(!showAdd)} style={{ fontSize: 10, color: MAYA, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</span>
+        </div>
+        {showAdd && (
+          <div style={{ marginBottom: 10, display: 'flex', gap: 6 }}>
+            <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Session-Notiz..."
+              onKeyDown={e => { if (e.key === 'Enter' && newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
+              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 8, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }} />
+            <button onClick={() => { if (newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
+              style={{ fontSize: 10, padding: '6px 10px', borderRadius: 8, border: 'none', background: MAYA, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>OK</button>
+          </div>
+        )}
+        {ctx.continuityNotes.map((n, i) => (
+          <div key={n.id || i} style={{ display: 'flex', gap: 6, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(n.updatedAt)}</span>{' '}
+              {n.summary.slice(0, 120)}{n.summary.length > 120 ? '...' : ''}
+            </div>
+            {n.id && onDeleteMemory && (
+              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">✕</span>
+            )}
+          </div>
+        ))}
+        {ctx.continuityNotes.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Continuity Notes.</div>}
+      </div>
+
       {/* Tasks */}
       <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
         <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Aktive tasks</div>
@@ -154,9 +191,14 @@ function ContextPanel({ ctx, loading }: { ctx: MayaContext | null; loading: bool
       <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
         <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Memory</div>
         {ctx.memory.episodes.slice(0, 4).map((e, i) => (
-          <div key={i} style={{ padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
-            <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(e.updatedAt)}</span>{' '}
-            {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
+          <div key={e.id || i} style={{ display: 'flex', gap: 6, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(e.updatedAt)}</span>{' '}
+              {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
+            </div>
+            {e.id && onDeleteMemory && (
+              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">✕</span>
+            )}
           </div>
         ))}
       </div>
@@ -202,7 +244,7 @@ export function MayaDashboard() {
     }
   };
 
-  const { getContext, chat, executeAction } = useMayaApi(token || null);
+  const { getContext, chat, executeAction, createMemory, deleteMemory } = useMayaApi(token || null);
 
   // Auto-auth if token in URL
   useEffect(() => {
@@ -373,7 +415,10 @@ export function MayaDashboard() {
 
         {/* Context 35% */}
         <div style={{ flex: '0 0 35%', background: TOKENS.card }}>
-          <ContextPanel ctx={ctx} loading={ctxLoading} />
+          <ContextPanel ctx={ctx} loading={ctxLoading}
+            onDeleteMemory={async (id) => { await deleteMemory(id); loadContext(); }}
+            onAddNote={async (summary) => { await createMemory('continuity', `note-${Date.now()}`, summary); loadContext(); }}
+            onRefresh={loadContext} />
         </div>
       </div>
     </div>
