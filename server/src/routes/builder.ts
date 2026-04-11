@@ -66,7 +66,8 @@ router.post('/chat', async (req: Request, res: Response) => {
       return;
     }
 
-    const response = await handleBuilderChat(message, history ?? []);
+    const userId = (req as any).user?.id ?? (req as any).session?.userId ?? undefined;
+    const response = await handleBuilderChat(message, history ?? [], userId);
     res.json(response);
   } catch (err) {
     console.error('[builder] POST /chat error:', err);
