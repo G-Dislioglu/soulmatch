@@ -9,8 +9,8 @@ export interface MayaContext {
     taskType: string;
     updatedAt: string;
   }>;
-  memory: { episodes: Array<{ key: string; summary: string; updatedAt: string }> };
-  continuityNotes: Array<{ key: string; summary: string; updatedAt: string }>;
+  memory: { episodes: Array<{ id?: string; key: string; summary: string; updatedAt: string }> };
+  continuityNotes: Array<{ id?: string; key: string; summary: string; updatedAt: string }>;
   workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
   timestamp: string;
 }
@@ -54,11 +54,26 @@ export function useMayaApi(token: string | null) {
       body: JSON.stringify({ message, history }),
     }), [request]);
 
+  const createMemory = useCallback((layer: string, key: string, summary: string) =>
+    request<{ success: boolean; data: unknown }>('/maya/memory', {
+      method: 'POST',
+      body: JSON.stringify({ layer, key, summary }),
+    }), [request]);
+
+  const updateMemory = useCallback((id: string, summary: string) =>
+    request<{ success: boolean; data: unknown }>(`/maya/memory/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ summary }),
+    }), [request]);
+
+  const deleteMemory = useCallback((id: string) =>
+    request<{ success: boolean }>(`/maya/memory/${id}`, { method: 'DELETE' }), [request]);
+
   const executeAction = useCallback((action: { endpoint: string; branch?: string; worker?: string; params?: Record<string, unknown> }, confirmed?: boolean) =>
     request<{ success: boolean; needsConfirmation?: boolean; endpoint: string; risk: string; result?: unknown; message?: string }>('/maya/action', {
       method: 'POST',
       body: JSON.stringify({ action, confirmed }),
     }), [request]);
 
-  return { getContext, chat, executeAction };
+  return { getContext, chat, executeAction, createMemory, updateMemory, deleteMemory };
 }
