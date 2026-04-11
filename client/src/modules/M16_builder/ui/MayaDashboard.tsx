@@ -320,7 +320,7 @@ export function MayaDashboard() {
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
                       if (part.type === 'text') return <span key={pi}>{part.content}</span>;
                       const a = part.action!;
-                      const rc = RISK_COLORS[a.risk] ?? RISK_COLORS.safe;
+                      const rc = RISK_COLORS[a.risk] ?? { bg: 'rgba(34,197,94,0.08)', border: '#22c55e40', text: '#4ade80' };
                       const key = `${i}-${pi}`;
                       const st = actionStatus[key] || 'idle';
                       return (
