@@ -20,6 +20,8 @@ import {
 import { getDb } from '../db.js';
 import { addChatPoolMessage, getChatPoolForTask } from '../lib/opusChatPool.js';
 import { callProvider } from '../lib/providers.js';
+import { findPattern, readFile } from '../lib/builderFileIO.js';
+import { getRepoRoot } from '../lib/builderExecutor.js';
 import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
 import {
   builderActions,
@@ -958,4 +960,64 @@ opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
     workerTokens: 6000,
     features: ['benchmark', 'deploy-wait', 'opus-task', 'build', 'self-test'],
   });
+});
+
+opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
+  try {
+    const { query, glob, maxFiles = 8, maxLinesPerFile = 200 } = req.body as {
+      query: string;
+      glob?: string;
+      maxFiles?: number;
+      maxLinesPerFile?: number;
+    };
+    if (!query) { res.status(400).json({ error: 'query required' }); return; }
+
+    const repoRoot = getRepoRoot();
+
+    const keywords = query.toLowerCase()
+      .split(/\s+/)
+      .filter((w: string) => w.length > 3 && !['wird','werden','nicht','eine','einen','dieser','diese','welche','warum','soll','kann','haben','sein','ueber','auch','noch','schon','dass'].includes(w));
+
+    const fileHits: Record<string, number> = {};
+    for (const kw of keywords.slice(0, 5)) {
+      const results = await findPattern(repoRoot, kw, glob || '*.ts');
+      for (const r of results) {
+        fileHits[r.file] = (fileHits[r.file] || 0) + 1;
+      }
+    }
+
+    const topFiles = Object.entries(fileHits)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, maxFiles)
+      .map(([file]) => file);
+
+    const fileContents: Array<{file: string, content: string, lines: number}> = [];
+    for (const file of topFiles) {
+      try {
+        const result = await readFile(repoRoot, file);
+        const trimmed = result.content.split('\n').slice(0, maxLinesPerFile).join('\n');
+        fileContents.push({ file, content: trimmed, lines: result.lines });
+      } catch { /* skip unreadable */ }
+    }
+
+    const contextBlock = fileContents
+      .map(f => '=== ' + f.file + ' (' + f.lines + ' lines) ===\n' + f.content)
+      .join('\n\n');
+
+    const response = await callProvider('deepseek', 'deepseek-chat', {
+      system: 'Du bist ein Repo-Analyst fuer das Soulmatch-Projekt. Beantworte die Frage basierend NUR auf den gezeigten Dateien. Antworte auf Deutsch, kompakt, mit Dateinamen und Zeilennummern wo relevant. Keine Spekulationen ueber nicht gezeigte Dateien.',
+      messages: [{ role: 'user', content: 'Frage: ' + query + '\n\nRepo-Dateien:\n' + contextBlock }],
+      temperature: 0.2,
+      maxTokens: 1000,
+    });
+
+    res.json({
+      answer: response,
+      sources: topFiles,
+      filesRead: fileContents.length,
+      keywords,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
