@@ -522,12 +522,14 @@ async function summarizeTaskDialog(taskId: string): Promise<string> {
 export async function handleBuilderChat(
   message: string,
   history: ChatMessage[] = [],
+  userId?: string,
 ): Promise<ChatResponse> {
   try {
     rememberBuilderChatHistory(history);
     rememberBuilderUserMessage(message);
     const classified = await classifyIntent(message, history);
     const db = getDb();
+    // userId is passed through but not used yet
 
     if (classified.intent === 'task' && classified.title && classified.goal) {
       const blockedTargets = findBlacklistedTargets(`${classified.title}\n${classified.goal}`);
