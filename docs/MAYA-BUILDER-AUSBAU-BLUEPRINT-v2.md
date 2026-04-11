@@ -292,18 +292,18 @@ async function getConversationContextSafe(userId?: string): Promise<string> {
 
 ### Phase 1 — Context-Assembler (dieser Abend)
 - [ ] **Identity-Key klären:** `userId` als optionales Feld in Builder-Chat-Route einbauen (Option A aus §6)
-- [ ] **Builder-Memory Runtime-Guard:** try/catch mit RAM-Fallback im Assembler
-- [ ] `builderContextAssembler.ts` erstellen
-- [ ] Operational Context: letzte Tasks, laufende Tasks, Pipeline-Status, blocked Tasks
-- [ ] Conversation Context: `getUserMemoryContext()` einbinden (nur wenn userId vorhanden, sonst Gap)
-- [ ] `buildSystemPrompt()` in `builderFusionChat.ts` auf Assembler umstellen
-- [ ] Deploy + LIVE-PROBE: `POST /api/builder/chat` mit Frage "was war mein letzter Task?"
+- [x] **Builder-Memory Runtime-Guard:** try/catch mit RAM-Fallback im Assembler (S11)
+- [x] `builderContextAssembler.ts` erstellt (S12, abd0f65)
+- [x] Operational Context: letzte Tasks, laufende Tasks, Pipeline-Status, blocked Tasks (S13, 49aa062)
+- [x] Conversation Context: `getUserMemoryContext()` eingebunden mit Gap-Markierung (S12, abd0f65)
+- [x] `buildSystemPrompt(userId?)` auf Assembler umgestellt (S12, abd0f65)
+- [ ] Deploy + LIVE-PROBE: wartend auf Render-Deploy
 
 ### Phase 2 — Conflict & Gap Detection + Operational Depth (nächster Abend)
-- [ ] Assembler erkennt: fehlende Session-Memory → Gap markieren
-- [ ] Assembler erkennt: Task blocked + keine Recovery → Conflict markieren
-- [ ] Operational Context erweitern: Prototype-Review-States, Audit-Zusammenfassung
-- [ ] Maya sagt im Chat: "Mir fehlt X" statt still zu halluzinieren
+- [x] Assembler erkennt: fehlende Session-Memory → Gap markieren (S13, 49aa062)
+- [x] Assembler erkennt: Task blocked + keine Recovery → Conflict markieren (S13, 49aa062)
+- [ ] Operational Context erweitern: Prototype-Review-States, Audit-Zusammenfassung (Phase 2b)
+- [ ] Maya nutzt Gaps aktiv im Chat (Phase 2b — braucht Prompt-Anpassung)
 
 ### Phase 3 — Continuity Memory + UI (später)
 - [ ] Maya Continuity Memory: eigene DB-Tabelle, hohe Schreibschwelle
