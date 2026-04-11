@@ -1190,6 +1190,13 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     }
 
     res.json({ results, branch: targetBranch, message: commitMessage });
+
+    // Auto-trigger Render redeploy (fire-and-forget) since GitHub Contents API
+    // doesn't trigger push webhooks → Render won't auto-deploy otherwise
+    const anySuccess = results.some(r => r.ok);
+    if (anySuccess && targetBranch === 'main') {
+      triggerRedeploy().catch(err => console.error('[git-push] auto-redeploy failed:', err));
+    }
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
