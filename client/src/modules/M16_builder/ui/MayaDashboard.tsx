@@ -1,1 +1,379 @@
-aW1wb3J0IHsgdXNlQ2FsbGJhY2ssIHVzZUVmZmVjdCwgdXNlUmVmLCB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JzsKaW1wb3J0IHsgdXNlTG9jYXRpb24gfSBmcm9tICd3b3V0ZXInOwppbXBvcnQgeyBUT0tFTlMgfSBmcm9tICcuLi8uLi8uLi9kZXNpZ24vdG9rZW5zJzsKaW1wb3J0IHsgdXNlTWF5YUFwaSwgdHlwZSBNYXlhQ29udGV4dCwgdHlwZSBNYXlhQ2hhdE1lc3NhZ2UgfSBmcm9tICcuLi9ob29rcy91c2VNYXlhQXBpJzsKCmNvbnN0IE1BWUEgPSAnIzdjNmFmNyc7CmNvbnN0IE1BWUFfRElNID0gJ3JnYmEoMTI0LDEwNiwyNDcsMC4xMiknOwoKY29uc3QgU1RBVFVTX0NPTE9SUzogUmVjb3JkPHN0cmluZywgc3RyaW5nPiA9IHsKICBxdWV1ZWQ6IFRPS0VOUy50ZXh0MiwgcGxhbm5pbmc6IFRPS0VOUy5wdXJwbGUsIHByb3RvdHlwaW5nOiBUT0tFTlMucHVycGxlLAogIHByb3RvdHlwZV9yZXZpZXc6IFRPS0VOUy5nb2xkLCByZXZpZXdpbmc6IFRPS0VOUy5nb2xkLCB0ZXN0aW5nOiBUT0tFTlMuZ3JlZW4sCiAgcHVzaF9jYW5kaWRhdGU6IFRPS0VOUy5ncmVlbiwgZG9uZTogVE9LRU5TLmdyZWVuLCBibG9ja2VkOiAnI2VmNDQ0NCcsCiAgcmV2ZXJ0ZWQ6IFRPS0VOUy50ZXh0MywgZGlzY2FyZGVkOiBUT0tFTlMucm9zZSwgc3VjY2VzczogVE9LRU5TLmdyZWVuLAogIGZhaWxlZDogJyNlZjQ0NDQnLCBjbGFzc2lmeWluZzogVE9LRU5TLmN5YW4sCn07CgppbnRlcmZhY2UgUGFyc2VkQWN0aW9uIHsKICBlbmRwb2ludDogc3RyaW5nOwogIGJyYW5jaD86IHN0cmluZzsKICB3b3JrZXI/OiBzdHJpbmc7CiAgcmlzazogc3RyaW5nOwogIGRlc2NyaXB0aW9uOiBzdHJpbmc7Cn0KCmludGVyZmFjZSBNZXNzYWdlUGFydCB7CiAgdHlwZTogJ3RleHQnIHwgJ2FjdGlvbic7CiAgY29udGVudDogc3RyaW5nOwogIGFjdGlvbj86IFBhcnNlZEFjdGlvbjsKfQoKZnVuY3Rpb24gcGFyc2VBY3Rpb25CbG9ja3ModGV4dDogc3RyaW5nKTogTWVzc2FnZVBhcnRbXSB7CiAgY29uc3QgcGFydHM6IE1lc3NhZ2VQYXJ0W10gPSBbXTsKICBjb25zdCByZSA9IC9cW0FDVElPTjpccyooLio/KVxdXHMqXG4/KFtcc1xTXSo/KVxbXC9BQ1RJT05cXS9nOwogIGxldCBsYXN0ID0gMDsKICBsZXQgbTogUmVnRXhwRXhlY0FycmF5IHwgbnVsbDsKICB3aGlsZSAoKG0gPSByZS5leGVjKHRleHQpKSAhPT0gbnVsbCkgewogICAgaWYgKG0uaW5kZXggPiBsYXN0KSBwYXJ0cy5wdXNoKHsgdHlwZTogJ3RleHQnLCBjb250ZW50OiB0ZXh0LnNsaWNlKGxhc3QsIG0uaW5kZXgpLnRyaW0oKSB9KTsKICAgIGNvbnN0IHBhcmFtczogUmVjb3JkPHN0cmluZywgc3RyaW5nPiA9IHt9OwogICAgbVsxXS5zcGxpdCgnLCcpLmZvckVhY2gocCA9PiB7IGNvbnN0IFtrLCB2XSA9IHAuc3BsaXQoJz0nKS5tYXAocyA9PiBzLnRyaW0oKSk7IGlmIChrICYmIHYpIHBhcmFtc1trXSA9IHY7IH0pOwogICAgcGFydHMucHVzaCh7CiAgICAgIHR5cGU6ICdhY3Rpb24nLAogICAgICBjb250ZW50OiBtWzJdLnRyaW0oKSwKICAgICAgYWN0aW9uOiB7IGVuZHBvaW50OiBwYXJhbXMuZW5kcG9pbnQgfHwgJy9zZWxmLXRlc3QnLCBicmFuY2g6IHBhcmFtcy5icmFuY2gsIHdvcmtlcjogcGFyYW1zLndvcmtlciwgcmlzazogcGFyYW1zLnJpc2sgfHwgJ3NhZmUnLCBkZXNjcmlwdGlvbjogbVsyXS50cmltKCkgfSwKICAgIH0pOwogICAgbGFzdCA9IHJlLmxhc3RJbmRleDsKICB9CiAgaWYgKGxhc3QgPCB0ZXh0Lmxlbmd0aCkgcGFydHMucHVzaCh7IHR5cGU6ICd0ZXh0JywgY29udGVudDogdGV4dC5zbGljZShsYXN0KS50cmltKCkgfSk7CiAgcmV0dXJuIHBhcnRzLmZpbHRlcihwID0+IHAuY29udGVudCk7Cn0KCmNvbnN0IFJJU0tfQ09MT1JTOiBSZWNvcmQ8c3RyaW5nLCB7IGJnOiBzdHJpbmc7IGJvcmRlcjogc3RyaW5nOyB0ZXh0OiBzdHJpbmcgfT4gPSB7CiAgc2FmZTogeyBiZzogJ3JnYmEoMzQsMTk3LDk0LDAuMDgpJywgYm9yZGVyOiAnIzIyYzU1ZTQwJywgdGV4dDogJyM0YWRlODAnIH0sCiAgc3RhZ2luZzogeyBiZzogJ3JnYmEoMjM0LDE3OSw4LDAuMDgpJywgYm9yZGVyOiAnI2VhYjMwODQwJywgdGV4dDogJyNmYmJmMjQnIH0sCiAgZGVzdHJ1Y3RpdmU6IHsgYmc6ICdyZ2JhKDIzOSw2OCw2OCwwLjA4KScsIGJvcmRlcjogJyNlZjQ0NDQ0MCcsIHRleHQ6ICcjZjg3MTcxJyB9LAp9OwoKaW50ZXJmYWNlIENoYXRNc2cgewogIHJvbGU6ICd1c2VyJyB8ICdtYXlhJzsKICB0ZXh0OiBzdHJpbmc7CiAgbW9kZWw/OiBzdHJpbmc7Cn0KCmZ1bmN0aW9uIGdldEluaXRpYWxUb2tlbigpIHsKICBjb25zdCBwID0gbmV3IFVSTFNlYXJjaFBhcmFtcyh3aW5kb3cubG9jYXRpb24uc2VhcmNoKTsKICByZXR1cm4gcC5nZXQoJ29wdXNfdG9rZW4nKSB8fCBwLmdldCgndG9rZW4nKSB8fCBwLmdldCgnYnVpbGRlclRva2VuJykgfHwgJyc7Cn0KCmZ1bmN0aW9uIGZvcm1hdFRpbWUoZDogc3RyaW5nIHwgbnVsbCB8IHVuZGVmaW5lZCkgewogIGlmICghZCkgcmV0dXJuICfigJQnOwogIHJldHVybiBuZXcgRGF0ZShkKS50b0xvY2FsZVRpbWVTdHJpbmcoJ2RlLURFJywgeyBob3VyOiAnMi1kaWdpdCcsIG1pbnV0ZTogJzItZGlnaXQnIH0pOwp9CgovLyDilIDilIDilIAgQXV0aCBHYXRlIOKUgOKUgOKUgApmdW5jdGlvbiBBdXRoR2F0ZSh7IG9uQXV0aCB9OiB7IG9uQXV0aDogKHQ6IHN0cmluZykgPT4gdm9pZCB9KSB7CiAgY29uc3QgW3ZhbCwgc2V0VmFsXSA9IHVzZVN0YXRlKCcnKTsKICBjb25zdCBbZXJyLCBzZXRFcnJdID0gdXNlU3RhdGUoJycpOwogIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKGZhbHNlKTsKCiAgY29uc3Qgc3VibWl0ID0gYXN5bmMgKCkgPT4gewogICAgaWYgKCF2YWwudHJpbSgpKSByZXR1cm47CiAgICBzZXRMb2FkaW5nKHRydWUpOwogICAgc2V0RXJyKCcnKTsKICAgIHRyeSB7CiAgICAgIGNvbnN0IHIgPSBhd2FpdCBmZXRjaChgL2FwaS9idWlsZGVyL21heWEvY29udGV4dD90b2tlbj0ke2VuY29kZVVSSUNvbXBvbmVudCh2YWwpfWApOwogICAgICBpZiAoIXIub2spIHRocm93IG5ldyBFcnJvcignVW5nw7xsdGlnZXIgVG9rZW4nKTsKICAgICAgb25BdXRoKHZhbCk7CiAgICB9IGNhdGNoIChlKSB7CiAgICAgIHNldEVycihTdHJpbmcoZSBpbnN0YW5jZW9mIEVycm9yID8gZS5tZXNzYWdlIDogZSkpOwogICAgfQogICAgc2V0TG9hZGluZyhmYWxzZSk7CiAgfTsKCiAgcmV0dXJuICgKICAgIDxkaXYgc3R5bGU9e3sgbWluSGVpZ2h0OiAnMTAwdmgnLCBiYWNrZ3JvdW5kOiBUT0tFTlMuYmcsIGRpc3BsYXk6ICdmbGV4JywgYWxpZ25JdGVtczogJ2NlbnRlcicsIGp1c3RpZnlDb250ZW50OiAnY2VudGVyJyB9fT4KICAgICAgPGRpdiBzdHlsZT17eyB3aWR0aDogJ21pbig0NDBweCwgOTAlKScsIGJhY2tncm91bmQ6IFRPS0VOUy5jYXJkLCBib3JkZXI6IGAxLjVweCBzb2xpZCAke1RPS0VOUy5iMn1gLCBib3JkZXJSYWRpdXM6IDIwLCBwYWRkaW5nOiAyOCB9fT4KICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAyMiwgZm9udFdlaWdodDogNjAwLCBjb2xvcjogVE9LRU5TLnRleHQsIGZvbnRGYW1pbHk6ICdzeXN0ZW0tdWknIH19Pk1heWEgQ29tbWFuZCBDZW50ZXI8L2Rpdj4KICAgICAgICA8cCBzdHlsZT17eyBmb250U2l6ZTogMTMsIGNvbG9yOiBUT0tFTlMudGV4dDIsIG1hcmdpblRvcDogOCwgbGluZUhlaWdodDogMS42IH19PkJ1aWxkZXItVG9rZW4gZWluZ2ViZW4gdW0gTWF5YSB6dSBzdGFydGVuLjwvcD4KICAgICAgICB7ZXJyICYmIDxkaXYgc3R5bGU9e3sgbWFyZ2luVG9wOiAxMiwgcGFkZGluZzogMTAsIGJvcmRlclJhZGl1czogMTAsIGJhY2tncm91bmQ6ICdyZ2JhKDIzOSw2OCw2OCwwLjEyKScsIGNvbG9yOiAnI2ZjYTVhNScsIGZvbnRTaXplOiAxMyB9fT57ZXJyfTwvZGl2Pn0KICAgICAgICA8ZGl2IHN0eWxlPXt7IG1hcmdpblRvcDogMTYsIGRpc3BsYXk6ICdmbGV4JywgZ2FwOiA4IH19PgogICAgICAgICAgPGlucHV0IHZhbHVlPXt2YWx9IG9uQ2hhbmdlPXtlID0+IHNldFZhbChlLnRhcmdldC52YWx1ZSl9IG9uS2V5RG93bj17ZSA9PiBlLmtleSA9PT0gJ0VudGVyJyAmJiBzdWJtaXQoKX0KICAgICAgICAgICAgcGxhY2Vob2xkZXI9Im9wdXNfdG9rZW4iIGF1dG9Gb2N1cwogICAgICAgICAgICBzdHlsZT17eyBmbGV4OiAxLCBiYWNrZ3JvdW5kOiBUT0tFTlMuYmcyLCBib3JkZXI6IGAxcHggc29saWQgJHtUT0tFTlMuYjF9YCwgYm9yZGVyUmFkaXVzOiAxMiwgcGFkZGluZzogJzEycHggMTRweCcsIGNvbG9yOiBUT0tFTlMudGV4dCwgZm9udFNpemU6IDE0LCBvdXRsaW5lOiAnbm9uZScsIGZvbnRGYW1pbHk6ICdpbmhlcml0JyB9fSAvPgogICAgICAgICAgPGJ1dHRvbiBvbkNsaWNrPXtzdWJtaXR9IGRpc2FibGVkPXtsb2FkaW5nfQogICAgICAgICAgICBzdHlsZT17eyBib3JkZXJSYWRpdXM6IDEyLCBib3JkZXI6IGAxLjVweCBzb2xpZCAke01BWUF9YCwgYmFja2dyb3VuZDogTUFZQV9ESU0sIGNvbG9yOiBUT0tFTlMudGV4dCwgcGFkZGluZzogJzEycHggMjBweCcsIGZvbnRTaXplOiAxMywgZm9udFdlaWdodDogNjAwLCBjdXJzb3I6ICdwb2ludGVyJyB9fT4KICAgICAgICAgICAge2xvYWRpbmcgPyAnLi4uJyA6ICdWZXJiaW5kZW4nfQogICAgICAgICAgPC9idXR0b24+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CiAgKTsKfQoKLy8g4pSA4pSA4pSAIENvbnRleHQgUGFuZWwgKHJpZ2h0IDM1JSkg4pSA4pSA4pSACmZ1bmN0aW9uIENvbnRleHRQYW5lbCh7IGN0eCwgbG9hZGluZyB9OiB7IGN0eDogTWF5YUNvbnRleHQgfCBudWxsOyBsb2FkaW5nOiBib29sZWFuIH0pIHsKICBpZiAoIWN0eCAmJiBsb2FkaW5nKSByZXR1cm4gPGRpdiBzdHlsZT17eyBwYWRkaW5nOiAyMCwgY29sb3I6IFRPS0VOUy50ZXh0MiwgZm9udFNpemU6IDEzIH19PkxhZGUgS29udGV4dC4uLjwvZGl2PjsKICBpZiAoIWN0eCkgcmV0dXJuIG51bGw7CgogIHJldHVybiAoCiAgICA8ZGl2IHN0eWxlPXt7IGRpc3BsYXk6ICdmbGV4JywgZmxleERpcmVjdGlvbjogJ2NvbHVtbicsIGhlaWdodDogJzEwMCUnLCBvdmVyZmxvd1k6ICdhdXRvJyB9fT4KICAgICAgey8qIFRhc2tzICovfQogICAgICA8ZGl2IHN0eWxlPXt7IHBhZGRpbmc6ICcxNHB4IDE2cHgnLCBib3JkZXJCb3R0b206IGAxcHggc29saWQgJHtUT0tFTlMuYjN9YCB9fT4KICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAxMCwgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScsIGxldHRlclNwYWNpbmc6ICcxcHgnLCBjb2xvcjogVE9LRU5TLnRleHQzLCBmb250V2VpZ2h0OiA2MDAsIG1hcmdpbkJvdHRvbTogMTAgfX0+QWt0aXZlIHRhc2tzPC9kaXY+CiAgICAgICAge2N0eC50YXNrcy5zbGljZSgwLCA2KS5tYXAodCA9PiAoCiAgICAgICAgICA8ZGl2IGtleT17dC5pZH0gc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgZ2FwOiA4LCBwYWRkaW5nOiAnNXB4IDAnLCBmb250U2l6ZTogMTIgfX0+CiAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgd2lkdGg6IDYsIGhlaWdodDogNiwgYm9yZGVyUmFkaXVzOiAnNTAlJywgYmFja2dyb3VuZDogU1RBVFVTX0NPTE9SU1t0LnN0YXR1c10gfHwgVE9LRU5TLnRleHQyLCBmbGV4U2hyaW5rOiAwIH19IC8+CiAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZsZXg6IDEsIGNvbG9yOiBUT0tFTlMudGV4dCB9fT57dC50aXRsZX08L3NwYW4+CiAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZvbnRTaXplOiAxMCwgY29sb3I6IFRPS0VOUy50ZXh0MywgZm9udEZhbWlseTogJ21vbm9zcGFjZScgfX0+e3Quc3RhdHVzfTwvc3Bhbj4KICAgICAgICAgIDwvZGl2PgogICAgICAgICkpfQogICAgICAgIHtjdHgudGFza3MubGVuZ3RoID09PSAwICYmIDxkaXYgc3R5bGU9e3sgZm9udFNpemU6IDEyLCBjb2xvcjogVE9LRU5TLnRleHQzIH19PktlaW5lIFRhc2tzLjwvZGl2Pn0KICAgICAgPC9kaXY+CgogICAgICB7LyogV29ya2VyIFN0YXRzICovfQogICAgICA8ZGl2IHN0eWxlPXt7IHBhZGRpbmc6ICcxNHB4IDE2cHgnLCBib3JkZXJCb3R0b206IGAxcHggc29saWQgJHtUT0tFTlMuYjN9YCB9fT4KICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAxMCwgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScsIGxldHRlclNwYWNpbmc6ICcxcHgnLCBjb2xvcjogVE9LRU5TLnRleHQzLCBmb250V2VpZ2h0OiA2MDAsIG1hcmdpbkJvdHRvbTogMTAgfX0+V29ya2VyIHBlcmZvcm1hbmNlPC9kaXY+CiAgICAgICAge2N0eC53b3JrZXJTdGF0cy5zbGljZSgwLCA1KS5tYXAoKHcsIGkpID0+IHsKICAgICAgICAgIGNvbnN0IHBjdCA9IE1hdGgubWluKDEwMCwgTnVtYmVyKHcuYXZnX3F1YWxpdHkpIHx8IDApOwogICAgICAgICAgY29uc3QgY29sb3IgPSBwY3QgPj0gODAgPyBUT0tFTlMuZ3JlZW4gOiBwY3QgPj0gNjAgPyBUT0tFTlMuZ29sZCA6ICcjZWY0NDQ0JzsKICAgICAgICAgIHJldHVybiAoCiAgICAgICAgICAgIDxkaXYga2V5PXtpfSBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGFsaWduSXRlbXM6ICdjZW50ZXInLCBnYXA6IDgsIHBhZGRpbmc6ICc0cHggMCcsIGZvbnRTaXplOiAxMSB9fT4KICAgICAgICAgICAgICA8c3BhbiBzdHlsZT17eyBtaW5XaWR0aDogODAsIGZvbnRGYW1pbHk6ICdtb25vc3BhY2UnLCBjb2xvcjogVE9LRU5TLnRleHQgfX0+e1N0cmluZyh3Lndvcmtlcikuc3BsaXQoJy8nKS5wb3AoKT8uc3BsaXQoJy0nKS5zbGljZSgwLCAyKS5qb2luKCctJykgfHwgdy53b3JrZXJ9PC9zcGFuPgogICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZmxleDogMSwgaGVpZ2h0OiA1LCBiYWNrZ3JvdW5kOiBUT0tFTlMuYmcyLCBib3JkZXJSYWRpdXM6IDMsIG92ZXJmbG93OiAnaGlkZGVuJyB9fT4KICAgICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgd2lkdGg6IGAke3BjdH0lYCwgaGVpZ2h0OiAnMTAwJScsIGJhY2tncm91bmQ6IGNvbG9yLCBib3JkZXJSYWRpdXM6IDMgfX0gLz4KICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICA8c3BhbiBzdHlsZT17eyBtaW5XaWR0aDogMjgsIHRleHRBbGlnbjogJ3JpZ2h0JywgZm9udEZhbWlseTogJ21vbm9zcGFjZScsIGZvbnRTaXplOiAxMCwgY29sb3I6IFRPS0VOUy50ZXh0MyB9fT57cGN0fSU8L3NwYW4+CiAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgKTsKICAgICAgICB9KX0KICAgICAgICB7Y3R4LndvcmtlclN0YXRzLmxlbmd0aCA9PT0gMCAmJiA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAxMiwgY29sb3I6IFRPS0VOUy50ZXh0MyB9fT5LZWluZSBXb3JrZXItRGF0ZW4uPC9kaXY+fQogICAgICA8L2Rpdj4KCiAgICAgIHsvKiBNZW1vcnkgRXBpc29kZXMgKi99CiAgICAgIDxkaXYgc3R5bGU9e3sgcGFkZGluZzogJzE0cHggMTZweCcsIGJvcmRlckJvdHRvbTogYDFweCBzb2xpZCAke1RPS0VOUy5iM31gIH19PgogICAgICAgIDxkaXYgc3R5bGU9e3sgZm9udFNpemU6IDEwLCB0ZXh0VHJhbnNmb3JtOiAndXBwZXJjYXNlJywgbGV0dGVyU3BhY2luZzogJzFweCcsIGNvbG9yOiBUT0tFTlMudGV4dDMsIGZvbnRXZWlnaHQ6IDYwMCwgbWFyZ2luQm90dG9tOiAxMCB9fT5NZW1vcnk8L2Rpdj4KICAgICAgICB7Y3R4Lm1lbW9yeS5lcGlzb2Rlcy5zbGljZSgwLCA0KS5tYXAoKGUsIGkpID0+ICgKICAgICAgICAgIDxkaXYga2V5PXtpfSBzdHlsZT17eyBwYWRkaW5nOiAnNHB4IDAnLCBmb250U2l6ZTogMTEsIGNvbG9yOiBUT0tFTlMudGV4dDIsIGxpbmVIZWlnaHQ6IDEuNSB9fT4KICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgY29sb3I6IFRPS0VOUy50ZXh0MywgZm9udEZhbWlseTogJ21vbm9zcGFjZScsIGZvbnRTaXplOiAxMCB9fT57Zm9ybWF0VGltZShlLnVwZGF0ZWRBdCl9PC9zcGFuPnsnICd9CiAgICAgICAgICAgIHtlLnN1bW1hcnkuc2xpY2UoMCwgODApfXtlLnN1bW1hcnkubGVuZ3RoID4gODAgPyAnLi4uJyA6ICcnfQogICAgICAgICAgPC9kaXY+CiAgICAgICAgKSl9CiAgICAgIDwvZGl2PgoKICAgICAgey8qIFN5c3RlbSAqL30KICAgICAgPGRpdiBzdHlsZT17eyBwYWRkaW5nOiAnMTRweCAxNnB4JyB9fT4KICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAxMCwgdGV4dFRyYW5zZm9ybTogJ3VwcGVyY2FzZScsIGxldHRlclNwYWNpbmc6ICcxcHgnLCBjb2xvcjogVE9LRU5TLnRleHQzLCBmb250V2VpZ2h0OiA2MDAsIG1hcmdpbkJvdHRvbTogMTAgfX0+U3lzdGVtPC9kaXY+CiAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGdhcDogMTIsIGZvbnRTaXplOiAxMSwgZm9udEZhbWlseTogJ21vbm9zcGFjZScsIGNvbG9yOiBUT0tFTlMudGV4dDIgfX0+CiAgICAgICAgICA8c3Bhbj48c3BhbiBzdHlsZT17eyBkaXNwbGF5OiAnaW5saW5lLWJsb2NrJywgd2lkdGg6IDcsIGhlaWdodDogNywgYm9yZGVyUmFkaXVzOiAnNTAlJywgYmFja2dyb3VuZDogVE9LRU5TLmdyZWVuLCBtYXJnaW5SaWdodDogNCwgYm94U2hhZG93OiBgMCAwIDZweCAke1RPS0VOUy5ncmVlbn02MGAgfX0gLz5SZW5kZXI8L3NwYW4+CiAgICAgICAgICA8c3Bhbj57Y3R4LnRhc2tzLmxlbmd0aH0gVGFza3M8L3NwYW4+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CiAgKTsKfQoKLy8g4pSA4pSA4pSAIE1haW4gRGFzaGJvYXJkIOKUgOKUgOKUgApleHBvcnQgZnVuY3Rpb24gTWF5YURhc2hib2FyZCgpIHsKICBjb25zdCBbLCBuYXZpZ2F0ZV0gPSB1c2VMb2NhdGlvbigpOwogIGNvbnN0IFt0b2tlbiwgc2V0VG9rZW5dID0gdXNlU3RhdGUoKCkgPT4gZ2V0SW5pdGlhbFRva2VuKCkpOwogIGNvbnN0IFthdXRoZW50aWNhdGVkLCBzZXRBdXRoZW50aWNhdGVkXSA9IHVzZVN0YXRlKGZhbHNlKTsKICBjb25zdCBbbWVzc2FnZXMsIHNldE1lc3NhZ2VzXSA9IHVzZVN0YXRlPENoYXRNc2dbXT4oW10pOwogIGNvbnN0IFtpbnB1dCwgc2V0SW5wdXRdID0gdXNlU3RhdGUoJycpOwogIGNvbnN0IFtjaGF0TG9hZGluZywgc2V0Q2hhdExvYWRpbmddID0gdXNlU3RhdGUoZmFsc2UpOwogIGNvbnN0IFtjdHgsIHNldEN0eF0gPSB1c2VTdGF0ZTxNYXlhQ29udGV4dCB8IG51bGw+KG51bGwpOwogIGNvbnN0IFtjdHhMb2FkaW5nLCBzZXRDdHhMb2FkaW5nXSA9IHVzZVN0YXRlKGZhbHNlKTsKICBjb25zdCBjaGF0RW5kUmVmID0gdXNlUmVmPEhUTUxEaXZFbGVtZW50PihudWxsKTsKICBjb25zdCBpbnB1dFJlZiA9IHVzZVJlZjxIVE1MSW5wdXRFbGVtZW50PihudWxsKTsKICBjb25zdCBbYWN0aW9uU3RhdHVzLCBzZXRBY3Rpb25TdGF0dXNdID0gdXNlU3RhdGU8UmVjb3JkPHN0cmluZywgJ2lkbGUnIHwgJ3BlbmRpbmcnIHwgJ2NvbmZpcm0nIHwgJ3N1Y2Nlc3MnIHwgJ2Vycm9yJz4+KHt9KTsKCiAgY29uc3QgcnVuQWN0aW9uID0gYXN5bmMgKGtleTogc3RyaW5nLCBhY3Rpb246IFBhcnNlZEFjdGlvbiwgY29uZmlybWVkPzogYm9vbGVhbikgPT4gewogICAgc2V0QWN0aW9uU3RhdHVzKHAgPT4gKHsgLi4ucCwgW2tleV06IGNvbmZpcm1lZCA/ICdwZW5kaW5nJyA6ICdjb25maXJtJyB9KSk7CiAgICBpZiAoIWNvbmZpcm1lZCkgcmV0dXJuOwogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzID0gYXdhaXQgZXhlY3V0ZUFjdGlvbih7IGVuZHBvaW50OiBhY3Rpb24uZW5kcG9pbnQsIGJyYW5jaDogYWN0aW9uLmJyYW5jaCwgd29ya2VyOiBhY3Rpb24ud29ya2VyIH0sIHRydWUpOwogICAgICBpZiAocmVzLm5lZWRzQ29uZmlybWF0aW9uKSB7IHNldEFjdGlvblN0YXR1cyhwID0+ICh7IC4uLnAsIFtrZXldOiAnY29uZmlybScgfSkpOyByZXR1cm47IH0KICAgICAgc2V0QWN0aW9uU3RhdHVzKHAgPT4gKHsgLi4ucCwgW2tleV06IHJlcy5zdWNjZXNzID8gJ3N1Y2Nlc3MnIDogJ2Vycm9yJyB9KSk7CiAgICAgIHNldE1lc3NhZ2VzKHByZXYgPT4gWy4uLnByZXYsIHsgcm9sZTogJ21heWEnLCB0ZXh0OiByZXMuc3VjY2VzcyA/IGDinIUgJHthY3Rpb24uZW5kcG9pbnR9IGVyZm9sZ3JlaWNoLmAgOiBg4p2MICR7YWN0aW9uLmVuZHBvaW50fSBmZWhsZ2VzY2hsYWdlbjogJHtKU09OLnN0cmluZ2lmeShyZXMucmVzdWx0KX1gIH1dKTsKICAgICAgaWYgKHJlcy5zdWNjZXNzKSBsb2FkQ29udGV4dCgpOwogICAgfSBjYXRjaCAoZSkgewogICAgICBzZXRBY3Rpb25TdGF0dXMocCA9PiAoeyAuLi5wLCBba2V5XTogJ2Vycm9yJyB9KSk7CiAgICAgIHNldE1lc3NhZ2VzKHByZXYgPT4gWy4uLnByZXYsIHsgcm9sZTogJ21heWEnLCB0ZXh0OiBg4p2MIEZlaGxlcjogJHtlIGluc3RhbmNlb2YgRXJyb3IgPyBlLm1lc3NhZ2UgOiBTdHJpbmcoZSl9YCB9XSk7CiAgICB9CiAgfTsKCiAgY29uc3QgeyBnZXRDb250ZXh0LCBjaGF0LCBleGVjdXRlQWN0aW9uIH0gPSB1c2VNYXlhQXBpKHRva2VuIHx8IG51bGwpOwoKICAvLyBBdXRvLWF1dGggaWYgdG9rZW4gaW4gVVJMCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGlmICh0b2tlbikgewogICAgICBmZXRjaChgL2FwaS9idWlsZGVyL21heWEvY29udGV4dD90b2tlbj0ke2VuY29kZVVSSUNvbXBvbmVudCh0b2tlbil9YCkKICAgICAgICAudGhlbihyID0+IHsgaWYgKHIub2spIHNldEF1dGhlbnRpY2F0ZWQodHJ1ZSk7IH0pCiAgICAgICAgLmNhdGNoKCgpID0+IHt9KTsKICAgIH0KICB9LCBbdG9rZW5dKTsKCiAgLy8gTG9hZCBjb250ZXh0IG9uIGF1dGgKICBjb25zdCBsb2FkQ29udGV4dCA9IHVzZUNhbGxiYWNrKGFzeW5jICgpID0+IHsKICAgIHNldEN0eExvYWRpbmcodHJ1ZSk7CiAgICB0cnkgewogICAgICBjb25zdCBkYXRhID0gYXdhaXQgZ2V0Q29udGV4dCgpOwogICAgICBzZXRDdHgoZGF0YSk7CiAgICAgIGNvbnN0IGZpcnN0Q29udGludWl0eU5vdGUgPSBkYXRhLmNvbnRpbnVpdHlOb3Rlc1swXTsKCiAgICAgIC8vIEF1dG8tZ3JlZXRpbmcgd2l0aCBjb250aW51aXR5IG5vdGUKICAgICAgaWYgKG1lc3NhZ2VzLmxlbmd0aCA9PT0gMCAmJiBmaXJzdENvbnRpbnVpdHlOb3RlKSB7CiAgICAgICAgY29uc3Qgbm90ZSA9IGZpcnN0Q29udGludWl0eU5vdGUuc3VtbWFyeTsKICAgICAgICBzZXRNZXNzYWdlcyhbewogICAgICAgICAgcm9sZTogJ21heWEnLAogICAgICAgICAgdGV4dDogYEJ1aWxkZXIgU3R1ZGlvIGJlcmVpdC4gTGV0enRlIFNlc3Npb246ICR7bm90ZS5zbGljZSgwLCAxNTApfSR7bm90ZS5sZW5ndGggPiAxNTAgPyAnLi4uJyA6ICcnfVxuXG4ke2RhdGEudGFza3MubGVuZ3RofSBha3RpdmUgVGFza3MsICR7ZGF0YS53b3JrZXJTdGF0cy5sZW5ndGh9IFdvcmtlciBpbSBQb29sLiBXYXMgc3RlaHQgYW4/YCwKICAgICAgICB9XSk7CiAgICAgIH0gZWxzZSBpZiAobWVzc2FnZXMubGVuZ3RoID09PSAwKSB7CiAgICAgICAgc2V0TWVzc2FnZXMoW3sgcm9sZTogJ21heWEnLCB0ZXh0OiBgQnVpbGRlciBTdHVkaW8gYmVyZWl0LiAke2RhdGEudGFza3MubGVuZ3RofSBUYXNrcyBnZWxhZGVuLiBXYXMgbcO2Y2h0ZXN0IGR1IGJhdWVuP2AgfV0pOwogICAgICB9CiAgICB9IGNhdGNoIChlKSB7CiAgICAgIGNvbnNvbGUuZXJyb3IoJ0NvbnRleHQgbG9hZCBmYWlsZWQ6JywgZSk7CiAgICB9CiAgICBzZXRDdHhMb2FkaW5nKGZhbHNlKTsKICB9LCBbZ2V0Q29udGV4dCwgbWVzc2FnZXMubGVuZ3RoXSk7CgogIHVzZUVmZmVjdCgoKSA9PiB7CiAgICBpZiAoYXV0aGVudGljYXRlZCkgbG9hZENvbnRleHQoKTsKICB9LCBbYXV0aGVudGljYXRlZF0pOyAvLyBlc2xpbnQtZGlzYWJsZS1saW5lIHJlYWN0LWhvb2tzL2V4aGF1c3RpdmUtZGVwcwoKICB1c2VFZmZlY3QoKCkgPT4geyBjaGF0RW5kUmVmLmN1cnJlbnQ/LnNjcm9sbEludG9WaWV3KHsgYmVoYXZpb3I6ICdzbW9vdGgnIH0pOyB9LCBbbWVzc2FnZXMsIGNoYXRMb2FkaW5nXSk7CgogIGNvbnN0IHNlbmRNZXNzYWdlID0gYXN5bmMgKCkgPT4gewogICAgY29uc3QgdGV4dCA9IGlucHV0LnRyaW0oKTsKICAgIGlmICghdGV4dCB8fCBjaGF0TG9hZGluZykgcmV0dXJuOwogICAgc2V0SW5wdXQoJycpOwogICAgc2V0TWVzc2FnZXMocHJldiA9PiBbLi4ucHJldiwgeyByb2xlOiAndXNlcicsIHRleHQgfV0pOwogICAgc2V0Q2hhdExvYWRpbmcodHJ1ZSk7CgogICAgdHJ5IHsKICAgICAgY29uc3QgaGlzdG9yeTogTWF5YUNoYXRNZXNzYWdlW10gPSBtZXNzYWdlcy5zbGljZSgtMTYpLm1hcChtID0+ICh7CiAgICAgICAgcm9sZTogbS5yb2xlID09PSAndXNlcicgPyAndXNlcicgOiAnYXNzaXN0YW50JywKICAgICAgICBjb250ZW50OiBtLnRleHQsCiAgICAgIH0pKTsKCiAgICAgIGNvbnN0IHJlc3VsdCA9IGF3YWl0IGNoYXQodGV4dCwgaGlzdG9yeSk7CiAgICAgIHNldE1lc3NhZ2VzKHByZXYgPT4gWy4uLnByZXYsIHsgcm9sZTogJ21heWEnLCB0ZXh0OiByZXN1bHQucmVzcG9uc2UsIG1vZGVsOiByZXN1bHQubW9kZWwgfV0pOwoKICAgICAgLy8gUmVmcmVzaCBjb250ZXh0IGFmdGVyIGNlcnRhaW4gbWVzc2FnZXMKICAgICAgaWYgKC9idWlsZHxwdXNofGRlcGxveXx0YXNrfHN0YXR1cy9pLnRlc3QodGV4dCkpIGxvYWRDb250ZXh0KCk7CiAgICB9IGNhdGNoIChlKSB7CiAgICAgIHNldE1lc3NhZ2VzKHByZXYgPT4gWy4uLnByZXYsIHsgcm9sZTogJ21heWEnLCB0ZXh0OiBgRmVobGVyOiAke2UgaW5zdGFuY2VvZiBFcnJvciA/IGUubWVzc2FnZSA6IFN0cmluZyhlKX1gIH1dKTsKICAgIH0KICAgIHNldENoYXRMb2FkaW5nKGZhbHNlKTsKICAgIGlucHV0UmVmLmN1cnJlbnQ/LmZvY3VzKCk7CiAgfTsKCiAgaWYgKCFhdXRoZW50aWNhdGVkKSB7CiAgICByZXR1cm4gPEF1dGhHYXRlIG9uQXV0aD17dCA9PiB7IHNldFRva2VuKHQpOyBzZXRBdXRoZW50aWNhdGVkKHRydWUpOyB9fSAvPjsKICB9CgogIGNvbnN0IGNvbnRpbnVpdHlUZXh0ID0gY3R4Py5jb250aW51aXR5Tm90ZXM/LlswXT8uc3VtbWFyeSB8fCBudWxsOwoKICByZXR1cm4gKAogICAgPGRpdiBzdHlsZT17eyBtaW5IZWlnaHQ6ICcxMDB2aCcsIGJhY2tncm91bmQ6IFRPS0VOUy5iZywgY29sb3I6IFRPS0VOUy50ZXh0LCBmb250RmFtaWx5OiAnc3lzdGVtLXVpLCBzYW5zLXNlcmlmJywgZGlzcGxheTogJ2ZsZXgnLCBmbGV4RGlyZWN0aW9uOiAnY29sdW1uJyB9fT4KICAgICAgey8qIFRvcCBiYXIgKi99CiAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBqdXN0aWZ5Q29udGVudDogJ3NwYWNlLWJldHdlZW4nLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgcGFkZGluZzogJzEwcHggMjBweCcsIGJvcmRlckJvdHRvbTogYDFweCBzb2xpZCAke1RPS0VOUy5iM31gLCBiYWNrZ3JvdW5kOiBUT0tFTlMuY2FyZCB9fT4KICAgICAgICA8ZGl2IHN0eWxlPXt7IGRpc3BsYXk6ICdmbGV4JywgYWxpZ25JdGVtczogJ2NlbnRlcicsIGdhcDogMTAgfX0+CiAgICAgICAgICA8c3BhbiBzdHlsZT17eyBmb250U2l6ZTogMTUsIGZvbnRXZWlnaHQ6IDYwMCwgY29sb3I6IFRPS0VOUy50ZXh0IH19PkJ1aWxkZXIgU3R1ZGlvPC9zcGFuPgogICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6IDEyLCBjb2xvcjogTUFZQSwgZm9udFdlaWdodDogNDAwIH19Pm1heWEgY29tbWFuZCBjZW50ZXI8L3NwYW4+CiAgICAgICAgPC9kaXY+CiAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGFsaWduSXRlbXM6ICdjZW50ZXInLCBnYXA6IDE0LCBmb250U2l6ZTogMTEsIGZvbnRGYW1pbHk6ICdtb25vc3BhY2UnLCBjb2xvcjogVE9LRU5TLnRleHQzIH19PgogICAgICAgICAgPHNwYW4gc3R5bGU9e3sgY3Vyc29yOiAncG9pbnRlcicgfX0gb25DbGljaz17bG9hZENvbnRleHR9PuKGuyBSZWZyZXNoPC9zcGFuPgogICAgICAgICAgPHNwYW4gc3R5bGU9e3sgY3Vyc29yOiAncG9pbnRlcicgfX0gb25DbGljaz17KCkgPT4gbmF2aWdhdGUoJy9idWlsZGVyJyl9Pk9sZCBVSTwvc3Bhbj4KICAgICAgICA8L2Rpdj4KICAgICAgPC9kaXY+CgogICAgICB7LyogQ29udGludWl0eSBOb3RlICovfQogICAgICB7Y29udGludWl0eVRleHQgJiYgKAogICAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywgZ2FwOiA4LCBwYWRkaW5nOiAnOHB4IDIwcHgnLCBiYWNrZ3JvdW5kOiBUT0tFTlMuYmcyLCBib3JkZXJCb3R0b206IGAxcHggc29saWQgJHtUT0tFTlMuYjN9YCwgZm9udFNpemU6IDEyIH19PgogICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6IDEwLCBmb250V2VpZ2h0OiA2MDAsIHRleHRUcmFuc2Zvcm06ICd1cHBlcmNhc2UnLCBsZXR0ZXJTcGFjaW5nOiAnMC44cHgnLCBjb2xvcjogVE9LRU5TLmdvbGQsIHdoaXRlU3BhY2U6ICdub3dyYXAnIH19PkxldHp0ZSBzZXNzaW9uPC9zcGFuPgogICAgICAgICAgPHNwYW4gc3R5bGU9e3sgY29sb3I6IFRPS0VOUy50ZXh0MiB9fT57Y29udGludWl0eVRleHQuc2xpY2UoMCwgMjAwKX17Y29udGludWl0eVRleHQubGVuZ3RoID4gMjAwID8gJy4uLicgOiAnJ308L3NwYW4+CiAgICAgICAgPC9kaXY+CiAgICAgICl9CgogICAgICB7LyogTWFpbiAyLWNvbHVtbiAqL30KICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGZsZXg6IDEsIG1pbkhlaWdodDogMCB9fT4KICAgICAgICB7LyogQ2hhdCA2NSUgKi99CiAgICAgICAgPGRpdiBzdHlsZT17eyBmbGV4OiAnMCAwIDY1JScsIGRpc3BsYXk6ICdmbGV4JywgZmxleERpcmVjdGlvbjogJ2NvbHVtbicsIGJvcmRlclJpZ2h0OiBgMXB4IHNvbGlkICR7VE9LRU5TLmIzfWAgfX0+CiAgICAgICAgICB7LyogTWVzc2FnZXMgKi99CiAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZsZXg6IDEsIG92ZXJmbG93WTogJ2F1dG8nLCBwYWRkaW5nOiAnMTZweCAyMHB4JywgZGlzcGxheTogJ2ZsZXgnLCBmbGV4RGlyZWN0aW9uOiAnY29sdW1uJywgZ2FwOiAxNiB9fT4KICAgICAgICAgICAge21lc3NhZ2VzLm1hcCgobSwgaSkgPT4gKAogICAgICAgICAgICAgIDxkaXYga2V5PXtpfSBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGdhcDogMTAgfX0+CiAgICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7CiAgICAgICAgICAgICAgICAgIHdpZHRoOiAyOCwgaGVpZ2h0OiAyOCwgYm9yZGVyUmFkaXVzOiAnNTAlJywgZGlzcGxheTogJ2ZsZXgnLCBhbGlnbkl0ZW1zOiAnY2VudGVyJywganVzdGlmeUNvbnRlbnQ6ICdjZW50ZXInLAogICAgICAgICAgICAgICAgICBmb250U2l6ZTogMTIsIGZvbnRXZWlnaHQ6IDYwMCwgZmxleFNocmluazogMCwgbWFyZ2luVG9wOiAyLAogICAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kOiBtLnJvbGUgPT09ICdtYXlhJyA/IE1BWUFfRElNIDogJ3JnYmEoMzQsMjExLDIzOCwwLjA4KScsCiAgICAgICAgICAgICAgICAgIGNvbG9yOiBtLnJvbGUgPT09ICdtYXlhJyA/IE1BWUEgOiBUT0tFTlMuY3lhbiwKICAgICAgICAgICAgICAgICAgYm9yZGVyOiBgMXB4IHNvbGlkICR7bS5yb2xlID09PSAnbWF5YScgPyBNQVlBICsgJzQwJyA6IFRPS0VOUy5jeWFuICsgJzMwJ31gLAogICAgICAgICAgICAgICAgfX0+e20ucm9sZSA9PT0gJ21heWEnID8gJ00nIDogJ0cnfTwvZGl2PgogICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBtYXhXaWR0aDogNTYwIH19PgogICAgICAgICAgICAgICAgICA8ZGl2IHN0eWxlPXt7IGZvbnRTaXplOiAxMSwgZm9udFdlaWdodDogNjAwLCBjb2xvcjogbS5yb2xlID09PSAnbWF5YScgPyBNQVlBIDogVE9LRU5TLmN5YW4sIG1hcmdpbkJvdHRvbTogMyB9fT4KICAgICAgICAgICAgICAgICAgICB7bS5yb2xlID09PSAnbWF5YScgPyAnTWF5YScgOiAnR8O8cmNhbid9CiAgICAgICAgICAgICAgICAgICAge20ubW9kZWwgJiYgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6IDksIGNvbG9yOiBUT0tFTlMudGV4dDMsIG1hcmdpbkxlZnQ6IDYsIGZvbnRXZWlnaHQ6IDQwMCB9fT57bS5tb2RlbH08L3NwYW4+fQogICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogMTMsIGxpbmVIZWlnaHQ6IDEuNjUsIGNvbG9yOiBUT0tFTlMudGV4dCwgd2hpdGVTcGFjZTogJ3ByZS13cmFwJyB9fT4KICAgICAgICAgICAgICAgICAgICB7bS5yb2xlID09PSAnbWF5YScgPyBwYXJzZUFjdGlvbkJsb2NrcyhtLnRleHQpLm1hcCgocGFydCwgcGkpID0+IHsKICAgICAgICAgICAgICAgICAgICAgIGlmIChwYXJ0LnR5cGUgPT09ICd0ZXh0JykgcmV0dXJuIDxzcGFuIGtleT17cGl9PntwYXJ0LmNvbnRlbnR9PC9zcGFuPjsKICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IGEgPSBwYXJ0LmFjdGlvbiE7CiAgICAgICAgICAgICAgICAgICAgICBjb25zdCByYyA9IFJJU0tfQ09MT1JTW2Eucmlza10gfHwgUklTS19DT0xPUlMuc2FmZTsKICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IGtleSA9IGAke2l9LSR7cGl9YDsKICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IHN0ID0gYWN0aW9uU3RhdHVzW2tleV0gfHwgJ2lkbGUnOwogICAgICAgICAgICAgICAgICAgICAgcmV0dXJuICgKICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBrZXk9e3BpfSBzdHlsZT17eyBtYXJnaW46ICcxMHB4IDAnLCBwYWRkaW5nOiAnMTJweCAxNHB4JywgYm9yZGVyUmFkaXVzOiAxMiwgYmFja2dyb3VuZDogcmMuYmcsIGJvcmRlcjogYDEuNXB4IHNvbGlkICR7cmMuYm9yZGVyfWAgfX0+CiAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGFsaWduSXRlbXM6ICdjZW50ZXInLCBnYXA6IDgsIG1hcmdpbkJvdHRvbTogNiB9fT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIHN0eWxlPXt7IGZvbnRTaXplOiAxMCwgZm9udFdlaWdodDogNzAwLCB0ZXh0VHJhbnNmb3JtOiAndXBwZXJjYXNlJywgbGV0dGVyU3BhY2luZzogJzAuOHB4JywgY29sb3I6IHJjLnRleHQgfX0+e2Eucmlza308L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8Y29kZSBzdHlsZT17eyBmb250U2l6ZTogMTEsIGNvbG9yOiBUT0tFTlMudGV4dCwgYmFja2dyb3VuZDogJ3JnYmEoMjU1LDI1NSwyNTUsMC4wNiknLCBwYWRkaW5nOiAnMnB4IDZweCcsIGJvcmRlclJhZGl1czogNCB9fT57YS5lbmRwb2ludH17YS5icmFuY2ggPyBgIOKGkiAke2EuYnJhbmNofWAgOiAnJ308L2NvZGU+CiAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogMTIsIGNvbG9yOiBUT0tFTlMudGV4dDIsIG1hcmdpbkJvdHRvbTogOCB9fT57YS5kZXNjcmlwdGlvbn08L2Rpdj4KICAgICAgICAgICAgICAgICAgICAgICAgICB7c3QgPT09ICdpZGxlJyAmJiA8YnV0dG9uIG9uQ2xpY2s9eygpID0+IHJ1bkFjdGlvbihrZXksIGEpfSBzdHlsZT17eyBmb250U2l6ZTogMTEsIGZvbnRXZWlnaHQ6IDYwMCwgcGFkZGluZzogJzZweCAxNHB4JywgYm9yZGVyUmFkaXVzOiA4LCBib3JkZXI6IGAxcHggc29saWQgJHtyYy5ib3JkZXJ9YCwgYmFja2dyb3VuZDogJ3RyYW5zcGFyZW50JywgY29sb3I6IHJjLnRleHQsIGN1cnNvcjogJ3BvaW50ZXInIH19PkF1c2bDvGhyZW48L2J1dHRvbj59CiAgICAgICAgICAgICAgICAgICAgICAgICAge3N0ID09PSAnY29uZmlybScgJiYgKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBkaXNwbGF5OiAnZmxleCcsIGdhcDogOCB9fT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6IDExLCBjb2xvcjogcmMudGV4dCwgYWxpZ25TZWxmOiAnY2VudGVyJyB9fT5CaXN0IGR1IHNpY2hlcj88L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gb25DbGljaz17KCkgPT4gcnVuQWN0aW9uKGtleSwgYSwgdHJ1ZSl9IHN0eWxlPXt7IGZvbnRTaXplOiAxMSwgZm9udFdlaWdodDogNjAwLCBwYWRkaW5nOiAnNnB4IDE0cHgnLCBib3JkZXJSYWRpdXM6IDgsIGJvcmRlcjogJ25vbmUnLCBiYWNrZ3JvdW5kOiByYy50ZXh0LCBjb2xvcjogJyMwMDAnLCBjdXJzb3I6ICdwb2ludGVyJyB9fT5CZXN0w6R0aWdlbjwvYnV0dG9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8YnV0dG9uIG9uQ2xpY2s9eygpID0+IHNldEFjdGlvblN0YXR1cyhwID0+ICh7IC4uLnAsIFtrZXldOiAnaWRsZScgfSkpfSBzdHlsZT17eyBmb250U2l6ZTogMTEsIHBhZGRpbmc6ICc2cHggMTRweCcsIGJvcmRlclJhZGl1czogOCwgYm9yZGVyOiBgMXB4IHNvbGlkICR7VE9LRU5TLmIyfWAsIGJhY2tncm91bmQ6ICd0cmFuc3BhcmVudCcsIGNvbG9yOiBUT0tFTlMudGV4dDMsIGN1cnNvcjogJ3BvaW50ZXInIH19PkFiYnJlY2hlbjwvYnV0dG9uPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgICAgKX0KICAgICAgICAgICAgICAgICAgICAgICAgICB7c3QgPT09ICdwZW5kaW5nJyAmJiA8c3BhbiBzdHlsZT17eyBmb250U2l6ZTogMTEsIGNvbG9yOiBUT0tFTlMudGV4dDMgfX0+4o+zIEzDpHVmdC4uLjwvc3Bhbj59CiAgICAgICAgICAgICAgICAgICAgICAgICAge3N0ID09PSAnc3VjY2VzcycgJiYgPHNwYW4gc3R5bGU9e3sgZm9udFNpemU6IDExLCBjb2xvcjogVE9LRU5TLmdyZWVuIH19PuKchSBFcmxlZGlndDwvc3Bhbj59CiAgICAgICAgICAgICAgICAgICAgICAgICAge3N0ID09PSAnZXJyb3InICYmIDxzcGFuIHN0eWxlPXt7IGZvbnRTaXplOiAxMSwgY29sb3I6ICcjZWY0NDQ0JyB9fT7inYwgRmVobGdlc2NobGFnZW48L3NwYW4+fQogICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICAgICk7CiAgICAgICAgICAgICAgICAgICAgfSkgOiBtLnRleHR9CiAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICkpfQogICAgICAgICAgICB7Y2hhdExvYWRpbmcgJiYgKAogICAgICAgICAgICAgIDxkaXYgc3R5bGU9e3sgZGlzcGxheTogJ2ZsZXgnLCBnYXA6IDEwIH19PgogICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyB3aWR0aDogMjgsIGhlaWdodDogMjgsIGJvcmRlclJhZGl1czogJzUwJScsIGJhY2tncm91bmQ6IE1BWUFfRElNLCBkaXNwbGF5OiAnZmxleCcsIGFsaWduSXRlbXM6ICdjZW50ZXInLCBqdXN0aWZ5Q29udGVudDogJ2NlbnRlcicsIGZvbnRTaXplOiAxMiwgZm9udFdlaWdodDogNjAwLCBjb2xvcjogTUFZQSwgYm9yZGVyOiBgMXB4IHNvbGlkICR7TUFZQX00MGAgfX0+TTwvZGl2PgogICAgICAgICAgICAgICAgPGRpdiBzdHlsZT17eyBmb250U2l6ZTogMTMsIGNvbG9yOiBUT0tFTlMudGV4dDMsIHBhZGRpbmdUb3A6IDYgfX0+TWF5YSBkZW5rdC4uLjwvZGl2PgogICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICApfQogICAgICAgICAgICA8ZGl2IHJlZj17Y2hhdEVuZFJlZn0gLz4KICAgICAgICAgIDwvZGl2PgoKICAgICAgICAgIHsvKiBJbnB1dCAqL30KICAgICAgICAgIDxkaXYgc3R5bGU9e3sgcGFkZGluZzogJzEycHggMjBweCcsIGJvcmRlclRvcDogYDFweCBzb2xpZCAke1RPS0VOUy5iM31gLCBkaXNwbGF5OiAnZmxleCcsIGdhcDogMTAsIGJhY2tncm91bmQ6IFRPS0VOUy5jYXJkIH19PgogICAgICAgICAgICA8aW5wdXQgcmVmPXtpbnB1dFJlZn0gdmFsdWU9e2lucHV0fSBvbkNoYW5nZT17ZSA9PiBzZXRJbnB1dChlLnRhcmdldC52YWx1ZSl9CiAgICAgICAgICAgICAgb25LZXlEb3duPXtlID0+IGUua2V5ID09PSAnRW50ZXInICYmICFlLnNoaWZ0S2V5ICYmIHNlbmRNZXNzYWdlKCl9CiAgICAgICAgICAgICAgcGxhY2Vob2xkZXI9Ik1heWEgZnJhZ2VuLCBUYXNrcyBlcnN0ZWxsZW4sIEJ1aWxkcyBzdGFydGVuLi4uIgogICAgICAgICAgICAgIHN0eWxlPXt7IGZsZXg6IDEsIGJhY2tncm91bmQ6IFRPS0VOUy5iZywgYm9yZGVyOiBgMXB4IHNvbGlkICR7VE9LRU5TLmIyfWAsIGJvcmRlclJhZGl1czogMTAsIHBhZGRpbmc6ICcxMXB4IDE0cHgnLCBjb2xvcjogVE9LRU5TLnRleHQsIGZvbnRTaXplOiAxMywgb3V0bGluZTogJ25vbmUnLCBmb250RmFtaWx5OiAnaW5oZXJpdCcgfX0gLz4KICAgICAgICAgICAgPGJ1dHRvbiBvbkNsaWNrPXtzZW5kTWVzc2FnZX0gZGlzYWJsZWQ9e2NoYXRMb2FkaW5nIHx8ICFpbnB1dC50cmltKCl9CiAgICAgICAgICAgICAgc3R5bGU9e3sgYmFja2dyb3VuZDogTUFZQSwgY29sb3I6ICcjZmZmJywgYm9yZGVyOiAnbm9uZScsIGJvcmRlclJhZGl1czogMTAsIHBhZGRpbmc6ICcxMXB4IDIwcHgnLCBmb250U2l6ZTogMTIsIGZvbnRXZWlnaHQ6IDYwMCwgY3Vyc29yOiAncG9pbnRlcicsIG9wYWNpdHk6IGNoYXRMb2FkaW5nID8gMC41IDogMSB9fT4KICAgICAgICAgICAgICBTZW5kZW4KICAgICAgICAgICAgPC9idXR0b24+CiAgICAgICAgICA8L2Rpdj4KICAgICAgICA8L2Rpdj4KCiAgICAgICAgey8qIENvbnRleHQgMzUlICovfQogICAgICAgIDxkaXYgc3R5bGU9e3sgZmxleDogJzAgMCAzNSUnLCBiYWNrZ3JvdW5kOiBUT0tFTlMuY2FyZCB9fT4KICAgICAgICAgIDxDb250ZXh0UGFuZWwgY3R4PXtjdHh9IGxvYWRpbmc9e2N0eExvYWRpbmd9IC8+CiAgICAgICAgPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CiAgKTsKfQo=
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'wouter';
+import { TOKENS } from '../../../design/tokens';
+import { useMayaApi, type MayaContext, type MayaChatMessage } from '../hooks/useMayaApi';
+
+const MAYA = '#7c6af7';
+const MAYA_DIM = 'rgba(124,106,247,0.12)';
+
+const STATUS_COLORS: Record<string, string> = {
+  queued: TOKENS.text2, planning: TOKENS.purple, prototyping: TOKENS.purple,
+  prototype_review: TOKENS.gold, reviewing: TOKENS.gold, testing: TOKENS.green,
+  push_candidate: TOKENS.green, done: TOKENS.green, blocked: '#ef4444',
+  reverted: TOKENS.text3, discarded: TOKENS.rose, success: TOKENS.green,
+  failed: '#ef4444', classifying: TOKENS.cyan,
+};
+
+interface ParsedAction {
+  endpoint: string;
+  branch?: string;
+  worker?: string;
+  risk: string;
+  description: string;
+}
+
+interface MessagePart {
+  type: 'text' | 'action';
+  content: string;
+  action?: ParsedAction;
+}
+
+function parseActionBlocks(text: string): MessagePart[] {
+  const parts: MessagePart[] = [];
+  const re = /\[ACTION:\s*(.*?)\]\s*\n?([\s\S]*?)\[\/ACTION\]/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', content: text.slice(last, m.index).trim() });
+    const params: Record<string, string> = {};
+    m[1].split(',').forEach(p => { const [k, v] = p.split('=').map(s => s.trim()); if (k && v) params[k] = v; });
+    parts.push({
+      type: 'action',
+      content: m[2].trim(),
+      action: { endpoint: params.endpoint || '/self-test', branch: params.branch, worker: params.worker, risk: params.risk || 'safe', description: m[2].trim() },
+    });
+    last = re.lastIndex;
+  }
+  if (last < text.length) parts.push({ type: 'text', content: text.slice(last).trim() });
+  return parts.filter(p => p.content);
+}
+
+const RISK_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  safe: { bg: 'rgba(34,197,94,0.08)', border: '#22c55e40', text: '#4ade80' },
+  staging: { bg: 'rgba(234,179,8,0.08)', border: '#eab30840', text: '#fbbf24' },
+  destructive: { bg: 'rgba(239,68,68,0.08)', border: '#ef444440', text: '#f87171' },
+};
+
+interface ChatMsg {
+  role: 'user' | 'maya';
+  text: string;
+  model?: string;
+}
+
+function getInitialToken() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('opus_token') || p.get('token') || p.get('builderToken') || '';
+}
+
+function formatTime(d: string | null | undefined) {
+  if (!d) return '—';
+  return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Auth Gate ───
+function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
+  const [val, setVal] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!val.trim()) return;
+    setLoading(true);
+    setErr('');
+    try {
+      const r = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(val)}`);
+      if (!r.ok) throw new Error('Ungültiger Token');
+      onAuth(val);
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: TOKENS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 'min(440px, 90%)', background: TOKENS.card, border: `1.5px solid ${TOKENS.b2}`, borderRadius: 20, padding: 28 }}>
+        <div style={{ fontSize: 22, fontWeight: 600, color: TOKENS.text, fontFamily: 'system-ui' }}>Maya Command Center</div>
+        <p style={{ fontSize: 13, color: TOKENS.text2, marginTop: 8, lineHeight: 1.6 }}>Builder-Token eingeben um Maya zu starten.</p>
+        {err && <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', fontSize: 13 }}>{err}</div>}
+        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
+            placeholder="opus_token" autoFocus
+            style={{ flex: 1, background: TOKENS.bg2, border: `1px solid ${TOKENS.b1}`, borderRadius: 12, padding: '12px 14px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+          <button onClick={submit} disabled={loading}
+            style={{ borderRadius: 12, border: `1.5px solid ${MAYA}`, background: MAYA_DIM, color: TOKENS.text, padding: '12px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            {loading ? '...' : 'Verbinden'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Context Panel (right 35%) ───
+function ContextPanel({ ctx, loading }: { ctx: MayaContext | null; loading: boolean }) {
+  if (!ctx && loading) return <div style={{ padding: 20, color: TOKENS.text2, fontSize: 13 }}>Lade Kontext...</div>;
+  if (!ctx) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+      {/* Tasks */}
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Aktive tasks</div>
+        {ctx.tasks.slice(0, 6).map(t => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0 }} />
+            <span style={{ flex: 1, color: TOKENS.text }}>{t.title}</span>
+            <span style={{ fontSize: 10, color: TOKENS.text3, fontFamily: 'monospace' }}>{t.status}</span>
+          </div>
+        ))}
+        {ctx.tasks.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Tasks.</div>}
+      </div>
+
+      {/* Worker Stats */}
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Worker performance</div>
+        {ctx.workerStats.slice(0, 5).map((w, i) => {
+          const pct = Math.min(100, Number(w.avg_quality) || 0);
+          const color = pct >= 80 ? TOKENS.green : pct >= 60 ? TOKENS.gold : '#ef4444';
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+              <span style={{ minWidth: 80, fontFamily: 'monospace', color: TOKENS.text }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
+              <div style={{ flex: 1, height: 5, background: TOKENS.bg2, borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3 }} />
+              </div>
+              <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
+            </div>
+          );
+        })}
+        {ctx.workerStats.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Worker-Daten.</div>}
+      </div>
+
+      {/* Memory Episodes */}
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Memory</div>
+        {ctx.memory.episodes.slice(0, 4).map((e, i) => (
+          <div key={i} style={{ padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
+            <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(e.updatedAt)}</span>{' '}
+            {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
+          </div>
+        ))}
+      </div>
+
+      {/* System */}
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>System</div>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2 }}>
+          <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, marginRight: 4, boxShadow: `0 0 6px ${TOKENS.green}60` }} />Render</span>
+          <span>{ctx.tasks.length} Tasks</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ───
+export function MayaDashboard() {
+  const [, navigate] = useLocation();
+  const [token, setToken] = useState(() => getInitialToken());
+  const [authenticated, setAuthenticated] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [ctx, setCtx] = useState<MayaContext | null>(null);
+  const [ctxLoading, setCtxLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'pending' | 'confirm' | 'success' | 'error'>>({});
+
+  const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
+    setActionStatus(p => ({ ...p, [key]: confirmed ? 'pending' : 'confirm' }));
+    if (!confirmed) return;
+    try {
+      const res = await executeAction({ endpoint: action.endpoint, branch: action.branch, worker: action.worker }, true);
+      if (res.needsConfirmation) { setActionStatus(p => ({ ...p, [key]: 'confirm' })); return; }
+      setActionStatus(p => ({ ...p, [key]: res.success ? 'success' : 'error' }));
+      setMessages(prev => [...prev, { role: 'maya', text: res.success ? `✅ ${action.endpoint} erfolgreich.` : `❌ ${action.endpoint} fehlgeschlagen: ${JSON.stringify(res.result)}` }]);
+      if (res.success) loadContext();
+    } catch (e) {
+      setActionStatus(p => ({ ...p, [key]: 'error' }));
+      setMessages(prev => [...prev, { role: 'maya', text: `❌ Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
+    }
+  };
+
+  const { getContext, chat, executeAction } = useMayaApi(token || null);
+
+  // Auto-auth if token in URL
+  useEffect(() => {
+    if (token) {
+      fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`)
+        .then(r => { if (r.ok) setAuthenticated(true); })
+        .catch(() => {});
+    }
+  }, [token]);
+
+  // Load context on auth
+  const loadContext = useCallback(async () => {
+    setCtxLoading(true);
+    try {
+      const data = await getContext();
+      setCtx(data);
+      const firstContinuityNote = data.continuityNotes[0];
+
+      // Auto-greeting with continuity note
+      if (messages.length === 0 && firstContinuityNote) {
+        const note = firstContinuityNote.summary;
+        setMessages([{
+          role: 'maya',
+          text: `Builder Studio bereit. Letzte Session: ${note.slice(0, 150)}${note.length > 150 ? '...' : ''}\n\n${data.tasks.length} aktive Tasks, ${data.workerStats.length} Worker im Pool. Was steht an?`,
+        }]);
+      } else if (messages.length === 0) {
+        setMessages([{ role: 'maya', text: `Builder Studio bereit. ${data.tasks.length} Tasks geladen. Was möchtest du bauen?` }]);
+      }
+    } catch (e) {
+      console.error('Context load failed:', e);
+    }
+    setCtxLoading(false);
+  }, [getContext, messages.length]);
+
+  useEffect(() => {
+    if (authenticated) loadContext();
+  }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, chatLoading]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || chatLoading) return;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text }]);
+    setChatLoading(true);
+
+    try {
+      const history: MayaChatMessage[] = messages.slice(-16).map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
+      const result = await chat(text, history);
+      setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
+
+      // Refresh context after certain messages
+      if (/build|push|deploy|task|status/i.test(text)) loadContext();
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'maya', text: `Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
+    }
+    setChatLoading(false);
+    inputRef.current?.focus();
+  };
+
+  if (!authenticated) {
+    return <AuthGate onAuth={t => { setToken(t); setAuthenticated(true); }} />;
+  }
+
+  const continuityText = ctx?.continuityNotes?.[0]?.summary || null;
+
+  return (
+    <div style={{ minHeight: '100vh', background: TOKENS.bg, color: TOKENS.text, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      {/* Top bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', borderBottom: `1px solid ${TOKENS.b3}`, background: TOKENS.card }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text }}>Builder Studio</span>
+          <span style={{ fontSize: 12, color: MAYA, fontWeight: 400 }}>maya command center</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text3 }}>
+          <span style={{ cursor: 'pointer' }} onClick={loadContext}>↻ Refresh</span>
+          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/builder')}>Old UI</span>
+        </div>
+      </div>
+
+      {/* Continuity Note */}
+      {continuityText && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: TOKENS.bg2, borderBottom: `1px solid ${TOKENS.b3}`, fontSize: 12 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: TOKENS.gold, whiteSpace: 'nowrap' }}>Letzte session</span>
+          <span style={{ color: TOKENS.text2 }}>{continuityText.slice(0, 200)}{continuityText.length > 200 ? '...' : ''}</span>
+        </div>
+      )}
+
+      {/* Main 2-column */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        {/* Chat 65% */}
+        <div style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', borderRight: `1px solid ${TOKENS.b3}` }}>
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 600, flexShrink: 0, marginTop: 2,
+                  background: m.role === 'maya' ? MAYA_DIM : 'rgba(34,211,238,0.08)',
+                  color: m.role === 'maya' ? MAYA : TOKENS.cyan,
+                  border: `1px solid ${m.role === 'maya' ? MAYA + '40' : TOKENS.cyan + '30'}`,
+                }}>{m.role === 'maya' ? 'M' : 'G'}</div>
+                <div style={{ maxWidth: 560 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: m.role === 'maya' ? MAYA : TOKENS.cyan, marginBottom: 3 }}>
+                    {m.role === 'maya' ? 'Maya' : 'Gürcan'}
+                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, marginLeft: 6, fontWeight: 400 }}>{m.model}</span>}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text, whiteSpace: 'pre-wrap' }}>
+                    {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
+                      if (part.type === 'text') return <span key={pi}>{part.content}</span>;
+                      const a = part.action!;
+                      const rc = RISK_COLORS[a.risk] || RISK_COLORS.safe;
+                      const key = `${i}-${pi}`;
+                      const st = actionStatus[key] || 'idle';
+                      return (
+                        <div key={pi} style={{ margin: '10px 0', padding: '12px 14px', borderRadius: 12, background: rc.bg, border: `1.5px solid ${rc.border}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: rc.text }}>{a.risk}</span>
+                            <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>{a.endpoint}{a.branch ? ` → ${a.branch}` : ''}</code>
+                          </div>
+                          <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 8 }}>{a.description}</div>
+                          {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 8, border: `1px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausführen</button>}
+                          {st === 'confirm' && (
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <span style={{ fontSize: 11, color: rc.text, alignSelf: 'center' }}>Bist du sicher?</span>
+                              <button onClick={() => runAction(key, a, true)} style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 8, border: 'none', background: rc.text, color: '#000', cursor: 'pointer' }}>Bestätigen</button>
+                              <button onClick={() => setActionStatus(p => ({ ...p, [key]: 'idle' }))} style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text3, cursor: 'pointer' }}>Abbrechen</button>
+                            </div>
+                          )}
+                          {st === 'pending' && <span style={{ fontSize: 11, color: TOKENS.text3 }}>⏳ Läuft...</span>}
+                          {st === 'success' && <span style={{ fontSize: 11, color: TOKENS.green }}>✅ Erledigt</span>}
+                          {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444' }}>❌ Fehlgeschlagen</span>}
+                        </div>
+                      );
+                    }) : m.text}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: MAYA_DIM, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: MAYA, border: `1px solid ${MAYA}40` }}>M</div>
+                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 6 }}>Maya denkt...</div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${TOKENS.b3}`, display: 'flex', gap: 10, background: TOKENS.card }}>
+            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              placeholder="Maya fragen, Tasks erstellen, Builds starten..."
+              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 10, padding: '11px 14px', color: TOKENS.text, fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+            <button onClick={sendMessage} disabled={chatLoading || !input.trim()}
+              style={{ background: MAYA, color: '#fff', border: 'none', borderRadius: 10, padding: '11px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
+              Senden
+            </button>
+          </div>
+        </div>
+
+        {/* Context 35% */}
+        <div style={{ flex: '0 0 35%', background: TOKENS.card }}>
+          <ContextPanel ctx={ctx} loading={ctxLoading} />
+        </div>
+      </div>
+    </div>
+  );
+}
