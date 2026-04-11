@@ -641,6 +641,7 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
 
       // Recent memory episodes (last 5)
       db.select({
+        id: builderMemory.id,
         key: builderMemory.key,
         summary: builderMemory.summary,
         updatedAt: builderMemory.updatedAt,
@@ -651,6 +652,7 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
 
       // Latest continuity notes (last 3)
       db.select({
+        id: builderMemory.id,
         key: builderMemory.key,
         summary: builderMemory.summary,
         updatedAt: builderMemory.updatedAt,
@@ -845,24 +847,30 @@ router.post('/maya/action', async (req: Request, res: Response) => {
 // POST /api/builder/maya/memory — create a memory entry
 router.post('/maya/memory', async (req: Request, res: Response) => {
   try {
-    const { layer, key, summary } = req.body;
+    const { layer, key, summary } = req.body as { layer?: string; key?: string; summary?: string };
+    if (!layer || !key || !summary) { res.status(400).json({ error: 'layer, key, summary required' }); return; }
     const db = getDb();
     const [result] = await db.insert(builderMemory).values({ layer, key, summary }).returning();
     res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: 'Memory create failed: ' + String(err) });
   }
 });
 
-// PUT /api/builder/maya/memory/:id — update memory summary
+// PUT /api/builder/maya/memory/:id — update a memory entry
 router.put('/maya/memory/:id', async (req: Request, res: Response) => {
   try {
-    const { summary } = req.body;
+    const { summary } = req.body as { summary?: string };
+    if (!summary) { res.status(400).json({ error: 'summary required' }); return; }
     const db = getDb();
-    const [result] = await db.update(builderMemory).set({ summary, updatedAt: new Date() }).where(eq(builderMemory.id, req.params.id)).returning();
+    const [result] = await db.update(builderMemory)
+      .set({ summary, updatedAt: new Date() })
+      .where(eq(builderMemory.id, req.params.id))
+      .returning();
+    if (!result) { res.status(404).json({ error: 'Not found' }); return; }
     res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: 'Memory update failed: ' + String(err) });
   }
 });
 
@@ -870,10 +878,10 @@ router.put('/maya/memory/:id', async (req: Request, res: Response) => {
 router.delete('/maya/memory/:id', async (req: Request, res: Response) => {
   try {
     const db = getDb();
-    const [result] = await db.delete(builderMemory).where(eq(builderMemory.id, req.params.id)).returning();
-    res.json({ success: true, data: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    await db.delete(builderMemory).where(eq(builderMemory.id, req.params.id));
+    res.json({ success: true, deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Memory delete failed: ' + String(err) });
   }
 });
 
