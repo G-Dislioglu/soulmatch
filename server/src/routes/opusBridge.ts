@@ -578,9 +578,10 @@ opusBridgeRouter.get('/health', (req: Request, res: Response) => {
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
-    const { files, message } = req.body as {
+    const { files, message, branch } = req.body as {
       files?: Array<{ file: string; content?: string; search?: string; replace?: string }>;
       message?: string;
+      branch?: string;
     };
 
     if (!files || !Array.isArray(files) || files.length === 0) {
@@ -618,7 +619,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       })
       .returning();
 
-    const result = await triggerGithubActionChunked(task.id, patches);
+    const result = await triggerGithubActionChunked(task.id, patches, branch);
 
     if (!result.triggered) {
       await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id));

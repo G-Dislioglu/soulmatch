@@ -26,6 +26,7 @@ export interface ExecutionResult {
 export async function triggerGithubAction(
   taskId: string,
   patches: PatchPayload[],
+  branch?: string,
 ): Promise<{ triggered: boolean; error?: string }> {
   const pat = process.env.GITHUB_PAT;
   if (!pat) {
@@ -52,6 +53,7 @@ export async function triggerGithubAction(
             task_id: taskId,
             patches,
             callback_url: callbackUrl,
+            branch: branch || 'main',
           },
         }),
       },
@@ -112,11 +114,12 @@ export function convertBdlPatchesToPayload(
 export async function triggerGithubActionChunked(
   taskId: string,
   patches: PatchPayload[],
+  branch?: string,
 ): Promise<{ triggered: boolean; chunks: number; error?: string }> {
   const payloadSize = JSON.stringify(patches).length;
 
   if (payloadSize < 50000) {
-    const result = await triggerGithubAction(taskId, patches);
+    const result = await triggerGithubAction(taskId, patches, branch);
     return { triggered: result.triggered, chunks: 1, error: result.error };
   }
 
@@ -144,7 +147,7 @@ export async function triggerGithubActionChunked(
   if (currentChunk.length > 0) chunks.push(currentChunk);
 
   for (let i = 0; i < chunks.length; i++) {
-    const result = await triggerGithubAction(taskId, chunks[i]);
+    const result = await triggerGithubAction(taskId, chunks[i], branch);
     if (!result.triggered) {
       return { triggered: false, chunks: i + 1, error: `Chunk ${i + 1}/${chunks.length}: ${result.error}` };
     }
