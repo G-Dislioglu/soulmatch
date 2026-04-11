@@ -131,6 +131,7 @@ jobs:
           BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
           TSC_OK: ${{ steps.check.outputs.tsc_ok }}
           BUILD_OK: ${{ steps.check.outputs.build_ok }}
+          TARGET_BRANCH: ${{ github.event.client_payload.branch || 'main' }}
         run: |
           git config user.name "Builder Studio"
           git config user.email "builder@soulmatch.app"
@@ -143,16 +144,16 @@ jobs:
           if [ "$TSC_OK" = "true" ] && [ "$BUILD_OK" = "true" ]; then
             git commit -m "feat(builder): task $TASK_ID — auto-applied patches"
             for i in 1 2 3; do
-              if git push origin main; then
+              if git push origin HEAD:$TARGET_BRANCH; then
                 HASH=$(git rev-parse HEAD)
-                echo "Pushed to main: $HASH (attempt $i)"
+                echo "Pushed to $TARGET_BRANCH: $HASH (attempt $i)"
                 curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
                   -H "Content-Type: application/json" \
-                  -d "{\"commit_hash\": \"$HASH\", \"committed\": true, \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\"}"
+                  -d "{\"commit_hash\": \"$HASH\", \"committed\": true, \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\", \"branch\": \"$TARGET_BRANCH\"}"
                 exit 0
               fi
               echo "Push conflict (attempt $i), rebasing..."
-              git pull --rebase origin main
+              git pull --rebase origin $TARGET_BRANCH
             done
             echo "Push failed after 3 attempts"
             curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
