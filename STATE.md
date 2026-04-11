@@ -11,9 +11,9 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `225093f`
+- `current_repo_head`: `1e77d28`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-06`
+- `last_verified_against_code`: `2026-04-12`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
@@ -217,6 +217,10 @@ Runtime-Wahrheit fuer Soulmatch.
 - `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx` ist die aktive
   Builder-Oberflaeche fuer Task-Liste, Dialogansicht, Evidence Packs und
   eingebettete Prototype-Previews.
+- `client/src/modules/M16_builder/ui/MayaDashboard.tsx` und
+  `client/src/modules/M16_builder/hooks/useMayaApi.ts` sind jetzt repo-sichtbar
+  vorhanden; `client/src/app/App.tsx` verdrahtet die Builder-Maya-Flaeche ueber
+  die Route `/maya`.
 - Der Server nutzt Express im ESM-Modus; API-Routen werden in
   `server/src/index.ts` gemountet.
 - `server/src/index.ts` mountet aktuell u. a. `/api/health`, `/api/meta`,

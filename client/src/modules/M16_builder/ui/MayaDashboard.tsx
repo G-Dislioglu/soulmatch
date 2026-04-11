@@ -162,10 +162,11 @@ export function MayaDashboard() {
     try {
       const data = await getContext();
       setCtx(data);
+      const firstContinuityNote = data.continuityNotes[0];
 
       // Auto-greeting with continuity note
-      if (messages.length === 0 && data.continuityNotes.length > 0) {
-        const note = data.continuityNotes[0].summary;
+      if (messages.length === 0 && firstContinuityNote) {
+        const note = firstContinuityNote.summary;
         setMessages([{
           role: 'maya',
           text: `Builder Studio bereit. Letzte Session: ${note.slice(0, 150)}${note.length > 150 ? '...' : ''}\n\n${data.tasks.length} aktive Tasks, ${data.workerStats.length} Worker im Pool. Was steht an?`,

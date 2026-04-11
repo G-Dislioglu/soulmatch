@@ -128,11 +128,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-05`
+- `last_checked`: `2026-04-12`
 - `quality`: `live_in_code_deploy_schema_pending`
-- `known_gap`: Builder blockt jetzt bekannte Blacklist-Dateien schon im Chat und erklaert geblockte Laeufe genauer, aber die persistente Ebene braucht auf Render noch den manuellen Schema-Push fuer `builder_memory`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
+- `known_gap`: Builder blockt jetzt bekannte Blacklist-Dateien schon im Chat und erklaert geblockte Laeufe genauer; zusaetzlich ist eine separate Maya-Dashboard-Flaeche ueber `/maya` sichtbar verdrahtet. Die persistente Ebene braucht auf Render aber weiter den manuellen Schema-Push fuer `builder_memory`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
 - `next_recommended_step`: Nach dem manuellen Render-`drizzle-kit push` einen echten Builder-Chat- oder Task-Lauf gegen die Zielruntime fahren und pruefen, ob Episode-, Semantic- und Worker-Profileintraege wirklich geschrieben werden.
-- `evidence`: `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`.
+- `evidence`: `client/src/app/App.tsx`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`.
 
 ### Opus-Bridge orchestration
 
