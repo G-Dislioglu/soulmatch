@@ -351,8 +351,9 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
       'gpt-5.4': 'gpt-5.4',
       gemini: 'gemini-3-flash-preview',
       deepseek: 'deepseek-chat',
-      glm: 'glm-5-turbo',
-      'glm-flash': 'glm-4.7-flash',
+      glm: 'glm-5.1',
+      'glm-turbo': 'glm-5-turbo',
+      'glm-flash': 'glm-4.7-flashx',
       minimax: 'minimax/minimax-m2.7',
       kimi: 'moonshotai/kimi-k2.5',
       qwen: 'qwen/qwen3.6-plus',
@@ -1004,15 +1005,24 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
       .map(f => '=== ' + f.file + ' (' + f.lines + ' lines) ===\n' + f.content)
       .join('\n\n');
 
-    const response = await callProvider('zhipu', 'glm-4.7-flash', {
-      system: 'Du bist ein Repo-Analyst fuer das Soulmatch-Projekt. Beantworte die Frage basierend NUR auf den gezeigten Dateien. Antworte auf Deutsch, kompakt, mit Dateinamen und Zeilennummern wo relevant. Keine Spekulationen ueber nicht gezeigte Dateien.',
+    const response = await callProvider('zhipu', 'glm-5-turbo', {
+      system: 'Du bist ein Repo-Analyst fuer das Soulmatch-Projekt. Beantworte die Frage basierend NUR auf den gezeigten Dateien. Antworte auf Deutsch, kompakt, mit Dateinamen und Zeilennummern wo relevant. Keine Spekulationen ueber nicht gezeigte Dateien. Antworte als reiner Text, NICHT als JSON-Objekt.',
       messages: [{ role: 'user', content: 'Frage: ' + query + '\n\nRepo-Dateien:\n' + contextBlock }],
       temperature: 0.2,
       maxTokens: 1000,
     });
 
+    // Unwrap double-JSON from GLM (e.g. {"answer":"..."} wrapping)
+    let cleanAnswer = response;
+    if (typeof cleanAnswer === 'string') {
+      try {
+        const parsed = JSON.parse(cleanAnswer);
+        if (parsed && typeof parsed.answer === 'string') cleanAnswer = parsed.answer;
+      } catch { /* not JSON, use as-is */ }
+    }
+
     res.json({
-      answer: response,
+      answer: cleanAnswer,
       sources: topFiles,
       filesRead: fileContents.length,
       keywords,

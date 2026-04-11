@@ -55,7 +55,7 @@ export async function writeFile(
 export async function findPattern(rootDir: string, pattern: string, fileGlob?: string) {
   const safePattern = pattern.replace(/"/g, '\\"');
   const includePart = fileGlob ? ` --include=\"${fileGlob.replace(/"/g, '\\"')}\"` : '';
-  const command = `grep -rn${includePart} -E \"${safePattern}\" . 2>/dev/null || true`;
+  const command = `grep -rn --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git${includePart} -E \"${safePattern}\" . 2>/dev/null || true`;
   let output = '';
 
   try {
