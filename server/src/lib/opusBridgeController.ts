@@ -7,7 +7,7 @@ import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.
 import { generateErrorCard } from './opusErrorLearning.js';
 import { findRelevantErrorCards, updateGraphAfterTask } from './opusGraphIntegration.js';
 import { getChatPoolForTask } from './opusChatPool.js';
-import { buildBuilderMemoryContext } from './builderMemory.js';
+import { buildBuilderMemoryContext, syncBuilderMemoryForTask } from './builderMemory.js';
 import {
   determineCrushIntensity,
   runAmbientCrush,
@@ -500,6 +500,11 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   });
 
   recordTaskUsage(totalTokens);
+
+  // Sync builder memory (episodes, semantic aggregations, worker profiles)
+  await syncBuilderMemoryForTask(task.id).catch((err) =>
+    console.error('[executeTask] syncBuilderMemoryForTask error:', err),
+  );
 
   if (status === 'consensus') {
     await updateGraphAfterTask({

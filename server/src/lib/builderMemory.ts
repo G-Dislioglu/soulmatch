@@ -343,7 +343,7 @@ export async function syncBuilderMemoryForTask(taskId: string) {
     return;
   }
 
-  if (!['done', 'blocked', 'review_needed', 'needs_human_review', 'reverted', 'discarded'].includes(task.status)) {
+  if (!['done', 'applying', 'consensus', 'blocked', 'review_needed', 'needs_human_review', 'reverted', 'discarded'].includes(task.status)) {
     return;
   }
 
@@ -380,7 +380,7 @@ export async function syncBuilderMemoryForTask(taskId: string) {
     risk: task.risk,
     taskType: task.taskType,
     durationMs,
-    success: task.status === 'done',
+    success: ['done', 'applying', 'consensus'].includes(task.status),
     leadWorker,
     workerContributions,
     errorType: extractErrorType(task.status, actions),
