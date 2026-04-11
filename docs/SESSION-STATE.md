@@ -9,7 +9,7 @@
 - **Judge:** GPT-5.4 (ersetzt Gemini seit S10)
 - **Worker-Swarm:** DeepSeek, MiniMax, GLM, Qwen, Kimi
 - **Promotion:** `triggered ≠ committed` — Action committed nur bei grünem Build, meldet Failure explizit
-- **Repo-Index:** 90 Server-Dateien (nicht 424 — Client-Dateien sind nicht indexiert)
+- **Repo-Index:** 115 Server-Dateien (nicht 424 — Client-Dateien sind nicht indexiert)
 
 ## Aktive Entscheidungen
 
