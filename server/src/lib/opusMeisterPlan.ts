@@ -36,7 +36,7 @@ export interface BuildPlan {
 const PLANNER = { provider: 'anthropic', model: 'claude-opus-4-6' };
 const CRITIC  = { provider: 'openai',    model: 'gpt-5.4' };
 
-const AVAILABLE_WORKERS = ['deepseek', 'glm', 'minimax', 'qwen', 'kimi'];
+const AVAILABLE_WORKERS = ['glm', 'minimax', 'qwen', 'kimi'];
 
 // ─── Prompts ───
 
@@ -56,7 +56,7 @@ SCOUT REPORT:
 - Warnings: ${scout.warnings.join('\n  ')}
 
 AVAILABLE WORKERS: ${AVAILABLE_WORKERS.join(', ')}
-Worker strengths: deepseek=business logic, glm=API/routing, minimax=frontend, qwen=complex functions, kimi=utilities
+Worker strengths: glm=API/routing+business logic, minimax=frontend, qwen=complex functions, kimi=utilities
 
 CRITICAL RULES:
 1. Each sub-task MUST be independent — no worker waits for another
@@ -75,7 +75,7 @@ Respond ONLY with JSON:
       "id": "task-1",
       "file": "server/src/...",
       "instruction": "Detailed instruction for the worker. Include patterns to follow.",
-      "worker": "deepseek",
+      "worker": "glm",
       "patterns": ["pattern references from scout"],
       "interfaces": {"provides": ["functionName"], "consumes": ["otherFunction"]}
     }

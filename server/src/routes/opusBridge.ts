@@ -714,7 +714,7 @@ opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
   scopeMethod: 'deterministic-index',
   changeContract: 'json-overwrite',
   judge: 'gpt-5.4',
-  workers: ['deepseek', 'minimax', 'glm', 'qwen', 'kimi'],
+  workers: ['glm', 'minimax', 'qwen', 'kimi'],  // deepseek removed from code workers (unreliable patches)
   denkerTriade: {
     vordenker: 'opusVordenker.ts',
     meisterPlan: 'opusMeisterPlan.ts',
@@ -1004,7 +1004,7 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
       .map(f => '=== ' + f.file + ' (' + f.lines + ' lines) ===\n' + f.content)
       .join('\n\n');
 
-    const response = await callProvider('deepseek', 'deepseek-chat', {
+    const response = await callProvider('zhipu', 'glm-4.7-flash', {
       system: 'Du bist ein Repo-Analyst fuer das Soulmatch-Projekt. Beantworte die Frage basierend NUR auf den gezeigten Dateien. Antworte auf Deutsch, kompakt, mit Dateinamen und Zeilennummern wo relevant. Keine Spekulationen ueber nicht gezeigte Dateien.',
       messages: [{ role: 'user', content: 'Frage: ' + query + '\n\nRepo-Dateien:\n' + contextBlock }],
       temperature: 0.2,
