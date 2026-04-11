@@ -220,6 +220,10 @@ export async function callProvider(
             ...(provider === 'openrouter' && model.startsWith('qwen/')
               ? { reasoning: { enabled: false } }
               : {}),
+            // Disable thinking mode for Zhipu GLM models to prevent reasoning leak into output.
+            ...(provider === 'zhipu'
+              ? { thinking: { type: 'disabled' } }
+              : {}),
           },
     ),
   }, provider);
