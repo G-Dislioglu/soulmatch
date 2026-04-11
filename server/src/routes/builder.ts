@@ -842,4 +842,39 @@ router.post('/maya/action', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/builder/maya/memory — create a memory entry
+router.post('/maya/memory', async (req: Request, res: Response) => {
+  try {
+    const { layer, key, summary } = req.body;
+    const db = getDb();
+    const [result] = await db.insert(builderMemory).values({ layer, key, summary }).returning();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/builder/maya/memory/:id — update memory summary
+router.put('/maya/memory/:id', async (req: Request, res: Response) => {
+  try {
+    const { summary } = req.body;
+    const db = getDb();
+    const [result] = await db.update(builderMemory).set({ summary, updatedAt: new Date() }).where(eq(builderMemory.id, req.params.id)).returning();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/builder/maya/memory/:id — delete a memory entry
+router.delete('/maya/memory/:id', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [result] = await db.delete(builderMemory).where(eq(builderMemory.id, req.params.id)).returning();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export { router as builderRouter };
