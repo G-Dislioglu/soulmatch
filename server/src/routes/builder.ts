@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { and, eq, desc, asc } from 'drizzle-orm';
+import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
   builderActions,
@@ -7,6 +7,7 @@ import {
   builderReviews,
   builderTasks,
   builderTestResults,
+  builderMemory,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from '../lib/builderPolicyProfiles.js';
 import { readFile, listFiles } from '../lib/builderFileIO.js';
@@ -18,6 +19,7 @@ import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
+import { callProvider } from '../lib/providers.js';
 
 const router = Router();
 
@@ -613,6 +615,172 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
   } catch (err) {
     console.error('[builder] POST /tasks/:id/execution-result error:', err);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+
+// ────────────────────────────────────────────────
+// MAYA COMMAND CENTER — Phase 1 Endpoints
+// ────────────────────────────────────────────────
+
+// GET /api/builder/maya/context — aggregated dashboard snapshot
+router.get('/maya/context', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+
+    const [tasks, episodes, continuity, workerStats] = await Promise.all([
+      // Active tasks (last 10, newest first)
+      db.select({
+        id: builderTasks.id,
+        title: builderTasks.title,
+        status: builderTasks.status,
+        risk: builderTasks.risk,
+        taskType: builderTasks.taskType,
+        updatedAt: builderTasks.updatedAt,
+      }).from(builderTasks).orderBy(desc(builderTasks.updatedAt)).limit(10),
+
+      // Recent memory episodes (last 5)
+      db.select({
+        key: builderMemory.key,
+        summary: builderMemory.summary,
+        updatedAt: builderMemory.updatedAt,
+      }).from(builderMemory)
+        .where(eq(builderMemory.layer, 'episodic'))
+        .orderBy(desc(builderMemory.updatedAt))
+        .limit(5),
+
+      // Latest continuity notes (last 3)
+      db.select({
+        key: builderMemory.key,
+        summary: builderMemory.summary,
+        updatedAt: builderMemory.updatedAt,
+      }).from(builderMemory)
+        .where(eq(builderMemory.layer, 'continuity'))
+        .orderBy(desc(builderMemory.updatedAt))
+        .limit(3),
+
+      // Worker stats (raw SQL for aggregation)
+      db.execute(sql`
+        SELECT worker,
+          ROUND(AVG(quality)) as avg_quality,
+          COUNT(*) as task_count
+        FROM builder_worker_scores
+        GROUP BY worker
+        ORDER BY avg_quality DESC
+        LIMIT 8
+      `).catch(() => ({ rows: [] })),
+    ]);
+
+    res.json({
+      tasks,
+      memory: { episodes },
+      continuityNotes: continuity,
+      workerStats: workerStats.rows,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[maya] GET /maya/context error:', err);
+    res.status(500).json({ error: 'Context aggregation failed' });
+  }
+});
+
+// POST /api/builder/maya/chat — Maya command center chat
+router.post('/maya/chat', async (req: Request, res: Response) => {
+  try {
+    const { message, history = [] } = req.body as {
+      message: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    };
+
+    if (!message) {
+      res.status(400).json({ error: 'message required' });
+      return;
+    }
+
+    const db = getDb();
+
+    // Aggregate hot context (max 2 background calls per Council rule)
+    const [tasks, continuity] = await Promise.all([
+      db.select({
+        id: builderTasks.id,
+        title: builderTasks.title,
+        status: builderTasks.status,
+        risk: builderTasks.risk,
+      }).from(builderTasks).orderBy(desc(builderTasks.updatedAt)).limit(8),
+
+      db.select({
+        summary: builderMemory.summary,
+      }).from(builderMemory)
+        .where(eq(builderMemory.layer, 'continuity'))
+        .orderBy(desc(builderMemory.updatedAt))
+        .limit(1),
+    ]);
+
+    const taskSummary = tasks.map(t => `[${t.status}] ${t.title} (risk:${t.risk})`).join('\n');
+    const lastNote = continuity[0]?.summary || 'Keine Continuity Note.';
+
+    const systemPrompt = `Du bist Maya — die zentrale Steuereinheit des Opus-Bridge Builder-Systems im Soulmatch-Projekt. Du sprichst Deutsch.
+
+DEIN LIVE-KONTEXT:
+Continuity (letzte Session): ${lastNote}
+
+Aktive Tasks:
+${taskSummary || 'Keine Tasks.'}
+
+DEINE FÄHIGKEITEN:
+- /build — Code-Änderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
+- /repo-query — Fragen an den Code beantworten
+- /git-push — Dateien direkt auf GitHub pushen (main oder staging Branch)
+- /push — Code deployen (mit branch Parameter für staging)
+- /render/redeploy — Render neu deployen
+- /memory — Dein Gedächtnis abrufen
+- /task-history — Vergangene Tasks einsehen
+- /worker-stats — Worker Performance vergleichen
+- /self-test — System Health prüfen
+
+REGELN:
+- Sei direkt, kritisch, keine Floskeln
+- Erkläre in Alltagssprache mit Metaphern
+- Bewerte Ideen auf 0-100% Skala mit Schwächen zuerst
+- Du bist Partnerin und Architektin, nicht Tool
+- Wenn du eine Aktion vorschlägst, beschreibe sie klar mit Risiko-Level
+
+Wenn du eine Builder-Aktion ausführen willst, antworte mit einem Action-Block:
+[ACTION: endpoint=/build, branch=staging, worker=glm-turbo, risk=safe]
+Beschreibung was passieren wird
+[/ACTION]
+
+Für destruktive Aktionen (push main, deploy, revert):
+[ACTION: endpoint=/push, branch=main, risk=destructive]
+Beschreibung
+[/ACTION]`;
+
+    // Route to Opus for complex reasoning, cheaper model for simple status queries
+    const isSimpleQuery = /^(status|was läuft|health|wie viele|zeig|list)/i.test(message.trim());
+    const provider = isSimpleQuery ? 'zhipu' : 'anthropic';
+    const model = isSimpleQuery ? 'glm-4.7-flashx' : 'claude-opus-4-6';
+
+    const messages = [
+      ...history.slice(-16),
+      { role: 'user' as const, content: message },
+    ];
+
+    const response = await callProvider(provider, model, {
+      system: systemPrompt,
+      messages,
+      maxTokens: 2000,
+      temperature: 0.7,
+    });
+
+    // Save to continuity if Maya suggests important context
+    res.json({
+      response,
+      model: isSimpleQuery ? 'flash' : 'opus',
+      contextUsed: { tasksLoaded: tasks.length, hasContinuity: !!continuity[0] },
+    });
+  } catch (err) {
+    console.error('[maya] POST /maya/chat error:', err);
+    res.status(500).json({ error: 'Maya chat failed: ' + String(err) });
   }
 });
 
