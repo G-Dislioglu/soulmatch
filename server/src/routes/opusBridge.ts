@@ -370,6 +370,7 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
       gemini: 'gemini',
       deepseek: 'deepseek',
       glm: 'zhipu',
+      'glm-turbo': 'zhipu',
       'glm-flash': 'zhipu',
       minimax: 'openrouter',
       kimi: 'openrouter',
