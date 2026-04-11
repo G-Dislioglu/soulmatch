@@ -184,7 +184,7 @@ export function MayaDashboard() {
   const [ctx, setCtx] = useState<MayaContext | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'pending' | 'confirm' | 'success' | 'error'>>({});
 
   const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
@@ -358,13 +358,14 @@ export function MayaDashboard() {
           </div>
 
           {/* Input */}
-          <div style={{ padding: '12px 20px', borderTop: `1px solid ${TOKENS.b3}`, display: 'flex', gap: 10, background: TOKENS.card }}>
-            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+          <div style={{ padding: '14px 20px', borderTop: `1px solid ${TOKENS.b3}`, display: 'flex', gap: 10, alignItems: 'flex-end', background: TOKENS.card }}>
+            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder="Maya fragen, Tasks erstellen, Builds starten..."
-              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 10, padding: '11px 14px', color: TOKENS.text, fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+              rows={2}
+              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 12, padding: '14px 16px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }} />
             <button onClick={sendMessage} disabled={chatLoading || !input.trim()}
-              style={{ background: MAYA, color: '#fff', border: 'none', borderRadius: 10, padding: '11px 20px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
+              style={{ background: MAYA, color: '#fff', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
               Senden
             </button>
           </div>
