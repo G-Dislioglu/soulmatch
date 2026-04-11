@@ -1121,3 +1121,76 @@ opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) =>
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ==================== Direct GitHub Push (no GH Action needed) ====================
+
+// POST /git-push — push files directly via GitHub Contents API
+// Bypasses the GH Action pipeline. Use for config files, workflow changes, cleanup.
+opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
+  try {
+    const { files, message, branch } = req.body as {
+      files?: Array<{ file: string; content?: string; delete?: boolean }>;
+      message?: string;
+      branch?: string;
+    };
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      res.status(400).json({ error: 'files[] with {file, content} or {file, delete:true} required' });
+      return;
+    }
+
+    const pat = process.env.GITHUB_PAT;
+    if (!pat) {
+      res.status(500).json({ error: 'GITHUB_PAT not configured' });
+      return;
+    }
+
+    const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+    const targetBranch = branch || 'main';
+    const commitMessage = message || 'direct push via /git-push';
+    const results: Array<{ file: string; action: string; ok: boolean; error?: string }> = [];
+
+    for (const f of files) {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${f.file}?ref=${targetBranch}`;
+
+      try {
+        // Get current file SHA (needed for update/delete)
+        let sha: string | undefined;
+        const getResp = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
+        });
+        if (getResp.ok) {
+          const getData = await getResp.json() as Record<string, unknown>;
+          sha = getData.sha as string;
+        }
+
+        if (f.delete) {
+          if (!sha) {
+            results.push({ file: f.file, action: 'delete', ok: false, error: 'file not found' });
+            continue;
+          }
+          const delResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
+          });
+          results.push({ file: f.file, action: 'delete', ok: delResp.ok, error: delResp.ok ? undefined : `${delResp.status}` });
+        } else {
+          const contentB64 = Buffer.from(f.content || '').toString('base64');
+          const putResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: commitMessage, content: contentB64, sha, branch: targetBranch }),
+          });
+          results.push({ file: f.file, action: sha ? 'update' : 'create', ok: putResp.ok, error: putResp.ok ? undefined : `${putResp.status}` });
+        }
+      } catch (err) {
+        results.push({ file: f.file, action: 'error', ok: false, error: String(err) });
+      }
+    }
+
+    res.json({ results, branch: targetBranch, message: commitMessage });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
