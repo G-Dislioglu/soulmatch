@@ -18,6 +18,7 @@ import {
   setActiveBuilderTask,
 } from './builderMemory.js';
 import { callProvider } from './providers.js';
+import { assembleBuilderContext } from './builderContextAssembler.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -136,7 +137,7 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - Wenn der User eine gesperrte Datei nennt, antworte mit intent=chat und blocke SOFORT im Chat. Erzeuge dann KEINEN Task.
 - Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
 
-async function buildSystemPrompt() {
+async function buildSystemPrompt(userId?: string) {
   let memoryContext = "";
   try {
     memoryContext = await buildBuilderMemoryContext();
@@ -151,19 +152,13 @@ async function buildSystemPrompt() {
   const parts = [SYSTEM_PROMPT];
   parts.push(`\n\n=== MAYA MEMORY ===\n${memoryContext}`);
   
-  const operationalContext = ""; // Placeholder for OPERATIONAL CONTEXT
-  if (operationalContext) {
-    parts.push(`\n\n=== OPERATIONAL CONTEXT ===\n${operationalContext}`);
-  }
-  
-  const conversationContext = ""; // Placeholder for CONVERSATION CONTEXT
-  if (conversationContext) {
-    parts.push(`\n\n=== CONVERSATION CONTEXT ===\n${conversationContext}`);
-  }
-  
-  const result = { gaps: [] as string[] }; // Placeholder for result object
-  if (result.gaps && result.gaps.length > 0) {
-    parts.push(`\n\n=== CONTEXT GAPS ===\n${result.gaps.map(g => "- " + g).join('\n')}`);
+  try {
+    const assembledContext = await assembleBuilderContext({ userId });
+    if (assembledContext) {
+      parts.push(`\n\n=== BUILDER CONTEXT ===\n${assembledContext}`);
+    }
+  } catch (err: any) {
+    console.warn('[buildSystemPrompt] assembleBuilderContext failed:', err?.message);
   }
   
   return parts.join('');
@@ -425,8 +420,9 @@ function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent
 async function classifyIntent(
   message: string,
   history: ChatMessage[] = [],
+  userId?: string,
 ): Promise<ClassifiedIntent> {
-  const systemPrompt = await buildSystemPrompt();
+  const systemPrompt = await buildSystemPrompt(userId);
   const response = await callProvider('gemini', 'gemini-3-flash-preview', {
     system: systemPrompt,
     messages: [
@@ -551,9 +547,8 @@ export async function handleBuilderChat(
   try {
     rememberBuilderChatHistory(history);
     rememberBuilderUserMessage(message);
-    const classified = await classifyIntent(message, history);
+    const classified = await classifyIntent(message, history, userId);
     const db = getDb();
-    // userId is passed through but not used yet
 
     if (classified.intent === 'task' && classified.title && classified.goal) {
       const blockedTargets = findBlacklistedTargets(`${classified.title}\n${classified.goal}`);
