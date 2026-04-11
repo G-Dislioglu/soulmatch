@@ -148,7 +148,25 @@ async function buildSystemPrompt() {
     return SYSTEM_PROMPT;
   }
 
-  return `${SYSTEM_PROMPT}\n\n=== MAYA MEMORY ===\n${memoryContext}`;
+  const parts = [SYSTEM_PROMPT];
+  parts.push(`\n\n=== MAYA MEMORY ===\n${memoryContext}`);
+  
+  const operationalContext = ""; // Placeholder for OPERATIONAL CONTEXT
+  if (operationalContext) {
+    parts.push(`\n\n=== OPERATIONAL CONTEXT ===\n${operationalContext}`);
+  }
+  
+  const conversationContext = ""; // Placeholder for CONVERSATION CONTEXT
+  if (conversationContext) {
+    parts.push(`\n\n=== CONVERSATION CONTEXT ===\n${conversationContext}`);
+  }
+  
+  const result = { gaps: [] as string[] }; // Placeholder for result object
+  if (result.gaps && result.gaps.length > 0) {
+    parts.push(`\n\n=== CONTEXT GAPS ===\n${result.gaps.map(g => "- " + g).join('\n')}`);
+  }
+  
+  return parts.join('');
 }
 
 function inferTaskTypeFromMessage(message: string): TaskType {
