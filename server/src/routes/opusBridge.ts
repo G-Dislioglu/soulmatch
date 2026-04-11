@@ -1033,3 +1033,90 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// ==================== Phase 3: Continuity Memory + UI ====================
+
+// GET /task-history — recent tasks with status, duration, worker info
+opusBridgeRouter.get('/task-history', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const tasks = await db
+      .select()
+      .from(builderTasks)
+      .orderBy(desc(builderTasks.createdAt))
+      .limit(20);
+    res.json({
+      count: tasks.length,
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        risk: t.risk,
+        taskType: t.taskType,
+        scope: t.scope,
+        commitHash: t.commitHash,
+        tokenCount: t.tokenCount,
+        durationMs: Math.max(0, new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()),
+        createdAt: t.createdAt,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /memory — current builder memory state
+opusBridgeRouter.get('/memory', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [episodes, semantic, profiles, continuity] = await Promise.all([
+      db.select().from(builderMemory).where(eq(builderMemory.layer, 'episode')).orderBy(desc(builderMemory.updatedAt)).limit(10),
+      db.select().from(builderMemory).where(eq(builderMemory.layer, 'semantic')).orderBy(desc(builderMemory.updatedAt)).limit(5),
+      db.select().from(builderMemory).where(eq(builderMemory.layer, 'worker_profile')).orderBy(desc(builderMemory.updatedAt)).limit(10),
+      db.select().from(builderMemory).where(eq(builderMemory.layer, 'continuity')).orderBy(desc(builderMemory.updatedAt)).limit(5),
+    ]);
+    const contextString = await buildBuilderMemoryContext();
+    res.json({
+      episodes: episodes.map((e) => ({ key: e.key, summary: e.summary, worker: e.worker, updatedAt: e.updatedAt })),
+      semantic: semantic.map((s) => ({ key: s.key, summary: s.summary, payload: s.payload })),
+      workerProfiles: profiles.map((p) => ({ key: p.key, summary: p.summary, payload: p.payload })),
+      continuityNotes: continuity.map((c) => ({ key: c.key, summary: c.summary, updatedAt: c.updatedAt })),
+      contextString,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// POST /continuity-note — save a session handoff note
+opusBridgeRouter.post('/continuity-note', async (req: Request, res: Response) => {
+  try {
+    const { note, session } = req.body as { note?: string; session?: string };
+    if (!note) { res.status(400).json({ error: 'note is required' }); return; }
+    const key = `continuity:${session || new Date().toISOString().slice(0, 10)}`;
+    const db = getDb();
+    const existing = await db.select({ id: builderMemory.id }).from(builderMemory).where(eq(builderMemory.key, key));
+    for (const row of existing) { await db.delete(builderMemory).where(eq(builderMemory.id, row.id)); }
+    const [inserted] = await db.insert(builderMemory).values({
+      layer: 'continuity',
+      key,
+      summary: note.slice(0, 2000),
+      payload: { session: session || null, savedAt: new Date().toISOString() },
+      updatedAt: new Date(),
+    }).returning();
+    res.json({ saved: true, key, id: inserted.id });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /continuity-note — read latest continuity notes
+opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const notes = await db.select().from(builderMemory).where(eq(builderMemory.layer, 'continuity')).orderBy(desc(builderMemory.updatedAt)).limit(5);
+    res.json({ notes: notes.map((n) => ({ key: n.key, note: n.summary, updatedAt: n.updatedAt })) });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
