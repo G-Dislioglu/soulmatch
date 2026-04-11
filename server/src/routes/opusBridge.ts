@@ -976,9 +976,10 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
 
     const repoRoot = getRepoRoot();
 
-    const keywords = query.toLowerCase()
+    const keywords = query
+      .replace(/[^a-zA-Z0-9äöüÄÖÜß\s_-]/g, '')
       .split(/\s+/)
-      .filter((w: string) => w.length > 3 && !['wird','werden','nicht','eine','einen','dieser','diese','welche','warum','soll','kann','haben','sein','ueber','auch','noch','schon','dass'].includes(w));
+      .filter((w: string) => w.length > 3 && !['wird','werden','nicht','eine','einen','dieser','diese','welche','warum','soll','kann','haben','sein','ueber','auch','noch','schon','dass'].includes(w.toLowerCase()));
 
     const fileHits: Record<string, number> = {};
     for (const kw of keywords.slice(0, 5)) {
