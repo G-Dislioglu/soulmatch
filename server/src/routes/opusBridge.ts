@@ -707,8 +707,8 @@ opusBridgeRouter.post('/decompose', async (req: Request, res: Response) => {
 });
 
 opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
-  canonicalExecutor: '/opus-feature',
-  pipeline: 'opus-feature-v4',
+  canonicalExecutor: '/opus-task',
+  pipeline: 'opus-task-v2',
   scopeMethod: 'deterministic-index',
   changeContract: 'json-overwrite',
   judge: 'gpt-5.4',
