@@ -36,11 +36,12 @@ function parseActionBlocks(text: string): MessagePart[] {
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push({ type: 'text', content: text.slice(last, m.index).trim() });
     const params: Record<string, string> = {};
-    m[1].split(',').forEach(p => { const [k, v] = p.split('=').map(s => s.trim()); if (k && v) params[k] = v; });
+    (m[1] ?? '').split(',').forEach(p => { const [k, v] = p.split('=').map(s => s.trim()); if (k && v) params[k] = v; });
+    const desc = (m[2] ?? '').trim();
     parts.push({
       type: 'action',
-      content: m[2].trim(),
-      action: { endpoint: params.endpoint || '/self-test', branch: params.branch, worker: params.worker, risk: params.risk || 'safe', description: m[2].trim() },
+      content: desc,
+      action: { endpoint: params.endpoint || '/self-test', branch: params.branch, worker: params.worker, risk: params.risk || 'safe', description: desc },
     });
     last = re.lastIndex;
   }
@@ -319,7 +320,7 @@ export function MayaDashboard() {
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
                       if (part.type === 'text') return <span key={pi}>{part.content}</span>;
                       const a = part.action!;
-                      const rc = RISK_COLORS[a.risk] || RISK_COLORS.safe;
+                      const rc = RISK_COLORS[a.risk] ?? RISK_COLORS.safe;
                       const key = `${i}-${pi}`;
                       const st = actionStatus[key] || 'idle';
                       return (
