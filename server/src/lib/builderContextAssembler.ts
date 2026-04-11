@@ -10,11 +10,25 @@ interface BuilderContextAssemblerOptions {
   phase?: string;
 }
 
+interface StructuredGap {
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  suggestion: string;
+}
+
 interface AssembledContext {
   operational: string;
   conversation: string;
-  gaps: string[];
+  gaps: StructuredGap[];
   conflicts: string[];
+  pipelineIdle: boolean;
+}
+
+function formatGapsForPrompt(gaps: StructuredGap[]): string {
+  if (gaps.length === 0) return '';
+  return gaps
+    .map(g => `- [${g.severity.toUpperCase()}] ${g.message} → Massnahme: ${g.suggestion}`)
+    .join('\n');
 }
 
 export async function assembleBuilderContext(options: BuilderContextAssemblerOptions = {}): Promise<string> {
@@ -24,6 +38,7 @@ export async function assembleBuilderContext(options: BuilderContextAssemblerOpt
     conversation: '',
     gaps: [],
     conflicts: [],
+    pipelineIdle: false,
   };
 
   // === CONVERSATION CONTEXT (M1) ===
@@ -32,10 +47,18 @@ export async function assembleBuilderContext(options: BuilderContextAssemblerOpt
       result.conversation = await getUserMemoryContext(userId);
     } catch (error) {
       console.warn('[assembler] Failed to get user memory context:', error);
-      result.gaps.push('Session-Memory nicht verfuegbar (Fehler beim Laden)');
+      result.gaps.push({
+        message: 'Session-Memory nicht verfuegbar (Fehler beim Laden)',
+        severity: 'warning',
+        suggestion: 'Builder-Chat neu laden oder Session pruefen',
+      });
     }
   } else {
-    result.gaps.push('Kein userId — Conversation-Memory nicht verfuegbar');
+    result.gaps.push({
+      message: 'Kein userId — Conversation-Memory nicht verfuegbar',
+      severity: 'info',
+      suggestion: 'Ohne Login arbeitet der Builder im anonymen Modus',
+    });
   }
 
   // === OPERATIONAL CONTEXT (M3) ===
@@ -80,22 +103,27 @@ export async function assembleBuilderContext(options: BuilderContextAssemblerOpt
       opParts.push(`Aktive Tasks (${activeTasks.length}):\n${lines.join('\n')}`);
     } else {
       opParts.push('Keine aktiven Tasks — Pipeline idle.');
+      result.pipelineIdle = true;
     }
 
     if (blockedTasks.length > 0) {
       const lines = blockedTasks.map(t => `  - ${t.title}`);
       opParts.push(`BLOCKED (${blockedTasks.length}):\n${lines.join('\n')}`);
 
-      // === CONFLICT DETECTION ===
+      // === CONFLICT DETECTION with recovery suggestions ===
       for (const bt of blockedTasks) {
-        result.conflicts.push(`Task "${bt.title}" ist blocked ohne Recovery-Vorschlag`);
+        result.conflicts.push(`Task "${bt.title}" ist blocked — Recovery: retry (erneut starten), revert (zuruecksetzen) oder delete (loeschen)`);
       }
     }
 
     result.operational = opParts.join('\n');
   } catch (error) {
     console.warn('[assembler] Operational context failed:', error);
-    result.gaps.push('Operational Context nicht verfuegbar (DB-Fehler)');
+    result.gaps.push({
+      message: 'Operational Context nicht verfuegbar (DB-Fehler)',
+      severity: 'critical',
+      suggestion: 'DB-Verbindung pruefen, ggf. Server neu starten',
+    });
   }
 
   // === ASSEMBLE OUTPUT ===
@@ -113,12 +141,17 @@ export async function assembleBuilderContext(options: BuilderContextAssemblerOpt
   if (phase) outputParts.push(`[PHASE: ${phase.toUpperCase()}]`);
   if (taskId) outputParts.push(`[TASK: ${taskId}]`);
 
-  if (result.gaps.length > 0) {
-    outputParts.push(`=== GAPS ===\n${result.gaps.map(g => '- ' + g).join('\n')}`);
+  const gapText = formatGapsForPrompt(result.gaps);
+  if (gapText) {
+    outputParts.push(`=== GAPS ===\n${gapText}`);
   }
 
   if (result.conflicts.length > 0) {
     outputParts.push(`=== CONFLICTS ===\n${result.conflicts.map(c => '⚠ ' + c).join('\n')}`);
+  }
+
+  if (result.pipelineIdle && result.gaps.length === 0 && result.conflicts.length === 0) {
+    outputParts.push('=== STATUS: BEREIT === Pipeline idle, keine Gaps, keine Konflikte.');
   }
 
   return outputParts.join('\n\n');

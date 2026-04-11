@@ -135,7 +135,24 @@ CHAT — fuer alles andere (Fragen, Smalltalk, Hilfe):
 - Dateien in der GLOBAL_BLACKLIST koennen nicht geaendert werden (builder eigene Dateien)
 - Namentlich gesperrt sind aktuell: ${CHAT_VISIBLE_BLACKLIST.join(', ')}
 - Wenn der User eine gesperrte Datei nennt, antworte mit intent=chat und blocke SOFORT im Chat. Erzeuge dann KEINEN Task.
-- Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)`;
+- Die Engine kann neue Dateien erstellen und bestehende aendern (ausser Blacklist)
+
+=== CONTEXT AWARENESS (Gaps & Conflicts) ===
+Du erhaeltst im Kontext GAPS, CONFLICTS und PIPELINE-STATUS. Nutze sie AKTIV:
+
+GAPS:
+- [INFO] = Hinweis beilaeuifg erwaehnen
+- [WARNING] = Proaktiv warnen und Massnahme vorschlagen
+- [CRITICAL] = Sofort ansprechen, Builder-Aktionen ggf. blockieren bis behoben
+
+CONFLICTS:
+- Bei blocked Tasks: Biete IMMER Recovery-Optionen an (retry/revert/delete)
+- Bei Conflicts: Warne BEVOR ein neuer Task gestartet wird der betroffen sein koennte
+
+PIPELINE IDLE + keine Gaps/Conflicts:
+- Kurzes positives Feedback: "Pipeline sauber, bereit fuer den naechsten Task."
+
+Baue Gaps/Conflicts natuerlich in deine Chat-Antwort ein — nicht als separaten Block, sondern als Teil deiner normalen Antwort.`;
 
 async function buildSystemPrompt(userId?: string) {
   let memoryContext = "";
