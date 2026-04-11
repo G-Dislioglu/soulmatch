@@ -1,1 +1,64 @@
-aW1wb3J0IHsgdXNlQ2FsbGJhY2sgfSBmcm9tICdyZWFjdCc7CgpleHBvcnQgaW50ZXJmYWNlIE1heWFDb250ZXh0IHsKICB0YXNrczogQXJyYXk8ewogICAgaWQ6IHN0cmluZzsKICAgIHRpdGxlOiBzdHJpbmc7CiAgICBzdGF0dXM6IHN0cmluZzsKICAgIHJpc2s6IHN0cmluZzsKICAgIHRhc2tUeXBlOiBzdHJpbmc7CiAgICB1cGRhdGVkQXQ6IHN0cmluZzsKICB9PjsKICBtZW1vcnk6IHsgZXBpc29kZXM6IEFycmF5PHsga2V5OiBzdHJpbmc7IHN1bW1hcnk6IHN0cmluZzsgdXBkYXRlZEF0OiBzdHJpbmcgfT4gfTsKICBjb250aW51aXR5Tm90ZXM6IEFycmF5PHsga2V5OiBzdHJpbmc7IHN1bW1hcnk6IHN0cmluZzsgdXBkYXRlZEF0OiBzdHJpbmcgfT47CiAgd29ya2VyU3RhdHM6IEFycmF5PHsgd29ya2VyOiBzdHJpbmc7IGF2Z19xdWFsaXR5OiBudW1iZXI7IHRhc2tfY291bnQ6IG51bWJlciB9PjsKICB0aW1lc3RhbXA6IHN0cmluZzsKfQoKZXhwb3J0IGludGVyZmFjZSBNYXlhQ2hhdFJlc3BvbnNlIHsKICByZXNwb25zZTogc3RyaW5nOwogIG1vZGVsOiAnb3B1cycgfCAnZmxhc2gnOwogIGNvbnRleHRVc2VkOiB7IHRhc2tzTG9hZGVkOiBudW1iZXI7IGhhc0NvbnRpbnVpdHk6IGJvb2xlYW4gfTsKfQoKZXhwb3J0IGludGVyZmFjZSBNYXlhQ2hhdE1lc3NhZ2UgewogIHJvbGU6ICd1c2VyJyB8ICdhc3Npc3RhbnQnOwogIGNvbnRlbnQ6IHN0cmluZzsKfQoKZnVuY3Rpb24gYnVpbGRVcmwocGF0aDogc3RyaW5nLCB0b2tlbjogc3RyaW5nKSB7CiAgY29uc3Qgc2VwID0gcGF0aC5pbmNsdWRlcygnPycpID8gJyYnIDogJz8nOwogIHJldHVybiBgL2FwaS9idWlsZGVyJHtwYXRofSR7c2VwfXRva2VuPSR7ZW5jb2RlVVJJQ29tcG9uZW50KHRva2VuKX0mb3B1c190b2tlbj0ke2VuY29kZVVSSUNvbXBvbmVudCh0b2tlbil9YDsKfQoKZXhwb3J0IGZ1bmN0aW9uIHVzZU1heWFBcGkodG9rZW46IHN0cmluZyB8IG51bGwpIHsKICBjb25zdCByZXF1ZXN0ID0gdXNlQ2FsbGJhY2soYXN5bmMgPFQ+KHBhdGg6IHN0cmluZywgaW5pdD86IFJlcXVlc3RJbml0KTogUHJvbWlzZTxUPiA9PiB7CiAgICBpZiAoIXRva2VuKSB0aHJvdyBuZXcgRXJyb3IoJ05vIHRva2VuJyk7CiAgICBjb25zdCByZXMgPSBhd2FpdCBmZXRjaChidWlsZFVybChwYXRoLCB0b2tlbiksIHsKICAgICAgLi4uaW5pdCwKICAgICAgaGVhZGVyczogewogICAgICAgIC4uLihpbml0Py5ib2R5ID8geyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0gOiB7fSksCiAgICAgICAgQXV0aG9yaXphdGlvbjogYEJlYXJlciAke3Rva2VufWAsCiAgICAgICAgLi4uKGluaXQ/LmhlYWRlcnMgPz8ge30pLAogICAgICB9LAogICAgfSk7CiAgICBpZiAoIXJlcy5vaykgdGhyb3cgbmV3IEVycm9yKGBIVFRQICR7cmVzLnN0YXR1c31gKTsKICAgIHJldHVybiByZXMuanNvbigpIGFzIFByb21pc2U8VD47CiAgfSwgW3Rva2VuXSk7CgogIGNvbnN0IGdldENvbnRleHQgPSB1c2VDYWxsYmFjaygoKSA9PiByZXF1ZXN0PE1heWFDb250ZXh0PignL21heWEvY29udGV4dCcpLCBbcmVxdWVzdF0pOwoKICBjb25zdCBjaGF0ID0gdXNlQ2FsbGJhY2soKG1lc3NhZ2U6IHN0cmluZywgaGlzdG9yeTogTWF5YUNoYXRNZXNzYWdlW10gPSBbXSkgPT4KICAgIHJlcXVlc3Q8TWF5YUNoYXRSZXNwb25zZT4oJy9tYXlhL2NoYXQnLCB7CiAgICAgIG1ldGhvZDogJ1BPU1QnLAogICAgICBib2R5OiBKU09OLnN0cmluZ2lmeSh7IG1lc3NhZ2UsIGhpc3RvcnkgfSksCiAgICB9KSwgW3JlcXVlc3RdKTsKCiAgY29uc3QgZXhlY3V0ZUFjdGlvbiA9IHVzZUNhbGxiYWNrKChhY3Rpb246IHsgZW5kcG9pbnQ6IHN0cmluZzsgYnJhbmNoPzogc3RyaW5nOyB3b3JrZXI/OiBzdHJpbmc7IHBhcmFtcz86IFJlY29yZDxzdHJpbmcsIHVua25vd24+IH0sIGNvbmZpcm1lZD86IGJvb2xlYW4pID0+CiAgICByZXF1ZXN0PHsgc3VjY2VzczogYm9vbGVhbjsgbmVlZHNDb25maXJtYXRpb24/OiBib29sZWFuOyBlbmRwb2ludDogc3RyaW5nOyByaXNrOiBzdHJpbmc7IHJlc3VsdD86IHVua25vd247IG1lc3NhZ2U/OiBzdHJpbmcgfT4oJy9tYXlhL2FjdGlvbicsIHsKICAgICAgbWV0aG9kOiAnUE9TVCcsCiAgICAgIGJvZHk6IEpTT04uc3RyaW5naWZ5KHsgYWN0aW9uLCBjb25maXJtZWQgfSksCiAgICB9KSwgW3JlcXVlc3RdKTsKCiAgcmV0dXJuIHsgZ2V0Q29udGV4dCwgY2hhdCwgZXhlY3V0ZUFjdGlvbiB9Owp9Cg==
+import { useCallback } from 'react';
+
+export interface MayaContext {
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    risk: string;
+    taskType: string;
+    updatedAt: string;
+  }>;
+  memory: { episodes: Array<{ key: string; summary: string; updatedAt: string }> };
+  continuityNotes: Array<{ key: string; summary: string; updatedAt: string }>;
+  workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
+  timestamp: string;
+}
+
+export interface MayaChatResponse {
+  response: string;
+  model: 'opus' | 'flash';
+  contextUsed: { tasksLoaded: number; hasContinuity: boolean };
+}
+
+export interface MayaChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+function buildUrl(path: string, token: string) {
+  const sep = path.includes('?') ? '&' : '?';
+  return `/api/builder${path}${sep}token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`;
+}
+
+export function useMayaApi(token: string | null) {
+  const request = useCallback(async <T>(path: string, init?: RequestInit): Promise<T> => {
+    if (!token) throw new Error('No token');
+    const res = await fetch(buildUrl(path, token), {
+      ...init,
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        Authorization: `Bearer ${token}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json() as Promise<T>;
+  }, [token]);
+
+  const getContext = useCallback(() => request<MayaContext>('/maya/context'), [request]);
+
+  const chat = useCallback((message: string, history: MayaChatMessage[] = []) =>
+    request<MayaChatResponse>('/maya/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history }),
+    }), [request]);
+
+  const executeAction = useCallback((action: { endpoint: string; branch?: string; worker?: string; params?: Record<string, unknown> }, confirmed?: boolean) =>
+    request<{ success: boolean; needsConfirmation?: boolean; endpoint: string; risk: string; result?: unknown; message?: string }>('/maya/action', {
+      method: 'POST',
+      body: JSON.stringify({ action, confirmed }),
+    }), [request]);
+
+  return { getContext, chat, executeAction };
+}
