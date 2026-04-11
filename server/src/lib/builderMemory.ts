@@ -258,11 +258,11 @@ async function refreshWorkerProfiles() {
   await replaceLayerRows('worker_profile', rows);
 }
 
-export function rememberBuilderUserMessage(content: string) {
+export function rememberBuilderUserMessage(content: string, _userId?: string) {
   pushWorkingMessage('user', content);
 }
 
-export function rememberBuilderAssistantMessage(content: string) {
+export function rememberBuilderAssistantMessage(content: string, _userId?: string) {
   pushWorkingMessage('assistant', content);
 }
 
@@ -270,13 +270,13 @@ export function setActiveBuilderTask(taskId: string | null) {
   workingMemory.activeTaskId = taskId;
 }
 
-export function rememberBuilderChatHistory(history: Array<{ role: ChatRole; content: string }>) {
+export function rememberBuilderChatHistory(history: Array<{ role: ChatRole; content: string }>, _userId?: string) {
   for (const entry of history.slice(-10)) {
     pushWorkingMessage(entry.role, entry.content);
   }
 }
 
-export async function buildBuilderMemoryContext(): Promise<string> {
+export async function buildBuilderMemoryContext(_userId?: string): Promise<string> {
   const db = getDb();
   let episodes: Array<typeof builderMemory.$inferSelect> = [];
   let semanticRows: Array<typeof builderMemory.$inferSelect> = [];
