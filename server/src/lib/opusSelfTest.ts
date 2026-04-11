@@ -182,5 +182,7 @@ export async function selfHealthCheck(): Promise<{
       expectStatus: 200,
     },
   ]);
-  return { healthy: allPassed, detail };
+    return { healthy: allPassed, detail };
 }
+
+// S16 thinking-test verified
