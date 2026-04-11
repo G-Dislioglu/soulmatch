@@ -112,11 +112,10 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
 }
 
 // ─── Context Panel (right 35%) ───
-function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote, onRefresh }: {
+function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
   ctx: MayaContext | null; loading: boolean;
   onDeleteMemory?: (id: string) => void;
   onAddNote?: (summary: string) => void;
-  onRefresh?: () => void;
 }) {
   const [newNote, setNewNote] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -417,8 +416,7 @@ export function MayaDashboard() {
         <div style={{ flex: '0 0 35%', background: TOKENS.card }}>
           <ContextPanel ctx={ctx} loading={ctxLoading}
             onDeleteMemory={async (id) => { await deleteMemory(id); loadContext(); }}
-            onAddNote={async (summary) => { await createMemory('continuity', `note-${Date.now()}`, summary); loadContext(); }}
-            onRefresh={loadContext} />
+            onAddNote={async (summary) => { await createMemory('continuity', `note-${Date.now()}`, summary); loadContext(); }} />
         </div>
       </div>
     </div>
