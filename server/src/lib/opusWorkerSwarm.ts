@@ -5,6 +5,7 @@ import { loadProjectDna } from './opusGraphIntegration.js';
 import { callProvider } from './providers.js';
 import { getDb } from '../db.js';
 import { builderWorkerScores } from '../schema/builder.js';
+import { getAllFromPool } from './poolState.js';
 
 interface WorkerPreset {
   actor: string;
@@ -73,6 +74,9 @@ const WORKER_PRESETS: Record<string, WorkerPreset> = {
   minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 6000 },
   qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 6000 },
   kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 6000 },
+  // Pool ID aliases (pool uses 'glm-turbo', preset uses 'glm', etc.)
+  'glm-turbo': { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
+  'gpt-5.4': { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
 };
 
 const MEISTER_COUNCIL: MeisterCouncilMember[] = [
@@ -642,14 +646,50 @@ export function parseAssignments(commands: BdlCommand[]): WorkerAssignment[] {
     }));
 }
 
+// ─── Worker Pool Remapping ───
+// Ensures all worker assignments use models from the active worker pool.
+// If an assigned writer is not in the pool, remap to a pool worker (round-robin).
+function remapWorkersToPool(assignments: WorkerAssignment[]): WorkerAssignment[] {
+  const poolModels = getAllFromPool('worker');
+  if (poolModels.length === 0) {
+    console.warn('[worker-swarm] No worker models in pool, using assignments as-is');
+    return assignments;
+  }
+
+  const poolIds = new Set(poolModels.map((m) => m.id));
+  let roundRobinIndex = 0;
+
+  return assignments.map((assignment) => {
+    // Check if the assigned writer is in the active pool
+    if (poolIds.has(assignment.writer)) {
+      return assignment;
+    }
+
+    // Also check preset aliases (e.g., 'glm' might map to pool 'glm-turbo')
+    const presetToPool: Record<string, string> = { glm: 'glm-turbo', gpt: 'gpt-5.4' };
+    const poolAlias = presetToPool[assignment.writer];
+    if (poolAlias && poolIds.has(poolAlias)) {
+      return { ...assignment, writer: poolAlias };
+    }
+
+    // Writer not in pool — remap via round-robin
+    const replacement = poolModels[roundRobinIndex % poolModels.length]!;
+    roundRobinIndex += 1;
+    console.log(`[worker-swarm] Remapped writer '${assignment.writer}' → '${replacement.id}' (not in active pool)`);
+    return { ...assignment, writer: replacement.id };
+  });
+}
+
 export async function runWorkerSwarm(
   taskId: string,
   assignments: WorkerAssignment[],
   taskGoal: string,
   fileContents?: Record<string, string>,
 ): Promise<WorkerResult[]> {
-  const independentAssignments = assignments.filter((assignment) => !assignment.dependsOn);
-  const dependentAssignments = assignments.filter((assignment) => assignment.dependsOn);
+  // Remap workers to active pool — ensures only pool-selected models are used
+  const pooledAssignments = remapWorkersToPool(assignments);
+  const independentAssignments = pooledAssignments.filter((assignment) => !assignment.dependsOn);
+  const dependentAssignments = pooledAssignments.filter((assignment) => assignment.dependsOn);
 
   const independentResults = await Promise.allSettled(
     independentAssignments.map((assignment) => runSingleWorker(taskId, assignment, taskGoal, fileContents)),
