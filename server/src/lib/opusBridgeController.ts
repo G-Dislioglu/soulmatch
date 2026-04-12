@@ -18,6 +18,8 @@ import {
 } from './opusPulseCrush.js';
 import { runScoutPhase } from './opusScoutRunner.js';
 import { runDistiller } from './opusDistiller.js';
+import { getAllFromPool, pickFromPool } from './poolState.js';
+import { callProvider } from './providers.js';
 import {
   DEFAULT_ROUNDTABLE_CONFIG,
   runRoundtable,
@@ -26,6 +28,7 @@ import {
   type RoundtableParticipant,
   type RoundtableConfig,
   type RoundtableAssignment,
+  type RoundModerator,
 } from './opusRoundtable.js';
 import {
   runWorkerSwarm,
@@ -83,6 +86,111 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 1500,
   },
 };
+
+// ─── Council Pool → Participants ───
+// Maps activePools.council to RoundtableParticipant[], using CODE_WRITER_PRESETS for strengths.
+function buildCouncilParticipants(): RoundtableParticipant[] {
+  const councilModels = getAllFromPool('council');
+  if (councilModels.length === 0) {
+    console.warn('[council] No council models in pool, using default config');
+    return DEFAULT_ROUNDTABLE_CONFIG.participants;
+  }
+
+  return councilModels.map((m) => {
+    const preset = CODE_WRITER_PRESETS[m.id];
+    if (preset) return preset;
+    // Fallback for models not in presets
+    return {
+      actor: m.id,
+      model: m.model,
+      provider: m.provider,
+      strengths: 'Council Member',
+      maxTokensPerRound: 1500,
+    };
+  });
+}
+
+// ─── Maya Moderator ───
+// After each council round, Maya evaluates and decides: continue / focus / conclude.
+// Uses the Maya pool model (user's chosen chat model).
+const MAYA_MODERATOR_CEILING = 5;
+
+function createMayaModerator(taskGoal: string): RoundModerator {
+  return async (round, roundMessages, _allMessages, approvalCount, blockCount) => {
+    // Hard ceiling
+    if (round >= MAYA_MODERATOR_CEILING) {
+      return { action: 'conclude', reason: `Hard-Ceiling erreicht (${MAYA_MODERATOR_CEILING} Runden)` };
+    }
+
+    // If strong consensus already, no need for moderation
+    if (approvalCount >= 2 && blockCount === 0) {
+      return { action: 'conclude', reason: 'Konsens bereits erreicht' };
+    }
+
+    // Pick Maya's model from pool
+    const mayaModel = pickFromPool('maya', true);
+    if (!mayaModel) {
+      return { action: 'continue', reason: 'Kein Maya-Modell verfuegbar, weiter ohne Moderation' };
+    }
+
+    try {
+      const roundSummary = roundMessages
+        .filter((m) => m.actor !== 'system' && m.actor !== 'file-reader')
+        .map((m) => `[${m.actor}]: ${m.content.slice(0, 400)}`)
+        .join('\n\n');
+
+      const response = await callProvider(mayaModel.provider, mayaModel.model, {
+        system: `Du bist Maya, die Moderatorin des Council Roundtable.
+Nach jeder Diskussionsrunde entscheidest du:
+
+1. CONTINUE — Die Diskussion laeuft gut, naechste Runde ohne besonderen Fokus
+2. FOCUS — Du hast etwas entdeckt das vertieft werden muss. Gib den Fokus an.
+3. CONCLUDE — Genug diskutiert, Konsens ist klar oder wird nicht besser.
+
+Bewerte:
+- Gibt es ungeklaerte Widersprueche?
+- Hat jemand einen Punkt gebracht den die anderen ignoriert haben?
+- Dreht sich die Diskussion im Kreis?
+- Gibt es ein Potenzial das noch nicht ausgeschoepft ist?
+
+Antworte NUR mit JSON (kein Markdown, keine Backticks):
+{"action":"continue","reason":"..."}
+oder {"action":"focus","focusPrompt":"...","reason":"..."}
+oder {"action":"conclude","reason":"..."}`,
+        messages: [{
+          role: 'user',
+          content: `TASK: ${taskGoal}
+RUNDE: ${round}
+APPROVALS: ${approvalCount}, BLOCKS: ${blockCount}
+
+--- BEITRAEGE DIESER RUNDE ---
+${roundSummary}
+
+Deine Entscheidung:`,
+        }],
+        maxTokens: 300,
+        temperature: 0.3,
+        forceJsonObject: false,
+      });
+
+      const parsed = JSON.parse(response) as Record<string, unknown>;
+      const action = parsed.action;
+      const reason = typeof parsed.reason === 'string' ? parsed.reason : 'Maya Entscheidung';
+      const focusPrompt = typeof parsed.focusPrompt === 'string' ? parsed.focusPrompt : undefined;
+
+      if (action === 'focus' && focusPrompt) {
+        return { action: 'focus', focusPrompt, reason };
+      }
+      if (action === 'conclude') {
+        return { action: 'conclude', reason };
+      }
+      return { action: 'continue', reason };
+    } catch (error) {
+      console.error('[maya-moderator] Failed, continuing:', error);
+      return { action: 'continue', reason: 'Moderation fehlgeschlagen, weiter' };
+    }
+  };
+}
 
 export interface ExecuteInput {
   instruction: string;
@@ -322,18 +430,23 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   }
 
   if (!input.skipRoundtable && !input.useDecomposer) {
-    const baseParticipants = input.roundtableConfig?.participants ?? DEFAULT_ROUNDTABLE_CONFIG.participants;
+    // Build participants from Council Pool (user-selected models)
+    const councilParticipants = buildCouncilParticipants();
     const writerPreset = input.codeWriter ? CODE_WRITER_PRESETS[input.codeWriter] : undefined;
     const participants = writerPreset
-      ? [writerPreset, ...baseParticipants.slice(1)]
-      : baseParticipants;
+      ? [writerPreset, ...councilParticipants.filter((p) => p.actor !== writerPreset.actor)]
+      : councilParticipants;
 
     const mergedConfig: RoundtableConfig = {
       participants,
-      maxRounds: input.roundtableConfig?.maxRounds ?? DEFAULT_ROUNDTABLE_CONFIG.maxRounds,
+      maxRounds: input.roundtableConfig?.maxRounds ?? MAYA_MODERATOR_CEILING,
       consensusThreshold:
-        input.roundtableConfig?.consensusThreshold ?? DEFAULT_ROUNDTABLE_CONFIG.consensusThreshold,
+        input.roundtableConfig?.consensusThreshold ?? Math.max(2, Math.ceil(participants.length * 0.6)),
     };
+
+    // Maya moderates between rounds — dynamic focus, early conclude
+    const moderator = createMayaModerator(instruction);
+    console.log(`[council] Starting roundtable: ${participants.map((p) => p.actor).join(', ')} (${participants.length} members, threshold=${mergedConfig.consensusThreshold})`);
 
     const roundtableResult = await runRoundtable(
       {
@@ -346,6 +459,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       councilPool,
       mergedConfig,
       [input.opusHints || '', distillerBrief ? `\n\n=== DESTILLIERTER BRIEF ===\n${distillerBrief}` : '', memoryContext ? `\n\n=== BUILDER MEMORY ===\n${memoryContext}` : ''].join('').trim() || undefined,
+      moderator,
     );
 
     rounds = roundtableResult.rounds;
