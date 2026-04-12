@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { builderChatpool } from '../schema/opusBridge.js';
 
-export type ChatPoolPhase = 'scout' | 'roundtable' | 'chain_decision';
+export type ChatPoolPhase = 'scout' | 'distiller' | 'roundtable' | 'chain_decision';
 
 export interface ChatPoolMessageInput {
   taskId: string;
@@ -50,17 +50,22 @@ export async function getChatPoolForTask(taskId: string): Promise<ChatPoolMessag
 }
 
 function formatActorHeading(message: ChatPoolMessage): string {
-  if (message.actor === 'deepseek') {
-    return '[deepseek] Codebase-Analyse:';
-  }
+  // Scout actors (pool-based)
+  if (message.actor === 'scout-code') return `[${message.model}] Codebase-Scout:`;
+  if (message.actor === 'scout-pattern') return `[${message.model}] Pattern-Scout:`;
+  if (message.actor === 'scout-risk') return `[${message.model}] Risiko-Scout:`;
+  if (message.actor === 'scout-web') return '[web-search] Web-Scout:';
+  if (message.actor === 'graph') return '[graph] Repo-Kontext:';
+  if (message.actor === 'scout-error') return '[error] Scout-Fehler:';
 
-  if (message.actor === 'gpt-nano') {
-    return '[gpt-nano] Pattern-Scan:';
-  }
+  // Distiller actors
+  if (message.actor === 'distiller-extract') return `[${message.model}] Fakten-Extrakt:`;
+  if (message.actor === 'distiller-reason') return `[${message.model}] Crush-Analyse:`;
 
-  if (message.actor === 'gemini' && message.phase === 'scout') {
-    return '[gemini] Web-Scout:';
-  }
+  // Legacy fallbacks
+  if (message.actor === 'deepseek') return '[deepseek] Codebase-Analyse:';
+  if (message.actor === 'gpt-nano') return '[gpt-nano] Pattern-Scan:';
+  if (message.actor === 'gemini' && message.phase === 'scout') return '[gemini] Web-Scout:';
 
   return `[${message.actor}]`;
 }
@@ -87,11 +92,11 @@ export function formatChatPoolForModel(messages: ChatPoolMessage[]): string {
         lines.push('');
       }
 
-      lines.push(
-        message.round === 0
-          ? '--- Scout-Briefing (Runde 0) ---'
-          : `--- Roundtable Runde ${message.round} ---`,
-      );
+      const heading = message.round === 0
+        ? (message.phase === 'distiller' ? '--- Destillierter Brief (Runde 0) ---' : '--- Scout-Briefing (Runde 0) ---')
+        : `--- Roundtable Runde ${message.round} ---`;
+
+      lines.push(heading);
       lines.push('');
       currentRound = message.round;
     }
