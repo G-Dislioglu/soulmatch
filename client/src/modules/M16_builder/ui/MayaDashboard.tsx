@@ -204,22 +204,22 @@ function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string
 function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
   ctx: MayaContext | null; collapsed: boolean; onToggle: () => void; onTaskClick?: (id: string, title: string) => void;
 }) {
+  const [masterOpen, setMasterOpen] = useState(true);
   const [poolOpen, setPoolOpen] = useState(true);
-  const [masterModel, setMasterModel] = useState('claude-opus-4-6');
+  const [activeMasters, setActiveMasters] = useState<string[]>(['opus', 'gemini']);
   const [activeWorkers, setActiveWorkers] = useState<string[]>(['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek']);
 
   const workers = ctx?.workerStats ?? [];
-  const masterPerf = workers.length > 0 ? Math.round(workers.reduce((s, w) => s + Number(w.avg_quality), 0) / workers.length) : 0;
-  const masterColor = masterPerf >= 70 ? TOKENS.green : masterPerf >= 50 ? TOKENS.gold : '#ef4444';
 
-  const MASTER_OPTIONS = [
-    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', tier: 'premium' },
-    { value: 'glm-4.7-flashx', label: 'GLM Flash', tier: 'fast' },
-    { value: 'gemini-2.5-flash', label: 'Gemini Flash', tier: 'multi' },
-    { value: 'gpt-5.4', label: 'GPT-5.4', tier: 'premium' },
+  const MASTER_MODELS = [
+    { id: 'opus', label: 'Opus 4.6', quality: 95, speed: 'slow', color: MAYA },
+    { id: 'gpt-5.4m', label: 'GPT-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
+    { id: 'deepseek-r', label: 'DeepSeek R1', quality: 82, speed: 'medium', color: '#4ade80' },
+    { id: 'gemini', label: 'Gemini Flash', quality: 78, speed: 'fast', color: TOKENS.gold },
+    { id: 'glm-flash', label: 'GLM Flash', quality: 72, speed: 'fast', color: TOKENS.green },
   ];
 
-  const WORKER_OPTIONS = [
+  const WORKER_MODELS = [
     { id: 'glm-turbo', label: 'GLM-Turbo' },
     { id: 'minimax', label: 'MiniMax' },
     { id: 'kimi', label: 'Kimi K2' },
@@ -228,17 +228,13 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
     { id: 'gpt-5.4', label: 'GPT-5.4' },
   ];
 
-  const toggleWorker = (id: string) => {
-    setActiveWorkers(prev => prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]);
-  };
+  const toggleList = (list: string[], id: string) => list.includes(id) ? list.filter(x => x !== id) : [...list, id];
 
-  const selectStyle: React.CSSProperties = {
-    width: '100%', background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10,
-    padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none', fontFamily: 'monospace',
-    cursor: 'pointer', appearance: 'none' as const,
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E")`,
-    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: 28,
-  };
+  const activeMasterModels = MASTER_MODELS.filter(m => activeMasters.includes(m.id));
+  const masterAvg = activeMasterModels.length > 0 ? Math.round(activeMasterModels.reduce((s, m) => s + m.quality, 0) / activeMasterModels.length) : 0;
+  const mAvgCol = masterAvg >= 80 ? TOKENS.green : masterAvg >= 60 ? TOKENS.gold : '#ef4444';
+  const workerAvg = workers.length > 0 ? Math.round(workers.reduce((s, w) => s + Number(w.avg_quality), 0) / workers.length) : 0;
+  const wAvgCol = workerAvg >= 70 ? TOKENS.green : workerAvg >= 50 ? TOKENS.gold : '#ef4444';
 
   if (collapsed) {
     return (
@@ -249,9 +245,73 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
     );
   }
 
+  const renderPoolSection = (
+    title: string, accent: string, open: boolean, toggle: () => void,
+    avg: number, avgCol: string, chips: Array<{ id: string; label: string }>,
+    activeIds: string[], onChip: (id: string) => void,
+    bars: Array<{ name: string; pct: number; color: string; active: boolean; extra?: string }>,
+  ) => (
+    <div style={{ borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
+      <div onClick={toggle} style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 600 }}>{title} ({activeIds.length})</div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>
+        </div>
+        <span style={{ fontSize: 12, color: TOKENS.text3, transition: 'transform 0.2s', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}>{'\u25BE'}</span>
+      </div>
+      <div style={{ padding: '0 16px', marginBottom: open ? 0 : 10 }}>
+        <div style={{ height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
+          <div style={{ width: `${avg}%`, height: '100%', background: `linear-gradient(90deg, ${avgCol}, ${avgCol}80)`, borderRadius: 3, boxShadow: `0 0 8px ${avgCol}40`, transition: 'width 0.3s ease' }} />
+        </div>
+      </div>
+      {open && (
+        <div style={{ padding: '10px 16px 14px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+            {chips.map(c => {
+              const on = activeIds.includes(c.id);
+              return (
+                <button key={c.id} onClick={() => onChip(c.id)}
+                  style={{
+                    fontSize: 9, padding: '3px 8px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
+                    border: `1px solid ${on ? accent + '60' : TOKENS.b3}`,
+                    background: on ? accent + '18' : 'transparent',
+                    color: on ? accent : TOKENS.text3,
+                  }}>{c.label}</button>
+              );
+            })}
+          </div>
+          {bars.map((b, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11, opacity: b.active ? 1 : 0.35 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: b.color, flexShrink: 0, boxShadow: b.active ? `0 0 8px ${b.color}60` : 'none' }} />
+              <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{b.name}</span>
+              <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
+                <div style={{ width: `${b.pct}%`, height: '100%', background: b.color, borderRadius: 3, boxShadow: b.active ? `0 0 6px ${b.color}40` : 'none' }} />
+              </div>
+              <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{b.pct}%</span>
+              {b.extra && <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{b.extra}</span>}
+            </div>
+          ))}
+          {bars.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Daten.</div>}
+        </div>
+      )}
+    </div>
+  );
+
+  const masterBars = MASTER_MODELS.map(m => ({
+    name: m.label, pct: m.quality, color: m.color,
+    active: activeMasters.includes(m.id), extra: m.speed,
+  }));
+
+  const workerBars = workers.slice(0, 8).map(w => {
+    const pct = Math.min(100, Number(w.avg_quality) || 0);
+    const wName = String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || String(w.worker);
+    const isActive = activeWorkers.some(a => wName.toLowerCase().includes(a.toLowerCase().split('-')[0] ?? ''));
+    const color = !isActive ? TOKENS.text3 : pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
+    return { name: wName, pct, color, active: isActive, extra: `\u00D7${w.task_count}` };
+  });
+
   return (
     <div style={{ width: 260, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-      {/* Header */}
       <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1.5px solid ${TOKENS.b2}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent)' }}>
         <div>
           <div style={{ fontSize: 10, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Maya Command</div>
@@ -260,82 +320,12 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
         <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'\u00AB'}</span>
       </div>
 
-      {/* Master Performance — always visible */}
-      <div style={{ padding: '14px 16px', borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-          {/* Master ring */}
-          <div style={{
-            width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            background: `conic-gradient(${masterColor} ${masterPerf * 3.6}deg, ${TOKENS.bg} 0deg)`,
-            boxShadow: `0 0 16px ${masterColor}40`,
-          }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: TOKENS.bg2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Master Performance</div>
-            <div style={{ fontSize: 11, color: TOKENS.text2, marginTop: 2 }}>{workers.length} Worker, {ctx?.tasks.length ?? 0} Tasks</div>
-          </div>
-        </div>
+      {renderPoolSection('Master Pool', MAYA, masterOpen, () => setMasterOpen(!masterOpen), masterAvg, mAvgCol,
+        MASTER_MODELS.map(m => ({ id: m.id, label: m.label })), activeMasters, id => setActiveMasters(toggleList(activeMasters, id)), masterBars)}
 
-        {/* Master AI Dropdown */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: TOKENS.gold, fontWeight: 600, marginBottom: 4 }}>Master-KI</div>
-          <select value={masterModel} onChange={e => setMasterModel(e.target.value)} style={selectStyle}>
-            {MASTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} ({o.tier})</option>)}
-          </select>
-        </div>
-      </div>
+      {renderPoolSection('Worker Pool', TOKENS.cyan, poolOpen, () => setPoolOpen(!poolOpen), workerAvg, wAvgCol,
+        WORKER_MODELS, activeWorkers, id => setActiveWorkers(toggleList(activeWorkers, id)), workerBars)}
 
-      {/* Worker Pool — collapsible */}
-      <div style={{ borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
-        <div onClick={() => setPoolOpen(!poolOpen)}
-          style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: poolOpen ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Worker Pool ({activeWorkers.length})</div>
-          <span style={{ fontSize: 12, color: TOKENS.text3, transition: 'transform 0.2s', transform: poolOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>{'\u25BE'}</span>
-        </div>
-        {poolOpen && (
-          <div style={{ padding: '0 16px 14px' }}>
-            {/* Worker toggle chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
-              {WORKER_OPTIONS.map(w => {
-                const active = activeWorkers.includes(w.id);
-                return (
-                  <button key={w.id} onClick={() => toggleWorker(w.id)}
-                    style={{
-                      fontSize: 9, padding: '3px 8px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
-                      border: `1px solid ${active ? TOKENS.cyan + '60' : TOKENS.b3}`,
-                      background: active ? 'rgba(34,211,238,0.10)' : 'transparent',
-                      color: active ? TOKENS.cyan : TOKENS.text3,
-                    }}>{w.label}</button>
-                );
-              })}
-            </div>
-            {/* Worker stats bars */}
-            {workers.slice(0, 6).map((w, i) => {
-              const pct = Math.min(100, Number(w.avg_quality) || 0);
-              const wName = String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || String(w.worker);
-              const isActive = activeWorkers.some(a => wName.toLowerCase().includes(a.toLowerCase().split('-')[0] ?? ''));
-              const color = !isActive ? TOKENS.text3 : pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11, opacity: isActive ? 1 : 0.4 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: isActive ? `0 0 8px ${color}60` : 'none' }} />
-                  <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{wName}</span>
-                  <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: isActive ? `0 0 6px ${color}40` : 'none' }} />
-                  </div>
-                  <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
-                  <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{w.task_count}</span>
-                </div>
-              );
-            })}
-            {workers.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Worker-Daten.</div>}
-          </div>
-        )}
-      </div>
-
-      {/* Tasks SCROLLABLE */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
         <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, fontWeight: 600, marginBottom: 10 }}>Tasks ({ctx?.tasks.length ?? 0})</div>
         {ctx?.tasks.slice(0, 20).map(t => (
@@ -343,8 +333,7 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
             style={{
               display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
               padding: '8px 10px', borderRadius: 12, marginBottom: 4, fontSize: 11,
-              cursor: 'pointer', border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card2,
-              color: TOKENS.text,
+              cursor: 'pointer', border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card2, color: TOKENS.text,
             }}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.10)'; }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b2; (e.currentTarget).style.background = TOKENS.card2; }}>
