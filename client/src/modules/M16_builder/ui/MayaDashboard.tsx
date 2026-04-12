@@ -250,8 +250,8 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
 
 
 // ─── Left Sidebar: Workers + Tasks ───
-function LeftSidebar({ ctx, collapsed, onToggle }: {
-  ctx: MayaContext | null; collapsed: boolean; onToggle: () => void;
+function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
+  ctx: MayaContext | null; collapsed: boolean; onToggle: () => void; onTaskClick?: (id: string, title: string) => void;
 }) {
   if (collapsed) {
     return (
@@ -273,7 +273,10 @@ function LeftSidebar({ ctx, collapsed, onToggle }: {
       <div style={{ padding: '12px 14px', borderBottom: `1px solid ${TOKENS.b3}` }}>
         <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 8 }}>Tasks</div>
         {ctx?.tasks.slice(0, 8).map(t => (
-          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 2, fontSize: 11 }}>
+          <div key={t.id} onClick={() => onTaskClick?.(t.id, t.title)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 2, fontSize: 11, cursor: 'pointer', transition: 'background 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = TOKENS.bg; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0 }} />
             <span style={{ flex: 1, color: TOKENS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 35)}</span>
             <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{t.status.slice(0, 6)}</span>
@@ -432,7 +435,8 @@ export function MayaDashboard() {
     }
   };
 
-  const { getContext, chat, executeAction, createMemory, deleteMemory } = useMayaApi(token || null);
+  const { getContext, chat, chatWithFile, executeAction, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-auth if token in URL
   useEffect(() => {
@@ -498,6 +502,82 @@ export function MayaDashboard() {
     inputRef.current?.focus();
   };
 
+  const openTaskDetail = async (taskId: string, taskTitle: string) => {
+    setChatLoading(true);
+    setMessages(prev => [...prev, { role: 'user', text: `📋 Task-Detail: ${taskTitle}` }]);
+    try {
+      const [dialog, evidence] = await Promise.all([
+        getTaskDialog(taskId),
+        getTaskEvidence(taskId),
+      ]);
+
+      let detailText = `### Task: ${taskTitle}\n\n`;
+      if (dialog && dialog.length > 0) {
+        detailText += `**Dialog (${dialog.length} Schritte):**\n\n`;
+        for (const action of dialog.slice(-8)) {
+          const time = formatTime(action.createdAt);
+          const text = (action.text ?? '').slice(0, 300);
+          detailText += `**${action.actionType}** (${time}):\n${text}${(action.text ?? '').length > 300 ? '...' : ''}\n\n---\n\n`;
+        }
+      } else {
+        detailText += '*Kein Dialog vorhanden.*\n\n';
+      }
+
+      if (evidence) {
+        detailText += `### Evidence Pack\n`;
+        const ev = evidence as Record<string, unknown>;
+        if (ev.testResults) detailText += `\n**Tests:** ${JSON.stringify(ev.testResults).slice(0, 200)}`;
+        if (ev.patches) detailText += `\n**Patches:** ${Array.isArray(ev.patches) ? ev.patches.length + ' Dateien' : 'vorhanden'}`;
+        if (ev.summary) detailText += `\n**Summary:** ${String(ev.summary).slice(0, 200)}`;
+      }
+
+      setMessages(prev => [...prev, { role: 'maya', text: detailText }]);
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'maya', text: `❌ Task-Details konnten nicht geladen werden: ${e instanceof Error ? e.message : String(e)}` }]);
+    }
+    setChatLoading(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setMessages(prev => [...prev, { role: 'maya', text: '❌ Datei zu groß (max 10MB).' }]);
+      return;
+    }
+
+    setChatLoading(true);
+    const userMsg = input.trim() || `📎 ${file.name}`;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1] ?? '');
+        };
+        reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden'));
+        reader.readAsDataURL(file);
+      });
+
+      const history: MayaChatMessage[] = messages.slice(-12).map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
+      const result = await chatWithFile(userMsg, base64, file.type, file.name, history);
+      setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'maya', text: `❌ Datei-Verarbeitung fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }]);
+    }
+    setChatLoading(false);
+  };
+
   if (!authenticated) {
     return <AuthGate onAuth={t => { setToken(t); setAuthenticated(true); }} />;
   }
@@ -529,7 +609,7 @@ export function MayaDashboard() {
       {/* Main 3-column */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {/* Left Sidebar */}
-        <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} onTaskClick={openTaskDetail} />
 
         {/* Chat */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -593,6 +673,12 @@ export function MayaDashboard() {
 
           {/* Input */}
           <div style={{ padding: '14px 20px', borderTop: `1px solid ${TOKENS.b3}`, display: 'flex', gap: 10, alignItems: 'flex-end', background: TOKENS.card }}>
+            <input ref={fileInputRef} type="file" accept="image/*,.zip,.pdf,.txt,.ts,.tsx,.js,.json,.md" style={{ display: 'none' }} onChange={handleFileUpload} />
+            <button onClick={() => fileInputRef.current?.click()} disabled={chatLoading}
+              title="Datei anhängen (Bild, ZIP, PDF, Code)"
+              style={{ background: 'transparent', border: `1px solid ${TOKENS.b2}`, borderRadius: 12, padding: '14px 14px', fontSize: 16, color: TOKENS.text3, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>
+              📎
+            </button>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder="Maya fragen, Tasks erstellen, Builds starten..."
