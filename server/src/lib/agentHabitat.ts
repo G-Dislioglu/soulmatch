@@ -399,6 +399,13 @@ export async function getAllAgentSummaries(): Promise<string> {
 
 // ─── Top Performers ───
 
+/**
+ * Returns the top-performing agents as a newline-separated summary string.
+ * Results are pre-sorted by average quality (descending) via {@link getAllAgentSummaries}.
+ *
+ * @param limit - Maximum number of agent summaries to return (default: 3)
+ * @returns Formatted string with one agent per line, or a fallback message if no profiles exist
+ */
 export async function getTopPerformers(limit: number = 3): Promise<string> {
   const summaries = await getAllAgentSummaries();
   
