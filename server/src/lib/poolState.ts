@@ -27,6 +27,7 @@ export interface PoolConfig {
   council: string[];
   worker: string[];
   scout: string[];
+  distiller: string[];
 }
 
 const activePools: PoolConfig = {
@@ -34,6 +35,7 @@ const activePools: PoolConfig = {
   council: ['opus', 'sonnet', 'gpt-5.4'],
   worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
   scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
+  distiller: ['glm-flash', 'deepseek-scout'],
 };
 
 export function getActivePools(): PoolConfig {
@@ -45,6 +47,7 @@ export function updatePools(pools: Partial<PoolConfig>): void {
   if (pools.council) activePools.council = pools.council;
   if (pools.worker) activePools.worker = pools.worker;
   if (pools.scout) activePools.scout = pools.scout;
+  if (pools.distiller) activePools.distiller = pools.distiller;
 }
 
 export interface ResolvedModel {
