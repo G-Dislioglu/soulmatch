@@ -279,3 +279,25 @@ export async function getAllAgentSummaries(): Promise<string> {
     return 'Agent-Profile nicht verfuegbar.';
   }
 }
+
+// ─── Top Performers ───
+
+export async function getTopPerformers(limit: number = 3) {
+  try {
+    const summary = await getAllAgentSummaries();
+    const lines = summary.split('\n');
+    
+    // Filter out error messages and empty lines
+    const validLines = lines.filter(line => 
+      line.includes(':') && 
+      !line.includes('Keine Agent-Profile vorhanden') && 
+      !line.includes('Agent-Profile nicht verfuegbar')
+    );
+    
+    // Return top N lines
+    return validLines.slice(0, limit).join('\n');
+  } catch (err) {
+    console.error('[agentHabitat] getTopPerformers failed:', err);
+    return 'Top-Performer nicht verfuegbar.';
+  }
+}
