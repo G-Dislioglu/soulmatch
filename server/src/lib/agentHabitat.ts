@@ -283,30 +283,12 @@ export async function getAllAgentSummaries(): Promise<string> {
 // ─── Top Performers ───
 
 export async function getTopPerformers(limit: number = 3): Promise<string> {
-  try {
-    const db = getDb();
-    
-    const performers = await db
-      .select({
-        agentId: builderAgentProfiles.agentId,
-        avgQuality: builderAgentProfiles.avgQuality,
-        taskCount: builderAgentProfiles.taskCount,
-        successCount: builderAgentProfiles.successCount,
-      })
-      .from(builderAgentProfiles)
-      .orderBy(desc(builderAgentProfiles.avgQuality))
-      .limit(limit);
-
-    if (performers.length === 0) {
-      return 'Keine Top-Performer verfuegbar.';
-    }
-
-    return performers.map((p) => {
-      const rate = p.taskCount > 0 ? Math.round((p.successCount / p.taskCount) * 100) : 0;
-      return `${p.agentId}: ${p.avgQuality}/100 avg, ${p.taskCount} Tasks, ${rate}% Erfolg`;
-    }).join('\n');
-  } catch (err) {
-    console.error('[agentHabitat] getTopPerformers failed:', err);
-    return 'Top-Performer nicht verfuegbar.';
+  const summaries = await getAllAgentSummaries();
+  
+  if (summaries === 'Keine Agent-Profile vorhanden.' || summaries === 'Agent-Profile nicht verfuegbar.') {
+    return summaries;
   }
+  
+  const lines = summaries.split('\n');
+  return lines.slice(0, limit).join('\n');
 }
