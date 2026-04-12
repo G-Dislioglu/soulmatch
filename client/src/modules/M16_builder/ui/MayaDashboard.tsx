@@ -230,24 +230,42 @@ const SCOUT_MODELS = [
   { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
 ];
 
-type PoolType = 'maya' | 'council' | 'worker' | 'scout';
+type PoolType = 'maya' | 'council' | 'distiller' | 'worker' | 'scout';
+
+const DISTILLER_MODELS = [
+  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
+  { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
+  { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
+  { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
+];
 
 function getModelsForPool(pool: PoolType) {
   if (pool === 'maya') return MAYA_MODELS;
   if (pool === 'scout') return SCOUT_MODELS;
+  if (pool === 'distiller') return DISTILLER_MODELS;
   return STRONG_MODELS;
 }
 
 // Persist pool state
-interface PoolState { maya: string[]; council: string[]; worker: string[]; scout: string[] }
+interface PoolState { maya: string[]; council: string[]; distiller: string[]; worker: string[]; scout: string[] }
 function loadPools(): PoolState {
   try {
     const saved = localStorage.getItem('maya-pools-v2');
-    if (saved) return JSON.parse(saved) as PoolState;
+    if (saved) {
+      const parsed = JSON.parse(saved) as Partial<PoolState>;
+      return {
+        maya: parsed.maya ?? ['opus'],
+        council: parsed.council ?? ['opus', 'sonnet', 'gpt-5.4'],
+        distiller: parsed.distiller ?? ['glm-flash', 'deepseek-scout'],
+        worker: parsed.worker ?? ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
+        scout: parsed.scout ?? ['deepseek-scout', 'glm-flash', 'gemini-flash'],
+      };
+    }
   } catch { /* noop */ }
   return {
     maya: ['opus'],
     council: ['opus', 'sonnet', 'gpt-5.4'],
+    distiller: ['glm-flash', 'deepseek-scout'],
     worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
     scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
   };
@@ -294,7 +312,7 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStat
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
-            {poolType === 'maya' ? 'Maya KI' : poolType === 'council' ? 'Master Council' : poolType === 'worker' ? 'Worker Pool' : 'Scout Pool'}
+            {poolType === 'maya' ? 'Maya KI' : poolType === 'council' ? 'Master Council' : poolType === 'distiller' ? 'Destillierer' : poolType === 'worker' ? 'Worker Pool' : 'Scout Pool'}
           </div>
           {singleSelect && selectedModel ? (
             <span style={{ fontSize: 14, fontWeight: 700, color: accent, fontFamily: 'monospace' }}>{selectedModel.label}</span>
@@ -485,6 +503,7 @@ export function MayaDashboard() {
   const initialPools = loadPools();
   const [mayaIds, setMayaIds] = useState<string[]>(initialPools.maya);
   const [councilIds, setCouncilIds] = useState<string[]>(initialPools.council);
+  const [distillerIds, setDistillerIds] = useState<string[]>(initialPools.distiller);
   const [workerIds, setWorkerIds] = useState<string[]>(initialPools.worker);
   const [scoutIds, setScoutIds] = useState<string[]>(initialPools.scout);
 
@@ -493,8 +512,8 @@ export function MayaDashboard() {
 
   // Save + sync whenever pools change
   const updatePool = (pool: PoolType, id: string) => {
-    const setters: Record<PoolType, React.Dispatch<React.SetStateAction<string[]>>> = { maya: setMayaIds, council: setCouncilIds, worker: setWorkerIds, scout: setScoutIds };
-    const current: PoolState = { maya: mayaIds, council: councilIds, worker: workerIds, scout: scoutIds };
+    const setters: Record<PoolType, React.Dispatch<React.SetStateAction<string[]>>> = { maya: setMayaIds, council: setCouncilIds, distiller: setDistillerIds, worker: setWorkerIds, scout: setScoutIds };
+    const current: PoolState = { maya: mayaIds, council: councilIds, distiller: distillerIds, worker: workerIds, scout: scoutIds };
     const newList = toggleId(current[pool], id);
     setters[pool](newList);
     const newPools = { ...current, [pool]: newList };
@@ -505,7 +524,7 @@ export function MayaDashboard() {
   // Maya = single select — always exactly one model
   const selectMaya = (id: string) => {
     setMayaIds([id]);
-    const newPools: PoolState = { maya: [id], council: councilIds, worker: workerIds, scout: scoutIds };
+    const newPools: PoolState = { maya: [id], council: councilIds, distiller: distillerIds, worker: workerIds, scout: scoutIds };
     savePools(newPools);
     if (token) syncPoolsToServer(token, newPools);
   };
@@ -634,6 +653,7 @@ export function MayaDashboard() {
   const continuityText = ctx?.continuityNotes?.[0]?.summary || null;
   const myAvg = poolAvg(mayaIds, 'maya');
   const cAvg = poolAvg(councilIds, 'council');
+  const dAvg = poolAvg(distillerIds, 'distiller');
   const wAvg = poolAvg(workerIds, 'worker');
   const sAvg = poolAvg(scoutIds, 'scout');
 
@@ -670,6 +690,7 @@ export function MayaDashboard() {
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
           {poolBtn('Maya', 'maya', MAYA, myAvg, mayaIds.length, selectedMayaModel?.label)}
           {poolBtn('Council', 'council', TOKENS.gold, cAvg, councilIds.length)}
+          {poolBtn('Destill.', 'distiller', '#f59e0b', dAvg, distillerIds.length)}
           {poolBtn('Worker', 'worker', TOKENS.cyan, wAvg, workerIds.length)}
           {poolBtn('Scout', 'scout', TOKENS.green, sAvg, scoutIds.length)}
         </div>
@@ -682,6 +703,7 @@ export function MayaDashboard() {
       {/* Pool panel (expands below top bar) */}
       {openPool === 'maya' && <PoolPanel poolType="maya" accent={MAYA} activeIds={mayaIds} onToggle={id => updatePool('maya', id)} onSelect={selectMaya} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} singleSelect />}
       {openPool === 'council' && <PoolPanel poolType="council" accent={TOKENS.gold} activeIds={councilIds} onToggle={id => updatePool('council', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
+      {openPool === 'distiller' && <PoolPanel poolType="distiller" accent={'#f59e0b'} activeIds={distillerIds} onToggle={id => updatePool('distiller', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
       {openPool === 'worker' && <PoolPanel poolType="worker" accent={TOKENS.cyan} activeIds={workerIds} onToggle={id => updatePool('worker', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
       {openPool === 'scout' && <PoolPanel poolType="scout" accent={TOKENS.green} activeIds={scoutIds} onToggle={id => updatePool('scout', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
 
