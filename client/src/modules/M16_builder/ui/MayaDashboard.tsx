@@ -156,7 +156,7 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
     setLoading(true); setErr('');
     try {
       const r = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(val)}`);
-      if (!r.ok) throw new Error('Ung\u00fcltiger Token');
+      if (!r.ok) throw new Error('Ungültiger Token');
       try { localStorage.setItem('maya-token', val); } catch { /* noop */ }
       onAuth(val);
     } catch (e) { setErr(String(e instanceof Error ? e.message : e)); }
@@ -306,9 +306,9 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStat
               </div>
             </>
           )}
-          {singleSelect && <span style={{ fontSize: 11, color: TOKENS.text2 }}>W\u00e4hle eine KI f\u00fcr den Chat</span>}
+          {singleSelect && <span style={{ fontSize: 11, color: TOKENS.text2 }}>Wähle eine KI für den Chat</span>}
         </div>
-        <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18, color: TOKENS.text2, padding: '2px 8px' }}>{'\u2715'}</span>
+        <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18, color: TOKENS.text2, padding: '2px 8px' }}>{'✕'}</span>
       </div>
 
       {/* Model chips */}
@@ -348,7 +348,7 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStat
               </div>
               <span style={{ minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: barCol }}>{pct}%</span>
               <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'monospace', minWidth: 48 }}>{m.speed}</span>
-              {tasks > 0 && <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'monospace' }}>{'\u00D7'}{tasks}</span>}
+              {tasks > 0 && <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'monospace' }}>{'×'}{tasks}</span>}
             </div>
           );
         })}
@@ -364,7 +364,7 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
   if (collapsed) {
     return (
       <div style={{ width: 48, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 14, flexShrink: 0 }}>
-        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, marginBottom: 16, padding: 4 }} title="Sidebar \u00f6ffnen">{'\u00BB'}</span>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, marginBottom: 16, padding: 4 }} title="Sidebar öffnen">{'»'}</span>
         <span style={{ fontSize: 11, color: MAYA, writingMode: 'vertical-rl', letterSpacing: 2, fontWeight: 600 }}>TASKS</span>
       </div>
     );
@@ -374,7 +374,7 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
     <div style={{ width: 260, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1.5px solid ${TOKENS.b2}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent)' }}>
         <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, fontWeight: 600 }}>Tasks ({ctx?.tasks.length ?? 0})</div>
-        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'\u00AB'}</span>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'«'}</span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
         {ctx?.tasks.slice(0, 30).map(t => (
@@ -429,7 +429,7 @@ function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
               {n.summary.slice(0, 120)}{n.summary.length > 120 ? '...' : ''}
             </div>
             {n.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.6, flexShrink: 0, padding: '0 2px' }} title="L\u00f6schen">{'\u2715'}</span>
+              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.6, flexShrink: 0, padding: '0 2px' }} title="Löschen">{'✕'}</span>
             )}
           </div>
         ))}
@@ -443,7 +443,7 @@ function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
               {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
             </div>
             {e.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="L\u00f6schen">{'\u2715'}</span>
+              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">{'✕'}</span>
             )}
           </div>
         ))}
@@ -549,7 +549,7 @@ export function MayaDashboard() {
         const note = data.continuityNotes[0].summary;
         setMessages([{ role: 'maya', text: `Builder Studio bereit. Letzte Session: ${note.slice(0, 150)}${note.length > 150 ? '...' : ''}\n\n${data.tasks.length} aktive Tasks, ${data.workerStats.length} Worker im Pool. Was steht an?` }]);
       } else if (messages.length === 0) {
-        setMessages([{ role: 'maya', text: `Builder Studio bereit. ${data.tasks.length} Tasks geladen. Was m\u00f6chtest du bauen?` }]);
+        setMessages([{ role: 'maya', text: `Builder Studio bereit. ${data.tasks.length} Tasks geladen. Was möchtest du bauen?` }]);
       }
     } catch (e) { console.error('Context load failed:', e); }
     setCtxLoading(false);
@@ -727,7 +727,7 @@ export function MayaDashboard() {
                         <div key={pi} style={{ margin: '10px 0', padding: '14px 16px', borderRadius: 16, background: rc.bg, border: `1.5px solid ${rc.border}`, boxShadow: `0 4px 12px ${rc.border}20` }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                             <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: rc.text, borderRadius: 999, border: `1px solid ${rc.border}`, padding: '2px 8px' }}>{a.risk}</span>
-                            <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6, border: `1px solid ${TOKENS.b3}` }}>{a.endpoint}{a.branch ? ` \u2192 ${a.branch}` : ''}</code>
+                            <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6, border: `1px solid ${TOKENS.b3}` }}>{a.endpoint}{a.branch ? ` → ${a.branch}` : ''}</code>
                           </div>
                           <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10, lineHeight: 1.5 }}>{a.description}</div>
                           {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '7px 16px', borderRadius: 999, border: `1.5px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausf\u00FChren</button>}
@@ -738,9 +738,9 @@ export function MayaDashboard() {
                               <button onClick={() => setActionStatus(p => ({ ...p, [key]: 'idle' }))} style={{ fontSize: 11, padding: '7px 16px', borderRadius: 999, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text3, cursor: 'pointer' }}>Abbrechen</button>
                             </div>
                           )}
-                          {st === 'pending' && <span style={{ fontSize: 11, color: TOKENS.text3 }}>{'\u23F3'} L\u00E4uft...</span>}
-                          {st === 'success' && <span style={{ fontSize: 11, color: TOKENS.green, fontWeight: 600 }}>{'\u2705'} Erledigt</span>}
-                          {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{'\u274C'} Fehlgeschlagen</span>}
+                          {st === 'pending' && <span style={{ fontSize: 11, color: TOKENS.text3 }}>{'⏳'} L\u00E4uft...</span>}
+                          {st === 'success' && <span style={{ fontSize: 11, color: TOKENS.green, fontWeight: 600 }}>{'✅'} Erledigt</span>}
+                          {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{'❌'} Fehlgeschlagen</span>}
                         </div>
                       );
                     }) : <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>}
