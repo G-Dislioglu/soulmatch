@@ -302,24 +302,44 @@ function collectAssignmentCommands(
   }
 }
 
+/** Maya moderator decision after each round */
+export interface ModeratorDecision {
+  action: 'continue' | 'focus' | 'conclude';
+  /** Focus topic for next round (only if action='focus') */
+  focusPrompt?: string;
+  reason: string;
+}
+
+/** Callback invoked after each round. Receives round messages and full pool. */
+export type RoundModerator = (
+  round: number,
+  roundMessages: ChatPoolMessage[],
+  allMessages: ChatPoolMessage[],
+  approvalCount: number,
+  blockCount: number,
+) => Promise<ModeratorDecision>;
+
 export async function runRoundtable(
   task: { id: string; title: string; goal: string; scope?: string[]; risk?: string },
   existingChatPool: ExistingChatPoolMessage[],
   config: RoundtableConfig,
   opusHints?: string,
+  moderator?: RoundModerator,
 ): Promise<RoundtableResult> {
   const projectDna = loadProjectDna();
   const chatPool = existingChatPool.map((message, index) => toLocalChatPoolMessage(task.id, message, index));
   const patchMap = new Map<string, { file: string; body: string }>();
   const assignmentMap = new Map<string, RoundtableAssignment>();
   let totalTokens = 0;
+  let dynamicFocus = '';
 
   for (let round = 1; round <= config.maxRounds; round += 1) {
     for (const participant of config.participants) {
       const startedAt = Date.now();
 
       try {
-        const system = buildRoundtableSystemPrompt(participant, task, projectDna, opusHints);
+        const hints = [opusHints || '', dynamicFocus].filter(Boolean).join('\n\n');
+        const system = buildRoundtableSystemPrompt(participant, task, projectDna, hints || undefined);
         const prompt = `${formatChatPoolForModel(chatPool)}\n\n--- Dein Beitrag (Runde ${round}): ---`;
         const response = await callProvider(
           normalizeProvider(participant.provider),
@@ -394,6 +414,53 @@ export async function runRoundtable(
         approvals: approvals.actors,
         blocks: blocks.actors,
       };
+    }
+
+    // --- MAYA MODERATION ---
+    // After each round without consensus, Maya decides: continue / focus / conclude
+    if (moderator && round < config.maxRounds) {
+      try {
+        const decision = await moderator(round, roundMessages, chatPool, approvals.count, blocks.count);
+        console.log(`[roundtable] Maya moderation R${round}: ${decision.action} — ${decision.reason}`);
+
+        if (decision.action === 'conclude') {
+          // Maya says stop — treat current state as best effort
+          const finalApprovals = countApprovals(chatPool);
+          return {
+            status: finalApprovals.count >= config.consensusThreshold ? 'consensus' : 'no_consensus',
+            consensusType: finalApprovals.count >= config.participants.length ? 'unanimous' : 'majority',
+            rounds: round,
+            totalTokens,
+            patches: [...patchMap.values()],
+            assignments: [...assignmentMap.values()],
+            approvals: finalApprovals.actors,
+            blocks: blocks.actors,
+          };
+        }
+
+        if (decision.action === 'focus' && decision.focusPrompt) {
+          dynamicFocus = `=== MAYA MODERATION (Fokus fuer Runde ${round + 1}) ===\n${decision.focusPrompt}`;
+          // Store moderation decision in chat pool for visibility
+          const modMessage = await addChatPoolMessage({
+            taskId: task.id,
+            round,
+            phase: 'roundtable',
+            actor: 'maya-moderator',
+            model: 'system',
+            content: `FOKUS RUNDE ${round + 1}: ${decision.focusPrompt}\n(${decision.reason})`,
+            commands: [],
+            executionResults: { action: decision.action },
+            tokensUsed: 0,
+            durationMs: 0,
+          });
+          chatPool.push(modMessage);
+        } else {
+          dynamicFocus = ''; // continue without special focus
+        }
+      } catch (modError) {
+        console.error('[roundtable] Maya moderation failed, continuing:', modError);
+        dynamicFocus = '';
+      }
     }
   }
 
