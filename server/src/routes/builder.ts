@@ -691,9 +691,10 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
 // POST /api/builder/maya/chat — Maya command center chat
 router.post('/maya/chat', async (req: Request, res: Response) => {
   try {
-    const { message, history = [] } = req.body as {
+    const { message, history = [], file } = req.body as {
       message: string;
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      file?: { data: string; mime: string; name: string };
     };
 
     if (!message) {
@@ -723,6 +724,11 @@ router.post('/maya/chat', async (req: Request, res: Response) => {
     const taskSummary = tasks.map(t => `[${t.status}] ${t.title} (risk:${t.risk}, id:${t.id})`).join('\n');
     const lastNote = continuity[0]?.summary || 'Keine Continuity Note.';
 
+    // Build compact worker summary for system prompt
+    const workerSummary = WORKER_PROFILES.map(w =>
+      `• ${w.id} (${w.costTier}/${w.speedTier}) — ${w.role}: ${w.bestFor.slice(0, 3).join(', ')}. Qualität: ${w.codeQuality}/100`
+    ).join('\n');
+
     const systemPrompt = `Du bist Maya — die zentrale Steuereinheit des Opus-Bridge Builder-Systems im Soulmatch-Projekt. Du sprichst Deutsch.
 
 DEIN LIVE-KONTEXT:
@@ -730,6 +736,9 @@ Continuity (letzte Session): ${lastNote}
 
 Aktive Tasks (mit IDs):
 ${taskSummary || 'Keine Tasks.'}
+
+WORKER-POOL (wähle den besten für jede Aufgabe):
+${workerSummary}
 
 DEINE FÄHIGKEITEN:
 - /build — Code-Änderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
@@ -751,8 +760,13 @@ REGELN:
 - Erkläre in Alltagssprache mit Metaphern
 - Bewerte Ideen auf 0-100% Skala mit Schwächen zuerst
 - Du bist Partnerin und Architektin, nicht Tool
-- Wenn du eine Aktion vorschlägst, beschreibe sie klar mit Risiko-Level
+- Bei klaren Aufträgen ("fix den Bug", "build Feature X") handle SOFORT mit Action-Blöcken — frag nicht nach Bestätigung für safe/staging Aktionen
+- Wähle den Worker basierend auf Task-Typ (siehe WORKER-POOL oben)
+- Für Task-Details: Nutze /tasks/:id/dialog und /tasks/:id/evidence
 
+VERFÜGBARE AKTIONEN:
+
+VERFÜGBARE AKTIONEN:
 Wenn du eine Builder-Aktion ausführen willst, antworte mit einem Action-Block:
 [ACTION: endpoint=/build, branch=staging, worker=glm-turbo, risk=safe]
 Beschreibung was passieren wird
@@ -761,16 +775,82 @@ Beschreibung was passieren wird
 Für destruktive Aktionen (push main, deploy, revert):
 [ACTION: endpoint=/push, branch=main, risk=destructive]
 Beschreibung
-[/ACTION]`;
+[/ACTION]
+
+PROAKTIVES HANDELN:
+- Bei "fix Bug X" → sofort /build Action-Block mit passendem Worker
+- Bei "was macht Task X" → direkt die Details abrufen und zusammenfassen
+- Bei "deploy" → /push + /render/redeploy Action-Blöcke
+- Bei "zeig Worker" → Tabelle mit allen Workern und ihrer Performance`;
 
     // Route to Opus for complex reasoning, cheaper model for simple status queries
-    const isSimpleQuery = /^(status|was läuft|health|wie viele|zeig|list)/i.test(message.trim());
+    // If file attached → always use Gemini (multimodal)
+    const hasFile = !!file?.data;
+    const isSimpleQuery = !hasFile && /^(status|was läuft|health|wie viele|zeig|list)/i.test(message.trim());
+
+    if (hasFile && file.mime.startsWith('image/')) {
+      // Multimodal path → Gemini with inline image
+      const geminiApiKey = process.env.GEMINI_API_KEY;
+      if (!geminiApiKey) { res.status(500).json({ error: 'GEMINI_API_KEY not set' }); return; }
+
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+      const contents = [
+        ...history.slice(-12).map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        })),
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: file.mime, data: file.data } },
+            { text: `[Datei: ${file.name}]\n\n${message}` },
+          ],
+        },
+      ];
+
+      const geminiResp = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
+        }),
+      });
+
+      if (!geminiResp.ok) {
+        const errText = await geminiResp.text();
+        throw new Error(`Gemini API ${geminiResp.status}: ${errText.slice(0, 200)}`);
+      }
+
+      const geminiData = await geminiResp.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const geminiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Keine Antwort von Gemini.';
+
+      res.json({
+        response: geminiText,
+        model: 'gemini' as const,
+        contextUsed: { tasksLoaded: tasks.length, hasContinuity: !!continuity[0] },
+      });
+      return;
+    }
+
+    // Non-image file → append content as text
+    let userContent = message;
+    if (hasFile && !file.mime.startsWith('image/')) {
+      try {
+        const decoded = Buffer.from(file.data, 'base64').toString('utf-8');
+        userContent = `[Datei: ${file.name}]\n\`\`\`\n${decoded.slice(0, 8000)}\n\`\`\`\n\n${message}`;
+      } catch {
+        userContent = `[Datei: ${file.name} — konnte nicht gelesen werden]\n\n${message}`;
+      }
+    }
+
     const provider = isSimpleQuery ? 'zhipu' : 'anthropic';
     const model = isSimpleQuery ? 'glm-4.7-flashx' : 'claude-opus-4-6';
 
     const messages = [
       ...history.slice(-16),
-      { role: 'user' as const, content: message },
+      { role: 'user' as const, content: userContent },
     ];
 
     const response = await callProvider(provider, model, {
