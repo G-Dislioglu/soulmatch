@@ -71,11 +71,28 @@ function formatTime(d: string | null | undefined) {
   return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      style={{ fontSize: 10, color: copied ? TOKENS.green : TOKENS.text3, cursor: 'pointer', opacity: 0.6, userSelect: 'none' }}
+      title="Kopieren">{copied ? '✓' : '⧉'}</span>
+  );
+}
+
 // ─── Auth Gate ───
 function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
-  const [val, setVal] = useState('');
+  const [val, setVal] = useState(() => {
+    try { return localStorage.getItem('maya-token') || ''; } catch { return ''; }
+  });
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  // Auto-login if saved token exists
+  useEffect(() => {
+    if (val) submit();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
     if (!val.trim()) return;
@@ -84,6 +101,7 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
     try {
       const r = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(val)}`);
       if (!r.ok) throw new Error('Ungültiger Token');
+      try { localStorage.setItem('maya-token', val); } catch { /* noop */ }
       onAuth(val);
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
@@ -98,9 +116,15 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
         <p style={{ fontSize: 13, color: TOKENS.text2, marginTop: 8, lineHeight: 1.6 }}>Builder-Token eingeben um Maya zu starten.</p>
         {err && <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', fontSize: 13 }}>{err}</div>}
         <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-          <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
-            placeholder="opus_token" autoFocus
-            style={{ flex: 1, background: TOKENS.bg2, border: `1px solid ${TOKENS.b1}`, borderRadius: 12, padding: '12px 14px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
+              type={showPw ? 'text' : 'password'} placeholder="Token" autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', background: TOKENS.bg2, border: `1px solid ${TOKENS.b1}`, borderRadius: 12, padding: '12px 40px 12px 14px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+            <span onClick={() => setShowPw(!showPw)}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: 16, color: TOKENS.text3, userSelect: 'none' }}>
+              {showPw ? '👁' : '👁‍🗨'}
+            </span>
+          </div>
           <button onClick={submit} disabled={loading}
             style={{ borderRadius: 12, border: `1.5px solid ${MAYA}`, background: MAYA_DIM, color: TOKENS.text, padding: '12px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {loading ? '...' : 'Verbinden'}
@@ -352,10 +376,11 @@ export function MayaDashboard() {
                   color: m.role === 'maya' ? MAYA : TOKENS.cyan,
                   border: `1px solid ${m.role === 'maya' ? MAYA + '40' : TOKENS.cyan + '30'}`,
                 }}>{m.role === 'maya' ? 'M' : 'G'}</div>
-                <div style={{ maxWidth: 560 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: m.role === 'maya' ? MAYA : TOKENS.cyan, marginBottom: 3 }}>
+                <div style={{ maxWidth: 560, flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: m.role === 'maya' ? MAYA : TOKENS.cyan, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
                     {m.role === 'maya' ? 'Maya' : 'Gürcan'}
-                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, marginLeft: 6, fontWeight: 400 }}>{m.model}</span>}
+                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400 }}>{m.model}</span>}
+                    <CopyBtn text={m.text} />
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text, whiteSpace: 'pre-wrap' }}>
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
