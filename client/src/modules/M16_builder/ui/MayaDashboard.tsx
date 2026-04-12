@@ -222,8 +222,6 @@ const SCOUT_MODELS = [
   { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
 ];
 
-const ALL_MODELS = [...STRONG_MODELS, ...SCOUT_MODELS];
-
 function getModelsForPool(pool: PoolType) {
   return pool === 'scout' ? SCOUT_MODELS : STRONG_MODELS;
 }
