@@ -528,7 +528,8 @@ export function MayaDashboard() {
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
                       if (part.type === 'text') return <MayaMarkdown key={pi} text={part.content} />;
                       const a = part.action!;
-                      const rc = RISK_COLORS[a.risk] ?? RISK_COLORS.safe;
+                      const rcFallback = { bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.35)', text: '#4ade80' };
+                      const rc = RISK_COLORS[a.risk] ?? rcFallback;
                       const key = `${i}-${pi}`;
                       const st = actionStatus[key] || 'idle';
                       return (
