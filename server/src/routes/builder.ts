@@ -22,42 +22,9 @@ import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
+import { getActivePools, updatePools, pickFromPool } from '../lib/poolState.js';
 
 const router = Router();
-
-// ─── Pool State (in-memory, synced from frontend) ───
-const POOL_MODEL_MAP: Record<string, { provider: string; model: string }> = {
-  opus: { provider: 'anthropic', model: 'claude-opus-4-6' },
-  sonnet: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  'gpt-5.4': { provider: 'openai', model: 'gpt-5.4' },
-  grok: { provider: 'xai', model: 'grok-4-1-fast' },
-  deepseek: { provider: 'deepseek', model: 'deepseek-chat' },
-  'glm-turbo': { provider: 'zhipu', model: 'glm-5-turbo' },
-  minimax: { provider: 'openrouter', model: 'minimax/minimax-m2.7' },
-  kimi: { provider: 'openrouter', model: 'moonshotai/kimi-k2.5' },
-  qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
-  'glm-flash': { provider: 'zhipu', model: 'glm-4.7-flashx' },
-  'gemini-flash': { provider: 'gemini', model: 'gemini-3-flash-preview' },
-  'deepseek-scout': { provider: 'deepseek', model: 'deepseek-chat' },
-  'qwen-scout': { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
-};
-
-let activePools = {
-  maya: ['opus'],
-  council: ['opus', 'sonnet', 'gpt-5.4'],
-  worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
-  scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
-};
-
-function pickFromPool(pool: 'maya' | 'council' | 'worker' | 'scout', preferStrong = true): { provider: string; model: string; id: string } | null {
-  const ids = activePools[pool];
-  if (ids.length === 0) return null;
-  // For master: pick strongest (first in list). For worker/scout: could randomize.
-  const id = preferStrong ? ids[0]! : ids[Math.floor(Math.random() * ids.length)]!;
-  const entry = POOL_MODEL_MAP[id];
-  if (!entry) return null;
-  return { ...entry, id };
-}
 
 // GET /api/builder/preview/:taskId — prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
@@ -775,10 +742,10 @@ WORKER-POOL (wähle den besten für jede Aufgabe):
 ${workerSummary}
 
 AKTIVE POOL-ZUSAMMENSETZUNG:
-Maya KI: ${activePools.maya.join(', ') || 'leer'}
-Master Council: ${activePools.council.join(', ') || 'leer'}
-Worker Pool: ${activePools.worker.join(', ') || 'leer'}
-Scout Pool: ${activePools.scout.join(', ') || 'leer'}
+Maya KI: ${getActivePools().maya.join(', ') || 'leer'}
+Master Council: ${getActivePools().council.join(', ') || 'leer'}
+Worker Pool: ${getActivePools().worker.join(', ') || 'leer'}
+Scout Pool: ${getActivePools().scout.join(', ') || 'leer'}
 Du kannst die Pools per Action-Block ändern:
 [ACTION: endpoint=/maya/pools, risk=safe]
 pools: { maya: ["opus"], council: ["opus", "sonnet"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
@@ -1110,12 +1077,10 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
 router.post('/maya/pools', (req: Request, res: Response) => {
   const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; worker?: string[]; scout?: string[] } };
   if (!pools) { res.status(400).json({ error: 'pools required' }); return; }
-  if (pools.maya) activePools.maya = pools.maya;
-  if (pools.council) activePools.council = pools.council;
-  if (pools.worker) activePools.worker = pools.worker;
-  if (pools.scout) activePools.scout = pools.scout;
-  console.log('[maya] Pools updated:', { maya: activePools.maya.length, council: activePools.council.length, worker: activePools.worker.length, scout: activePools.scout.length });
-  res.json({ success: true, pools: activePools });
+  updatePools(pools);
+  const current = getActivePools();
+  console.log('[maya] Pools updated:', { maya: current.maya.length, council: current.council.length, worker: current.worker.length, scout: current.scout.length });
+  res.json({ success: true, pools: current });
 });
 
 export { router as builderRouter };
