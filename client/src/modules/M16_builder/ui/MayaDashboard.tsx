@@ -191,8 +191,8 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
 // Section Panel
 function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string; accent?: string; children: React.ReactNode }) {
   return (
-    <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 18, background: TOKENS.card, boxShadow: TOKENS.shadow.card, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', borderBottom: `2px solid ${TOKENS.b1}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))' }}>
+    <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, background: TOKENS.card, boxShadow: TOKENS.shadow.card, overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', borderBottom: `2px solid ${TOKENS.b1}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
         <div style={{ fontSize: 10, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600, fontFamily: TOKENS.font.body }}>{title}</div>
       </div>
       <div style={{ padding: 14 }}>{children}</div>
@@ -233,21 +233,21 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
           <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Worker Pool</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 9, color: TOKENS.text3, textTransform: 'uppercase' }}>Master</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
           </div>
         </div>
-        <div style={{ height: 4, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', marginBottom: 12, border: `1px solid ${TOKENS.b3}` }}>
-          <div style={{ width: `${masterPerf}%`, height: '100%', background: `linear-gradient(90deg, ${masterColor}, ${masterColor}80)`, borderRadius: 3, transition: 'width 0.4s ease' }} />
+        <div style={{ height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', marginBottom: 14, border: `1.5px solid ${TOKENS.b2}` }}>
+          <div style={{ width: `${masterPerf}%`, height: '100%', background: `linear-gradient(90deg, ${masterColor}, ${masterColor}80)`, borderRadius: 4, transition: 'width 0.4s ease', boxShadow: `0 0 10px ${masterColor}50` }} />
         </div>
         {workers.slice(0, 6).map((w, i) => {
           const pct = Math.min(100, Number(w.avg_quality) || 0);
           const color = pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 11 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: `0 0 6px ${color}60` }} />
-              <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 10 }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
-              <div style={{ flex: 1, height: 4, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b3}` }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3 }} />
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: `0 0 8px ${color}60` }} />
+              <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
+              <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: `0 0 6px ${color}40` }} />
               </div>
               <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
               <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{w.task_count}</span>
@@ -265,11 +265,11 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
             style={{
               display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
               padding: '8px 10px', borderRadius: 12, marginBottom: 4, fontSize: 11,
-              cursor: 'pointer', border: `1px solid ${TOKENS.b3}`, background: 'transparent',
+              cursor: 'pointer', border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card2,
               color: TOKENS.text,
             }}
-            onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.06)'; }}
-            onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b3; (e.currentTarget).style.background = 'transparent'; }}>
+            onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.10)'; }}
+            onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b2; (e.currentTarget).style.background = TOKENS.card2; }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0, boxShadow: `0 0 4px ${STATUS_COLORS[t.status] || TOKENS.text2}50` }} />
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 40)}</span>
             <span style={{ fontSize: 9, color: STATUS_COLORS[t.status] || TOKENS.text3, fontFamily: 'monospace', borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{t.status.slice(0, 8)}</span>
