@@ -43,12 +43,13 @@ const POOL_MODEL_MAP: Record<string, { provider: string; model: string }> = {
 };
 
 let activePools = {
-  master: ['opus', 'gemini-flash'],
+  maya: ['opus'],
+  council: ['opus', 'sonnet', 'gpt-5.4'],
   worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
   scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
 };
 
-function pickFromPool(pool: 'master' | 'worker' | 'scout', preferStrong = true): { provider: string; model: string; id: string } | null {
+function pickFromPool(pool: 'maya' | 'council' | 'worker' | 'scout', preferStrong = true): { provider: string; model: string; id: string } | null {
   const ids = activePools[pool];
   if (ids.length === 0) return null;
   // For master: pick strongest (first in list). For worker/scout: could randomize.
@@ -774,12 +775,13 @@ WORKER-POOL (wähle den besten für jede Aufgabe):
 ${workerSummary}
 
 AKTIVE POOL-ZUSAMMENSETZUNG:
-Master Pool: ${activePools.master.join(', ') || 'leer'}
+Maya KI: ${activePools.maya.join(', ') || 'leer'}
+Master Council: ${activePools.council.join(', ') || 'leer'}
 Worker Pool: ${activePools.worker.join(', ') || 'leer'}
 Scout Pool: ${activePools.scout.join(', ') || 'leer'}
 Du kannst die Pools per Action-Block ändern:
 [ACTION: endpoint=/maya/pools, risk=safe]
-pools: { master: ["opus", "sonnet"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
+pools: { maya: ["opus"], council: ["opus", "sonnet"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
 [/ACTION]
 
 DEINE FÄHIGKEITEN:
@@ -889,13 +891,13 @@ PROAKTIVES HANDELN:
 
     const provider = isSimpleQuery
       ? (pickFromPool('scout', false)?.provider ?? 'zhipu')
-      : (pickFromPool('master', true)?.provider ?? 'anthropic');
+      : (pickFromPool('maya', true)?.provider ?? 'anthropic');
     const model = isSimpleQuery
       ? (pickFromPool('scout', false)?.model ?? 'glm-4.7-flashx')
-      : (pickFromPool('master', true)?.model ?? 'claude-opus-4-6');
+      : (pickFromPool('maya', true)?.model ?? 'claude-opus-4-6');
     const modelLabel = isSimpleQuery
       ? (pickFromPool('scout', false)?.id ?? 'flash')
-      : (pickFromPool('master', true)?.id ?? 'opus');
+      : (pickFromPool('maya', true)?.id ?? 'opus');
 
     const messages = [
       ...history.slice(-16),
@@ -1106,12 +1108,13 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
 
 // POST /api/builder/maya/pools — receive pool configuration from frontend
 router.post('/maya/pools', (req: Request, res: Response) => {
-  const { pools } = req.body as { pools?: { master?: string[]; worker?: string[]; scout?: string[] } };
+  const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; worker?: string[]; scout?: string[] } };
   if (!pools) { res.status(400).json({ error: 'pools required' }); return; }
-  if (pools.master) activePools.master = pools.master;
+  if (pools.maya) activePools.maya = pools.maya;
+  if (pools.council) activePools.council = pools.council;
   if (pools.worker) activePools.worker = pools.worker;
   if (pools.scout) activePools.scout = pools.scout;
-  console.log('[maya] Pools updated:', { master: activePools.master.length, worker: activePools.worker.length, scout: activePools.scout.length });
+  console.log('[maya] Pools updated:', { maya: activePools.maya.length, council: activePools.council.length, worker: activePools.worker.length, scout: activePools.scout.length });
   res.json({ success: true, pools: activePools });
 });
 
