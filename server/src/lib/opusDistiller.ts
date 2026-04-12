@@ -87,7 +87,7 @@ Maximal 500 Woerter. Keine Wiederholungen. Jeder Satz muss Information enthalten
   const message = await addChatPoolMessage({
     taskId,
     round: 0,
-    phase: 'scout',
+    phase: 'distiller',
     actor: EXTRACTOR.actor,
     model: EXTRACTOR.model,
     content,
@@ -157,7 +157,7 @@ ${scoutDigest}`,
   const message = await addChatPoolMessage({
     taskId,
     round: 0,
-    phase: 'scout',
+    phase: 'distiller',
     actor: REASONER.actor,
     model: REASONER.model,
     content,
