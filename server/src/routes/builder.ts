@@ -21,6 +21,7 @@ import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/bui
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
+import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
 
 const router = Router();
 
@@ -919,6 +920,58 @@ router.post('/batch-delete-tasks', async (req: Request, res: Response) => {
     res.json({ success: true, deleted, total: ids.length });
   } catch (err) {
     res.status(500).json({ error: 'Batch delete failed: ' + String(err) });
+  }
+});
+
+// GET /api/builder/maya/workers — worker profiles for Maya's selection
+router.get('/maya/workers', (_req: Request, res: Response) => {
+  res.json(WORKER_PROFILES.map(w => ({
+    id: w.id, provider: w.provider, model: w.model, role: w.role,
+    strengths: w.strengths, weaknesses: w.weaknesses,
+    bestFor: w.bestFor, avoidFor: w.avoidFor,
+    costTier: w.costTier, speedTier: w.speedTier,
+    codeQuality: w.codeQuality, reliability: w.reliability,
+  })));
+});
+
+// POST /api/builder/maya/pick-worker — Maya asks for best worker for a task
+router.post('/maya/pick-worker', (req: Request, res: Response) => {
+  const { description } = req.body as { description?: string };
+  if (!description) { res.status(400).json({ error: 'description required' }); return; }
+  const worker = pickWorker(description);
+  res.json({ recommended: worker });
+});
+
+// POST /api/builder/maya/brief — compile an active brief for a task
+router.post('/maya/brief', async (req: Request, res: Response) => {
+  try {
+    const { taskGoal } = req.body as { taskGoal?: string };
+    if (!taskGoal) { res.status(400).json({ error: 'taskGoal required' }); return; }
+
+    const db = getDb();
+    const [tasks, continuity, workerStats] = await Promise.all([
+      db.select({ id: builderTasks.id, title: builderTasks.title, status: builderTasks.status, risk: builderTasks.risk })
+        .from(builderTasks).orderBy(desc(builderTasks.updatedAt)).limit(5),
+      db.select({ summary: builderMemory.summary })
+        .from(builderMemory).where(eq(builderMemory.layer, 'continuity')).orderBy(desc(builderMemory.updatedAt)).limit(1),
+      db.execute(sql`SELECT worker, ROUND(AVG(quality)) as avg_quality, COUNT(*) as task_count FROM builder_worker_scores GROUP BY worker ORDER BY avg_quality DESC LIMIT 5`).catch(() => ({ rows: [] })),
+    ]);
+
+    const worker = pickWorker(taskGoal);
+
+    res.json({
+      brief: {
+        taskGoal,
+        recommendedWorker: { id: worker.id, model: worker.model, strengths: worker.strengths, reliability: worker.reliability },
+        activeTasks: tasks.map(t => `[${t.status}] ${t.title}`),
+        lastSession: continuity[0]?.summary || 'Keine Continuity Note.',
+        workerPerformance: workerStats.rows,
+        risks: worker.avoidFor,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Brief compilation failed: ' + String(err) });
   }
 });
 
