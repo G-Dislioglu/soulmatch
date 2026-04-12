@@ -187,7 +187,7 @@ async function processBatch(
 async function pushIndex(payload: RepoIndexPayload): Promise<void> {
   const port = process.env.PORT ?? '3001';
   const token = process.env.OPUS_BRIDGE_SECRET ?? '';
-  const url = `http://localhost:${port}/api/builder/opus-bridge/push?opus_token=${encodeURIComponent(token)}`;
+  const url = `http://localhost:${port}/api/builder/opus-bridge/git-push?opus_token=${encodeURIComponent(token)}`;
 
   const res = await fetch(url, {
     method: 'POST',
