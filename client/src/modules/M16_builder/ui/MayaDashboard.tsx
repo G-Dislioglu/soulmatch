@@ -204,9 +204,41 @@ function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string
 function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
   ctx: MayaContext | null; collapsed: boolean; onToggle: () => void; onTaskClick?: (id: string, title: string) => void;
 }) {
+  const [poolOpen, setPoolOpen] = useState(true);
+  const [masterModel, setMasterModel] = useState('claude-opus-4-6');
+  const [activeWorkers, setActiveWorkers] = useState<string[]>(['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek']);
+
   const workers = ctx?.workerStats ?? [];
   const masterPerf = workers.length > 0 ? Math.round(workers.reduce((s, w) => s + Number(w.avg_quality), 0) / workers.length) : 0;
   const masterColor = masterPerf >= 70 ? TOKENS.green : masterPerf >= 50 ? TOKENS.gold : '#ef4444';
+
+  const MASTER_OPTIONS = [
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6', tier: 'premium' },
+    { value: 'glm-4.7-flashx', label: 'GLM Flash', tier: 'fast' },
+    { value: 'gemini-2.5-flash', label: 'Gemini Flash', tier: 'multi' },
+    { value: 'gpt-5.4', label: 'GPT-5.4', tier: 'premium' },
+  ];
+
+  const WORKER_OPTIONS = [
+    { id: 'glm-turbo', label: 'GLM-Turbo' },
+    { id: 'minimax', label: 'MiniMax' },
+    { id: 'kimi', label: 'Kimi K2' },
+    { id: 'qwen', label: 'Qwen Coder' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'gpt-5.4', label: 'GPT-5.4' },
+  ];
+
+  const toggleWorker = (id: string) => {
+    setActiveWorkers(prev => prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]);
+  };
+
+  const selectStyle: React.CSSProperties = {
+    width: '100%', background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10,
+    padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none', fontFamily: 'monospace',
+    cursor: 'pointer', appearance: 'none' as const,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: 28,
+  };
 
   if (collapsed) {
     return (
@@ -219,6 +251,7 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
 
   return (
     <div style={{ width: 260, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      {/* Header */}
       <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1.5px solid ${TOKENS.b2}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent)' }}>
         <div>
           <div style={{ fontSize: 10, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Maya Command</div>
@@ -227,34 +260,79 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
         <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'\u00AB'}</span>
       </div>
 
-      {/* Workers FIXED */}
+      {/* Master Performance — always visible */}
       <div style={{ padding: '14px 16px', borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Worker Pool</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 9, color: TOKENS.text3, textTransform: 'uppercase' }}>Master</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          {/* Master ring */}
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            background: `conic-gradient(${masterColor} ${masterPerf * 3.6}deg, ${TOKENS.bg} 0deg)`,
+            boxShadow: `0 0 16px ${masterColor}40`,
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: TOKENS.bg2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Master Performance</div>
+            <div style={{ fontSize: 11, color: TOKENS.text2, marginTop: 2 }}>{workers.length} Worker, {ctx?.tasks.length ?? 0} Tasks</div>
           </div>
         </div>
-        <div style={{ height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', marginBottom: 14, border: `1.5px solid ${TOKENS.b2}` }}>
-          <div style={{ width: `${masterPerf}%`, height: '100%', background: `linear-gradient(90deg, ${masterColor}, ${masterColor}80)`, borderRadius: 4, transition: 'width 0.4s ease', boxShadow: `0 0 10px ${masterColor}50` }} />
+
+        {/* Master AI Dropdown */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: TOKENS.gold, fontWeight: 600, marginBottom: 4 }}>Master-KI</div>
+          <select value={masterModel} onChange={e => setMasterModel(e.target.value)} style={selectStyle}>
+            {MASTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} ({o.tier})</option>)}
+          </select>
         </div>
-        {workers.slice(0, 6).map((w, i) => {
-          const pct = Math.min(100, Number(w.avg_quality) || 0);
-          const color = pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: `0 0 8px ${color}60` }} />
-              <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
-              <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: `0 0 6px ${color}40` }} />
-              </div>
-              <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
-              <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{w.task_count}</span>
+      </div>
+
+      {/* Worker Pool — collapsible */}
+      <div style={{ borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
+        <div onClick={() => setPoolOpen(!poolOpen)}
+          style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: poolOpen ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Worker Pool ({activeWorkers.length})</div>
+          <span style={{ fontSize: 12, color: TOKENS.text3, transition: 'transform 0.2s', transform: poolOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>{'\u25BE'}</span>
+        </div>
+        {poolOpen && (
+          <div style={{ padding: '0 16px 14px' }}>
+            {/* Worker toggle chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+              {WORKER_OPTIONS.map(w => {
+                const active = activeWorkers.includes(w.id);
+                return (
+                  <button key={w.id} onClick={() => toggleWorker(w.id)}
+                    style={{
+                      fontSize: 9, padding: '3px 8px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
+                      border: `1px solid ${active ? TOKENS.cyan + '60' : TOKENS.b3}`,
+                      background: active ? 'rgba(34,211,238,0.10)' : 'transparent',
+                      color: active ? TOKENS.cyan : TOKENS.text3,
+                    }}>{w.label}</button>
+                );
+              })}
             </div>
-          );
-        })}
-        {workers.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Worker-Daten.</div>}
+            {/* Worker stats bars */}
+            {workers.slice(0, 6).map((w, i) => {
+              const pct = Math.min(100, Number(w.avg_quality) || 0);
+              const wName = String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || String(w.worker);
+              const isActive = activeWorkers.some(a => wName.toLowerCase().includes(a.toLowerCase().split('-')[0] ?? ''));
+              const color = !isActive ? TOKENS.text3 : pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11, opacity: isActive ? 1 : 0.4 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: isActive ? `0 0 8px ${color}60` : 'none' }} />
+                  <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{wName}</span>
+                  <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: isActive ? `0 0 6px ${color}40` : 'none' }} />
+                  </div>
+                  <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
+                  <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{w.task_count}</span>
+                </div>
+              );
+            })}
+            {workers.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Worker-Daten.</div>}
+          </div>
+        )}
       </div>
 
       {/* Tasks SCROLLABLE */}
