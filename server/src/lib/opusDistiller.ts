@@ -12,6 +12,7 @@
 import { callProvider } from './providers.js';
 import { addChatPoolMessage, type ChatPoolMessage } from './opusChatPool.js';
 import type { ScoutPhaseResult } from './opusScoutRunner.js';
+import { getAllFromPool, type ResolvedModel } from './poolState.js';
 
 export interface DistillerResult {
   /** The final structured brief for the council */
@@ -24,19 +25,22 @@ export interface DistillerResult {
 }
 
 // ─── Distiller KI Configuration ───
-// These are fixed roles, not pool-dependent — the distiller always
-// uses cheap/fast models for extraction + reasoning.
-const EXTRACTOR = {
-  provider: 'zhipu',
-  model: 'glm-4.7-flashx',
-  actor: 'distiller-extract',
-};
+// Defaults used when pool is empty. Otherwise reads from activePools.distiller.
+const DEFAULT_EXTRACTOR: ResolvedModel = { id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx' };
+const DEFAULT_REASONER: ResolvedModel = { id: 'deepseek-scout', provider: 'deepseek', model: 'deepseek-chat' };
 
-const REASONER = {
-  provider: 'deepseek',
-  model: 'deepseek-chat',
-  actor: 'distiller-reason',
-};
+function resolveDistillerModels(): { extractor: ResolvedModel; reasoner: ResolvedModel } {
+  const poolModels = getAllFromPool('distiller');
+  if (poolModels.length === 0) {
+    return { extractor: DEFAULT_EXTRACTOR, reasoner: DEFAULT_REASONER };
+  }
+  if (poolModels.length === 1) {
+    // Single model does both roles
+    return { extractor: poolModels[0]!, reasoner: poolModels[0]! };
+  }
+  // First = extractor, second = reasoner
+  return { extractor: poolModels[0]!, reasoner: poolModels[1]! };
+}
 
 function buildScoutDigest(scoutResult: ScoutPhaseResult): string {
   const sections: string[] = [];
@@ -59,10 +63,11 @@ async function runExtractor(
   taskId: string,
   taskGoal: string,
   scoutDigest: string,
+  model: ResolvedModel,
 ): Promise<{ message: ChatPoolMessage; extract: string }> {
   const startedAt = Date.now();
 
-  const content = await callProvider(EXTRACTOR.provider, EXTRACTOR.model, {
+  const content = await callProvider(model.provider, model.model, {
     system: `Du bist der Fakten-Extraktor im Destillierer. Du bekommst die Roh-Outputs von mehreren Scouts.
 Dein Job: Extrahiere NUR die harten, verwertbaren Fakten. Kein Kommentar, keine Meinung.
 
@@ -88,10 +93,10 @@ Maximal 500 Woerter. Keine Wiederholungen. Jeder Satz muss Information enthalten
     taskId,
     round: 0,
     phase: 'distiller',
-    actor: EXTRACTOR.actor,
-    model: EXTRACTOR.model,
+    actor: 'distiller-extract',
+    model: model.model,
     content,
-    executionResults: { step: 'extract' },
+    executionResults: { step: 'extract', poolId: model.id },
     tokensUsed: 0,
     durationMs: Date.now() - startedAt,
   });
@@ -110,10 +115,11 @@ async function runReasoner(
   taskGoal: string,
   extractorOutput: string,
   scoutDigest: string,
+  model: ResolvedModel,
 ): Promise<{ message: ChatPoolMessage; brief: string }> {
   const startedAt = Date.now();
 
-  const content = await callProvider(REASONER.provider, REASONER.model, {
+  const content = await callProvider(model.provider, model.model, {
     system: `Du bist der Crush-Analyst im Destillierer. Du bekommst:
 1. Den Fakten-Extrakt eines Kollegen
 2. Die Original-Scout-Outputs
@@ -147,7 +153,7 @@ Maximal 600 Woerter.`,
 --- FAKTEN-EXTRAKT (Kollege) ---
 ${extractorOutput}
 
---- ORIGINAL SCOUT-OUTPUTS (zur Gegenprüfung) ---
+--- ORIGINAL SCOUT-OUTPUTS (zur Gegenpruefung) ---
 ${scoutDigest}`,
     }],
     maxTokens: 1200,
@@ -158,10 +164,10 @@ ${scoutDigest}`,
     taskId,
     round: 0,
     phase: 'distiller',
-    actor: REASONER.actor,
-    model: REASONER.model,
+    actor: 'distiller-reason',
+    model: model.model,
     content,
-    executionResults: { step: 'reason' },
+    executionResults: { step: 'reason', poolId: model.id },
     tokensUsed: 0,
     durationMs: Date.now() - startedAt,
   });
@@ -181,21 +187,26 @@ export async function runDistiller(
   taskId: string,
   taskGoal: string,
   scoutResult: ScoutPhaseResult,
+  memoryContext?: string,
 ): Promise<DistillerResult> {
   const startedAt = Date.now();
   const messages: ChatPoolMessage[] = [];
+  const { extractor, reasoner } = resolveDistillerModels();
 
   // Build the scout digest string
   const scoutDigest = buildScoutDigest(scoutResult);
 
-  // Step 1: Extractor
-  console.log(`[distiller] Step 1: Extractor (${EXTRACTOR.model})`);
-  const { message: extractMsg, extract } = await runExtractor(taskId, taskGoal, scoutDigest);
+  // Step 1: Extractor (pool model #1)
+  console.log(`[distiller] Step 1: Extractor (${extractor.model})`);
+  const { message: extractMsg, extract } = await runExtractor(taskId, taskGoal, scoutDigest, extractor);
   messages.push(extractMsg);
 
-  // Step 2: Reasoner (sees extract + original scouts)
-  console.log(`[distiller] Step 2: Reasoner (${REASONER.model})`);
-  const { message: reasonMsg, brief } = await runReasoner(taskId, taskGoal, extract, scoutDigest);
+  // Step 2: Reasoner (pool model #2, sees extract + scouts + memory)
+  console.log(`[distiller] Step 2: Reasoner (${reasoner.model})`);
+  const enrichedDigest = memoryContext
+    ? `${scoutDigest}\n\n--- MEMORY-KONTEXT (Error-Patterns, aehnliche Tasks) ---\n${memoryContext}`
+    : scoutDigest;
+  const { message: reasonMsg, brief } = await runReasoner(taskId, taskGoal, extract, enrichedDigest, reasoner);
   messages.push(reasonMsg);
 
   const durationMs = Date.now() - startedAt;
@@ -204,7 +215,7 @@ export async function runDistiller(
   return {
     brief,
     messages,
-    tokensUsed: 0, // Will be populated when we add token tracking
+    tokensUsed: 0,
     durationMs,
   };
 }
