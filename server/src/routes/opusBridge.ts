@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { execSync } from 'child_process';
 import * as path from 'path';
 import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
@@ -702,6 +703,22 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     }
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  }
+});
+
+// ==================== DB MIGRATE (drizzle-kit push) ====================
+opusBridgeRouter.post('/migrate', (_req: Request, res: Response) => {
+  try {
+    const serverRoot = path.resolve(process.cwd(), '..');
+    const output = execSync('npx drizzle-kit push', {
+      cwd: serverRoot,
+      env: { ...process.env },
+      encoding: 'utf-8',
+    });
+    res.json({ ok: true, output });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: errorMessage });
   }
 });
 
