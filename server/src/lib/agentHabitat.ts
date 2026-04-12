@@ -377,6 +377,13 @@ export async function getAgentProfile(agentId: string) {
 
 // ─── All Profiles Summary (for Council/Maya context) ───
 
+/**
+ * Returns all agent profiles as a newline-separated summary string, sorted by
+ * average quality in descending order.
+ *
+ * @returns Formatted summary with one agent per line, `'Keine Agent-Profile vorhanden.'`
+ * if no profiles exist, or `'Agent-Profile nicht verfuegbar.'` if loading profiles fails
+ */
 export async function getAllAgentSummaries(): Promise<string> {
   try {
     const db = getDb();
