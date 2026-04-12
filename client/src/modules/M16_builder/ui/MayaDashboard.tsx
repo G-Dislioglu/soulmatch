@@ -87,13 +87,13 @@ function MayaMarkdown({ text }: { text: string }) {
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i] ?? '';
 
     // Tables: detect | ... | pattern
     if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
       const tableLines: string[] = [];
-      while (i < lines.length && lines[i].trim().startsWith('|')) {
-        tableLines.push(lines[i]);
+      while (i < lines.length && (lines[i] ?? '').trim().startsWith('|')) {
+        tableLines.push(lines[i] ?? '');
         i++;
       }
       const rows = tableLines.filter(l => !/^\|[\s-:|]+\|$/.test(l.trim()));
@@ -134,7 +134,7 @@ function MayaMarkdown({ text }: { text: string }) {
 
     // List items
     if (/^[-*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim())) {
-      const bullet = /^\d+\./.test(line.trim()) ? line.trim().match(/^\d+/)?.[0] + '.' : '•';
+      const bullet = /^\d+\./.test(line.trim()) ? (line.trim().match(/^\d+/)?.[0] ?? '1') + '.' : '•';
       const content = line.trim().replace(/^[-*]\s|^\d+\.\s/, '');
       elements.push(
         <div key={i} style={{ display: 'flex', gap: 6, padding: '2px 0', fontSize: 13, lineHeight: 1.6 }}>
@@ -149,8 +149,8 @@ function MayaMarkdown({ text }: { text: string }) {
     if (line.trim().startsWith('```')) {
       const codeLines: string[] = [];
       i++;
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]);
+      while (i < lines.length && !(lines[i] ?? '').trim().startsWith('```')) {
+        codeLines.push(lines[i] ?? '');
         i++;
       }
       i++; // skip closing ```
