@@ -196,7 +196,7 @@ export function scoreFusion(
     });
   }
 
-  if (Math.abs(numScore - astroScore) >= 25) {
+  if (Math.abs(numScore - astroScore) >= 25 && astroScore > 10) {
     score -= 10;
     claims.push({
       id: 'FUSION_DIVERGENCE',
