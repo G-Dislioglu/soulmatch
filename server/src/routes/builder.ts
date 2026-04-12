@@ -5,10 +5,14 @@ import { getDb } from '../db.js';
 import {
   builderActions,
   builderArtifacts,
+  builderChatpool,
+  builderErrorCards,
+  builderOpusLog,
   builderReviews,
   builderTasks,
   builderTestResults,
   builderMemory,
+  builderWorkerScores,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from '../lib/builderPolicyProfiles.js';
 import { readFile, listFiles } from '../lib/builderFileIO.js';
@@ -210,6 +214,37 @@ router.get('/tasks/:id', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[builder] GET /tasks/:id error:', err);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// DELETE /api/builder/tasks/:id — cascade delete task and all related records
+router.delete('/tasks/:id', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const taskId = req.params.id;
+    const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    // Cascade: delete all child records first
+    await db.delete(builderChatpool).where(eq(builderChatpool.taskId, taskId));
+    await db.delete(builderActions).where(eq(builderActions.taskId, taskId));
+    await db.delete(builderArtifacts).where(eq(builderArtifacts.taskId, taskId));
+    await db.delete(builderTestResults).where(eq(builderTestResults.taskId, taskId));
+    await db.delete(builderReviews).where(eq(builderReviews.taskId, taskId));
+    await db.delete(builderWorkerScores).where(eq(builderWorkerScores.taskId, taskId));
+    await db.delete(builderOpusLog).where(eq(builderOpusLog.taskId, taskId));
+    await db.update(builderErrorCards).set({ sourceTaskId: null }).where(eq(builderErrorCards.sourceTaskId, taskId));
+    await deleteBuilderMemoryForTask(taskId);
+    await db.delete(builderTasks).where(eq(builderTasks.id, taskId));
+
+    res.json({ deleted: true, taskId });
+  } catch (err) {
+    console.error('[builder] DELETE /tasks/:id error:', err);
+    res.status(500).json({ error: 'Delete failed: ' + String(err) });
   }
 });
 
