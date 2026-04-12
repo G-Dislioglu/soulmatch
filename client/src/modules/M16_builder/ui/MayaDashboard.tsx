@@ -80,6 +80,119 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+// ─── Lightweight Markdown ───
+function MayaMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Tables: detect | ... | pattern
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      const rows = tableLines.filter(l => !/^\|[\s-:|]+\|$/.test(l.trim()));
+      elements.push(
+        <div key={i} style={{ overflowX: 'auto', margin: '8px 0' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri} style={{ borderBottom: `1px solid ${TOKENS.b3}` }}>
+                  {row.split('|').filter(Boolean).map((cell, ci) => {
+                    const Tag = ri === 0 ? 'th' : 'td';
+                    return <Tag key={ci} style={{ padding: '4px 8px', textAlign: 'left', color: ri === 0 ? TOKENS.text : TOKENS.text2, fontWeight: ri === 0 ? 600 : 400 }}><InlineFormat text={cell.trim()} /></Tag>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    // Headers
+    if (line.startsWith('### ')) {
+      elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text, marginTop: 12, marginBottom: 4 }}><InlineFormat text={line.slice(4)} /></div>);
+      i++; continue;
+    }
+    if (line.startsWith('## ')) {
+      elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, marginTop: 14, marginBottom: 4 }}><InlineFormat text={line.slice(3)} /></div>);
+      i++; continue;
+    }
+
+    // Divider
+    if (/^-{3,}$/.test(line.trim())) {
+      elements.push(<hr key={i} style={{ border: 'none', borderTop: `1px solid ${TOKENS.b3}`, margin: '10px 0' }} />);
+      i++; continue;
+    }
+
+    // List items
+    if (/^[-*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim())) {
+      const bullet = /^\d+\./.test(line.trim()) ? line.trim().match(/^\d+/)?.[0] + '.' : '•';
+      const content = line.trim().replace(/^[-*]\s|^\d+\.\s/, '');
+      elements.push(
+        <div key={i} style={{ display: 'flex', gap: 6, padding: '2px 0', fontSize: 13, lineHeight: 1.6 }}>
+          <span style={{ color: TOKENS.text3, flexShrink: 0, minWidth: 14 }}>{bullet}</span>
+          <span style={{ color: TOKENS.text }}><InlineFormat text={content} /></span>
+        </div>
+      );
+      i++; continue;
+    }
+
+    // Code block
+    if (line.trim().startsWith('```')) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++; // skip closing ```
+      elements.push(
+        <pre key={i} style={{ background: TOKENS.bg2, borderRadius: 8, padding: '10px 12px', margin: '6px 0', fontSize: 11, fontFamily: 'monospace', color: TOKENS.text, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+          {codeLines.join('\n')}
+        </pre>
+      );
+      continue;
+    }
+
+    // Empty line
+    if (!line.trim()) {
+      elements.push(<div key={i} style={{ height: 6 }} />);
+      i++; continue;
+    }
+
+    // Normal paragraph
+    elements.push(<div key={i} style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text, padding: '1px 0' }}><InlineFormat text={line} /></div>);
+    i++;
+  }
+
+  return <>{elements}</>;
+}
+
+// Inline formatting: **bold**, `code`, emoji preservation
+function InlineFormat({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const re = /(\*\*(.+?)\*\*|`([^`]+)`)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let ki = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(<span key={ki++}>{text.slice(last, m.index)}</span>);
+    if (m[2]) parts.push(<strong key={ki++} style={{ fontWeight: 600, color: TOKENS.text }}>{m[2]}</strong>);
+    if (m[3]) parts.push(<code key={ki++} style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4, fontSize: '0.92em', fontFamily: 'monospace' }}>{m[3]}</code>);
+    last = re.lastIndex;
+  }
+  if (last < text.length) parts.push(<span key={ki++}>{text.slice(last)}</span>);
+  return <>{parts}</>;
+}
+
 // ─── Auth Gate ───
 function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
   const [val, setVal] = useState(() => {
@@ -382,9 +495,9 @@ export function MayaDashboard() {
                     {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400 }}>{m.model}</span>}
                     <CopyBtn text={m.text} />
                   </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text, whiteSpace: 'pre-wrap' }}>
+                  <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text }}>
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
-                      if (part.type === 'text') return <span key={pi}>{part.content}</span>;
+                      if (part.type === 'text') return <MayaMarkdown key={pi} text={part.content} />;
                       const a = part.action!;
                       const rc = RISK_COLORS[a.risk] ?? { bg: 'rgba(34,197,94,0.08)', border: '#22c55e40', text: '#4ade80' };
                       const key = `${i}-${pi}`;
@@ -409,7 +522,7 @@ export function MayaDashboard() {
                           {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444' }}>❌ Fehlgeschlagen</span>}
                         </div>
                       );
-                    }) : m.text}
+                    }) : <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>}
                   </div>
                 </div>
               </div>
