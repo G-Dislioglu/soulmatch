@@ -135,7 +135,7 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
   try {
     const taskId = req.params.taskId;
     const { action, reason, retryHints } = req.body as {
-      action?: 'approve' | 'block' | 'retry' | 'delete';
+      action?: 'approve' | 'block' | 'retry' | 'delete' | 'cancel';
       reason?: string;
       retryHints?: string;
     };
@@ -223,13 +223,23 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
       }
     }
 
+    if (action === 'cancel') {
+      newStatus = 'cancelled';
+      await db
+        .update(builderTasks)
+        .set({ status: newStatus, updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+    }
+
     if (action === 'delete') {
       await db.delete(builderChatpool).where(eq(builderChatpool.taskId, taskId));
       await db.delete(builderActions).where(eq(builderActions.taskId, taskId));
       await db.delete(builderArtifacts).where(eq(builderArtifacts.taskId, taskId));
       await db.delete(builderTestResults).where(eq(builderTestResults.taskId, taskId));
       await db.delete(builderReviews).where(eq(builderReviews.taskId, taskId));
+      await db.delete(builderWorkerScores).where(eq(builderWorkerScores.taskId, taskId));
       await db.delete(builderOpusLog).where(eq(builderOpusLog.taskId, taskId));
+      await db.update(builderErrorCards).set({ sourceTaskId: null }).where(eq(builderErrorCards.sourceTaskId, taskId));
       await deleteBuilderMemoryForTask(taskId);
       await db.delete(builderTasks).where(eq(builderTasks.id, taskId));
       newStatus = 'deleted';
@@ -244,11 +254,13 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
         newStatus:
           action === 'delete'
             ? 'deleted'
-            : action === 'approve'
-              ? newStatus
-              : action === 'block'
-                ? 'blocked'
-                : 'queued',
+            : action === 'cancel'
+              ? 'cancelled'
+              : action === 'approve'
+                ? newStatus
+                : action === 'block'
+                  ? 'blocked'
+                  : 'queued',
       },
       tokensUsed: 0,
     });
