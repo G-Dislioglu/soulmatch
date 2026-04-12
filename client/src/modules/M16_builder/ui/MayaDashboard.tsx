@@ -248,6 +248,57 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
   );
 }
 
+
+// ─── Left Sidebar: Workers + Tasks ───
+function LeftSidebar({ ctx, collapsed, onToggle }: {
+  ctx: MayaContext | null; collapsed: boolean; onToggle: () => void;
+}) {
+  if (collapsed) {
+    return (
+      <div style={{ width: 48, background: TOKENS.bg2, borderRight: `1px solid ${TOKENS.b3}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, flexShrink: 0 }}>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, marginBottom: 16 }} title="Sidebar öffnen">»</span>
+        <span style={{ fontSize: 11, color: MAYA, writingMode: 'vertical-rl', letterSpacing: 2, fontWeight: 600 }}>MAYA</span>
+      </div>
+    );
+  }
+  return (
+    <div style={{ width: 240, background: TOKENS.bg2, borderRight: `1px solid ${TOKENS.b3}`, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+      <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, fontFamily: 'system-ui' }}>Builder Studio</div>
+          <div style={{ fontSize: 10, color: MAYA, marginTop: 2 }}>maya command center</div>
+        </div>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3 }} title="Einklappen">«</span>
+      </div>
+      <div style={{ padding: '12px 14px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+        <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 8 }}>Tasks</div>
+        {ctx?.tasks.slice(0, 8).map(t => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 2, fontSize: 11 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0 }} />
+            <span style={{ flex: 1, color: TOKENS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 35)}</span>
+            <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{t.status.slice(0, 6)}</span>
+          </div>
+        ))}
+        {(!ctx || ctx.tasks.length === 0) && <div style={{ fontSize: 11, color: TOKENS.text3 }}>Keine Tasks.</div>}
+      </div>
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 8 }}>Worker</div>
+        {ctx?.workerStats.slice(0, 5).map((w, i) => {
+          const pct = Math.min(100, Number(w.avg_quality) || 0);
+          const color = pct >= 80 ? TOKENS.green : pct >= 60 ? TOKENS.gold : '#ef4444';
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', fontSize: 10 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontFamily: 'monospace', color: TOKENS.text }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 9, color: TOKENS.text3 }}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Context Panel (right 35%) ───
 function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
   ctx: MayaContext | null; loading: boolean;
@@ -364,6 +415,7 @@ export function MayaDashboard() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'pending' | 'confirm' | 'success' | 'error'>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
     setActionStatus(p => ({ ...p, [key]: confirmed ? 'pending' : 'confirm' }));
@@ -453,7 +505,7 @@ export function MayaDashboard() {
   const continuityText = ctx?.continuityNotes?.[0]?.summary || null;
 
   return (
-    <div style={{ minHeight: '100vh', background: TOKENS.bg, color: TOKENS.text, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', background: TOKENS.bg, color: TOKENS.text, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', borderBottom: `1px solid ${TOKENS.b3}`, background: TOKENS.card }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -474,10 +526,13 @@ export function MayaDashboard() {
         </div>
       )}
 
-      {/* Main 2-column */}
+      {/* Main 3-column */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {/* Chat 65% */}
-        <div style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', borderRight: `1px solid ${TOKENS.b3}` }}>
+        {/* Left Sidebar */}
+        <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+
+        {/* Chat */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {messages.map((m, i) => (
@@ -550,8 +605,8 @@ export function MayaDashboard() {
           </div>
         </div>
 
-        {/* Context 35% */}
-        <div style={{ flex: '0 0 35%', background: TOKENS.card }}>
+        {/* Context Panel */}
+        <div style={{ width: 280, background: TOKENS.card, borderLeft: `1px solid ${TOKENS.b3}`, flexShrink: 0, overflowY: 'auto' }}>
           <ContextPanel ctx={ctx} loading={ctxLoading}
             onDeleteMemory={async (id) => { await deleteMemory(id); loadContext(); }}
             onAddNote={async (summary) => { await createMemory('continuity', `note-${Date.now()}`, summary); loadContext(); }} />
