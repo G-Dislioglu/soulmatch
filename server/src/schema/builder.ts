@@ -179,3 +179,18 @@ export const builderWorkerScores = pgTable('builder_worker_scores', {
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const builderAgentProfiles = pgTable('builder_agent_profiles', {
+  agentId: varchar('agent_id', { length: 30 }).primaryKey(),
+  role: varchar('role', { length: 20 }).notNull().default('worker'),
+  strengths: jsonb('strengths').$type<string[]>().notNull().default([]),
+  weaknesses: jsonb('weaknesses').$type<string[]>().notNull().default([]),
+  failurePatterns: jsonb('failure_patterns').$type<string[]>().notNull().default([]),
+  fileExperience: jsonb('file_experience').$type<Record<string, { success: number; fail: number; lastUsed: string }>>().notNull().default({}),
+  taskCount: integer('task_count').notNull().default(0),
+  successCount: integer('success_count').notNull().default(0),
+  avgQuality: integer('avg_quality').notNull().default(0),
+  lastReflection: timestamp('last_reflection', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
