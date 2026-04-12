@@ -635,7 +635,9 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     });
 
     // Auto-Regen Index nach erfolgreichem Push (fire-and-forget)
-    if (result.triggered) {
+    // Skip if this push IS a regen (prevents infinite loop)
+    const isRegenPush = (message || '').includes('regen repo index');
+    if (result.triggered && !isRegenPush) {
       regenerateRepoIndex().catch(err => console.error('[regen-index] auto-regen failed:', err));
     }
   } catch (err) {
