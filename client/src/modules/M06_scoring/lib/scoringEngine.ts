@@ -56,8 +56,14 @@ class LocalScoringEngine implements ScoringEngine {
       countHarmonicAspects(astroResult),
     );
 
+    // Adaptive weights: when astrology is unavailable, redistribute to numerology
+    const astroAvailable = astro.score > 10;
+    const wNum = astroAvailable ? 0.55 : 0.82;
+    const wAstro = astroAvailable ? 0.35 : 0.0;
+    const wFusion = astroAvailable ? 0.10 : 0.18;
+
     const scoreOverall = roundScore(
-      0.55 * num.score + 0.35 * astro.score + 0.10 * fusion.score,
+      wNum * num.score + wAstro * astro.score + wFusion * fusion.score,
     );
 
     const claims: ExplainClaim[] = [...num.claims, ...astro.claims, ...fusion.claims];
