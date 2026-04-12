@@ -705,6 +705,84 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   }
 });
 
+// ==================== DIRECT DELETE (no LLM, direct GitHub delete) ====================
+opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
+  try {
+    const { files, message, branch } = req.body as {
+      files?: string[];
+      message?: string;
+      branch?: string;
+    };
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      res.status(400).json({ error: 'files[] with repository-relative paths is required' });
+      return;
+    }
+
+    const pat = process.env.GITHUB_PAT;
+    if (!pat) {
+      res.status(500).json({ error: 'GITHUB_PAT not configured' });
+      return;
+    }
+
+    const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+    const targetBranch = branch || 'main';
+    const commitMessage = message || 'direct delete via /delete';
+    const results: Array<{ file: string; action: string; ok: boolean; error?: string }> = [];
+
+    for (const file of files) {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${file}?ref=${targetBranch}`;
+
+      try {
+        const getResp = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
+        });
+
+        if (!getResp.ok) {
+          results.push({ file, action: 'delete', ok: false, error: getResp.status === 404 ? 'file not found' : `${getResp.status}` });
+          continue;
+        }
+
+        const getData = await getResp.json() as Record<string, unknown>;
+        const sha = typeof getData.sha === 'string' ? getData.sha : undefined;
+
+        if (!sha) {
+          results.push({ file, action: 'delete', ok: false, error: 'missing sha' });
+          continue;
+        }
+
+        const delResp = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${pat}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
+        });
+
+        results.push({ file, action: 'delete', ok: delResp.ok, error: delResp.ok ? undefined : `${delResp.status}` });
+      } catch (err) {
+        results.push({ file, action: 'delete', ok: false, error: String(err) });
+      }
+    }
+
+    const allMissing = results.length > 0 && results.every((result) => !result.ok && result.error === 'file not found');
+    res.status(allMissing ? 404 : 200).json({
+      results,
+      branch: targetBranch,
+      message: commitMessage,
+    });
+
+    const anySuccess = results.some((result) => result.ok);
+    if (anySuccess && targetBranch === 'main') {
+      triggerRedeploy().catch(err => console.error('[delete] auto-redeploy failed:', err));
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ==================== REGEN-INDEX ====================
 opusBridgeRouter.get('/regen-index', async (_req: Request, res: Response) => {
   try {
