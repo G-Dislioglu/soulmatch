@@ -576,6 +576,66 @@ opusBridgeRouter.get('/health', (req: Request, res: Response) => {
 });
 
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
+opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
+  try {
+    const { files, message, branch } = req.body as {
+      files?: Array<{ file: string; delete?: boolean }>;
+      message?: string;
+      branch?: string;
+    };
+
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      res.status(400).json({ error: 'files[] required' });
+      return;
+    }
+
+    const pat = process.env.GITHUB_PAT;
+    if (!pat) {
+      res.status(500).json({ error: 'GITHUB_PAT not configured' });
+      return;
+    }
+
+    const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+    const targetBranch = branch || 'main';
+    const commitMessage = message || 'delete files via /delete';
+    const results: Array<{ file: string; action: string; ok: boolean; error?: string }> = [];
+
+    for (const f of files) {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${f.file}?ref=${targetBranch}`;
+
+      try {
+        let sha: string | undefined;
+        const getResp = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
+        });
+        if (getResp.ok) {
+          const getData = await getResp.json() as Record<string, unknown>;
+          sha = getData.sha as string;
+        }
+
+        if (!sha) {
+          results.push({ file: f.file, action: 'delete', ok: false, error: 'file not found' });
+          continue;
+        }
+
+        const delResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
+        });
+        results.push({ file: f.file, action: 'delete', ok: delResp.ok, error: delResp.ok ? undefined : `${delResp.status}` });
+      } catch (err) {
+        results.push({ file: f.file, action: 'error', ok: false, error: String(err) });
+      }
+    }
+
+    res.json({ results, branch: targetBranch, message: commitMessage });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
     const { files, message, branch } = req.body as {
