@@ -8,7 +8,8 @@ import {
   builderTestResults,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js';
-import { runDialogEngine } from './builderDialogEngine.js';
+import { orchestrateTask } from './opusTaskOrchestrator.js';
+import { runBuildPipeline } from './opusBuildPipeline.js';
 import {
   buildBuilderMemoryContext,
   deleteBuilderMemoryForTask,
@@ -218,6 +219,53 @@ function inferRiskFromMessage(message: string): string {
   }
 
   return 'low';
+}
+
+// ─── MODE ROUTER: Quick (/opus-task) vs Pipeline (/build) ───
+
+type BuildMode = 'quick' | 'pipeline';
+
+function determineBuildMode(message: string, classified: ClassifiedIntent): BuildMode {
+  const normalized = message.toLowerCase();
+
+  // Explicit user triggers → pipeline
+  if (/\b(deep\s*mode|pipeline|pipeline-modus|volle pipeline|full pipeline)\b/.test(normalized)) {
+    return 'pipeline';
+  }
+
+  // Architecture tasks → pipeline
+  if (classified.taskType === 'S') {
+    return 'pipeline';
+  }
+
+  // High risk → pipeline
+  if (classified.risk === 'high') {
+    return 'pipeline';
+  }
+
+  // Multi-file signals → pipeline
+  if (/\b(mehrere dateien|multi.?file|multiple files|3\+ dateien|cross.?module)\b/.test(normalized)) {
+    return 'pipeline';
+  }
+
+  // Mentions 3+ distinct file paths → pipeline
+  const fileMatches = normalized.match(/\b[\w./-]+\.(ts|tsx|js|jsx)\b/g);
+  if (fileMatches && new Set(fileMatches).size >= 3) {
+    return 'pipeline';
+  }
+
+  // Complex refactoring with multi-file scope → pipeline
+  if (classified.taskType === 'D' && classified.risk === 'medium') {
+    return 'pipeline';
+  }
+
+  // Frontend+Backend combined → pipeline
+  if (classified.taskType === 'C') {
+    return 'pipeline';
+  }
+
+  // Default: quick mode
+  return 'quick';
 }
 
 function looksLikeTaskRequest(message: string): boolean {
@@ -580,6 +628,7 @@ export async function handleBuilderChat(
 
       const taskType = (classified.taskType || 'A') as TaskType;
       const policyProfile = TASK_TYPE_TO_PROFILE[taskType] ?? null;
+      const buildMode = determineBuildMode(message, classified);
 
       const [created] = await db
         .insert(builderTasks)
@@ -601,16 +650,98 @@ export async function handleBuilderChat(
         .set({ status: 'classifying', updatedAt: new Date() })
         .where(eq(builderTasks.id, created.id));
 
-      void runDialogEngine(created.id).catch((err) => {
-        console.error('[fusion] engine error:', err);
-      });
-
       setActiveBuilderTask(created.id);
-      rememberBuilderAssistantMessage(`Task erstellt: ${classified.title}`);
 
+      if (buildMode === 'pipeline') {
+        // ─── PIPELINE MODE: Scout → Destillierer → Council → Worker → TSC → Push ───
+        void (async () => {
+          try {
+            console.log('[maya-router] ', `Pipeline-Modus gestartet: ${classified.title}`);
+            await db
+              .update(builderTasks)
+              .set({ status: 'planning', updatedAt: new Date() })
+              .where(eq(builderTasks.id, created.id));
+
+            const result = await runBuildPipeline({
+              instruction: classified.goal!,
+              risk: (classified.risk as 'low' | 'medium' | 'high') || 'medium',
+            });
+
+            const finalStatus = result.status === 'success' || result.status === 'deployed' ? 'done' : 'blocked';
+            await db
+              .update(builderTasks)
+              .set({
+                status: finalStatus,
+                commitHash: result.deploy?.commitId ?? null,
+                updatedAt: new Date(),
+              })
+              .where(eq(builderTasks.id, created.id));
+
+            console.log('[maya-router]',
+              finalStatus === 'done'
+                ? `Pipeline fertig: ${result.files.join(', ')} deployed (${result.deploy?.commitId?.slice(0, 7) ?? 'n/a'})`
+                : `Pipeline fehlgeschlagen: ${result.status}`
+            );
+          } catch (err) {
+            console.error('[fusion] pipeline error:', err);
+            await db
+              .update(builderTasks)
+              .set({ status: 'blocked', updatedAt: new Date() })
+              .where(eq(builderTasks.id, created.id));
+            console.log('[maya-router] ', `Pipeline-Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
+          }
+        })();
+
+        rememberBuilderAssistantMessage(`Pipeline-Modus: ${classified.title}`);
+        return {
+          type: 'task_created',
+          message: `Pipeline-Modus fuer: "${classified.title}". Scout analysiert, Council plant, Worker bauen parallel. ~2min.`,
+          taskId: created.id,
+          taskTitle: classified.title,
+        };
+      }
+
+      // ─── QUICK MODE: Scope → Worker → JSON Overwrite → Push ───
+      void (async () => {
+        try {
+          console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
+          await db
+            .update(builderTasks)
+            .set({ status: 'planning', updatedAt: new Date() })
+            .where(eq(builderTasks.id, created.id));
+
+          const result = await orchestrateTask({
+            instruction: classified.goal!,
+          });
+
+          const finalStatus = result.status === 'success' ? 'done' : 'blocked';
+          await db
+            .update(builderTasks)
+            .set({
+              status: finalStatus,
+              updatedAt: new Date(),
+            })
+            .where(eq(builderTasks.id, created.id));
+
+          console.log('[maya-router]',
+            finalStatus === 'done'
+              ? `Schnellmodus fertig: ${result.summary}`
+              : `Schnellmodus fehlgeschlagen: ${result.status}`
+          );
+        } catch (err) {
+          console.error('[fusion] quick-mode error:', err);
+          await db
+            .update(builderTasks)
+            .set({ status: 'blocked', updatedAt: new Date() })
+            .where(eq(builderTasks.id, created.id));
+          console.log('[maya-router] ', `Schnellmodus-Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
+        }
+      })();
+
+      rememberBuilderAssistantMessage(`Schnellmodus: ${classified.title}`);
       return {
         type: 'task_created',
-        message: `Ich starte: "${classified.title}". Claude plant, ChatGPT prueft. Ich melde mich wenn es fertig ist.`,
+        message: `Schnellmodus fuer: "${classified.title}". Scope wird aufgeloest, Worker schreibt Code. ~30-90s.`,
         taskId: created.id,
         taskTitle: classified.title,
       };
@@ -669,12 +800,47 @@ export async function handleBuilderChat(
         .set({ status: 'classifying', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
 
-      void runDialogEngine(taskId).catch((err) => {
-        console.error('[fusion] retry engine error:', err);
-      });
+      // Determine mode from stored task data
+      const retryIntent: ClassifiedIntent = {
+        intent: 'task',
+        title: task.title,
+        goal: task.goal,
+        risk: task.risk ?? 'low',
+        taskType: task.taskType ?? 'A',
+      };
+      const retryMode = determineBuildMode(task.goal, retryIntent);
+
+      if (retryMode === 'pipeline') {
+        void (async () => {
+          try {
+            await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const result = await runBuildPipeline({
+              instruction: task.goal,
+              risk: (task.risk as 'low' | 'medium' | 'high') || 'medium',
+            });
+            const finalStatus = result.status === 'success' || result.status === 'deployed' ? 'done' : 'blocked';
+            await db.update(builderTasks).set({ status: finalStatus, commitHash: result.deploy?.commitId ?? null, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+          } catch (err) {
+            console.error('[fusion] retry pipeline error:', err);
+            await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+          }
+        })();
+      } else {
+        void (async () => {
+          try {
+            await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const result = await orchestrateTask({ instruction: task.goal });
+            const finalStatus = result.status === 'success' ? 'done' : 'blocked';
+            await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+          } catch (err) {
+            console.error('[fusion] retry quick-mode error:', err);
+            await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+          }
+        })();
+      }
 
       setActiveBuilderTask(taskId);
-      rememberBuilderAssistantMessage(`Task erneut gestartet: ${task.title}`);
+      rememberBuilderAssistantMessage(`Task erneut gestartet (${retryMode}): ${task.title}`);
 
       return {
         type: 'task_action',
