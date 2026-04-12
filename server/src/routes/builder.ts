@@ -744,11 +744,12 @@ ${workerSummary}
 AKTIVE POOL-ZUSAMMENSETZUNG:
 Maya KI: ${getActivePools().maya.join(', ') || 'leer'}
 Master Council: ${getActivePools().council.join(', ') || 'leer'}
+Destillierer: ${getActivePools().distiller.join(', ') || 'leer'}
 Worker Pool: ${getActivePools().worker.join(', ') || 'leer'}
 Scout Pool: ${getActivePools().scout.join(', ') || 'leer'}
-Du kannst die Pools per Action-Block ändern:
+Du kannst die Pools per Action-Block aendern:
 [ACTION: endpoint=/maya/pools, risk=safe]
-pools: { maya: ["opus"], council: ["opus", "sonnet"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
+pools: { maya: ["opus"], council: ["opus", "sonnet"], distiller: ["glm-flash", "deepseek-scout"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
 [/ACTION]
 
 DEINE FÄHIGKEITEN:
@@ -1075,11 +1076,11 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
 
 // POST /api/builder/maya/pools — receive pool configuration from frontend
 router.post('/maya/pools', (req: Request, res: Response) => {
-  const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; worker?: string[]; scout?: string[] } };
+  const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; distiller?: string[]; worker?: string[]; scout?: string[] } };
   if (!pools) { res.status(400).json({ error: 'pools required' }); return; }
   updatePools(pools);
   const current = getActivePools();
-  console.log('[maya] Pools updated:', { maya: current.maya.length, council: current.council.length, worker: current.worker.length, scout: current.scout.length });
+  console.log('[maya] Pools updated:', { maya: current.maya.length, council: current.council.length, distiller: current.distiller.length, worker: current.worker.length, scout: current.scout.length });
   res.json({ success: true, pools: current });
 });
 
