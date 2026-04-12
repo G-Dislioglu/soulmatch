@@ -6,6 +6,7 @@ import { callProvider } from './providers.js';
 import { getDb } from '../db.js';
 import { builderWorkerScores } from '../schema/builder.js';
 import { getAllFromPool } from './poolState.js';
+import { buildWorkerContext } from './memoryBus.js';
 
 interface WorkerPreset {
   actor: string;
@@ -221,6 +222,7 @@ function buildWorkerPrompt(
   assignment: WorkerAssignment,
   fileContent?: string,
   dependencyPatch?: { file: string; body: string },
+  memoryContext?: string,
 ): string {
   const isOpusOrSonnet = assignment.writer === 'opus' || assignment.writer === 'sonnet';
   const projectDna = isOpusOrSonnet ? loadProjectDna() : null;
@@ -247,6 +249,10 @@ function buildWorkerPrompt(
 
   if (assignment.dependsOn) {
     sections.push(`ABHAENGIGKEIT: ${assignment.dependsOn}`);
+  }
+
+  if (memoryContext) {
+    sections.push('', '=== MEMORY-KONTEXT ===', memoryContext);
   }
 
   if (projectDna) {
@@ -559,8 +565,17 @@ async function runSingleWorker(
   const startedAt = Date.now();
 
   try {
+    // Memory-Bus: Error Cards + Council-Begründung für diese Datei
+    let memoryContext: string | undefined;
+    try {
+      memoryContext = await buildWorkerContext([assignment.file], assignment.reason);
+      if (memoryContext && memoryContext.trim().length < 10) memoryContext = undefined;
+    } catch (e) {
+      console.warn('[worker-swarm] Memory context failed, continuing without:', e);
+    }
+
     const response = await callProvider(preset.provider, preset.model, {
-      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch),
+      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch, memoryContext),
       messages: [{ role: 'user', content: assignment.reason }],
       maxTokens: requestedMaxTokens,
       temperature: 0.2,
