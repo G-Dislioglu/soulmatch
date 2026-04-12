@@ -1,7 +1,7 @@
 /**
  * Opus Index Generator
  *
- * Fetches all TypeScript/TSX files from server/src/ via GitHub API,
+ * Fetches all TypeScript/TSX files from server/src/ and client/src/ via GitHub API,
  * extracts exported names, pushes to the opus bridge endpoint,
  * and invalidates the in-memory repo index cache.
  *
@@ -65,16 +65,16 @@ function buildPushHeaders(): HeadersInit {
 }
 
 /**
- * Filter a GitHub tree to only server/src TypeScript/TSX files,
+ * Filter a GitHub tree to only server/src and client/src TypeScript/TSX files,
  * excluding node_modules, dist, and non-file entries.
  */
-function filterServerSourceFiles(tree: GitHubTreeItem[]): string[] {
+function filterSourceFiles(tree: GitHubTreeItem[]): string[] {
   const allowedExtensions = new Set(['.ts', '.tsx']);
   return tree
     .filter(
       (item) =>
         item.type === 'blob' &&
-        item.path.startsWith('server/src/') &&
+        (item.path.startsWith('server/src/') || item.path.startsWith('client/src/')) &&
         allowedExtensions.has(getExtension(item.path)) &&
         !item.path.includes('/node_modules/') &&
         !item.path.includes('/dist/'),
@@ -205,7 +205,7 @@ async function pushIndex(payload: RepoIndexPayload): Promise<void> {
 }
 
 /**
- * Main entry point. Fetches the full repo tree, filters server/src files,
+ * Main entry point. Fetches the full repo tree, filters server/src and client/src files,
  * fetches each file, extracts exports, pushes to opus bridge,
  * invalidates the in-memory cache, and returns stats.
  */
@@ -229,9 +229,9 @@ export async function regenerateRepoIndex(): Promise<{
     throw new Error(`Failed to fetch GitHub tree: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // 2. Filter to server/src/**/*.ts / ***.tsx
-  const sourcePaths = filterServerSourceFiles(treeResponse.tree);
-  console.log(`[opusIndexGenerator] Found ${sourcePaths.length} source files in server/src/`);
+  // 2. Filter to server/src/**/*.ts(x) and client/src/**/*.ts(x)
+  const sourcePaths = filterSourceFiles(treeResponse.tree);
+  console.log(`[opusIndexGenerator] Found ${sourcePaths.length} source files in server/src/ and client/src/`);
 
   // 3. Fetch + extract exports in batches of MAX_CONCURRENCY
   const files = await processBatch(sourcePaths, MAX_CONCURRENCY);

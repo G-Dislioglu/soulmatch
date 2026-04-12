@@ -20,6 +20,7 @@ import {
 } from './builderMemory.js';
 import { callProvider } from './providers.js';
 import { assembleBuilderContext } from './builderContextAssembler.js';
+import { resolveScope } from './builderScopeResolver.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -280,6 +281,10 @@ function normalizeForPathMatching(value: string): string {
   return value.toLowerCase().replace(/\\/g, '/');
 }
 
+function normalizeExplicitPath(value: string): string {
+  return value.replace(/\\/g, '/');
+}
+
 function toBlacklistAlias(entry: string): string {
   const normalized = normalizeForPathMatching(entry).replace(/\/+$/, '');
   const segments = normalized.split('/').filter(Boolean);
@@ -309,6 +314,25 @@ function buildBlacklistBlockMessage(targets: string[]): string {
 
 function collapseWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function extractExplicitScopePaths(text: string): string[] {
+  const matches = text.match(/\b(?:client|server|docs|tools|aicos-registry)[\\/][\w./\\-]+\.(?:ts|tsx|js|jsx|mjs|json|css|md)\b/g) ?? [];
+  return Array.from(new Set(matches.map(normalizeExplicitPath)));
+}
+
+function resolveChatTaskScope(...parts: Array<string | undefined>): string[] {
+  const scopeSignal = parts
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join('\n');
+
+  if (!scopeSignal) {
+    return [];
+  }
+
+  const explicitPaths = extractExplicitScopePaths(scopeSignal);
+  const resolved = resolveScope(scopeSignal).files;
+  return Array.from(new Set([...explicitPaths, ...resolved]));
 }
 
 function summarizeFailureReason(reason: string): string {
@@ -629,6 +653,7 @@ export async function handleBuilderChat(
       const taskType = (classified.taskType || 'A') as TaskType;
       const policyProfile = TASK_TYPE_TO_PROFILE[taskType] ?? null;
       const buildMode = determineBuildMode(message, classified);
+      const resolvedScope = resolveChatTaskScope(message, classified.title, classified.goal);
 
       const [created] = await db
         .insert(builderTasks)
@@ -638,6 +663,7 @@ export async function handleBuilderChat(
           risk: classified.risk || 'low',
           taskType,
           policyProfile,
+          scope: resolvedScope,
         })
         .returning();
 
@@ -657,6 +683,7 @@ export async function handleBuilderChat(
         void (async () => {
           try {
             console.log('[maya-router] ', `Pipeline-Modus gestartet: ${classified.title}`);
+            console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
             await db
               .update(builderTasks)
               .set({ status: 'planning', updatedAt: new Date() })
@@ -664,6 +691,7 @@ export async function handleBuilderChat(
 
             const result = await runBuildPipeline({
               instruction: classified.goal!,
+              scope: resolvedScope.length > 0 ? resolvedScope : undefined,
               risk: (classified.risk as 'low' | 'medium' | 'high') || 'medium',
             });
 
@@ -705,6 +733,7 @@ export async function handleBuilderChat(
       void (async () => {
         try {
           console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
+          console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
           await db
             .update(builderTasks)
             .set({ status: 'planning', updatedAt: new Date() })
@@ -712,6 +741,7 @@ export async function handleBuilderChat(
 
           const result = await orchestrateTask({
             instruction: classified.goal!,
+            scope: resolvedScope.length > 0 ? resolvedScope : undefined,
           });
 
           const finalStatus = result.status === 'success' ? 'done' : 'blocked';
@@ -797,8 +827,18 @@ export async function handleBuilderChat(
 
       await db
         .update(builderTasks)
-        .set({ status: 'classifying', updatedAt: new Date() })
+        .set({
+          status: 'classifying',
+          scope: Array.isArray(task.scope) && task.scope.length > 0
+            ? task.scope
+            : resolveChatTaskScope(task.title, task.goal),
+          updatedAt: new Date(),
+        })
         .where(eq(builderTasks.id, taskId));
+
+      const retryScope = Array.isArray(task.scope) && task.scope.length > 0
+        ? task.scope
+        : resolveChatTaskScope(task.title, task.goal);
 
       // Determine mode from stored task data
       const retryIntent: ClassifiedIntent = {
@@ -816,6 +856,7 @@ export async function handleBuilderChat(
             await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
             const result = await runBuildPipeline({
               instruction: task.goal,
+              scope: retryScope.length > 0 ? retryScope : undefined,
               risk: (task.risk as 'low' | 'medium' | 'high') || 'medium',
             });
             const finalStatus = result.status === 'success' || result.status === 'deployed' ? 'done' : 'blocked';
@@ -829,7 +870,10 @@ export async function handleBuilderChat(
         void (async () => {
           try {
             await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
-            const result = await orchestrateTask({ instruction: task.goal });
+            const result = await orchestrateTask({
+              instruction: task.goal,
+              scope: retryScope.length > 0 ? retryScope : undefined,
+            });
             const finalStatus = result.status === 'success' ? 'done' : 'blocked';
             await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
           } catch (err) {
