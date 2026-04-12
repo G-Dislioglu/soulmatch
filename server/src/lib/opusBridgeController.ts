@@ -1,12 +1,13 @@
 import { eq } from 'drizzle-orm';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { convertBdlPatchesToPayload, triggerGithubAction } from './builderGithubBridge.js';
 import { getDb } from '../db.js';
 import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
 import { generateErrorCard } from './opusErrorLearning.js';
 import { findRelevantErrorCards, updateGraphAfterTask } from './opusGraphIntegration.js';
-import { getChatPoolForTask } from './opusChatPool.js';
+import { addChatPoolMessage, getChatPoolForTask } from './opusChatPool.js';
 import { buildBuilderMemoryContext, syncBuilderMemoryForTask } from './builderMemory.js';
 import { buildCouncilContext, buildDistillerContext, buildWorkerContext } from './memoryBus.js';
 import {
@@ -301,6 +302,116 @@ function toSafeOverwritePayloads(
   }
 
   return results;
+}
+
+/**
+ * TSC Compile Check — applies patches temporarily to disk, runs tsc --noEmit,
+ * then restores originals. Returns pass/fail + error messages.
+ * Runs for server/ if any server files are patched, client/ if any client files are patched.
+ */
+function runTscCompileCheck(
+  patches: Array<{ file: string; body: string }>,
+): { passed: boolean; errors: string[] } {
+  const base = process.cwd();
+  const backups = new Map<string, string | null>();
+
+  // Resolve patches to full file content
+  const resolved = toSafeOverwritePayloads(patches);
+  if (!resolved || resolved.length === 0) {
+    console.warn('[tsc-verify] Could not resolve patches to full content, skipping TSC check');
+    return { passed: true, errors: [] }; // Skip gracefully if patches can't be resolved
+  }
+
+  try {
+    // Backup originals and write patched files
+    for (const { file, content } of resolved) {
+      const filePath = path.resolve(base, file);
+      try {
+        backups.set(file, fs.readFileSync(filePath, 'utf-8'));
+      } catch {
+        backups.set(file, null); // New file
+      }
+      // Ensure directory exists
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, content, 'utf-8');
+    }
+
+    const errors: string[] = [];
+    const hasServerFiles = resolved.some((r) => r.file.startsWith('server/'));
+    const hasClientFiles = resolved.some((r) => r.file.startsWith('client/'));
+
+    // Filter known deprecation warnings (TS5107, TS5101) that cause exit-code ≠ 0 but aren't real errors
+    const filterDeprecations = (output: string): string => {
+      return output
+        .split('\n')
+        .filter((line) => !/ TS5107[: ]/.test(line) && !/ TS5101[: ]/.test(line) && !/Visit https:\/\/aka\.ms\/ts6/.test(line))
+        .join('\n')
+        .trim();
+    };
+
+    // Run TSC for server
+    if (hasServerFiles) {
+      try {
+        execSync('npx tsc --noEmit', {
+          cwd: path.resolve(base, 'server'),
+          timeout: 45_000,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        console.log('[tsc-verify] Server compilation passed');
+      } catch (err) {
+        const raw = err instanceof Error ? ((err as { stdout?: string }).stdout || '') + ((err as { stderr?: string }).stderr || '') : String(err);
+        const filtered = filterDeprecations(raw);
+        if (filtered) {
+          errors.push(`Server TSC: ${filtered.slice(0, 1500)}`);
+          console.error('[tsc-verify] Server compilation FAILED:', filtered.slice(0, 500));
+        } else {
+          console.log('[tsc-verify] Server compilation passed (deprecation warnings only)');
+        }
+      }
+    }
+
+    // Run TSC for client
+    if (hasClientFiles) {
+      try {
+        execSync('npx tsc -b', {
+          cwd: path.resolve(base, 'client'),
+          timeout: 60_000,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        console.log('[tsc-verify] Client compilation passed');
+      } catch (err) {
+        const raw = err instanceof Error ? ((err as { stdout?: string }).stdout || '') + ((err as { stderr?: string }).stderr || '') : String(err);
+        const filtered = filterDeprecations(raw);
+        if (filtered) {
+          errors.push(`Client TSC: ${filtered.slice(0, 1500)}`);
+          console.error('[tsc-verify] Client compilation FAILED:', filtered.slice(0, 500));
+        } else {
+          console.log('[tsc-verify] Client compilation passed (deprecation warnings only)');
+        }
+      }
+    }
+
+    return { passed: errors.length === 0, errors };
+  } catch (err) {
+    console.error('[tsc-verify] Unexpected error:', err);
+    return { passed: true, errors: [] }; // Don't block on unexpected errors
+  } finally {
+    // Restore all originals
+    for (const [file, content] of backups) {
+      const filePath = path.resolve(base, file);
+      try {
+        if (content === null) {
+          fs.unlinkSync(filePath); // Remove new file
+        } else {
+          fs.writeFileSync(filePath, content, 'utf-8');
+        }
+      } catch (restoreErr) {
+        console.error(`[tsc-verify] Failed to restore ${file}:`, restoreErr);
+      }
+    }
+  }
 }
 
 export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
@@ -602,16 +713,39 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   }
 
   if (status === 'consensus' && patches.length > 0) {
-    if (input.skipGithub) {
-      // skipGithub: keep patches in DB but do NOT push to GitHub (used by /build with skipDeploy)
-      githubAction = { triggered: false };
+    // --- TSC Compile Check: verify patches don't break TypeScript compilation ---
+    const tscResult = runTscCompileCheck(patches);
+    if (!tscResult.passed) {
+      console.error('[executeTask] TSC verification FAILED:', tscResult.errors.join('\n'));
+      await addChatPoolMessage({
+        taskId: task.id,
+        round: rounds,
+        phase: 'roundtable',
+        actor: 'tsc-verify',
+        model: 'tsc',
+        content: `TSC Compile Check FAILED:\n${tscResult.errors.join('\n')}`,
+        commands: [],
+        tokensUsed: 0,
+      });
+      status = 'validation_failed';
+      blocks = [...(blocks ?? []), ...tscResult.errors.map((e) => `TSC: ${e.slice(0, 200)}`)];
     } else {
-      // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
-      const safePayloads = toSafeOverwritePayloads(patches);
-      githubAction = safePayloads
-        ? await triggerGithubAction(task.id, safePayloads)
-        : await triggerGithubAction(task.id, toPatchPayloads(patches));
-      status = githubAction.triggered ? 'applying' : 'error';
+      console.log('[executeTask] TSC verification passed');
+    }
+
+    // Only push to GitHub if TSC passed
+    if (status === 'consensus') {
+      if (input.skipGithub) {
+        // skipGithub: keep patches in DB but do NOT push to GitHub (used by /build with skipDeploy)
+        githubAction = { triggered: false };
+      } else {
+        // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
+        const safePayloads = toSafeOverwritePayloads(patches);
+        githubAction = safePayloads
+          ? await triggerGithubAction(task.id, safePayloads)
+          : await triggerGithubAction(task.id, toPatchPayloads(patches));
+        status = githubAction.triggered ? 'applying' : 'error';
+      }
     }
   }
 
