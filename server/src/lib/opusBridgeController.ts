@@ -91,6 +91,23 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
 
 // ─── Council Pool → Participants ───
 // Maps activePools.council to RoundtableParticipant[], using CODE_WRITER_PRESETS for strengths.
+// Each member gets a Denk-Rolle (round-robin): Architekt, Skeptiker, Pragmatiker.
+
+const COUNCIL_ROLES = [
+  {
+    tag: 'ARCHITEKT',
+    focus: 'Deine Rolle: ARCHITEKT — Bewerte Struktur, Abstraktionen, Erweiterbarkeit. Frage: Ist das langfristig sauber? Passt es zur bestehenden Architektur?',
+  },
+  {
+    tag: 'SKEPTIKER',
+    focus: 'Deine Rolle: SKEPTIKER — Suche Risiken, Edge-Cases, versteckte Abhaengigkeiten. Frage: Was kann schiefgehen? Was wurde uebersehen?',
+  },
+  {
+    tag: 'PRAGMATIKER',
+    focus: 'Deine Rolle: PRAGMATIKER — Finde die schnellste korrekte Loesung. Frage: Geht das einfacher? Gibt es bestehendes Pattern das wiederverwendet werden kann?',
+  },
+] as const;
+
 function buildCouncilParticipants(): RoundtableParticipant[] {
   const councilModels = getAllFromPool('council');
   if (councilModels.length === 0) {
@@ -98,16 +115,17 @@ function buildCouncilParticipants(): RoundtableParticipant[] {
     return DEFAULT_ROUNDTABLE_CONFIG.participants;
   }
 
-  return councilModels.map((m) => {
+  return councilModels.map((m, index) => {
     const preset = CODE_WRITER_PRESETS[m.id];
-    if (preset) return preset;
-    // Fallback for models not in presets
+    const role = COUNCIL_ROLES[index % COUNCIL_ROLES.length];
+    const baseStrengths = preset?.strengths ?? 'Council Member';
+
     return {
-      actor: m.id,
-      model: m.model,
-      provider: m.provider,
-      strengths: 'Council Member',
-      maxTokensPerRound: 1500,
+      actor: preset?.actor ?? m.id,
+      model: preset?.model ?? m.model,
+      provider: preset?.provider ?? m.provider,
+      strengths: `${role.focus}\n\nModell-Staerke: ${baseStrengths}`,
+      maxTokensPerRound: preset?.maxTokensPerRound ?? 1500,
     };
   });
 }
