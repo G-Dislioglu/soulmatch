@@ -251,6 +251,15 @@ async function syncPoolsToServer(token: string, pools: { master: string[]; worke
   } catch { /* fire and forget */ }
 }
 
+// Performance color gradient: dark red → orange → yellow → bright green
+function perfColor(pct: number): string {
+  if (pct >= 80) return '#22c55e'; // bright green
+  if (pct >= 65) return '#84cc16'; // lime
+  if (pct >= 50) return '#eab308'; // yellow
+  if (pct >= 35) return '#f97316'; // orange
+  return '#ef4444'; // red
+}
+
 // Pool dropdown panel
 function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose }: {
   poolType: PoolType; accent: string; activeIds: string[];
@@ -260,34 +269,34 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
   const catalog = getModelsForPool(poolType);
   const activeModels = catalog.filter(m => activeIds.includes(m.id));
   const avg = activeModels.length > 0 ? Math.round(activeModels.reduce((s, m) => s + m.quality, 0) / activeModels.length) : 0;
-  const avgCol = avg >= 80 ? TOKENS.green : avg >= 60 ? TOKENS.gold : '#ef4444';
+  const avgCol = perfColor(avg);
 
   return (
     <div style={{ background: TOKENS.card, borderBottom: `1.5px solid ${TOKENS.b1}`, boxShadow: TOKENS.shadow.dropdown, padding: '16px 24px', position: 'relative' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
             {poolType === 'master' ? 'Master Pool' : poolType === 'worker' ? 'Worker Pool' : 'Scout Pool'}
           </div>
-          <span style={{ fontSize: 13, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>
-          <div style={{ width: 120, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}` }}>
-            <div style={{ width: `${avg}%`, height: '100%', background: `linear-gradient(90deg, ${avgCol}, ${avgCol}80)`, borderRadius: 3, boxShadow: `0 0 8px ${avgCol}40` }} />
+          <span style={{ fontSize: 16, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>
+          <div style={{ width: 140, height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', border: `1.5px solid ${TOKENS.b2}` }}>
+            <div style={{ width: `${avg}%`, height: '100%', background: `linear-gradient(90deg, ${avgCol}, ${avgCol}cc)`, borderRadius: 4, boxShadow: `0 0 10px ${avgCol}50` }} />
           </div>
         </div>
-        <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, padding: '2px 6px' }}>{'\u2715'}</span>
+        <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18, color: TOKENS.text2, padding: '2px 8px' }}>{'\u2715'}</span>
       </div>
 
       {/* Model chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         {catalog.map(m => {
           const on = activeIds.includes(m.id);
           return (
             <button key={m.id} onClick={() => onToggle(m.id)}
               style={{
-                fontSize: 10, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
-                border: `1.5px solid ${on ? accent + '70' : TOKENS.b3}`,
-                background: on ? accent + '18' : 'transparent',
-                color: on ? accent : TOKENS.text3,
+                fontSize: 12, padding: '5px 14px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
+                border: `1.5px solid ${on ? accent + '80' : TOKENS.b2}`,
+                background: on ? accent + '20' : 'transparent',
+                color: on ? accent : TOKENS.text2,
                 transition: 'all 0.15s ease',
               }}>{m.label}</button>
           );
@@ -295,22 +304,23 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
       </div>
 
       {/* Performance bars for active models */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '4px 24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '6px 28px' }}>
         {catalog.filter(m => activeIds.includes(m.id)).map(m => {
           // Try to find real stats
           const stat = workerStats.find(w => String(w.worker).toLowerCase().includes(m.id.split('-')[0] ?? ''));
           const pct = stat ? Math.min(100, Number(stat.avg_quality) || 0) : m.quality;
           const tasks = stat ? stat.task_count : 0;
+          const barCol = perfColor(pct);
           return (
-            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 11 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: m.color, flexShrink: 0, boxShadow: `0 0 8px ${m.color}60` }} />
-              <span style={{ minWidth: 80, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{m.label}</span>
-              <div style={{ flex: 1, height: 6, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b2}`, minWidth: 60 }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: m.color, borderRadius: 3, boxShadow: `0 0 6px ${m.color}40` }} />
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontSize: 13 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: barCol, flexShrink: 0, boxShadow: `0 0 10px ${barCol}70` }} />
+              <span style={{ minWidth: 90, fontFamily: 'monospace', color: TOKENS.text, fontSize: 13, fontWeight: 500 }}>{m.label}</span>
+              <div style={{ flex: 1, height: 10, background: TOKENS.bg, borderRadius: 5, overflow: 'hidden', border: `1.5px solid ${TOKENS.b2}`, minWidth: 80 }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${barCol}cc, ${barCol})`, borderRadius: 5, boxShadow: `0 0 8px ${barCol}50` }} />
               </div>
-              <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
-              <span style={{ fontSize: 9, color: TOKENS.text3, fontFamily: 'monospace' }}>{m.speed}</span>
-              {tasks > 0 && <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{tasks}</span>}
+              <span style={{ minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: barCol }}>{pct}%</span>
+              <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'monospace', minWidth: 48 }}>{m.speed}</span>
+              {tasks > 0 && <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'monospace' }}>{'\u00D7'}{tasks}</span>}
             </div>
           );
         })}
@@ -468,7 +478,6 @@ export function MayaDashboard() {
     const models = catalog.filter(m => ids.includes(m.id));
     return models.length > 0 ? Math.round(models.reduce((s, m) => s + m.quality, 0) / models.length) : 0;
   };
-  const avgColor = (avg: number) => avg >= 80 ? TOKENS.green : avg >= 60 ? TOKENS.gold : '#ef4444';
 
   const { getContext, chat, chatWithFile, executeAction, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
 
@@ -599,7 +608,7 @@ export function MayaDashboard() {
         color: openPool === pool ? accent : TOKENS.text2,
       }}>
       <span>{label}</span>
-      <span style={{ fontFamily: 'monospace', fontSize: 10, color: avgColor(avg) }}>{avg}%</span>
+      <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: perfColor(avg) }}>{avg}%</span>
       <span style={{ fontSize: 9, color: TOKENS.text3 }}>({count})</span>
     </button>
   );
