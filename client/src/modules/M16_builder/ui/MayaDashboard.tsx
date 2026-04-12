@@ -202,23 +202,56 @@ function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string
 
 // Left Sidebar
 
-// All available AI models
-const ALL_MODELS = [
-  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', quality: 95, speed: 'slow', color: MAYA },
-  { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', quality: 85, speed: 'fast', color: '#a78bfa' },
-  { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', quality: 88, speed: 'medium', color: TOKENS.cyan },
-  { id: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'openai', quality: 65, speed: 'fast', color: '#22d3ee' },
-  { id: 'deepseek-r', label: 'DeepSeek R1', provider: 'deepseek', quality: 82, speed: 'medium', color: '#4ade80' },
-  { id: 'deepseek-v3', label: 'DeepSeek V3', provider: 'deepseek', quality: 70, speed: 'fast', color: '#4ade80' },
-  { id: 'gemini', label: 'Gemini Flash', provider: 'google', quality: 78, speed: 'fast', color: TOKENS.gold },
-  { id: 'glm-flash', label: 'GLM Flash', provider: 'zhipu', quality: 72, speed: 'fast', color: TOKENS.green },
-  { id: 'glm-turbo', label: 'GLM Turbo', provider: 'zhipu', quality: 68, speed: 'fast', color: TOKENS.green },
-  { id: 'minimax', label: 'MiniMax M1', provider: 'minimax', quality: 60, speed: 'medium', color: '#fbbf24' },
-  { id: 'kimi', label: 'Kimi K2', provider: 'moonshot', quality: 65, speed: 'medium', color: '#f472b6' },
-  { id: 'qwen', label: 'Qwen Coder', provider: 'openrouter', quality: 58, speed: 'fast', color: '#a78bfa' },
+// Model catalogs — only actually available models with real provider+model strings
+const STRONG_MODELS = [
+  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
+  { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
+  { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
+  { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
+  { id: 'deepseek', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 72, speed: 'fast', color: '#4ade80' },
+  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
+  { id: 'minimax', label: 'MiniMax M2.7', provider: 'openrouter', model: 'minimax/minimax-m2.7', quality: 60, speed: 'medium', color: '#fbbf24' },
+  { id: 'kimi', label: 'Kimi K2.5', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', quality: 65, speed: 'medium', color: '#f472b6' },
+  { id: 'qwen', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 58, speed: 'fast', color: '#a78bfa' },
 ];
 
+const SCOUT_MODELS = [
+  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
+  { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
+  { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
+  { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
+];
+
+const ALL_MODELS = [...STRONG_MODELS, ...SCOUT_MODELS];
+
+function getModelsForPool(pool: PoolType) {
+  return pool === 'scout' ? SCOUT_MODELS : STRONG_MODELS;
+}
+
 type PoolType = 'master' | 'worker' | 'scout';
+
+// Persist pool state
+function loadPools(): { master: string[]; worker: string[]; scout: string[] } {
+  try {
+    const saved = localStorage.getItem('maya-pools');
+    if (saved) return JSON.parse(saved) as { master: string[]; worker: string[]; scout: string[] };
+  } catch { /* noop */ }
+  return { master: ['opus', 'gemini-flash'], worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'], scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'] };
+}
+
+function savePools(pools: { master: string[]; worker: string[]; scout: string[] }) {
+  try { localStorage.setItem('maya-pools', JSON.stringify(pools)); } catch { /* noop */ }
+}
+
+async function syncPoolsToServer(token: string, pools: { master: string[]; worker: string[]; scout: string[] }) {
+  try {
+    await fetch(`/api/builder/maya/pools?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pools }),
+    });
+  } catch { /* fire and forget */ }
+}
 
 // Pool dropdown panel
 function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose }: {
@@ -226,7 +259,8 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
   onToggle: (id: string) => void; workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
   onClose: () => void;
 }) {
-  const activeModels = ALL_MODELS.filter(m => activeIds.includes(m.id));
+  const catalog = getModelsForPool(poolType);
+  const activeModels = catalog.filter(m => activeIds.includes(m.id));
   const avg = activeModels.length > 0 ? Math.round(activeModels.reduce((s, m) => s + m.quality, 0) / activeModels.length) : 0;
   const avgCol = avg >= 80 ? TOKENS.green : avg >= 60 ? TOKENS.gold : '#ef4444';
 
@@ -247,7 +281,7 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
 
       {/* Model chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-        {ALL_MODELS.map(m => {
+        {catalog.map(m => {
           const on = activeIds.includes(m.id);
           return (
             <button key={m.id} onClick={() => onToggle(m.id)}
@@ -264,7 +298,7 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
 
       {/* Performance bars for active models */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '4px 24px' }}>
-        {ALL_MODELS.filter(m => activeIds.includes(m.id)).map(m => {
+        {catalog.filter(m => activeIds.includes(m.id)).map(m => {
           // Try to find real stats
           const stat = workerStats.find(w => String(w.worker).toLowerCase().includes(m.id.split('-')[0] ?? ''));
           const pct = stat ? Math.min(100, Number(stat.avg_quality) || 0) : m.quality;
@@ -410,17 +444,30 @@ export function MayaDashboard() {
   const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'pending' | 'confirm' | 'success' | 'error'>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Pool state
+  // Pool state — persisted in localStorage, synced to server
   const [openPool, setOpenPool] = useState<PoolType | null>(null);
-  const [masterIds, setMasterIds] = useState<string[]>(['opus', 'gemini']);
-  const [workerIds, setWorkerIds] = useState<string[]>(['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek']);
-  const [scoutIds, setScoutIds] = useState<string[]>(['deepseek-v3', 'gpt-5-nano', 'gemini']);
+  const initialPools = loadPools();
+  const [masterIds, setMasterIds] = useState<string[]>(initialPools.master);
+  const [workerIds, setWorkerIds] = useState<string[]>(initialPools.worker);
+  const [scoutIds, setScoutIds] = useState<string[]>(initialPools.scout);
 
   const togglePool = (pool: PoolType) => setOpenPool(prev => prev === pool ? null : pool);
   const toggleId = (list: string[], id: string) => list.includes(id) ? list.filter(x => x !== id) : [...list, id];
 
-  const poolAvg = (ids: string[]) => {
-    const models = ALL_MODELS.filter(m => ids.includes(m.id));
+  // Save + sync whenever pools change
+  const updatePool = (pool: PoolType, id: string) => {
+    const setters = { master: setMasterIds, worker: setWorkerIds, scout: setScoutIds };
+    const current = { master: masterIds, worker: workerIds, scout: scoutIds };
+    const newList = toggleId(current[pool], id);
+    setters[pool](newList);
+    const newPools = { ...current, [pool]: newList };
+    savePools(newPools);
+    if (token) syncPoolsToServer(token, newPools);
+  };
+
+  const poolAvg = (ids: string[], pool: PoolType) => {
+    const catalog = getModelsForPool(pool);
+    const models = catalog.filter(m => ids.includes(m.id));
     return models.length > 0 ? Math.round(models.reduce((s, m) => s + m.quality, 0) / models.length) : 0;
   };
   const avgColor = (avg: number) => avg >= 80 ? TOKENS.green : avg >= 60 ? TOKENS.gold : '#ef4444';
@@ -541,9 +588,9 @@ export function MayaDashboard() {
   if (!authenticated) return <AuthGate onAuth={t => { setToken(t); setAuthenticated(true); }} />;
 
   const continuityText = ctx?.continuityNotes?.[0]?.summary || null;
-  const mAvg = poolAvg(masterIds);
-  const wAvg = poolAvg(workerIds);
-  const sAvg = poolAvg(scoutIds);
+  const mAvg = poolAvg(masterIds, 'master');
+  const wAvg = poolAvg(workerIds, 'worker');
+  const sAvg = poolAvg(scoutIds, 'scout');
 
   const poolBtn = (label: string, pool: PoolType, accent: string, avg: number, count: number) => (
     <button key={pool} onClick={() => togglePool(pool)}
@@ -580,9 +627,9 @@ export function MayaDashboard() {
       </div>
 
       {/* Pool panel (expands below top bar) */}
-      {openPool === 'master' && <PoolPanel poolType="master" accent={MAYA} activeIds={masterIds} onToggle={id => setMasterIds(toggleId(masterIds, id))} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
-      {openPool === 'worker' && <PoolPanel poolType="worker" accent={TOKENS.cyan} activeIds={workerIds} onToggle={id => setWorkerIds(toggleId(workerIds, id))} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
-      {openPool === 'scout' && <PoolPanel poolType="scout" accent={TOKENS.gold} activeIds={scoutIds} onToggle={id => setScoutIds(toggleId(scoutIds, id))} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
+      {openPool === 'master' && <PoolPanel poolType="master" accent={MAYA} activeIds={masterIds} onToggle={id => updatePool('master', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
+      {openPool === 'worker' && <PoolPanel poolType="worker" accent={TOKENS.cyan} activeIds={workerIds} onToggle={id => updatePool('worker', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
+      {openPool === 'scout' && <PoolPanel poolType="scout" accent={TOKENS.gold} activeIds={scoutIds} onToggle={id => updatePool('scout', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
 
       {/* Continuity banner */}
       {continuityText && (
