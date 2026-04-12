@@ -75,5 +75,18 @@ export function useMayaApi(token: string | null) {
       body: JSON.stringify({ action, confirmed }),
     }), [request]);
 
-  return { getContext, chat, executeAction, createMemory, updateMemory, deleteMemory };
+  const getTaskDialog = useCallback((taskId: string) =>
+    request<Array<{ id: string; taskId: string; actionType: string; createdAt: string; payload: unknown; text?: string }>>(`/tasks/${taskId}/dialog?format=text`), [request]);
+
+  const getTaskEvidence = useCallback((taskId: string) =>
+    request<Record<string, unknown>>(`/tasks/${taskId}/evidence`).catch(() => null), [request]);
+
+  const chatWithFile = useCallback(async (message: string, fileBase64: string, fileMime: string, fileName: string, history: MayaChatMessage[] = []) => {
+    return request<MayaChatResponse>('/maya/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history, file: { data: fileBase64, mime: fileMime, name: fileName } }),
+    });
+  }, [request]);
+
+  return { getContext, chat, chatWithFile, executeAction, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
 }
