@@ -39,6 +39,7 @@ import {
   type WorkerAssignment,
 } from './opusWorkerSwarm.js';
 import { decompose } from './opusDecomposer.js';
+import { updateAgentProfiles, buildAgentBrief, type TaskOutcome } from './agentHabitat.js';
 import { builderOpusLog, builderTasks } from '../schema/builder.js';
 
 const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
@@ -547,6 +548,18 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
     if (meister.scores) {
       await saveWorkerScores(task.id, meister.scores);
+      // Post-Task-Loop: update agent profiles
+      const outcomes: TaskOutcome[] = meister.scores.map((s) => {
+        const wr = workerResults.find((r) => r.assignment.writer === s.worker);
+        return {
+          worker: s.worker,
+          quality: s.quality,
+          notes: s.notes,
+          file: wr?.assignment.file,
+          succeeded: s.quality >= 60 && !wr?.error,
+        };
+      });
+      void updateAgentProfiles(outcomes).catch((err) => console.error('[agentHabitat] post-task update failed:', err));
     }
 
     patches = meister.validatedPatches ?? workerResults
@@ -659,6 +672,18 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
         if (meister.scores) {
           await saveWorkerScores(task.id, meister.scores);
+          // Post-Task-Loop: update agent profiles
+          const outcomes: TaskOutcome[] = meister.scores.map((s) => {
+            const wr = workerResults.find((r) => r.assignment.writer === s.worker);
+            return {
+              worker: s.worker,
+              quality: s.quality,
+              notes: s.notes,
+              file: wr?.assignment.file,
+              succeeded: s.quality >= 60 && !wr?.error,
+            };
+          });
+          void updateAgentProfiles(outcomes).catch((err) => console.error('[agentHabitat] post-task update failed:', err));
         }
 
         // Replace patches with decomposer output
