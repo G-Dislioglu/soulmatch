@@ -25,6 +25,39 @@ import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
 
 const router = Router();
 
+// ─── Pool State (in-memory, synced from frontend) ───
+const POOL_MODEL_MAP: Record<string, { provider: string; model: string }> = {
+  opus: { provider: 'anthropic', model: 'claude-opus-4-6' },
+  sonnet: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  'gpt-5.4': { provider: 'openai', model: 'gpt-5.4' },
+  grok: { provider: 'xai', model: 'grok-4-1-fast' },
+  deepseek: { provider: 'deepseek', model: 'deepseek-chat' },
+  'glm-turbo': { provider: 'zhipu', model: 'glm-5-turbo' },
+  minimax: { provider: 'openrouter', model: 'minimax/minimax-m2.7' },
+  kimi: { provider: 'openrouter', model: 'moonshotai/kimi-k2.5' },
+  qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
+  'glm-flash': { provider: 'zhipu', model: 'glm-4.7-flashx' },
+  'gemini-flash': { provider: 'gemini', model: 'gemini-3-flash-preview' },
+  'deepseek-scout': { provider: 'deepseek', model: 'deepseek-chat' },
+  'qwen-scout': { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
+};
+
+let activePools = {
+  master: ['opus', 'gemini-flash'],
+  worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
+  scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
+};
+
+function pickFromPool(pool: 'master' | 'worker' | 'scout', preferStrong = true): { provider: string; model: string; id: string } | null {
+  const ids = activePools[pool];
+  if (ids.length === 0) return null;
+  // For master: pick strongest (first in list). For worker/scout: could randomize.
+  const id = preferStrong ? ids[0]! : ids[Math.floor(Math.random() * ids.length)]!;
+  const entry = POOL_MODEL_MAP[id];
+  if (!entry) return null;
+  return { ...entry, id };
+}
+
 // GET /api/builder/preview/:taskId — prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
   try {
@@ -740,6 +773,15 @@ ${taskSummary || 'Keine Tasks.'}
 WORKER-POOL (wähle den besten für jede Aufgabe):
 ${workerSummary}
 
+AKTIVE POOL-ZUSAMMENSETZUNG:
+Master Pool: ${activePools.master.join(', ') || 'leer'}
+Worker Pool: ${activePools.worker.join(', ') || 'leer'}
+Scout Pool: ${activePools.scout.join(', ') || 'leer'}
+Du kannst die Pools per Action-Block ändern:
+[ACTION: endpoint=/maya/pools, risk=safe]
+pools: { master: ["opus", "sonnet"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
+[/ACTION]
+
 DEINE FÄHIGKEITEN:
 - /build — Code-Änderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
 - /repo-query — Fragen an den Code beantworten
@@ -845,8 +887,15 @@ PROAKTIVES HANDELN:
       }
     }
 
-    const provider = isSimpleQuery ? 'zhipu' : 'anthropic';
-    const model = isSimpleQuery ? 'glm-4.7-flashx' : 'claude-opus-4-6';
+    const provider = isSimpleQuery
+      ? (pickFromPool('scout', false)?.provider ?? 'zhipu')
+      : (pickFromPool('master', true)?.provider ?? 'anthropic');
+    const model = isSimpleQuery
+      ? (pickFromPool('scout', false)?.model ?? 'glm-4.7-flashx')
+      : (pickFromPool('master', true)?.model ?? 'claude-opus-4-6');
+    const modelLabel = isSimpleQuery
+      ? (pickFromPool('scout', false)?.id ?? 'flash')
+      : (pickFromPool('master', true)?.id ?? 'opus');
 
     const messages = [
       ...history.slice(-16),
@@ -863,7 +912,7 @@ PROAKTIVES HANDELN:
     // Save to continuity if Maya suggests important context
     res.json({
       response,
-      model: isSimpleQuery ? 'flash' : 'opus',
+      model: modelLabel,
       contextUsed: { tasksLoaded: tasks.length, hasContinuity: !!continuity[0] },
     });
   } catch (err) {
@@ -885,7 +934,7 @@ router.post('/maya/action', async (req: Request, res: Response) => {
       return;
     }
 
-    const ALLOWED = ['/build', '/push', '/git-push', '/render/redeploy', '/self-test', '/repo-query', '/execute'];
+    const ALLOWED = ['/build', '/push', '/git-push', '/render/redeploy', '/self-test', '/repo-query', '/execute', '/maya/pools'];
     const BUILDER_ROUTES = ['/batch-delete-tasks']; // routes under /api/builder (not opus-bridge)
     // Also allow task and memory endpoints with dynamic IDs
     const isTaskDelete = /^\/tasks\/[\w-]+$/.test(action.endpoint);
@@ -1053,6 +1102,17 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: 'Brief compilation failed: ' + String(err) });
   }
+});
+
+// POST /api/builder/maya/pools — receive pool configuration from frontend
+router.post('/maya/pools', (req: Request, res: Response) => {
+  const { pools } = req.body as { pools?: { master?: string[]; worker?: string[]; scout?: string[] } };
+  if (!pools) { res.status(400).json({ error: 'pools required' }); return; }
+  if (pools.master) activePools.master = pools.master;
+  if (pools.worker) activePools.worker = pools.worker;
+  if (pools.scout) activePools.scout = pools.scout;
+  console.log('[maya] Pools updated:', { master: activePools.master.length, worker: activePools.worker.length, scout: activePools.scout.length });
+  res.json({ success: true, pools: activePools });
 });
 
 export { router as builderRouter };
