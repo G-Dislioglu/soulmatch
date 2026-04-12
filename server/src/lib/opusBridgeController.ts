@@ -216,6 +216,7 @@ Deine Entscheidung:`,
 export interface ExecuteInput {
   instruction: string;
   scope?: string[];
+  existingTaskId?: string;
   risk?: string;
   opusHints?: string;
   skipRoundtable?: boolean;
@@ -497,16 +498,38 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
   const normalizedScope = Array.isArray(input.scope) ? input.scope : [];
   const db = getDb();
-  const [task] = await db
-    .insert(builderTasks)
-    .values({
-      title: instruction.slice(0, 100),
-      goal: instruction,
-      scope: normalizedScope,
-      risk: input.risk ?? 'low',
-      status: 'scouting',
-    })
-    .returning();
+  const title = instruction.slice(0, 100);
+  const risk = input.risk ?? 'low';
+
+  const [task] = input.existingTaskId
+    ? await db
+      .update(builderTasks)
+      .set({
+        title,
+        goal: instruction,
+        scope: normalizedScope,
+        risk,
+        status: 'scouting',
+        updatedAt: new Date(),
+      })
+      .where(eq(builderTasks.id, input.existingTaskId))
+      .returning()
+    : await db
+      .insert(builderTasks)
+      .values({
+        title,
+        goal: instruction,
+        scope: normalizedScope,
+        risk,
+        status: 'scouting',
+      })
+      .returning();
+
+  if (!task) {
+    throw new Error(input.existingTaskId
+      ? `Task ${input.existingTaskId} not found`
+      : 'Failed to create task');
+  }
 
   let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' = 'scouted';
   let consensusType: 'unanimous' | 'majority' | null = null;

@@ -8,7 +8,7 @@ import {
   builderTestResults,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js';
-import { orchestrateTask } from './opusTaskOrchestrator.js';
+import { executeTask } from './opusBridgeController.js';
 import { runBuildPipeline } from './opusBuildPipeline.js';
 import {
   buildBuilderMemoryContext,
@@ -729,7 +729,7 @@ export async function handleBuilderChat(
         };
       }
 
-      // ─── QUICK MODE: Scope → Worker → JSON Overwrite → Push ───
+      // ─── QUICK MODE: Scope → executeTask controller ───
       void (async () => {
         try {
           console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
@@ -739,12 +739,18 @@ export async function handleBuilderChat(
             .set({ status: 'planning', updatedAt: new Date() })
             .where(eq(builderTasks.id, created.id));
 
-          const result = await orchestrateTask({
+          const result = await executeTask({
+            existingTaskId: created.id,
             instruction: classified.goal!,
             scope: resolvedScope.length > 0 ? resolvedScope : undefined,
+            risk: classified.risk,
           });
 
-          const finalStatus = result.status === 'success' ? 'done' : 'blocked';
+          const finalStatus = result.status === 'applying'
+            ? 'applying'
+            : result.status === 'consensus'
+              ? 'done'
+              : 'blocked';
           await db
             .update(builderTasks)
             .set({
@@ -754,8 +760,8 @@ export async function handleBuilderChat(
             .where(eq(builderTasks.id, created.id));
 
           console.log('[maya-router]',
-            finalStatus === 'done'
-              ? `Schnellmodus fertig: ${result.summary}`
+            finalStatus === 'done' || finalStatus === 'applying'
+              ? `Schnellmodus fertig: ${result.status} (${result.patches.length} patches)`
               : `Schnellmodus fehlgeschlagen: ${result.status}`
           );
         } catch (err) {
@@ -870,11 +876,17 @@ export async function handleBuilderChat(
         void (async () => {
           try {
             await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
-            const result = await orchestrateTask({
+            const result = await executeTask({
+              existingTaskId: taskId,
               instruction: task.goal,
               scope: retryScope.length > 0 ? retryScope : undefined,
+              risk: task.risk ?? 'low',
             });
-            const finalStatus = result.status === 'success' ? 'done' : 'blocked';
+            const finalStatus = result.status === 'applying'
+              ? 'applying'
+              : result.status === 'consensus'
+                ? 'done'
+                : 'blocked';
             await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
           } catch (err) {
             console.error('[fusion] retry quick-mode error:', err);
