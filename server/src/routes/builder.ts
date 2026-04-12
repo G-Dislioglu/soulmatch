@@ -1,6 +1,6 @@
 // Phase 3: Memory CRUD endpoints added 2026-04-12
 import { Router, type Request, type Response } from 'express';
-import { and, eq, desc, asc, sql } from 'drizzle-orm';
+import { and, eq, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
   builderActions,
@@ -719,7 +719,7 @@ router.post('/maya/chat', async (req: Request, res: Response) => {
         .limit(1),
     ]);
 
-    const taskSummary = tasks.map(t => `[${t.status}] ${t.title} (risk:${t.risk})`).join('\n');
+    const taskSummary = tasks.map(t => `[${t.status}] ${t.title} (risk:${t.risk}, id:${t.id})`).join('\n');
     const lastNote = continuity[0]?.summary || 'Keine Continuity Note.';
 
     const systemPrompt = `Du bist Maya — die zentrale Steuereinheit des Opus-Bridge Builder-Systems im Soulmatch-Projekt. Du sprichst Deutsch.
@@ -727,7 +727,7 @@ router.post('/maya/chat', async (req: Request, res: Response) => {
 DEIN LIVE-KONTEXT:
 Continuity (letzte Session): ${lastNote}
 
-Aktive Tasks:
+Aktive Tasks (mit IDs):
 ${taskSummary || 'Keine Tasks.'}
 
 DEINE FÄHIGKEITEN:
@@ -740,10 +740,10 @@ DEINE FÄHIGKEITEN:
 - /task-history — Vergangene Tasks einsehen
 - /worker-stats — Worker Performance vergleichen
 - /self-test — System Health prüfen
-- DELETE /tasks/:id — Task löschen (Endpoint: /api/builder/tasks/:id, Method: DELETE)
-- POST /maya/memory — Continuity/Episode Note erstellen (body: { layer, key, summary })
-- PUT /maya/memory/:id — Note bearbeiten (body: { summary })
-- DELETE /maya/memory/:id — Note löschen
+- /tasks/:id — Task löschen (method: DELETE)
+- /maya/memory — Continuity/Episode Note erstellen (POST, body: { layer, key, summary })
+- /maya/memory/:id — Note bearbeiten (PUT) oder löschen (DELETE)
+- /batch-delete-tasks — Mehrere Tasks auf einmal löschen (POST, body: { ids: string[] })
 
 REGELN:
 - Sei direkt, kritisch, keine Floskeln
@@ -805,10 +805,11 @@ router.post('/maya/action', async (req: Request, res: Response) => {
     }
 
     const ALLOWED = ['/build', '/push', '/git-push', '/render/redeploy', '/self-test', '/repo-query', '/execute'];
+    const BUILDER_ROUTES = ['/batch-delete-tasks']; // routes under /api/builder (not opus-bridge)
     // Also allow task and memory endpoints with dynamic IDs
     const isTaskDelete = /^\/tasks\/[\w-]+$/.test(action.endpoint);
     const isMemoryOp = /^\/maya\/memory(\/[\w-]+)?$/.test(action.endpoint);
-    if (!ALLOWED.includes(action.endpoint) && !isTaskDelete && !isMemoryOp) {
+    if (!ALLOWED.includes(action.endpoint) && !BUILDER_ROUTES.includes(action.endpoint) && !isTaskDelete && !isMemoryOp) {
       res.status(400).json({ error: `Endpoint ${action.endpoint} not allowed.` });
       return;
     }
@@ -831,8 +832,8 @@ router.post('/maya/action', async (req: Request, res: Response) => {
     // Forward token from query
     const token = (req.query.opus_token || req.query.token || '') as string;
     const port = process.env.PORT || 10000;
-    // Task/memory endpoints are under /api/builder, opus-bridge endpoints under /api/builder/opus-bridge
-    const isBuilderRoute = isTaskDelete || isMemoryOp;
+    // Task/memory/batch endpoints are under /api/builder, opus-bridge endpoints under /api/builder/opus-bridge
+    const isBuilderRoute = isTaskDelete || isMemoryOp || BUILDER_ROUTES.includes(action.endpoint);
     const baseUrl = `http://localhost:${port}/api/builder${isBuilderRoute ? '' : '/opus-bridge'}`;
 
     const method = action.method || (isTaskDelete ? 'DELETE' : 'POST');
@@ -896,6 +897,28 @@ router.delete('/maya/memory/:id', async (req: Request, res: Response) => {
     res.json({ success: true, deleted: true });
   } catch (err) {
     res.status(500).json({ error: 'Memory delete failed: ' + String(err) });
+  }
+});
+
+// POST /api/builder/batch-delete-tasks — delete multiple tasks at once
+router.post('/batch-delete-tasks', async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'ids[] required' });
+      return;
+    }
+    const db = getDb();
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        await db.delete(builderTasks).where(eq(builderTasks.id, id));
+        deleted++;
+      } catch { /* skip FK constraint errors */ }
+    }
+    res.json({ success: true, deleted, total: ids.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Batch delete failed: ' + String(err) });
   }
 });
 
