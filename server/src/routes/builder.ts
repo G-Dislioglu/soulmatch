@@ -740,6 +740,10 @@ DEINE FÄHIGKEITEN:
 - /task-history — Vergangene Tasks einsehen
 - /worker-stats — Worker Performance vergleichen
 - /self-test — System Health prüfen
+- DELETE /tasks/:id — Task löschen (Endpoint: /api/builder/tasks/:id, Method: DELETE)
+- POST /maya/memory — Continuity/Episode Note erstellen (body: { layer, key, summary })
+- PUT /maya/memory/:id — Note bearbeiten (body: { summary })
+- DELETE /maya/memory/:id — Note löschen
 
 REGELN:
 - Sei direkt, kritisch, keine Floskeln
@@ -791,7 +795,7 @@ Beschreibung
 router.post('/maya/action', async (req: Request, res: Response) => {
   try {
     const { action, confirmed } = req.body as {
-      action: { endpoint: string; branch?: string; worker?: string; params?: Record<string, unknown> };
+      action: { endpoint: string; method?: string; branch?: string; worker?: string; params?: Record<string, unknown> };
       confirmed?: boolean;
     };
 
@@ -801,8 +805,11 @@ router.post('/maya/action', async (req: Request, res: Response) => {
     }
 
     const ALLOWED = ['/build', '/push', '/git-push', '/render/redeploy', '/self-test', '/repo-query', '/execute'];
-    if (!ALLOWED.includes(action.endpoint)) {
-      res.status(400).json({ error: `Endpoint ${action.endpoint} not allowed. Use: ${ALLOWED.join(', ')}` });
+    // Also allow task and memory endpoints with dynamic IDs
+    const isTaskDelete = /^\/tasks\/[\w-]+$/.test(action.endpoint);
+    const isMemoryOp = /^\/maya\/memory(\/[\w-]+)?$/.test(action.endpoint);
+    if (!ALLOWED.includes(action.endpoint) && !isTaskDelete && !isMemoryOp) {
+      res.status(400).json({ error: `Endpoint ${action.endpoint} not allowed.` });
       return;
     }
 
@@ -824,17 +831,23 @@ router.post('/maya/action', async (req: Request, res: Response) => {
     // Forward token from query
     const token = (req.query.opus_token || req.query.token || '') as string;
     const port = process.env.PORT || 10000;
-    const baseUrl = `http://localhost:${port}/api/builder/opus-bridge`;
+    // Task/memory endpoints are under /api/builder, opus-bridge endpoints under /api/builder/opus-bridge
+    const isBuilderRoute = isTaskDelete || isMemoryOp;
+    const baseUrl = `http://localhost:${port}/api/builder${isBuilderRoute ? '' : '/opus-bridge'}`;
 
+    const method = action.method || (isTaskDelete ? 'DELETE' : 'POST');
     const body: Record<string, unknown> = { ...action.params, opus_token: token };
     if (action.branch) body.branch = action.branch;
     if (action.worker) body.worker = action.worker;
 
-    const proxyRes = await fetch(`${baseUrl}${action.endpoint}`, {
-      method: 'POST',
+    const fetchOpts: RequestInit = {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    };
+    if (method !== 'DELETE') fetchOpts.body = JSON.stringify(body);
+
+    const sep = action.endpoint.includes('?') ? '&' : '?';
+    const proxyRes = await fetch(`${baseUrl}${action.endpoint}${sep}token=${encodeURIComponent(token)}`, fetchOpts);
 
     const result = await proxyRes.json().catch(() => ({ status: proxyRes.status }));
 
