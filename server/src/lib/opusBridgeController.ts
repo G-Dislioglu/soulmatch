@@ -37,9 +37,10 @@ import {
   runMeisterValidation,
   saveWorkerScores,
   type WorkerAssignment,
+  type WorkerResult,
 } from './opusWorkerSwarm.js';
 import { decompose } from './opusDecomposer.js';
-import { updateAgentProfiles, buildAgentBrief, type TaskOutcome } from './agentHabitat.js';
+import { updateAgentProfiles, buildAgentBrief, reflectOnTask, type TaskOutcome } from './agentHabitat.js';
 import { builderOpusLog, builderTasks } from '../schema/builder.js';
 
 const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
@@ -450,6 +451,7 @@ async function runDecomposerExecution(
 ): Promise<{
   patches: Array<{ file: string; body: string }>;
   tokensUsed: number;
+  workerResults: WorkerResult[];
 }> {
   const workerAssignments = retryFeedback
     ? context.workerAssignments.map((assignment) => ({
@@ -482,6 +484,7 @@ async function runDecomposerExecution(
       .filter((result) => result.patch)
       .map((result) => result.patch as { file: string; body: string }),
     tokensUsed,
+    workerResults,
   };
 }
 
@@ -541,6 +544,10 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let blocks: string[] = [];
   let githubAction: { triggered: boolean; error?: string } | undefined;
   let tscRetryContext: DecomposerExecutionContext | null = null;
+  let reflectionCandidates: WorkerResult[] = [];
+  let tscPassed = false;
+  let tscErrors: string[] = [];
+  let pushSucceeded = false;
   const memoryContext = await buildCouncilContext().catch(() => '');
 
   const scoutResult = await runScoutPhase({
@@ -624,6 +631,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     const decomposerResult = await runDecomposerExecution(task.id, instruction, tscRetryContext);
     totalTokens = decomposerResult.tokensUsed;
     patches = decomposerResult.patches;
+    reflectionCandidates = decomposerResult.workerResults;
 
     status = patches.length > 0 ? 'consensus' : 'no_consensus';
     consensusType = 'unanimous';
@@ -733,6 +741,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
         // Replace patches with decomposer output
         patches = decomposerResult.patches;
+        reflectionCandidates = decomposerResult.workerResults;
       }
     }
 
@@ -801,6 +810,8 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   if (status === 'consensus' && patches.length > 0) {
     // --- TSC Compile Check: verify patches don't break TypeScript compilation ---
     let tscResult = runTscCompileCheck(patches);
+    tscPassed = tscResult.passed;
+    tscErrors = [...tscResult.errors];
     if (!tscResult.passed && tscRetryContext) {
       for (let attempt = 2; attempt <= TSC_AUTO_RETRY_ATTEMPTS; attempt += 1) {
         await addChatPoolMessage({
@@ -822,6 +833,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         );
         totalTokens += retryExecution.tokensUsed;
         patches = retryExecution.patches;
+        reflectionCandidates = retryExecution.workerResults;
 
         if (patches.length === 0) {
           status = 'validation_failed';
@@ -844,6 +856,8 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         }
 
         tscResult = runTscCompileCheck(patches);
+  tscPassed = tscResult.passed;
+  tscErrors = [...tscResult.errors];
         if (tscResult.passed) {
           await addChatPoolMessage({
             taskId: task.id,
@@ -883,14 +897,32 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       if (input.skipGithub) {
         // skipGithub: keep patches in DB but do NOT push to GitHub (used by /build with skipDeploy)
         githubAction = { triggered: false };
+        pushSucceeded = false;
       } else {
         // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
         const safePayloads = toSafeOverwritePayloads(patches);
         githubAction = safePayloads
           ? await triggerGithubAction(task.id, safePayloads)
           : await triggerGithubAction(task.id, toPatchPayloads(patches));
+        pushSucceeded = githubAction.triggered === true;
         status = githubAction.triggered ? 'applying' : 'error';
       }
+    }
+  }
+
+  if (reflectionCandidates.length > 0) {
+    for (const result of reflectionCandidates) {
+      if (!result.patch) {
+        continue;
+      }
+
+      void reflectOnTask(
+        result.assignment.writer,
+        result.patch.body.slice(0, 3000),
+        { success: tscPassed, errors: tscErrors },
+        { success: pushSucceeded },
+        instruction,
+      ).catch((err) => console.error(`[nachdenker] reflection failed for ${result.assignment.writer}:`, err));
     }
   }
 

@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Opus-Bridge provider/roundtable hardening + Patch-Collector Fix fuer SEARCH/REPLACE @PATCH-Bodies`
-- `next_recommended_block`: `Live-Verifikation von @READ-File-Injection, Roundtable-BDL-Ausgabe und GitHub-Bridge auf Render`
+- `last_completed_block`: `Builder-Chat Quick-Mode auf executeTask umgestellt + Nachdenker-Learnings im agentHabitat verdrahtet`
+- `next_recommended_block`: `Render-Live-Verifikation fuer Chat-Quick-Mode, /debug-scope und Nachdenker-Learnings nach echtem Builder-Task`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -113,7 +113,9 @@ der Builder-Chat jetzt auch enger an die realen Schutzgatter gezogen: Maya
 blockt namentlich bekannte Blacklist-Dateien bereits im Chat vor der
 Task-Erstellung, erklaert geblockte oder review-beduerftige Tasks im Status mit
 einem konkreteren Fehlerbild, und `retry` startet den letzten blockierten Lauf
-gezielt erneut.
+gezielt erneut. Quick-Mode-Tasks laufen dabei jetzt ueber `executeTask` statt
+ueber den haengenden Orchestrator-Pfad, und das `agentHabitat` speichert pro
+Worker die letzten drei Nachdenker-Learnings fuer den naechsten Prompt mit.
 
 Parallel dazu ist auch die Opus-Bridge-Lane enger an ihre reale Laufzeitwahrheit
 gezogen worden: `providers.ts` kennt jetzt `zhipu`, der Scout nutzt
@@ -253,6 +255,9 @@ Runtime-Wahrheit fuer Soulmatch.
   namentlich, blockt solche Ziel-Dateien direkt im Chat vor jeder Task-Erzeugung,
   erklaert geblockte oder `review_needed`-Tasks im Status ueber Actions/Reviews
   genauer nach und akzeptiert `retry` fuer den letzten retry-faehigen Lauf.
+- `server/src/lib/agentHabitat.ts` speichert jetzt pro Worker drei kompakte
+  Nachdenker-Learnings in `builder_agent_profiles.last_learnings` und injiziert
+  sie beim naechsten Worker-Brief wieder in den Prompt.
 - `server/src/schema/builder.ts` definiert jetzt die Tabelle `builder_memory`;
   bis zum manuellen Schema-Push auf Render fangen die neuen Builder-Memory-
   Pfade fehlende Tabellenzugriffe bewusst ab und loggen nur Fehler.

@@ -186,6 +186,7 @@ export const builderAgentProfiles = pgTable('builder_agent_profiles', {
   strengths: jsonb('strengths').$type<string[]>().notNull().default([]),
   weaknesses: jsonb('weaknesses').$type<string[]>().notNull().default([]),
   failurePatterns: jsonb('failure_patterns').$type<string[]>().notNull().default([]),
+  lastLearnings: jsonb('last_learnings').$type<string[]>().notNull().default([]),
   fileExperience: jsonb('file_experience').$type<Record<string, { success: number; fail: number; lastUsed: string }>>().notNull().default({}),
   taskCount: integer('task_count').notNull().default(0),
   successCount: integer('success_count').notNull().default(0),
