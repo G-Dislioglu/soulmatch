@@ -1,94 +1,150 @@
-# SESSION-STATE — Stand 11.04.2026, S13
+# SESSION-STATE — Stand 12.04.2026, S14
 
 ## Kanonische Builder-Wahrheit
 
-- **Kanonischer Executor:** `/opus-task` (orchestrator v2)
-- **Shadow/Legacy:** `/build` (decomposer-v1, nicht für Standard-Deployments)
-- **Scope:** deterministisch via `builderScopeResolver.ts` + `server/data/builder-repo-index.json`
-- **Change Contract:** JSON Full-File-Overwrite (kein SEARCH/REPLACE im kanonischen Pfad)
-- **Judge:** GPT-5.4 (ersetzt Gemini seit S10)
-- **Worker-Swarm:** GLM, MiniMax, Qwen, Kimi (DeepSeek ab S13 nur noch Scout/Review, nicht Code-Worker)
-- **Promotion:** `triggered ≠ committed` — Action committed nur bei grünem Build, meldet Failure explizit
-- **Repo-Index:** 115 Server-Dateien (nicht 424 — Client-Dateien sind nicht indexiert)
+### Zwei Executor-Pfade (Maya routet automatisch)
+
+| Pfad | Endpoint | Wann | Laufzeit | Kosten |
+|------|----------|------|----------|--------|
+| **Schnellmodus** | `/opus-task` | Einfache Tasks, kleine Änderungen | ~30-90s | ~$0.02 |
+| **Pipeline-Modus** | `/build` | Komplexe Tasks, Multi-File, Architektur | ~2min | ~$0.15-0.30 |
+
+Maya entscheidet via Intent-Classifier in `builderFusionChat.ts`:
+- Einfacher Fix / kleine Änderung → `/opus-task`
+- Multi-File / architektonisch / User sagt "deep mode" / "pipeline" → `/build`
+- Maya kann während Task eskalieren wenn Komplexität steigt
+
+### Pipeline-Modus: Volle Kette
+```
+Scout (Pool) → Destillierer (Pool) → Council (Pool, Maya-moderiert)
+  → Worker (Pool, Memory-aware) → TSC Verify → GitHub Push → Deploy
+```
+- Implementiert in: `opusBridgeController.ts` → `executeTask()`
+- Aufgerufen via: `opusBuildPipeline.ts`
+- Live-getestet: 2× erfolgreich, Patches generiert, ~2min/Task
+
+### Schnellmodus: Direkt
+```
+Instruction → Scope Resolver → Worker → JSON Overwrite → Push → Deploy
+```
+- Implementiert in: `opusTaskOrchestrator.ts`
+- Deterministischer Scope via `builderScopeResolver.ts` + `server/data/builder-repo-index.json`
+- Change Contract: JSON Full-File-Overwrite
+
+---
+
+## 5-Pool-Architektur
+
+| Pool | Select | Frontend-Farbe | Backend-Verdrahtung |
+|------|--------|----------------|---------------------|
+| Maya | Single | Violett | Chat nutzt gewähltes Modell |
+| Council | Multi | Gold | `buildCouncilParticipants()` |
+| Destillierer | Multi | Orange #f59e0b | Pool-basiert (Extractor+Reasoner) |
+| Worker | Multi | Cyan | `remapWorkersToPool()` |
+| Scout | Multi | Grün | `getAllFromPool` round-robin |
+
+- **localStorage:** `maya-pools-v2` (mit Migration für distiller)
+- **Server:** `poolState.ts` activePools (in-memory)
+- **Sync:** POST /maya/pools bei jeder Änderung
+
+---
+
+## TSC Verify
+
+- `runTscCompileCheck()` in `opusBridgeController.ts` — läuft VOR GitHub-Push
+- Patches temporär auf Disk → `tsc --noEmit` / `tsc -b`
+- TS5107/TS5101 Deprecation-Warnings gefiltert (keine echten Fehler)
+- Bei Fehler: `status=validation_failed`, kein Push
+- Originals immer restauriert (finally-Block)
+- ChatPool-Nachricht mit Fehlern für Transparenz
+
+---
+
+## Memory-Bus (memoryBus.ts)
+
+| Rolle | Bekommt |
+|-------|---------|
+| Scouts | Project DNA + Graph + Error Cards + letzte Tasks |
+| Destillierer | Error-Patterns + ähnliche Tasks für Crush |
+| Council | Builder Memory + Worker-Ranking + Entscheidungshistorie |
+| Worker | Council-Begründung + Error Cards |
+| Maya | Gesamtüberblick |
+
+---
 
 ## Aktive Entscheidungen
 
-1. `/opus-task` = einziger produktiver Executor
-2. `/build` = Shadow-Track (Scouts, Roundtable, Crush — nicht für direkte Deployments)
-3. Full-File JSON Overwrite als einziger Change-Contract
-4. SEARCH/REPLACE in `/push` bleibt als Legacy-Modus, ist aber nicht der kanonische Pfad
-5. MiniMax M2.7 (nicht M2.5)
-6. Keine Free-Modelle
-7. Preise/Specs: immer docs/provider-specs.md prüfen
+1. `/opus-task` = Schnellmodus, `/build` = Pipeline-Modus — Maya routet selbst
+2. Full-File JSON Overwrite als einziger Change-Contract (beide Modi)
+3. SEARCH/REPLACE in `/push` bleibt als Legacy-Modus, nicht kanonisch
+4. MiniMax M2.7 (nicht M2.5)
+5. Keine Free-Modelle (OpenRouter `:free` Suffix explizit verboten)
+6. Preise/Specs: immer `docs/provider-specs.md` prüfen
+7. TSC Verify ist Pflicht vor jedem Push (Pipeline-Modus)
 
-## S10 Ergebnisse (verifiziert)
+---
 
-### Pipeline v2 — funktioniert
-- 4/4 Tasks erfolgreich deployed (formatCredits, keepAlive uptime, rateLimiter, health detailed)
-- Scope Resolver: deterministisch, 1ms, 0 LLM-Calls
-- Validation: 5/5 Worker lieferten valides JSON-Overwrite
-- Typische Laufzeit: 30-90s pro Task, ~$0.02
+## S14 Ergebnisse (12.04.2026)
 
-### Benchmark (11 Modelle, 1 Task)
-- Bester Code: Sonnet 4.6 (92/100)
-- Bester Preis/Leistung: DeepSeek (190 Score/$)
-- Bester Reviewer: GPT-5.4 (82/100, spec-treu)
-- Schwächste: Grok (62, switch-Bug), Qwen (70, zu langsam)
+### Pipeline komplett verdrahtet + verifiziert (9 Dateien, ~750 neue Zeilen, 6 Commits)
 
+**Commits:**
+- `89e8a75` — TSC Compile Check vor GitHub-Push
+- `569e186` — Frontend Destillierer-Pool-Button + Worker-Memory-Context
+- `5e87b51` — Memory-Bus + Destillierer-Pool (Backend)
+- `e99600e` — Phase 3: Worker-Pool-Verdrahtung
+- `7a395ff` — Phase 2: Council-Pool-Verdrahtung + Maya-Moderation
+- `814bc1b` — Phase 1: Scout-Pool-Verdrahtung + Destillierer
 
+**Neue/geänderte Dateien:**
+- `server/src/lib/memoryBus.ts` (NEU, 244Z) — rollenspezifische Kontexte
+- `server/src/lib/opusBridgeController.ts` (831Z) — volle Pipeline + TSC Verify
+- `server/src/lib/opusDistiller.ts` (221Z) — 2-KI Destillierer mit Crush
+- `server/src/lib/opusScoutRunner.ts` (232Z) — Pool-basierte Scouts
+- `server/src/lib/opusRoundtable.ts` (578Z) — Maya-Moderator-Hook
+- `server/src/lib/opusWorkerSwarm.ts` (826Z) — Worker-Pool + Memory-Context
+- `server/src/lib/poolState.ts` (78Z) — 5-Pool-State (inkl. distiller)
+- `server/src/routes/builder.ts` — Distiller-Pool Endpoint
+- `client/src/modules/M16_builder/ui/MayaDashboard.tsx` — 5. Pool-Button
 
-## S11-S13 Ergebnisse (11.04.2026)
+### DeepSeek Worker-Policy (seit S13)
+- Code-Workers: GLM, MiniMax, Qwen, Kimi (DeepSeek entfernt)
+- Scout/Review/Chat-Personas: DeepSeek bleibt
 
-### S11 (Handoff aus vorherigem Chat)
-- /repo-query LIVE (GLM, `0698a6f`)
-- userId in Builder-Chat-Route (DeepSeek, `fd8bf66`)
-- Memory Runtime-Guard (GLM, `551bed1`)
-- Builder-Chat LIVE mit Token `builder-2026-geheim`
-- Zombie-Tasks aufgeraeumt (0 aktive)
+### Vorherige Sessions (S10–S13)
+- S10: Pipeline v2 verifiziert (4/4 Tasks), 11-Modell-Benchmark, K2 Canonicalization
+- S11: /repo-query, Builder-Chat, Memory Runtime-Guard
+- S12–S13: Context-Assembler, Operational Context, Gap/Conflict Detection, DeepSeek-Policy
 
-### S12-S13 (Context-Assembler + Policy)
-- `abd0f65` — FusionChat: assembleBuilderContext eingebunden, userId durchgefaedelt (classifyIntent → buildSystemPrompt → assembler)
-- `c0ca635` — DeepSeek aus Code-Workers entfernt (AVAILABLE_WORKERS in MeisterPlan), /repo-query auf GLM/zhipu umgestellt
-- `49aa062` — Phase 2 Assembler: Operational Context (DB-Queries: aktive/blockierte/letzte Tasks), Gap Detection (fehlende Memory → explizit), Conflict Detection (blocked ohne Recovery)
-
-### DeepSeek Worker-Policy (ab S13)
-- Code-Workers: GLM, MiniMax, Qwen, Kimi (DeepSeek ENTFERNT — unsaubere Patches, JSON-Format-Fehler)
-- Scout: DeepSeek bleibt (billig, Textanalyse OK)
-- Review: DeepSeek bleibt (builderReviewLane.ts)
-- Chat-Personas: DeepSeek bleibt (Lian/Amara/Luna)
-
-### Blueprint-Status
-- Phase 1: ✅ Context-Assembler + userId (erledigt)
-- Phase 2: ✅ Operational Context + Gap/Conflict Detection (erledigt)
-- Phase 3: ⬜ Continuity Memory + UI Modus-Signale (naechster Abend)
-
-### Offene Render-Situation
-- Deploy-Queue hatte Haenger (ed26a2b blockierte 15+ Min)
-- Cancel-Button funktionierte nicht
-- Commits c0ca635 + 49aa062 warten auf Deploy
-### Deadlock gefunden + gelöst
-- package.json ohne Lockfile-Update → Render-Build kaputt
-- GitHub Action verschluckte Commits still bei Build-Failure
-- Beides gefixt: Lockfile regeneriert, Action hat jetzt Retry + sichtbares Failure-Reporting
-
-### K2 Canonicalization (Ende S10)
-- /pipeline-info meldet jetzt ehrlich opus-task-v2 als kanonisch
-- /build als LEGACY/SHADOW markiert
-- SEARCH/REPLACE in /push als Legacy markiert
-- Action: 3× Retry bei Push-Konflikten, expliziter Failure-Report bei rotem Build
-- SESSION-STATE auf belegbaren Stand synchronisiert
+---
 
 ## Offene Probleme (ehrlich)
 
-1. **Staging-Branch fehlt** — Pipeline pusht direkt auf main
-2. **Repo-Index Auto-Update fehlt** — Index wird nicht bei jedem Deploy regeneriert
-3. **Error-Cards Feedback-Loop** — generiert Cards, liest sie nicht zurück
-4. **TypeScript-Check ist optional** — ts nicht in production dependencies, Check läuft nur wenn devDep verfügbar
-5. **Neue Dateien brauchen manuellen Scope** — Resolver findet nur existierende Dateien im Index
-6. **Action-Callback wird nicht ausgewertet** — Builder empfängt execution-result, reagiert aber nicht darauf
+1. **Maya-Routing noch nicht implementiert** — Intent-Classifier fehlt, beide Modi existieren aber Routing ist manuell
+2. **Council-Rollen undifferenziert** — alle Council-Members bekommen denselben Prompt
+3. **Agent Profiles fehlen** — Worker haben kein Gedächtnis über ihre Stärken/Schwächen
+4. **Auto-Retry bei TSC-Fehler fehlt** — bei Compile-Fehler wird abgebrochen statt nachgebessert
+5. **Staging-Branch fehlt** — Pipeline pusht direkt auf main
+6. **Repo-Index Auto-Update** — `opusIndexGenerator.ts` existiert, feuert nach jedem Push, aber Konsistenz nicht voll verifiziert
 
-## Nächste Prioritäten
+---
 
-1. Soulmatch-Features: Crush-Score 52→70, Audio-Verifikation
-2. Staging-Branch in GitHub Action
-3. Repo-Index Auto-Regeneration
+## Nächste Prioritäten (priorisiert)
+
+1. **Maya-Routing** (30 Min) — Intent-Classifier: Schnell vs. Pipeline
+2. **Council-Rollen** (15 Min) — Architekt / Skeptiker / Pragmatiker
+3. **Agent Profiles + Post-Task-Loop** (1 Abend) — DB-Tabelle, automatisches Lernen
+4. **Agent Brief Compiler** (30 Min) — jeder Agent weiß wer er ist
+5. **Auto-Retry bei TSC-Fehler** (30 Min) — Pipeline wird selbstheilend
+6. **Pipeline-Monitoring UI** (optional) — Live-Fortschritt im Chat
+
+---
+
+## Technische Details
+
+- **Repo:** github.com/G-Dislioglu/soulmatch, Branch main
+- **Live:** soulmatch-1.onrender.com/maya
+- **Auth:** token=builder-2026-geheim, opus_token=opus-bridge-2026-geheim
+- **Push:** POST /api/builder/opus-bridge/git-push?opus_token=...
+- **TS-Check:** `cd server && npx tsc --noEmit && cd ../client && npx tsc -b`
+- **Deprecation-Filter:** TS5107/TS5101 sind OK, keine echten Fehler

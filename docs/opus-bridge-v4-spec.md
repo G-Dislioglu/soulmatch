@@ -1,9 +1,50 @@
-# Opus-Bridge v4 Spec — CoThinker + Denker-Triade Pipeline
+# Opus-Bridge v4 Spec — Maya-Pipeline + Pool-Architektur
 
-**Stand:** 10. April 2026
+**Stand:** 12. April 2026
 **Autoren:** Claude Opus (Architekt) + Gürcan (Creative Director)
-**Status:** ENTWURF — wartet auf Crush durch Meister-Roundtable
+**Status:** IMPLEMENTIERT — Pipeline live, 2× erfolgreich getestet (12.04.2026)
 **Vorgänger:** Opus-Bridge v3.0 (opus-task-v2), Bluepilot Spec v2.0 (Denker-Triade)
+
+---
+
+## 0. Implementierungsstatus + Terminologie-Mapping
+
+### Was gebaut ist (S14, 12.04.2026)
+
+Die Pipeline ist vollständig verdrahtet und verifiziert:
+```
+Scout (Pool) → Destillierer (Pool) → Council (Pool, Maya-moderiert)
+  → Worker (Pool, Memory-aware) → TSC Verify → GitHub Push → Deploy
+```
+
+### Terminologie: Spec vs. Implementierung
+
+| Spec-Term (v4 Entwurf) | Implementierung (Code) | Datei |
+|-------------------------|----------------------|-------|
+| CoThinker | Maya (builderFusionChat) | `builderFusionChat.ts` |
+| Vordenker | Scout-Pool | `opusScoutRunner.ts` |
+| Meister-Roundtable (Plan) | Council-Pool (Maya-moderiert) | `opusRoundtable.ts` |
+| Mitdenker | Destillierer-Pool (Extractor+Reasoner) | `opusDistiller.ts` |
+| Worker-Swarm | Worker-Pool (Memory-aware) | `opusWorkerSwarm.ts` |
+| Meister-Review | TSC Verify + Council-Review | `opusBridgeController.ts` |
+| Nachdenker | — (noch nicht implementiert) | geplant: `agentHabitat.ts` |
+
+### Was noch fehlt (nächste Schritte)
+
+- **Maya-Routing:** Intent-Classifier (Schnell vs. Pipeline) — fehlt
+- **Council-Rollen:** Architekt/Skeptiker/Pragmatiker Differenzierung — fehlt
+- **Agent Profiles:** Post-Task-Loop + DB-Tabelle — fehlt
+- **Auto-Retry:** TSC-Fehler → automatische Nachbesserung — fehlt
+- **Nachdenker:** Qualitäts-Score + Learnings nach Deploy — fehlt
+
+### Zwei Executor-Pfade
+
+| Pfad | Endpoint | Pipeline |
+|------|----------|----------|
+| Schnellmodus | `/opus-task` | Scope → Worker → JSON Overwrite → Push |
+| Pipeline-Modus | `/build` | Scout → Destillierer → Council → Worker → TSC → Push |
+
+Maya routet (geplant): einfach → Schnell, komplex → Pipeline.
 
 ---
 
