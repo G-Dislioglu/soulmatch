@@ -277,15 +277,17 @@ function perfColor(pct: number): string {
 }
 
 // Pool dropdown panel
-function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose }: {
+function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStats, onClose, singleSelect }: {
   poolType: PoolType; accent: string; activeIds: string[];
-  onToggle: (id: string) => void; workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
-  onClose: () => void;
+  onToggle: (id: string) => void; onSelect?: (id: string) => void;
+  workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
+  onClose: () => void; singleSelect?: boolean;
 }) {
   const catalog = getModelsForPool(poolType);
   const activeModels = catalog.filter(m => activeIds.includes(m.id));
   const avg = activeModels.length > 0 ? Math.round(activeModels.reduce((s, m) => s + m.quality, 0) / activeModels.length) : 0;
   const avgCol = perfColor(avg);
+  const selectedModel = singleSelect ? activeModels[0] : null;
 
   return (
     <div style={{ background: TOKENS.card, borderBottom: `1.5px solid ${TOKENS.b1}`, boxShadow: TOKENS.shadow.dropdown, padding: '16px 24px', position: 'relative' }}>
@@ -294,10 +296,17 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
           <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
             {poolType === 'maya' ? 'Maya KI' : poolType === 'council' ? 'Master Council' : poolType === 'worker' ? 'Worker Pool' : 'Scout Pool'}
           </div>
-          <span style={{ fontSize: 16, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>
-          <div style={{ width: 140, height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', border: `1.5px solid ${TOKENS.b2}` }}>
-            <div style={{ width: `${avg}%`, height: '100%', background: `linear-gradient(90deg, ${avgCol}, ${avgCol}cc)`, borderRadius: 4, boxShadow: `0 0 10px ${avgCol}50` }} />
-          </div>
+          {singleSelect && selectedModel ? (
+            <span style={{ fontSize: 14, fontWeight: 700, color: accent, fontFamily: 'monospace' }}>{selectedModel.label}</span>
+          ) : (
+            <>
+              <span style={{ fontSize: 16, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>
+              <div style={{ width: 140, height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', border: `1.5px solid ${TOKENS.b2}` }}>
+                <div style={{ width: `${avg}%`, height: '100%', background: `linear-gradient(90deg, ${avgCol}, ${avgCol}cc)`, borderRadius: 4, boxShadow: `0 0 10px ${avgCol}50` }} />
+              </div>
+            </>
+          )}
+          {singleSelect && <span style={{ fontSize: 11, color: TOKENS.text2 }}>W\u00e4hle eine KI f\u00fcr den Chat</span>}
         </div>
         <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18, color: TOKENS.text2, padding: '2px 8px' }}>{'\u2715'}</span>
       </div>
@@ -307,14 +316,17 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, workerStats, onClose
         {catalog.map(m => {
           const on = activeIds.includes(m.id);
           return (
-            <button key={m.id} onClick={() => onToggle(m.id)}
+            <button key={m.id} onClick={() => singleSelect && onSelect ? onSelect(m.id) : onToggle(m.id)}
               style={{
                 fontSize: 12, padding: '5px 14px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
                 border: `1.5px solid ${on ? accent + '80' : TOKENS.b2}`,
                 background: on ? accent + '20' : 'transparent',
                 color: on ? accent : TOKENS.text2,
                 transition: 'all 0.15s ease',
-              }}>{m.label}</button>
+              }}>
+              {singleSelect && <span style={{ marginRight: 6 }}>{on ? '\u25C9' : '\u25CB'}</span>}
+              {m.label}
+            </button>
           );
         })}
       </div>
@@ -490,6 +502,14 @@ export function MayaDashboard() {
     if (token) syncPoolsToServer(token, newPools);
   };
 
+  // Maya = single select — always exactly one model
+  const selectMaya = (id: string) => {
+    setMayaIds([id]);
+    const newPools: PoolState = { maya: [id], council: councilIds, worker: workerIds, scout: scoutIds };
+    savePools(newPools);
+    if (token) syncPoolsToServer(token, newPools);
+  };
+
   const poolAvg = (ids: string[], pool: PoolType) => {
     const catalog = getModelsForPool(pool);
     const models = catalog.filter(m => ids.includes(m.id));
@@ -617,7 +637,9 @@ export function MayaDashboard() {
   const wAvg = poolAvg(workerIds, 'worker');
   const sAvg = poolAvg(scoutIds, 'scout');
 
-  const poolBtn = (label: string, pool: PoolType, accent: string, avg: number, count: number) => (
+  const selectedMayaModel = MAYA_MODELS.find(m => mayaIds.includes(m.id));
+
+  const poolBtn = (label: string, pool: PoolType, accent: string, avg: number, count: number, modelName?: string) => (
     <button key={pool} onClick={() => togglePool(pool)}
       style={{
         display: 'flex', alignItems: 'center', gap: 6, borderRadius: 999, padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
@@ -626,8 +648,13 @@ export function MayaDashboard() {
         color: openPool === pool ? accent : TOKENS.text2,
       }}>
       <span>{label}</span>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: perfColor(avg) }}>{avg}%</span>
-      <span style={{ fontSize: 9, color: TOKENS.text3 }}>({count})</span>
+      {modelName
+        ? <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: accent }}>{modelName}</span>
+        : <>
+            <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: perfColor(avg) }}>{avg}%</span>
+            <span style={{ fontSize: 9, color: TOKENS.text2 }}>({count})</span>
+          </>
+      }
     </button>
   );
 
@@ -641,7 +668,7 @@ export function MayaDashboard() {
             <span style={{ fontSize: 13, fontWeight: 700, color: TOKENS.text, marginLeft: 8 }}>Builder Studio</span>
           </div>
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
-          {poolBtn('Maya', 'maya', MAYA, myAvg, mayaIds.length)}
+          {poolBtn('Maya', 'maya', MAYA, myAvg, mayaIds.length, selectedMayaModel?.label)}
           {poolBtn('Council', 'council', TOKENS.gold, cAvg, councilIds.length)}
           {poolBtn('Worker', 'worker', TOKENS.cyan, wAvg, workerIds.length)}
           {poolBtn('Scout', 'scout', TOKENS.green, sAvg, scoutIds.length)}
@@ -653,7 +680,7 @@ export function MayaDashboard() {
       </div>
 
       {/* Pool panel (expands below top bar) */}
-      {openPool === 'maya' && <PoolPanel poolType="maya" accent={MAYA} activeIds={mayaIds} onToggle={id => updatePool('maya', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
+      {openPool === 'maya' && <PoolPanel poolType="maya" accent={MAYA} activeIds={mayaIds} onToggle={id => updatePool('maya', id)} onSelect={selectMaya} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} singleSelect />}
       {openPool === 'council' && <PoolPanel poolType="council" accent={TOKENS.gold} activeIds={councilIds} onToggle={id => updatePool('council', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
       {openPool === 'worker' && <PoolPanel poolType="worker" accent={TOKENS.cyan} activeIds={workerIds} onToggle={id => updatePool('worker', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
       {openPool === 'scout' && <PoolPanel poolType="scout" accent={TOKENS.green} activeIds={scoutIds} onToggle={id => updatePool('scout', id)} workerStats={ctx?.workerStats ?? []} onClose={() => setOpenPool(null)} />}
