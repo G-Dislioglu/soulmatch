@@ -8,6 +8,7 @@ import { generateErrorCard } from './opusErrorLearning.js';
 import { findRelevantErrorCards, updateGraphAfterTask } from './opusGraphIntegration.js';
 import { getChatPoolForTask } from './opusChatPool.js';
 import { buildBuilderMemoryContext, syncBuilderMemoryForTask } from './builderMemory.js';
+import { buildCouncilContext, buildDistillerContext, buildWorkerContext } from './memoryBus.js';
 import {
   determineCrushIntensity,
   runAmbientCrush,
@@ -335,7 +336,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let approvals: string[] = [];
   let blocks: string[] = [];
   let githubAction: { triggered: boolean; error?: string } | undefined;
-  const memoryContext = await buildBuilderMemoryContext().catch(() => '');
+  const memoryContext = await buildCouncilContext().catch(() => '');
 
   const scoutResult = await runScoutPhase({
     id: task.id,
@@ -351,7 +352,8 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const distillerMessages: typeof scoutResult.messages = [];
   try {
     console.log(`[pipeline] Running distiller for task ${task.id}`);
-    const distillerResult = await runDistiller(task.id, instruction, scoutResult);
+    const distillerMemory = await buildDistillerContext(instruction, normalizedScope).catch(() => '');
+    const distillerResult = await runDistiller(task.id, instruction, scoutResult, distillerMemory);
     distillerBrief = distillerResult.brief;
     distillerMessages.push(...distillerResult.messages);
     totalTokens += distillerResult.tokensUsed;
