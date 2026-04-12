@@ -17,6 +17,7 @@ import {
   type CrushIntensity,
 } from './opusPulseCrush.js';
 import { runScoutPhase } from './opusScoutRunner.js';
+import { runDistiller } from './opusDistiller.js';
 import {
   DEFAULT_ROUNDTABLE_CONFIG,
   runRoundtable,
@@ -217,12 +218,47 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     })
     .returning();
 
-  const scoutMessages = await runScoutPhase({
+  let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' = 'scouted';
+  let consensusType: 'unanimous' | 'majority' | null = null;
+  let rounds = 0;
+  let totalTokens = 0;
+  let patches: Array<{ file: string; body: string }> = [];
+  let patchValidation: PatchValidation | null = null;
+  let approvals: string[] = [];
+  let blocks: string[] = [];
+  let githubAction: { triggered: boolean; error?: string } | undefined;
+  const memoryContext = await buildBuilderMemoryContext().catch(() => '');
+
+  const scoutResult = await runScoutPhase({
     id: task.id,
     goal: instruction,
     scope: normalizedScope,
   });
-  const graphBriefing = scoutMessages.find((message) => message.actor === 'graph')?.content || '';
+  const graphBriefing = scoutResult.graphBriefing;
+
+  // --- DISTILLER PHASE ---
+  // Crush scout outputs into a structured brief for the council.
+  // The roundtable sees ONLY the brief, not the raw scout noise.
+  let distillerBrief = '';
+  const distillerMessages: typeof scoutResult.messages = [];
+  try {
+    console.log(`[pipeline] Running distiller for task ${task.id}`);
+    const distillerResult = await runDistiller(task.id, instruction, scoutResult);
+    distillerBrief = distillerResult.brief;
+    distillerMessages.push(...distillerResult.messages);
+    totalTokens += distillerResult.tokensUsed;
+  } catch (distillerError) {
+    console.error('[pipeline] Distiller failed, falling back to raw scout output:', distillerError);
+    distillerBrief = scoutResult.rawOutputs.map((o) => `[${o.actor}] ${o.content}`).join('\n\n');
+  }
+
+  // Build the pool messages for the roundtable:
+  // Graph message + distiller brief (not raw scouts)
+  const graphMessage = scoutResult.messages.find((m) => m.actor === 'graph');
+  const councilPool = graphMessage
+    ? [graphMessage, ...distillerMessages]
+    : distillerMessages;
+
   const relevantErrorCards = await findRelevantErrorCards(instruction, normalizedScope);
   let crushIntensity: CrushIntensity = 'ambient';
   let caseCrushResult: CaseCrushResult | null = null;
@@ -235,17 +271,6 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     })),
     normalizedScope,
   );
-
-  let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' = 'scouted';
-  let consensusType: 'unanimous' | 'majority' | null = null;
-  let rounds = 0;
-  let totalTokens = 0;
-  let patches: Array<{ file: string; body: string }> = [];
-  let patchValidation: PatchValidation | null = null;
-  let approvals: string[] = [];
-  let blocks: string[] = [];
-  let githubAction: { triggered: boolean; error?: string } | undefined;
-  const memoryContext = await buildBuilderMemoryContext().catch(() => '');
 
   // === DIRECT DECOMPOSER PATH ===
   // Skips Roundtable entirely: Decompose → Swarm → Meister → GitHub
@@ -318,9 +343,9 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         scope: normalizedScope,
         risk: input.risk ?? 'low',
       },
-      scoutMessages,
+      councilPool,
       mergedConfig,
-      [input.opusHints || '', memoryContext ? `\n\n=== BUILDER MEMORY ===\n${memoryContext}` : ''].join('').trim() || undefined,
+      [input.opusHints || '', distillerBrief ? `\n\n=== DESTILLIERTER BRIEF ===\n${distillerBrief}` : '', memoryContext ? `\n\n=== BUILDER MEMORY ===\n${memoryContext}` : ''].join('').trim() || undefined,
     );
 
     rounds = roundtableResult.rounds;
@@ -429,7 +454,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         patchValidation = await validatePatch(
           patches,
           { goal: instruction, scope: normalizedScope },
-          scoutMessages.map((message) => `[${message.actor}] ${message.content}`).join('\n\n'),
+          scoutResult.messages.map((message) => `[${message.actor}] ${message.content}`).join('\n\n'),
         );
         totalTokens += patchValidation.tokensUsed;
       }
