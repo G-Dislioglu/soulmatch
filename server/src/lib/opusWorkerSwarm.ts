@@ -7,6 +7,7 @@ import { getDb } from '../db.js';
 import { builderWorkerScores } from '../schema/builder.js';
 import { getAllFromPool } from './poolState.js';
 import { buildWorkerContext } from './memoryBus.js';
+import { buildAgentBrief } from './agentHabitat.js';
 
 interface WorkerPreset {
   actor: string;
@@ -223,6 +224,7 @@ function buildWorkerPrompt(
   fileContent?: string,
   dependencyPatch?: { file: string; body: string },
   memoryContext?: string,
+  agentBrief?: string,
 ): string {
   const isOpusOrSonnet = assignment.writer === 'opus' || assignment.writer === 'sonnet';
   const projectDna = isOpusOrSonnet ? loadProjectDna() : null;
@@ -253,6 +255,10 @@ function buildWorkerPrompt(
 
   if (memoryContext) {
     sections.push('', '=== MEMORY-KONTEXT ===', memoryContext);
+  }
+
+  if (agentBrief) {
+    sections.push('', '=== AGENT BRIEF ===', agentBrief);
   }
 
   if (projectDna) {
@@ -574,8 +580,17 @@ async function runSingleWorker(
       console.warn('[worker-swarm] Memory context failed, continuing without:', e);
     }
 
+    // Agent Brief: persistent profile + file experience
+    let agentBrief: string | undefined;
+    try {
+      agentBrief = await buildAgentBrief(assignment.writer, taskGoal, [assignment.file]);
+      if (agentBrief && agentBrief.includes('Erster Einsatz')) agentBrief = undefined; // Skip for new agents
+    } catch (e) {
+      console.warn('[worker-swarm] Agent brief failed, continuing without:', e);
+    }
+
     const response = await callProvider(preset.provider, preset.model, {
-      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch, memoryContext),
+      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch, memoryContext, agentBrief),
       messages: [{ role: 'user', content: assignment.reason }],
       maxTokens: requestedMaxTokens,
       temperature: 0.2,
