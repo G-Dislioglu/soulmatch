@@ -576,6 +576,32 @@ opusBridgeRouter.get('/health', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+opusBridgeRouter.get('/debug-scope', async (req: Request, res: Response) => {
+  try {
+    const { resolveScope, invalidateIndexCache } = await import('../lib/builderScopeResolver.js');
+    invalidateIndexCache();
+    const q = String(req.query.q || 'agentHabitat.ts');
+    const start = Date.now();
+    const result = resolveScope(q);
+
+    res.json({
+      ok: true,
+      ms: Date.now() - start,
+      query: q,
+      filesFound: result.files.length,
+      files: result.files.slice(0, 10),
+      reasoning: result.reasoning.slice(0, 10),
+      method: result.method,
+    });
+  } catch (err) {
+    res.json({
+      ok: false,
+      error: String(err),
+      stack: err instanceof Error ? err.stack?.split('\n').slice(0, 3) : undefined,
+    });
+  }
+});
+
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
   try {
