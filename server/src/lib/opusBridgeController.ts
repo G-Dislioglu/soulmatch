@@ -245,6 +245,14 @@ export interface ExecuteResult {
   };
 }
 
+interface DecomposerExecutionContext {
+  workerAssignments: WorkerAssignment[];
+  fileContents: Record<string, string>;
+  label: string;
+}
+
+const TSC_AUTO_RETRY_ATTEMPTS = 3;
+
 function toPatchPayloads(patches: Array<{ file: string; body: string }>) {
   return convertBdlPatchesToPayload(
     patches.map((patch) => ({
@@ -433,6 +441,49 @@ function runTscCompileCheck(
   }
 }
 
+async function runDecomposerExecution(
+  taskId: string,
+  instruction: string,
+  context: DecomposerExecutionContext,
+  retryFeedback?: string,
+): Promise<{
+  patches: Array<{ file: string; body: string }>;
+  tokensUsed: number;
+}> {
+  const workerAssignments = retryFeedback
+    ? context.workerAssignments.map((assignment) => ({
+      ...assignment,
+      reason: `${assignment.reason}\n\n=== TSC AUTO-RETRY (${context.label}) ===\nDer vorherige Versuch ist am TypeScript-Compile-Check gescheitert.\nBehebe ausschliesslich diese Compiler-Fehler, ohne unnoetige Umbauten:\n${retryFeedback.slice(0, 4000)}\n\nGib wieder nur praezise @PATCH-Kommandos fuer die betroffenen Dateien aus.`,
+    }))
+    : context.workerAssignments;
+
+  const workerResults = await runWorkerSwarm(taskId, workerAssignments, instruction, context.fileContents);
+  const meister = await runMeisterValidation(taskId, instruction, workerResults, context.fileContents);
+  const tokensUsed = workerResults.reduce((sum, result) => sum + (result.tokensUsed ?? 0), 0) + (meister.tokensUsed ?? 0);
+
+  if (meister.scores) {
+    await saveWorkerScores(taskId, meister.scores);
+    const outcomes: TaskOutcome[] = meister.scores.map((score) => {
+      const workerResult = workerResults.find((result) => result.assignment.writer === score.worker);
+      return {
+        worker: score.worker,
+        quality: score.quality,
+        notes: score.notes,
+        file: workerResult?.assignment.file,
+        succeeded: score.quality >= 60 && !workerResult?.error,
+      };
+    });
+    void updateAgentProfiles(outcomes).catch((err) => console.error('[agentHabitat] post-task update failed:', err));
+  }
+
+  return {
+    patches: meister.validatedPatches ?? workerResults
+      .filter((result) => result.patch)
+      .map((result) => result.patch as { file: string; body: string }),
+    tokensUsed,
+  };
+}
+
 export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const instruction = input.instruction;
   if (!instruction || typeof instruction !== 'string') {
@@ -466,6 +517,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let approvals: string[] = [];
   let blocks: string[] = [];
   let githubAction: { triggered: boolean; error?: string } | undefined;
+  let tscRetryContext: DecomposerExecutionContext | null = null;
   const memoryContext = await buildCouncilContext().catch(() => '');
 
   const scoutResult = await runScoutPhase({
@@ -541,30 +593,14 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       reason: `${instruction}\n\n=== KONTEXT ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
       dependsOn: a.dependsOn,
     }));
-
-    const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
-    const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
-    totalTokens = workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0) + (meister.tokensUsed ?? 0);
-
-    if (meister.scores) {
-      await saveWorkerScores(task.id, meister.scores);
-      // Post-Task-Loop: update agent profiles
-      const outcomes: TaskOutcome[] = meister.scores.map((s) => {
-        const wr = workerResults.find((r) => r.assignment.writer === s.worker);
-        return {
-          worker: s.worker,
-          quality: s.quality,
-          notes: s.notes,
-          file: wr?.assignment.file,
-          succeeded: s.quality >= 60 && !wr?.error,
-        };
-      });
-      void updateAgentProfiles(outcomes).catch((err) => console.error('[agentHabitat] post-task update failed:', err));
-    }
-
-    patches = meister.validatedPatches ?? workerResults
-      .filter((r) => r.patch)
-      .map((r) => r.patch as { file: string; body: string });
+    tscRetryContext = {
+      workerAssignments,
+      fileContents,
+      label: 'decomposer-direct',
+    };
+    const decomposerResult = await runDecomposerExecution(task.id, instruction, tscRetryContext);
+    totalTokens = decomposerResult.tokensUsed;
+    patches = decomposerResult.patches;
 
     status = patches.length > 0 ? 'consensus' : 'no_consensus';
     consensusType = 'unanimous';
@@ -664,32 +700,16 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
           reason: `Roundtable-Spezifikation:\n${patchSpec}\n\n=== KONTEXT ===\n${a.cutUnit.context}\n\n=== DEIN BLOCK (Zeilen ${a.cutUnit.blocks[0]?.startLine ?? '?'}-${a.cutUnit.blocks[a.cutUnit.blocks.length - 1]?.endLine ?? '?'}) ===\n${a.cutUnit.blocks.map((b) => b.content).join('\n\n')}`,
           dependsOn: a.dependsOn,
         }));
-
-        const workerResults = await runWorkerSwarm(task.id, workerAssignments, instruction, fileContents);
-        const meister = await runMeisterValidation(task.id, instruction, workerResults, fileContents);
-        totalTokens += workerResults.reduce((sum, r) => sum + (r.tokensUsed ?? 0), 0);
-        totalTokens += meister.tokensUsed ?? 0;
-
-        if (meister.scores) {
-          await saveWorkerScores(task.id, meister.scores);
-          // Post-Task-Loop: update agent profiles
-          const outcomes: TaskOutcome[] = meister.scores.map((s) => {
-            const wr = workerResults.find((r) => r.assignment.writer === s.worker);
-            return {
-              worker: s.worker,
-              quality: s.quality,
-              notes: s.notes,
-              file: wr?.assignment.file,
-              succeeded: s.quality >= 60 && !wr?.error,
-            };
-          });
-          void updateAgentProfiles(outcomes).catch((err) => console.error('[agentHabitat] post-task update failed:', err));
-        }
+        tscRetryContext = {
+          workerAssignments,
+          fileContents,
+          label: 'auto-decomposer',
+        };
+        const decomposerResult = await runDecomposerExecution(task.id, instruction, tscRetryContext);
+        totalTokens += decomposerResult.tokensUsed;
 
         // Replace patches with decomposer output
-        patches = meister.validatedPatches ?? workerResults
-          .filter((r) => r.patch)
-          .map((r) => r.patch as { file: string; body: string });
+        patches = decomposerResult.patches;
       }
     }
 
@@ -757,7 +777,66 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
   if (status === 'consensus' && patches.length > 0) {
     // --- TSC Compile Check: verify patches don't break TypeScript compilation ---
-    const tscResult = runTscCompileCheck(patches);
+    let tscResult = runTscCompileCheck(patches);
+    if (!tscResult.passed && tscRetryContext) {
+      for (let attempt = 2; attempt <= TSC_AUTO_RETRY_ATTEMPTS; attempt += 1) {
+        await addChatPoolMessage({
+          taskId: task.id,
+          round: rounds,
+          phase: 'roundtable',
+          actor: 'tsc-retry',
+          model: 'controller',
+          content: `TSC Compile Check FAILED. Auto-Retry ${attempt}/${TSC_AUTO_RETRY_ATTEMPTS} mit Compiler-Feedback:\n${tscResult.errors.join('\n')}`,
+          commands: [],
+          tokensUsed: 0,
+        });
+
+        const retryExecution = await runDecomposerExecution(
+          task.id,
+          instruction,
+          tscRetryContext,
+          tscResult.errors.join('\n'),
+        );
+        totalTokens += retryExecution.tokensUsed;
+        patches = retryExecution.patches;
+
+        if (patches.length === 0) {
+          status = 'validation_failed';
+          blocks = [...(blocks ?? []), `TSC retry ${attempt}/${TSC_AUTO_RETRY_ATTEMPTS} produced no patches`];
+          break;
+        }
+
+        patchValidation = await validatePatch(
+          patches,
+          { goal: instruction, scope: normalizedScope },
+          scoutResult.messages.map((message) => `[${message.actor}] ${message.content}`).join('\n\n'),
+        );
+        totalTokens += patchValidation.tokensUsed;
+
+        const hasCriticalIssues = patchValidation.issues.some((issue) => issue.severity === 'critical');
+        status = patchValidation.passed || !hasCriticalIssues ? 'consensus' : 'validation_failed';
+        if (status !== 'consensus') {
+          blocks = [...(blocks ?? []), ...patchValidation.issues.map((issue) => `${issue.severity}: ${issue.description}`)];
+          break;
+        }
+
+        tscResult = runTscCompileCheck(patches);
+        if (tscResult.passed) {
+          await addChatPoolMessage({
+            taskId: task.id,
+            round: rounds,
+            phase: 'roundtable',
+            actor: 'tsc-retry',
+            model: 'controller',
+            content: `TSC Auto-Retry ${attempt}/${TSC_AUTO_RETRY_ATTEMPTS} erfolgreich. Compile-Check ist jetzt gruen.`,
+            commands: [],
+            tokensUsed: 0,
+          });
+          break;
+        }
+      }
+    }
+
     if (!tscResult.passed) {
       console.error('[executeTask] TSC verification FAILED:', tscResult.errors.join('\n'));
       await addChatPoolMessage({
