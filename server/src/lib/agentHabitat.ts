@@ -284,18 +284,27 @@ export async function getAllAgentSummaries(): Promise<string> {
 
 export async function getTopPerformers(limit: number = 3) {
   try {
-    const summary = await getAllAgentSummaries();
-    const lines = summary.split('\n');
+    const db = getDb();
     
-    // Filter out error messages and empty lines
-    const validLines = lines.filter(line => 
-      line.includes(':') && 
-      !line.includes('Keine Agent-Profile vorhanden') && 
-      !line.includes('Agent-Profile nicht verfuegbar')
-    );
-    
-    // Return top N lines
-    return validLines.slice(0, limit).join('\n');
+    const performers = await db
+      .select({
+        agentId: builderAgentProfiles.agentId,
+        avgQuality: builderAgentProfiles.avgQuality,
+        taskCount: builderAgentProfiles.taskCount,
+        successCount: builderAgentProfiles.successCount,
+      })
+      .from(builderAgentProfiles)
+      .orderBy(desc(builderAgentProfiles.avgQuality))
+      .limit(limit);
+
+    if (performers.length === 0) {
+      return 'Keine Top-Performer verfuegbar.';
+    }
+
+    return performers.map((p) => {
+      const rate = p.taskCount > 0 ? Math.round((p.successCount / p.taskCount) * 100) : 0;
+      return `${p.agentId}: ${p.avgQuality}/100 avg, ${p.taskCount} Tasks, ${rate}% Erfolg`;
+    }).join('\n');
   } catch (err) {
     console.error('[agentHabitat] getTopPerformers failed:', err);
     return 'Top-Performer nicht verfuegbar.';
