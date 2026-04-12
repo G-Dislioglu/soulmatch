@@ -11,21 +11,15 @@ const STATUS_COLORS: Record<string, string> = {
   prototype_review: TOKENS.gold, reviewing: TOKENS.gold, testing: TOKENS.green,
   push_candidate: TOKENS.green, done: TOKENS.green, blocked: '#ef4444',
   reverted: TOKENS.text3, discarded: TOKENS.rose, success: TOKENS.green,
-  failed: '#ef4444', classifying: TOKENS.cyan,
+  failed: '#ef4444', classifying: TOKENS.cyan, scouted: TOKENS.cyan,
+  consensus: TOKENS.gold,
 };
 
 interface ParsedAction {
-  endpoint: string;
-  branch?: string;
-  worker?: string;
-  risk: string;
-  description: string;
+  endpoint: string; branch?: string; worker?: string; risk: string; description: string;
 }
-
 interface MessagePart {
-  type: 'text' | 'action';
-  content: string;
-  action?: ParsedAction;
+  type: 'text' | 'action'; content: string; action?: ParsedAction;
 }
 
 function parseActionBlocks(text: string): MessagePart[] {
@@ -39,8 +33,7 @@ function parseActionBlocks(text: string): MessagePart[] {
     (m[1] ?? '').split(',').forEach(p => { const [k, v] = p.split('=').map(s => s.trim()); if (k && v) params[k] = v; });
     const desc = (m[2] ?? '').trim();
     parts.push({
-      type: 'action',
-      content: desc,
+      type: 'action', content: desc,
       action: { endpoint: params.endpoint || '/self-test', branch: params.branch, worker: params.worker, risk: params.risk || 'safe', description: desc },
     });
     last = re.lastIndex;
@@ -50,16 +43,12 @@ function parseActionBlocks(text: string): MessagePart[] {
 }
 
 const RISK_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  safe: { bg: 'rgba(34,197,94,0.08)', border: '#22c55e40', text: '#4ade80' },
-  staging: { bg: 'rgba(234,179,8,0.08)', border: '#eab30840', text: '#fbbf24' },
-  destructive: { bg: 'rgba(239,68,68,0.08)', border: '#ef444440', text: '#f87171' },
+  safe: { bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.35)', text: '#4ade80' },
+  staging: { bg: 'rgba(212,175,55,0.08)', border: 'rgba(212,175,55,0.35)', text: TOKENS.gold },
+  destructive: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.35)', text: '#f87171' },
 };
 
-interface ChatMsg {
-  role: 'user' | 'maya';
-  text: string;
-  model?: string;
-}
+interface ChatMsg { role: 'user' | 'maya'; text: string; model?: string; }
 
 function getInitialToken() {
   const p = new URLSearchParams(window.location.search);
@@ -67,7 +56,7 @@ function getInitialToken() {
 }
 
 function formatTime(d: string | null | undefined) {
-  if (!d) return '—';
+  if (!d) return '\u2014';
   return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -75,37 +64,31 @@ function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <span onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-      style={{ fontSize: 10, color: copied ? TOKENS.green : TOKENS.text3, cursor: 'pointer', opacity: 0.6, userSelect: 'none' }}
-      title="Kopieren">{copied ? '✓' : '⧉'}</span>
+      style={{ fontSize: 10, color: copied ? TOKENS.green : TOKENS.text3, cursor: 'pointer', userSelect: 'none', padding: '2px 4px', borderRadius: 4, border: `1px solid ${TOKENS.b3}` }}
+      title="Kopieren">{copied ? '\u2713' : '\u29C9'}</span>
   );
 }
 
-// ─── Lightweight Markdown ───
+// Lightweight Markdown
 function MayaMarkdown({ text }: { text: string }) {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
   let i = 0;
-
   while (i < lines.length) {
     const line = lines[i] ?? '';
-
-    // Tables: detect | ... | pattern
     if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
       const tableLines: string[] = [];
-      while (i < lines.length && (lines[i] ?? '').trim().startsWith('|')) {
-        tableLines.push(lines[i] ?? '');
-        i++;
-      }
+      while (i < lines.length && (lines[i] ?? '').trim().startsWith('|')) { tableLines.push(lines[i] ?? ''); i++; }
       const rows = tableLines.filter(l => !/^\|[\s-:|]+\|$/.test(l.trim()));
       elements.push(
-        <div key={i} style={{ overflowX: 'auto', margin: '8px 0' }}>
+        <div key={i} style={{ overflowX: 'auto', margin: '8px 0', borderRadius: 12, border: `1px solid ${TOKENS.b2}`, background: TOKENS.bg2 }}>
           <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
             <tbody>
               {rows.map((row, ri) => (
                 <tr key={ri} style={{ borderBottom: `1px solid ${TOKENS.b3}` }}>
                   {row.split('|').filter(Boolean).map((cell, ci) => {
                     const Tag = ri === 0 ? 'th' : 'td';
-                    return <Tag key={ci} style={{ padding: '4px 8px', textAlign: 'left', color: ri === 0 ? TOKENS.text : TOKENS.text2, fontWeight: ri === 0 ? 600 : 400 }}><InlineFormat text={cell.trim()} /></Tag>;
+                    return <Tag key={ci} style={{ padding: '6px 10px', textAlign: 'left', color: ri === 0 ? TOKENS.gold : TOKENS.text2, fontWeight: ri === 0 ? 600 : 400, fontSize: 11 }}><InlineFormat text={cell.trim()} /></Tag>;
                   })}
                 </tr>
               ))}
@@ -115,131 +98,88 @@ function MayaMarkdown({ text }: { text: string }) {
       );
       continue;
     }
-
-    // Headers
-    if (line.startsWith('### ')) {
-      elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text, marginTop: 12, marginBottom: 4 }}><InlineFormat text={line.slice(4)} /></div>);
-      i++; continue;
-    }
-    if (line.startsWith('## ')) {
-      elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, marginTop: 14, marginBottom: 4 }}><InlineFormat text={line.slice(3)} /></div>);
-      i++; continue;
-    }
-
-    // Divider
-    if (/^-{3,}$/.test(line.trim())) {
-      elements.push(<hr key={i} style={{ border: 'none', borderTop: `1px solid ${TOKENS.b3}`, margin: '10px 0' }} />);
-      i++; continue;
-    }
-
-    // List items
+    if (line.startsWith('### ')) { elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 700, color: TOKENS.gold, marginTop: 14, marginBottom: 4, letterSpacing: '0.02em' }}><InlineFormat text={line.slice(4)} /></div>); i++; continue; }
+    if (line.startsWith('## ')) { elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, marginTop: 16, marginBottom: 4 }}><InlineFormat text={line.slice(3)} /></div>); i++; continue; }
+    if (/^-{3,}$/.test(line.trim())) { elements.push(<hr key={i} style={{ border: 'none', borderTop: `1px solid ${TOKENS.b2}`, margin: '12px 0' }} />); i++; continue; }
     if (/^[-*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim())) {
-      const bullet = /^\d+\./.test(line.trim()) ? (line.trim().match(/^\d+/)?.[0] ?? '1') + '.' : '•';
+      const bullet = /^\d+\./.test(line.trim()) ? (line.trim().match(/^\d+/)?.[0] ?? '1') + '.' : '\u2022';
       const content = line.trim().replace(/^[-*]\s|^\d+\.\s/, '');
       elements.push(
         <div key={i} style={{ display: 'flex', gap: 6, padding: '2px 0', fontSize: 13, lineHeight: 1.6 }}>
-          <span style={{ color: TOKENS.text3, flexShrink: 0, minWidth: 14 }}>{bullet}</span>
+          <span style={{ color: TOKENS.gold, flexShrink: 0, minWidth: 14 }}>{bullet}</span>
           <span style={{ color: TOKENS.text }}><InlineFormat text={content} /></span>
         </div>
       );
       i++; continue;
     }
-
-    // Code block
     if (line.trim().startsWith('```')) {
-      const codeLines: string[] = [];
+      const codeLines: string[] = []; i++;
+      while (i < lines.length && !(lines[i] ?? '').trim().startsWith('```')) { codeLines.push(lines[i] ?? ''); i++; }
       i++;
-      while (i < lines.length && !(lines[i] ?? '').trim().startsWith('```')) {
-        codeLines.push(lines[i] ?? '');
-        i++;
-      }
-      i++; // skip closing ```
       elements.push(
-        <pre key={i} style={{ background: TOKENS.bg2, borderRadius: 8, padding: '10px 12px', margin: '6px 0', fontSize: 11, fontFamily: 'monospace', color: TOKENS.text, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+        <pre key={i} style={{ background: TOKENS.bg, borderRadius: 12, padding: '10px 14px', margin: '8px 0', fontSize: 11, fontFamily: 'monospace', color: TOKENS.text, overflowX: 'auto', whiteSpace: 'pre-wrap', border: `1px solid ${TOKENS.b2}` }}>
           {codeLines.join('\n')}
         </pre>
       );
       continue;
     }
-
-    // Empty line
-    if (!line.trim()) {
-      elements.push(<div key={i} style={{ height: 6 }} />);
-      i++; continue;
-    }
-
-    // Normal paragraph
+    if (!line.trim()) { elements.push(<div key={i} style={{ height: 6 }} />); i++; continue; }
     elements.push(<div key={i} style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text, padding: '1px 0' }}><InlineFormat text={line} /></div>);
     i++;
   }
-
   return <>{elements}</>;
 }
 
-// Inline formatting: **bold**, `code`, emoji preservation
 function InlineFormat({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   const re = /(\*\*(.+?)\*\*|`([^`]+)`)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let ki = 0;
+  let last = 0; let m: RegExpExecArray | null; let ki = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(<span key={ki++}>{text.slice(last, m.index)}</span>);
     if (m[2]) parts.push(<strong key={ki++} style={{ fontWeight: 600, color: TOKENS.text }}>{m[2]}</strong>);
-    if (m[3]) parts.push(<code key={ki++} style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4, fontSize: '0.92em', fontFamily: 'monospace' }}>{m[3]}</code>);
+    if (m[3]) parts.push(<code key={ki++} style={{ background: 'rgba(255,255,255,0.08)', padding: '1px 6px', borderRadius: 4, fontSize: '0.9em', fontFamily: 'monospace', border: `1px solid ${TOKENS.b3}` }}>{m[3]}</code>);
     last = re.lastIndex;
   }
   if (last < text.length) parts.push(<span key={ki++}>{text.slice(last)}</span>);
   return <>{parts}</>;
 }
 
-// ─── Auth Gate ───
+// Auth Gate
 function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
-  const [val, setVal] = useState(() => {
-    try { return localStorage.getItem('maya-token') || ''; } catch { return ''; }
-  });
+  const [val, setVal] = useState(() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } });
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
-
-  // Auto-login if saved token exists
-  useEffect(() => {
-    if (val) submit();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+  useEffect(() => { if (val) submit(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = async () => {
     if (!val.trim()) return;
-    setLoading(true);
-    setErr('');
+    setLoading(true); setErr('');
     try {
       const r = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(val)}`);
-      if (!r.ok) throw new Error('Ungültiger Token');
+      if (!r.ok) throw new Error('Ung\u00fcltiger Token');
       try { localStorage.setItem('maya-token', val); } catch { /* noop */ }
       onAuth(val);
-    } catch (e) {
-      setErr(String(e instanceof Error ? e.message : e));
-    }
+    } catch (e) { setErr(String(e instanceof Error ? e.message : e)); }
     setLoading(false);
   };
-
   return (
-    <div style={{ minHeight: '100vh', background: TOKENS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 'min(440px, 90%)', background: TOKENS.card, border: `1.5px solid ${TOKENS.b2}`, borderRadius: 20, padding: 28 }}>
-        <div style={{ fontSize: 22, fontWeight: 600, color: TOKENS.text, fontFamily: 'system-ui' }}>Maya Command Center</div>
+    <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(124,106,247,0.08), transparent 32%), ${TOKENS.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 'min(480px, 90%)', border: `1.5px solid ${TOKENS.b2}`, borderRadius: 24, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: 28 }}>
+        <div style={{ fontSize: 11, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>Maya Command Center</div>
+        <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: 28, color: TOKENS.text, letterSpacing: '0.05em' }}>Builder Studio</div>
         <p style={{ fontSize: 13, color: TOKENS.text2, marginTop: 8, lineHeight: 1.6 }}>Builder-Token eingeben um Maya zu starten.</p>
-        {err && <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', fontSize: 13 }}>{err}</div>}
-        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+        {err && <div style={{ marginTop: 12, padding: 10, borderRadius: 14, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.32)', color: '#fecaca', fontSize: 13 }}>{err}</div>}
+        <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
           <div style={{ flex: 1, position: 'relative' }}>
             <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
               type={showPw ? 'text' : 'password'} placeholder="Token" autoFocus
-              style={{ width: '100%', boxSizing: 'border-box', background: TOKENS.bg2, border: `1px solid ${TOKENS.b1}`, borderRadius: 12, padding: '12px 40px 12px 14px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
-            <span onClick={() => setShowPw(!showPw)}
-              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: 16, color: TOKENS.text3, userSelect: 'none' }}>
-              {showPw ? '👁' : '👁‍🗨'}
+              style={{ width: '100%', boxSizing: 'border-box', background: TOKENS.bg2, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 14, padding: '12px 40px 12px 14px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+            <span onClick={() => setShowPw(!showPw)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: 16, color: TOKENS.text3, userSelect: 'none' }}>
+              {showPw ? '\uD83D\uDC41' : '\uD83D\uDC41\u200D\uD83D\uDDE8'}
             </span>
           </div>
           <button onClick={submit} disabled={loading}
-            style={{ borderRadius: 12, border: `1.5px solid ${MAYA}`, background: MAYA_DIM, color: TOKENS.text, padding: '12px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '12px 22px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {loading ? '...' : 'Verbinden'}
           </button>
         </div>
@@ -248,164 +188,167 @@ function AuthGate({ onAuth }: { onAuth: (t: string) => void }) {
   );
 }
 
+// Section Panel
+function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string; accent?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 18, background: TOKENS.card, boxShadow: TOKENS.shadow.card, overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', borderBottom: `2px solid ${TOKENS.b1}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))' }}>
+        <div style={{ fontSize: 10, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600, fontFamily: TOKENS.font.body }}>{title}</div>
+      </div>
+      <div style={{ padding: 14 }}>{children}</div>
+    </div>
+  );
+}
 
-// ─── Left Sidebar: Workers + Tasks ───
+// Left Sidebar
 function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
   ctx: MayaContext | null; collapsed: boolean; onToggle: () => void; onTaskClick?: (id: string, title: string) => void;
 }) {
+  const workers = ctx?.workerStats ?? [];
+  const masterPerf = workers.length > 0 ? Math.round(workers.reduce((s, w) => s + Number(w.avg_quality), 0) / workers.length) : 0;
+  const masterColor = masterPerf >= 70 ? TOKENS.green : masterPerf >= 50 ? TOKENS.gold : '#ef4444';
+
   if (collapsed) {
     return (
-      <div style={{ width: 48, background: TOKENS.bg2, borderRight: `1px solid ${TOKENS.b3}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, flexShrink: 0 }}>
-        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, marginBottom: 16 }} title="Sidebar öffnen">»</span>
+      <div style={{ width: 48, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 14, flexShrink: 0 }}>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text3, marginBottom: 16, padding: 4 }} title="Sidebar \u00f6ffnen">{'\u00BB'}</span>
         <span style={{ fontSize: 11, color: MAYA, writingMode: 'vertical-rl', letterSpacing: 2, fontWeight: 600 }}>MAYA</span>
       </div>
     );
   }
+
   return (
-    <div style={{ width: 240, background: TOKENS.bg2, borderRight: `1px solid ${TOKENS.b3}`, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
-      <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${TOKENS.b3}` }}>
+    <div style={{ width: 260, background: TOKENS.bg2, borderRight: `1.5px solid ${TOKENS.b2}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1.5px solid ${TOKENS.b2}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent)' }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, fontFamily: 'system-ui' }}>Builder Studio</div>
-          <div style={{ fontSize: 10, color: MAYA, marginTop: 2 }}>maya command center</div>
+          <div style={{ fontSize: 10, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Maya Command</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, fontFamily: TOKENS.font.body, marginTop: 2 }}>Builder Studio</div>
         </div>
-        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3 }} title="Einklappen">«</span>
+        <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'\u00AB'}</span>
       </div>
-      <div style={{ padding: '12px 14px', borderBottom: `1px solid ${TOKENS.b3}` }}>
-        <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 8 }}>Tasks</div>
-        {ctx?.tasks.slice(0, 8).map(t => (
-          <div key={t.id} onClick={() => onTaskClick?.(t.id, t.title)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 2, fontSize: 11, cursor: 'pointer', transition: 'background 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = TOKENS.bg; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0 }} />
-            <span style={{ flex: 1, color: TOKENS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 35)}</span>
-            <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{t.status.slice(0, 6)}</span>
-          </div>
-        ))}
-        {(!ctx || ctx.tasks.length === 0) && <div style={{ fontSize: 11, color: TOKENS.text3 }}>Keine Tasks.</div>}
-      </div>
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 8 }}>Worker</div>
-        {ctx?.workerStats.slice(0, 5).map((w, i) => {
-          const pct = Math.min(100, Number(w.avg_quality) || 0);
-          const color = pct >= 80 ? TOKENS.green : pct >= 60 ? TOKENS.gold : '#ef4444';
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', fontSize: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontFamily: 'monospace', color: TOKENS.text }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
-              <span style={{ fontFamily: 'monospace', fontSize: 9, color: TOKENS.text3 }}>{pct}%</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
-// ─── Context Panel (right 35%) ───
-function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
-  ctx: MayaContext | null; loading: boolean;
-  onDeleteMemory?: (id: string) => void;
-  onAddNote?: (summary: string) => void;
-}) {
-  const [newNote, setNewNote] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
-
-  if (!ctx && loading) return <div style={{ padding: 20, color: TOKENS.text2, fontSize: 13 }}>Lade Kontext...</div>;
-  if (!ctx) return null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
-      {/* Continuity Notes */}
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
+      {/* Workers FIXED */}
+      <div style={{ padding: '14px 16px', borderBottom: `1.5px solid ${TOKENS.b2}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.gold, fontWeight: 600 }}>Continuity Notes</div>
-          <span onClick={() => setShowAdd(!showAdd)} style={{ fontSize: 10, color: MAYA, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</span>
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.cyan, fontWeight: 600 }}>Worker Pool</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 9, color: TOKENS.text3, textTransform: 'uppercase' }}>Master</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: masterColor, fontFamily: 'monospace' }}>{masterPerf}%</span>
+          </div>
         </div>
-        {showAdd && (
-          <div style={{ marginBottom: 10, display: 'flex', gap: 6 }}>
-            <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Session-Notiz..."
-              onKeyDown={e => { if (e.key === 'Enter' && newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
-              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 8, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }} />
-            <button onClick={() => { if (newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
-              style={{ fontSize: 10, padding: '6px 10px', borderRadius: 8, border: 'none', background: MAYA, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>OK</button>
-          </div>
-        )}
-        {ctx.continuityNotes.map((n, i) => (
-          <div key={n.id || i} style={{ display: 'flex', gap: 6, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(n.updatedAt)}</span>{' '}
-              {n.summary.slice(0, 120)}{n.summary.length > 120 ? '...' : ''}
-            </div>
-            {n.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">✕</span>
-            )}
-          </div>
-        ))}
-        {ctx.continuityNotes.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Continuity Notes.</div>}
-      </div>
-
-      {/* Tasks */}
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
-        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Aktive tasks</div>
-        {ctx.tasks.slice(0, 6).map(t => (
-          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0 }} />
-            <span style={{ flex: 1, color: TOKENS.text }}>{t.title}</span>
-            <span style={{ fontSize: 10, color: TOKENS.text3, fontFamily: 'monospace' }}>{t.status}</span>
-          </div>
-        ))}
-        {ctx.tasks.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Tasks.</div>}
-      </div>
-
-      {/* Worker Stats */}
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
-        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Worker performance</div>
-        {ctx.workerStats.slice(0, 5).map((w, i) => {
+        <div style={{ height: 4, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', marginBottom: 12, border: `1px solid ${TOKENS.b3}` }}>
+          <div style={{ width: `${masterPerf}%`, height: '100%', background: `linear-gradient(90deg, ${masterColor}, ${masterColor}80)`, borderRadius: 3, transition: 'width 0.4s ease' }} />
+        </div>
+        {workers.slice(0, 6).map((w, i) => {
           const pct = Math.min(100, Number(w.avg_quality) || 0);
-          const color = pct >= 80 ? TOKENS.green : pct >= 60 ? TOKENS.gold : '#ef4444';
+          const color = pct >= 70 ? TOKENS.green : pct >= 50 ? TOKENS.gold : '#ef4444';
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
-              <span style={{ minWidth: 80, fontFamily: 'monospace', color: TOKENS.text }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
-              <div style={{ flex: 1, height: 5, background: TOKENS.bg2, borderRadius: 3, overflow: 'hidden' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 11 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: `0 0 6px ${color}60` }} />
+              <span style={{ minWidth: 68, fontFamily: 'monospace', color: TOKENS.text, fontSize: 10 }}>{String(w.worker).split('/').pop()?.split('-').slice(0, 2).join('-') || w.worker}</span>
+              <div style={{ flex: 1, height: 4, background: TOKENS.bg, borderRadius: 3, overflow: 'hidden', border: `1px solid ${TOKENS.b3}` }}>
                 <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3 }} />
               </div>
               <span style={{ minWidth: 28, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: TOKENS.text3 }}>{pct}%</span>
+              <span style={{ fontSize: 8, color: TOKENS.text3, fontFamily: 'monospace' }}>{'\u00D7'}{w.task_count}</span>
             </div>
           );
         })}
-        {ctx.workerStats.length === 0 && <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine Worker-Daten.</div>}
+        {workers.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Worker-Daten.</div>}
       </div>
 
-      {/* Memory Episodes */}
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${TOKENS.b3}` }}>
-        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>Memory</div>
-        {ctx.memory.episodes.slice(0, 4).map((e, i) => (
-          <div key={e.id || i} style={{ display: 'flex', gap: 6, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 10 }}>{formatTime(e.updatedAt)}</span>{' '}
-              {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
-            </div>
-            {e.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">✕</span>
-            )}
-          </div>
+      {/* Tasks SCROLLABLE */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, fontWeight: 600, marginBottom: 10 }}>Tasks ({ctx?.tasks.length ?? 0})</div>
+        {ctx?.tasks.slice(0, 20).map(t => (
+          <button key={t.id} onClick={() => onTaskClick?.(t.id, t.title)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+              padding: '8px 10px', borderRadius: 12, marginBottom: 4, fontSize: 11,
+              cursor: 'pointer', border: `1px solid ${TOKENS.b3}`, background: 'transparent',
+              color: TOKENS.text,
+            }}
+            onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.06)'; }}
+            onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b3; (e.currentTarget).style.background = 'transparent'; }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0, boxShadow: `0 0 4px ${STATUS_COLORS[t.status] || TOKENS.text2}50` }} />
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 40)}</span>
+            <span style={{ fontSize: 9, color: STATUS_COLORS[t.status] || TOKENS.text3, fontFamily: 'monospace', borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{t.status.slice(0, 8)}</span>
+          </button>
         ))}
-      </div>
-
-      {/* System */}
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: TOKENS.text3, fontWeight: 600, marginBottom: 10 }}>System</div>
-        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2 }}>
-          <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, marginRight: 4, boxShadow: `0 0 6px ${TOKENS.green}60` }} />Render</span>
-          <span>{ctx.tasks.length} Tasks</span>
-        </div>
+        {(!ctx || ctx.tasks.length === 0) && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Tasks.</div>}
       </div>
     </div>
   );
 }
 
-// ─── Main Dashboard ───
+// Context Panel
+function ContextPanel({ ctx, loading, onDeleteMemory, onAddNote }: {
+  ctx: MayaContext | null; loading: boolean;
+  onDeleteMemory?: (id: string) => void; onAddNote?: (s: string) => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  if (loading) return <div style={{ padding: 20, color: TOKENS.text3, fontSize: 12 }}>Lade Kontext...</div>;
+  if (!ctx) return <div style={{ padding: 20, color: TOKENS.text3, fontSize: 12 }}>Nicht verbunden.</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 14 }}>
+      <SectionPanel title="Continuity Notes" accent={TOKENS.gold}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: TOKENS.text3 }}>{ctx.continuityNotes.length} Notes</span>
+          <button onClick={() => setShowAdd(!showAdd)}
+            style={{ fontSize: 10, padding: '3px 10px', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, background: 'transparent', color: TOKENS.gold, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</button>
+        </div>
+        {showAdd && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Session-Notiz..."
+              onKeyDown={e => { if (e.key === 'Enter' && newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
+              style={{ flex: 1, background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }} />
+            <button onClick={() => { if (newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
+              style={{ fontSize: 10, padding: '6px 12px', borderRadius: 10, border: 'none', background: TOKENS.gold, color: '#000', cursor: 'pointer', fontWeight: 600 }}>OK</button>
+          </div>
+        )}
+        {ctx.continuityNotes.map((n, i) => (
+          <div key={n.id || i} style={{ display: 'flex', gap: 6, padding: '5px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5, borderBottom: `1px solid ${TOKENS.b3}` }}>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatTime(n.updatedAt)}</span>{' '}
+              {n.summary.slice(0, 120)}{n.summary.length > 120 ? '...' : ''}
+            </div>
+            {n.id && onDeleteMemory && (
+              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.6, flexShrink: 0, padding: '0 2px' }} title="L\u00f6schen">{'\u2715'}</span>
+            )}
+          </div>
+        ))}
+        {ctx.continuityNotes.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Continuity Notes.</div>}
+      </SectionPanel>
+      <SectionPanel title="Memory Episodes" accent={TOKENS.purple}>
+        {ctx.memory.episodes.slice(0, 4).map((e, i) => (
+          <div key={e.id || i} style={{ display: 'flex', gap: 6, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatTime(e.updatedAt)}</span>{' '}
+              {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
+            </div>
+            {e.id && onDeleteMemory && (
+              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="L\u00f6schen">{'\u2715'}</span>
+            )}
+          </div>
+        ))}
+        {ctx.memory.episodes.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Episoden.</div>}
+      </SectionPanel>
+      <SectionPanel title="System" accent={TOKENS.cyan}>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2, alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, boxShadow: `0 0 8px ${TOKENS.green}60`, display: 'inline-block' }} />
+            Render
+          </span>
+          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.tasks.length} Tasks</span>
+          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.workerStats.length} Worker</span>
+        </div>
+      </SectionPanel>
+    </div>
+  );
+}
+
+// Main Dashboard
 export function MayaDashboard() {
   const [, navigate] = useLocation();
   const [token, setToken] = useState(() => getInitialToken());
@@ -417,8 +360,11 @@ export function MayaDashboard() {
   const [ctxLoading, setCtxLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'pending' | 'confirm' | 'success' | 'error'>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const { getContext, chat, chatWithFile, executeAction, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
 
   const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
     setActionStatus(p => ({ ...p, [key]: confirmed ? 'pending' : 'confirm' }));
@@ -427,54 +373,37 @@ export function MayaDashboard() {
       const res = await executeAction({ endpoint: action.endpoint, branch: action.branch, worker: action.worker }, true);
       if (res.needsConfirmation) { setActionStatus(p => ({ ...p, [key]: 'confirm' })); return; }
       setActionStatus(p => ({ ...p, [key]: res.success ? 'success' : 'error' }));
-      setMessages(prev => [...prev, { role: 'maya', text: res.success ? `✅ ${action.endpoint} erfolgreich.` : `❌ ${action.endpoint} fehlgeschlagen: ${JSON.stringify(res.result)}` }]);
+      setMessages(prev => [...prev, { role: 'maya', text: res.success ? `\u2705 ${action.endpoint} erfolgreich.` : `\u274C ${action.endpoint} fehlgeschlagen: ${JSON.stringify(res.result)}` }]);
       if (res.success) loadContext();
     } catch (e) {
       setActionStatus(p => ({ ...p, [key]: 'error' }));
-      setMessages(prev => [...prev, { role: 'maya', text: `❌ Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
+      setMessages(prev => [...prev, { role: 'maya', text: `\u274C Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
     }
   };
 
-  const { getContext, chat, chatWithFile, executeAction, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-auth if token in URL
   useEffect(() => {
     if (token) {
       fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`)
-        .then(r => { if (r.ok) setAuthenticated(true); })
-        .catch(() => {});
+        .then(r => { if (r.ok) setAuthenticated(true); }).catch(() => {});
     }
   }, [token]);
 
-  // Load context on auth
   const loadContext = useCallback(async () => {
     setCtxLoading(true);
     try {
       const data = await getContext();
       setCtx(data);
-      const firstContinuityNote = data.continuityNotes[0];
-
-      // Auto-greeting with continuity note
-      if (messages.length === 0 && firstContinuityNote) {
-        const note = firstContinuityNote.summary;
-        setMessages([{
-          role: 'maya',
-          text: `Builder Studio bereit. Letzte Session: ${note.slice(0, 150)}${note.length > 150 ? '...' : ''}\n\n${data.tasks.length} aktive Tasks, ${data.workerStats.length} Worker im Pool. Was steht an?`,
-        }]);
+      if (messages.length === 0 && data.continuityNotes[0]) {
+        const note = data.continuityNotes[0].summary;
+        setMessages([{ role: 'maya', text: `Builder Studio bereit. Letzte Session: ${note.slice(0, 150)}${note.length > 150 ? '...' : ''}\n\n${data.tasks.length} aktive Tasks, ${data.workerStats.length} Worker im Pool. Was steht an?` }]);
       } else if (messages.length === 0) {
-        setMessages([{ role: 'maya', text: `Builder Studio bereit. ${data.tasks.length} Tasks geladen. Was möchtest du bauen?` }]);
+        setMessages([{ role: 'maya', text: `Builder Studio bereit. ${data.tasks.length} Tasks geladen. Was m\u00f6chtest du bauen?` }]);
       }
-    } catch (e) {
-      console.error('Context load failed:', e);
-    }
+    } catch (e) { console.error('Context load failed:', e); }
     setCtxLoading(false);
   }, [getContext, messages.length]);
 
-  useEffect(() => {
-    if (authenticated) loadContext();
-  }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  useEffect(() => { if (authenticated) loadContext(); }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, chatLoading]);
 
   const sendMessage = async () => {
@@ -483,17 +412,10 @@ export function MayaDashboard() {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text }]);
     setChatLoading(true);
-
     try {
-      const history: MayaChatMessage[] = messages.slice(-16).map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      }));
-
+      const history: MayaChatMessage[] = messages.slice(-16).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
       const result = await chat(text, history);
       setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
-
-      // Refresh context after certain messages
       if (/build|push|deploy|task|status/i.test(text)) loadContext();
     } catch (e) {
       setMessages(prev => [...prev, { role: 'maya', text: `Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
@@ -504,13 +426,9 @@ export function MayaDashboard() {
 
   const openTaskDetail = async (taskId: string, taskTitle: string) => {
     setChatLoading(true);
-    setMessages(prev => [...prev, { role: 'user', text: `📋 Task-Detail: ${taskTitle}` }]);
+    setMessages(prev => [...prev, { role: 'user', text: `\uD83D\uDCCB Task-Detail: ${taskTitle}` }]);
     try {
-      const [dialog, evidence] = await Promise.all([
-        getTaskDialog(taskId),
-        getTaskEvidence(taskId),
-      ]);
-
+      const [dialog, evidence] = await Promise.all([getTaskDialog(taskId), getTaskEvidence(taskId)]);
       let detailText = `### Task: ${taskTitle}\n\n`;
       if (dialog && dialog.length > 0) {
         detailText += `**Dialog (${dialog.length} Schritte):**\n\n`;
@@ -519,10 +437,7 @@ export function MayaDashboard() {
           const text = (action.text ?? '').slice(0, 300);
           detailText += `**${action.actionType}** (${time}):\n${text}${(action.text ?? '').length > 300 ? '...' : ''}\n\n---\n\n`;
         }
-      } else {
-        detailText += '*Kein Dialog vorhanden.*\n\n';
-      }
-
+      } else { detailText += '*Kein Dialog vorhanden.*\n\n'; }
       if (evidence) {
         detailText += `### Evidence Pack\n`;
         const ev = evidence as Record<string, unknown>;
@@ -530,10 +445,9 @@ export function MayaDashboard() {
         if (ev.patches) detailText += `\n**Patches:** ${Array.isArray(ev.patches) ? ev.patches.length + ' Dateien' : 'vorhanden'}`;
         if (ev.summary) detailText += `\n**Summary:** ${String(ev.summary).slice(0, 200)}`;
       }
-
       setMessages(prev => [...prev, { role: 'maya', text: detailText }]);
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'maya', text: `❌ Task-Details konnten nicht geladen werden: ${e instanceof Error ? e.message : String(e)}` }]);
+      setMessages(prev => [...prev, { role: 'maya', text: `\u274C Task-Details konnten nicht geladen werden: ${e instanceof Error ? e.message : String(e)}` }]);
     }
     setChatLoading(false);
   };
@@ -542,119 +456,99 @@ export function MayaDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      setMessages(prev => [...prev, { role: 'maya', text: '❌ Datei zu groß (max 10MB).' }]);
-      return;
-    }
-
+    if (file.size > 10 * 1024 * 1024) { setMessages(prev => [...prev, { role: 'maya', text: '\u274C Datei zu gro\u00DF (max 10MB).' }]); return; }
     setChatLoading(true);
-    const userMsg = input.trim() || `📎 ${file.name}`;
+    const userMsg = input.trim() || `\uD83D\uDCCE ${file.name}`;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-
     try {
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1] ?? '');
-        };
+        reader.onload = () => { const result = reader.result as string; resolve(result.split(',')[1] ?? ''); };
         reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden'));
         reader.readAsDataURL(file);
       });
-
-      const history: MayaChatMessage[] = messages.slice(-12).map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      }));
-
+      const history: MayaChatMessage[] = messages.slice(-12).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
       const result = await chatWithFile(userMsg, base64, file.type, file.name, history);
       setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'maya', text: `❌ Datei-Verarbeitung fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }]);
+      setMessages(prev => [...prev, { role: 'maya', text: `\u274C Datei-Verarbeitung fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }]);
     }
     setChatLoading(false);
   };
 
-  if (!authenticated) {
-    return <AuthGate onAuth={t => { setToken(t); setAuthenticated(true); }} />;
-  }
+  if (!authenticated) return <AuthGate onAuth={t => { setToken(t); setAuthenticated(true); }} />;
 
   const continuityText = ctx?.continuityNotes?.[0]?.summary || null;
 
   return (
-    <div style={{ height: '100vh', background: TOKENS.bg, color: TOKENS.text, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', background: `radial-gradient(circle at top, rgba(124,106,247,0.06), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text, fontFamily: TOKENS.font.body, display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', borderBottom: `1px solid ${TOKENS.b3}`, background: TOKENS.card }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text }}>Builder Studio</span>
-          <span style={{ fontSize: 12, color: MAYA, fontWeight: 400 }}>maya command center</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', borderBottom: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card, boxShadow: TOKENS.shadow.topbar }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 10, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Maya Command Center</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: TOKENS.text, letterSpacing: '0.02em' }}>Builder Studio</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text3 }}>
-          <span style={{ cursor: 'pointer' }} onClick={loadContext}>↻ Refresh</span>
-          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/builder')}>Old UI</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={loadContext} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{'\u21BB'} Refresh</button>
+          <button onClick={() => navigate('/builder')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Old UI</button>
         </div>
       </div>
 
-      {/* Continuity Note */}
       {continuityText && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: TOKENS.bg2, borderBottom: `1px solid ${TOKENS.b3}`, fontSize: 12 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: TOKENS.gold, whiteSpace: 'nowrap' }}>Letzte session</span>
-          <span style={{ color: TOKENS.text2 }}>{continuityText.slice(0, 200)}{continuityText.length > 200 ? '...' : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 20px', background: 'rgba(212,175,55,0.06)', borderBottom: `1px solid ${TOKENS.gold}25`, fontSize: 12 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Letzte Session</span>
+          <span style={{ color: TOKENS.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{continuityText.slice(0, 200)}</span>
         </div>
       )}
 
       {/* Main 3-column */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {/* Left Sidebar */}
         <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} onTaskClick={openTaskDetail} />
 
         {/* Chat */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}>
             {messages.map((m, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10 }}>
+              <div key={i} style={{ display: 'flex', gap: 12 }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 600, flexShrink: 0, marginTop: 2,
-                  background: m.role === 'maya' ? MAYA_DIM : 'rgba(34,211,238,0.08)',
-                  color: m.role === 'maya' ? MAYA : TOKENS.cyan,
-                  border: `1px solid ${m.role === 'maya' ? MAYA + '40' : TOKENS.cyan + '30'}`,
+                  width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, flexShrink: 0, marginTop: 2,
+                  background: m.role === 'maya' ? MAYA_DIM : 'rgba(212,175,55,0.10)',
+                  color: m.role === 'maya' ? MAYA : TOKENS.gold,
+                  border: `1.5px solid ${m.role === 'maya' ? MAYA + '50' : TOKENS.gold + '40'}`,
                 }}>{m.role === 'maya' ? 'M' : 'G'}</div>
-                <div style={{ maxWidth: 560, flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: m.role === 'maya' ? MAYA : TOKENS.cyan, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {m.role === 'maya' ? 'Maya' : 'Gürcan'}
-                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400 }}>{m.model}</span>}
+                <div style={{ maxWidth: 620, flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: m.role === 'maya' ? MAYA : TOKENS.gold, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, letterSpacing: '0.02em' }}>
+                    {m.role === 'maya' ? 'Maya' : 'G\u00FCrcan'}
+                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{m.model}</span>}
                     <CopyBtn text={m.text} />
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text }}>
                     {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
                       if (part.type === 'text') return <MayaMarkdown key={pi} text={part.content} />;
                       const a = part.action!;
-                      const rc = RISK_COLORS[a.risk] ?? { bg: 'rgba(34,197,94,0.08)', border: '#22c55e40', text: '#4ade80' };
+                      const rc = RISK_COLORS[a.risk] ?? RISK_COLORS.safe;
                       const key = `${i}-${pi}`;
                       const st = actionStatus[key] || 'idle';
                       return (
-                        <div key={pi} style={{ margin: '10px 0', padding: '12px 14px', borderRadius: 12, background: rc.bg, border: `1.5px solid ${rc.border}` }}>
+                        <div key={pi} style={{ margin: '10px 0', padding: '14px 16px', borderRadius: 16, background: rc.bg, border: `1.5px solid ${rc.border}`, boxShadow: `0 4px 12px ${rc.border}20` }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: rc.text }}>{a.risk}</span>
-                            <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>{a.endpoint}{a.branch ? ` → ${a.branch}` : ''}</code>
+                            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: rc.text, borderRadius: 999, border: `1px solid ${rc.border}`, padding: '2px 8px' }}>{a.risk}</span>
+                            <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6, border: `1px solid ${TOKENS.b3}` }}>{a.endpoint}{a.branch ? ` \u2192 ${a.branch}` : ''}</code>
                           </div>
-                          <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 8 }}>{a.description}</div>
-                          {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 8, border: `1px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausführen</button>}
+                          <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10, lineHeight: 1.5 }}>{a.description}</div>
+                          {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '7px 16px', borderRadius: 999, border: `1.5px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausf\u00FChren</button>}
                           {st === 'confirm' && (
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <span style={{ fontSize: 11, color: rc.text, alignSelf: 'center' }}>Bist du sicher?</span>
-                              <button onClick={() => runAction(key, a, true)} style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 8, border: 'none', background: rc.text, color: '#000', cursor: 'pointer' }}>Bestätigen</button>
-                              <button onClick={() => setActionStatus(p => ({ ...p, [key]: 'idle' }))} style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text3, cursor: 'pointer' }}>Abbrechen</button>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: rc.text }}>Bist du sicher?</span>
+                              <button onClick={() => runAction(key, a, true)} style={{ fontSize: 11, fontWeight: 600, padding: '7px 16px', borderRadius: 999, border: 'none', background: rc.text, color: '#000', cursor: 'pointer' }}>Best\u00E4tigen</button>
+                              <button onClick={() => setActionStatus(p => ({ ...p, [key]: 'idle' }))} style={{ fontSize: 11, padding: '7px 16px', borderRadius: 999, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text3, cursor: 'pointer' }}>Abbrechen</button>
                             </div>
                           )}
-                          {st === 'pending' && <span style={{ fontSize: 11, color: TOKENS.text3 }}>⏳ Läuft...</span>}
-                          {st === 'success' && <span style={{ fontSize: 11, color: TOKENS.green }}>✅ Erledigt</span>}
-                          {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444' }}>❌ Fehlgeschlagen</span>}
+                          {st === 'pending' && <span style={{ fontSize: 11, color: TOKENS.text3 }}>{'\u23F3'} L\u00E4uft...</span>}
+                          {st === 'success' && <span style={{ fontSize: 11, color: TOKENS.green, fontWeight: 600 }}>{'\u2705'} Erledigt</span>}
+                          {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{'\u274C'} Fehlgeschlagen</span>}
                         </div>
                       );
                     }) : <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>}
@@ -663,36 +557,34 @@ export function MayaDashboard() {
               </div>
             ))}
             {chatLoading && (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: MAYA_DIM, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: MAYA, border: `1px solid ${MAYA}40` }}>M</div>
-                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 6 }}>Maya denkt...</div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: MAYA_DIM, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: MAYA, border: `1.5px solid ${MAYA}50` }}>M</div>
+                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 7 }}>Maya denkt...</div>
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input */}
-          <div style={{ padding: '14px 20px', borderTop: `1px solid ${TOKENS.b3}`, display: 'flex', gap: 10, alignItems: 'flex-end', background: TOKENS.card }}>
+          <div style={{ padding: '14px 22px', borderTop: `1.5px solid ${TOKENS.b2}`, display: 'flex', gap: 10, alignItems: 'flex-end', background: TOKENS.card }}>
             <input ref={fileInputRef} type="file" accept="image/*,.zip,.pdf,.txt,.ts,.tsx,.js,.json,.md" style={{ display: 'none' }} onChange={handleFileUpload} />
             <button onClick={() => fileInputRef.current?.click()} disabled={chatLoading}
-              title="Datei anhängen (Bild, ZIP, PDF, Code)"
-              style={{ background: 'transparent', border: `1px solid ${TOKENS.b2}`, borderRadius: 12, padding: '14px 14px', fontSize: 16, color: TOKENS.text3, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>
-              📎
+              title="Datei anh\u00E4ngen"
+              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', padding: '12px 14px', fontSize: 14, color: TOKENS.text3, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>
+              {'\uD83D\uDCCE'}
             </button>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder="Maya fragen, Tasks erstellen, Builds starten..."
               rows={2}
-              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b2}`, borderRadius: 12, padding: '14px 16px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }} />
+              style={{ flex: 1, background: TOKENS.bg2, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 14, padding: '14px 16px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }} />
             <button onClick={sendMessage} disabled={chatLoading || !input.trim()}
-              style={{ background: MAYA, color: '#fff', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
+              style={{ borderRadius: 999, background: MAYA, color: '#fff', border: 'none', padding: '14px 26px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: chatLoading ? 0.5 : 1 }}>
               Senden
             </button>
           </div>
         </div>
 
-        {/* Context Panel */}
-        <div style={{ width: 280, background: TOKENS.card, borderLeft: `1px solid ${TOKENS.b3}`, flexShrink: 0, overflowY: 'auto' }}>
+        <div style={{ width: 300, background: TOKENS.bg2, borderLeft: `1.5px solid ${TOKENS.b2}`, flexShrink: 0, overflowY: 'auto' }}>
           <ContextPanel ctx={ctx} loading={ctxLoading}
             onDeleteMemory={async (id) => { await deleteMemory(id); loadContext(); }}
             onAddNote={async (summary) => { await createMemory('continuity', `note-${Date.now()}`, summary); loadContext(); }} />
