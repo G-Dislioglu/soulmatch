@@ -728,6 +728,33 @@ export function BuilderStudioPage() {
     }
   }, [confirmDelete, deleteBuilderTask, refreshTasks, selectedTaskId]);
 
+  const handleCancelTask = useCallback(async (taskId: string) => {
+    setIsBusy(true);
+    setPageError(null);
+    try {
+      const response = await fetch(`/api/builder/opus-bridge/override/${encodeURIComponent(taskId)}?opus_token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: 'block', reason: 'Manually cancelled via UI' }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+
+      await refreshTasks();
+      await refreshTaskDetail(taskId);
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht abgebrochen werden');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [refreshTaskDetail, refreshTasks, token]);
+
   const handleSendChat = useCallback(async () => {
     const message = chatInput.trim();
     if (!message || chatLoading) {
@@ -835,27 +862,59 @@ export function BuilderStudioPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 {tasks.map((task) => {
                   const selected = task.id === selectedTaskId;
+                  const canCancel = task.status !== 'done';
                   return (
-                    <button
+                    <div
                       key={task.id}
-                      onClick={() => setSelectedTaskId(task.id)}
                       style={{
-                        textAlign: 'left',
-                        borderRadius: 18,
-                        border: `1.5px solid ${selected ? TOKENS.gold : TOKENS.b2}`,
-                        background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
-                        padding: '12px 14px',
-                        cursor: 'pointer',
+                        display: 'grid',
+                        gridTemplateColumns: canCancel ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)',
+                        gap: 8,
+                        alignItems: 'start',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text }}>{task.title}</div>
-                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, color: STATUS_COLORS[task.status] ?? TOKENS.text2, padding: '3px 8px', fontSize: 11, textTransform: 'uppercase' }}>
-                          {task.status}
-                        </span>
-                      </div>
-                      <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.55, color: TOKENS.text2 }}>{task.goal}</div>
-                    </button>
+                      <button
+                        onClick={() => setSelectedTaskId(task.id)}
+                        style={{
+                          textAlign: 'left',
+                          borderRadius: 18,
+                          border: `1.5px solid ${selected ? TOKENS.gold : TOKENS.b2}`,
+                          background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
+                          padding: '12px 14px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text }}>{task.title}</div>
+                          <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, color: STATUS_COLORS[task.status] ?? TOKENS.text2, padding: '3px 8px', fontSize: 11, textTransform: 'uppercase' }}>
+                            {task.status}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.55, color: TOKENS.text2 }}>{task.goal}</div>
+                      </button>
+                      {canCancel ? (
+                        <button
+                          onClick={() => { void handleCancelTask(task.id); }}
+                          title="Task abbrechen"
+                          disabled={isBusy}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 999,
+                            border: `1.5px solid rgba(239,68,68,0.45)`,
+                            background: 'rgba(127,29,29,0.22)',
+                            color: '#fecaca',
+                            cursor: isBusy ? 'not-allowed' : 'pointer',
+                            fontSize: 16,
+                            lineHeight: 1,
+                            alignSelf: 'center',
+                            opacity: isBusy ? 0.6 : 1,
+                          }}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
                   );
                 })}
                 {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}

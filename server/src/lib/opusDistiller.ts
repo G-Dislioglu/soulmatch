@@ -9,6 +9,8 @@
  * einen Structured Brief (max 1200 Tokens) fuer den Council.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { callProvider } from './providers.js';
 import { addChatPoolMessage, type ChatPoolMessage } from './opusChatPool.js';
 import type { ScoutPhaseResult } from './opusScoutRunner.js';
@@ -28,6 +30,14 @@ export interface DistillerResult {
 // Defaults used when pool is empty. Otherwise reads from activePools.distiller.
 const DEFAULT_EXTRACTOR: ResolvedModel = { id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx' };
 const DEFAULT_REASONER: ResolvedModel = { id: 'deepseek-scout', provider: 'deepseek', model: 'deepseek-chat' };
+
+const USER_INTENT_ANCHOR = [
+  'KRITISCHE REGEL: Der User-Auftrag ist die Wahrheit.',
+  '- Funktionsnamen, Variablennamen und Parameter aus dem User-Input MUESSEN exakt uebernommen werden.',
+  '- Du darfst NICHT bestehende Funktionsnamen aus dem Code als "Korrektur" einsetzen.',
+  '- Wenn der User "getWorstPerformers" schreibt, heisst die Funktion "getWorstPerformers" — nicht "getTopPerformers".',
+  '- Bestehender Code ist KONTEXT, nicht VORLAGE. Der User-Auftrag hat Vorrang.',
+].join('\n');
 
 function resolveDistillerModels(): { extractor: ResolvedModel; reasoner: ResolvedModel } {
   const poolModels = getAllFromPool('distiller');
@@ -54,6 +64,79 @@ function buildScoutDigest(scoutResult: ScoutPhaseResult): string {
   return sections.join('\n').trim();
 }
 
+function extractReferencedFunctionName(taskGoal: string): string | null {
+  const patterns = [
+    /`([A-Za-z_$][A-Za-z0-9_$]*)`/,
+    /"([A-Za-z_$][A-Za-z0-9_$]*)"/,
+    /\b(?:fuege|füge|erstelle|implementiere|add|create|rename|benenne|ändere|aendere)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/i,
+    /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:hinzu|implementieren|erstellen)\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = taskGoal.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function extractRelevantFilesFromDigest(scoutDigest: string): string[] {
+  const matches = scoutDigest.match(/(?:server|client)\/src\/[A-Za-z0-9_./-]+\.(?:ts|tsx|js|jsx)/g) ?? [];
+  return [...new Set(matches)];
+}
+
+function functionExistsInScopeFiles(functionName: string, scoutDigest: string): boolean {
+  const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const declarationPattern = new RegExp(
+    `(?:async\\s+function\\s+${escapedName}\\s*\\(|function\\s+${escapedName}\\s*\\(|const\\s+${escapedName}\\s*=|let\\s+${escapedName}\\s*=|var\\s+${escapedName}\\s*=|export\\s+async\\s+function\\s+${escapedName}\\s*\\(|export\\s+function\\s+${escapedName}\\s*\\(|export\\s+const\\s+${escapedName}\\s*=)`,
+    'i',
+  );
+
+  for (const filePath of extractRelevantFilesFromDigest(scoutDigest)) {
+    for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+      const resolved = path.resolve(base, filePath);
+      if (!fs.existsSync(resolved)) {
+        continue;
+      }
+
+      try {
+        const content = fs.readFileSync(resolved, 'utf-8');
+        if (declarationPattern.test(content)) {
+          return true;
+        }
+      } catch {
+        // Ignore unreadable files and continue with remaining candidates.
+      }
+    }
+  }
+
+  return declarationPattern.test(scoutDigest);
+}
+
+function injectDuplicateFunctionHint(brief: string, taskGoal: string, scoutDigest: string): string {
+  const functionName = extractReferencedFunctionName(taskGoal);
+  if (!functionName || !functionExistsInScopeFiles(functionName, scoutDigest)) {
+    return brief;
+  }
+
+  const warning = 'ACHTUNG: Eine Funktion mit diesem Namen existiert bereits. Pruefe ob der Auftrag eine NEUE Funktion meint oder eine Aenderung der bestehenden.';
+  const lines = brief.split('\n');
+  const taskLineIndex = lines.findIndex((line) => line.startsWith('TASK:'));
+
+  if (taskLineIndex === -1) {
+    return `${brief}\n${warning}`;
+  }
+
+  if (lines.some((line) => line.includes(warning))) {
+    return brief;
+  }
+
+  lines.splice(taskLineIndex + 1, 0, warning);
+  return lines.join('\n');
+}
+
 /**
  * Phase 1: Extractor — Fakten-Extrakt
  * GLM FlashX extrahiert die harten Fakten aus den Scout-Outputs:
@@ -68,7 +151,9 @@ async function runExtractor(
   const startedAt = Date.now();
 
   const content = await callProvider(model.provider, model.model, {
-    system: `Du bist der Fakten-Extraktor im Destillierer. Du bekommst die Roh-Outputs von mehreren Scouts.
+    system: `${USER_INTENT_ANCHOR}
+
+Du bist der Fakten-Extraktor im Destillierer. Du bekommst die Roh-Outputs von mehreren Scouts.
 Dein Job: Extrahiere NUR die harten, verwertbaren Fakten. Kein Kommentar, keine Meinung.
 
 Liefere exakt dieses Format:
@@ -120,7 +205,9 @@ async function runReasoner(
   const startedAt = Date.now();
 
   const content = await callProvider(model.provider, model.model, {
-    system: `Du bist der Crush-Analyst im Destillierer. Du bekommst:
+    system: `${USER_INTENT_ANCHOR}
+
+Du bist der Crush-Analyst im Destillierer. Du bekommst:
 1. Den Fakten-Extrakt eines Kollegen
 2. Die Original-Scout-Outputs
 
@@ -174,7 +261,8 @@ ${scoutDigest}`,
 
   // Extract the brief between markers, fallback to full content
   const briefMatch = content.match(/---BRIEF-START---([\s\S]*?)---BRIEF-ENDE---/);
-  const brief = briefMatch ? briefMatch[1]!.trim() : content;
+  const rawBrief = briefMatch ? briefMatch[1]!.trim() : content;
+  const brief = injectDuplicateFunctionHint(rawBrief, taskGoal, scoutDigest);
 
   return { message, brief };
 }

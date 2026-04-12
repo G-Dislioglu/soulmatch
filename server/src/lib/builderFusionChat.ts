@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
   builderActions,
@@ -35,7 +35,7 @@ export interface ChatResponse {
 }
 
 interface ClassifiedIntent {
-  intent: 'task' | 'status' | 'approve' | 'revert' | 'delete' | 'detail' | 'retry' | 'chat';
+  intent: 'task' | 'status' | 'approve' | 'revert' | 'delete' | 'detail' | 'retry' | 'cancel' | 'chat';
   title?: string;
   goal?: string;
   risk?: string;
@@ -118,6 +118,10 @@ TASK REVERTEN — wenn der User sagt "revert", "zurueck", "rueckgaengig":
 
 TASK LOESCHEN — wenn der User sagt "loesch", "delete", "entferne":
 {"intent":"delete","taskId":"ID oder 'latest' oder 'all_blocked'"}
+
+TASK ABBRECHEN — wenn der User sagt "cancel", "abbrechen", "stopp", "blockiere":
+{"intent":"cancel","taskId":"ID oder 'latest' oder 'all_stuck'"}
+- 'all_stuck' = alle Tasks die seit >10 Minuten in planning/consensus haengen
 
 TASK-DETAILS — wenn der User Details, Dialog, Ergebnis eines Tasks sehen will:
 {"intent":"detail","taskId":"ID oder 'latest'"}
@@ -1006,6 +1010,62 @@ export async function handleBuilderChat(
       return {
         type: 'task_action',
         message: `"${task.title}" wurde geloescht.`,
+        taskId,
+      };
+    }
+
+    if (classified.intent === 'cancel') {
+      if (classified.taskId === 'all_stuck') {
+        const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+        const stuck = await db
+          .select({ id: builderTasks.id, title: builderTasks.title, status: builderTasks.status })
+          .from(builderTasks)
+          .where(
+            and(
+              inArray(builderTasks.status, ['planning', 'consensus', 'push_candidate']),
+              lt(builderTasks.updatedAt, tenMinAgo),
+            ),
+          );
+
+        let count = 0;
+        for (const task of stuck) {
+          await db
+            .update(builderTasks)
+            .set({ status: 'blocked', updatedAt: new Date() })
+            .where(eq(builderTasks.id, task.id));
+          count += 1;
+        }
+
+        return {
+          type: 'task_action',
+          message: count > 0
+            ? `${count} haengende Tasks blockiert.`
+            : 'Keine haengenden Tasks gefunden.',
+        };
+      }
+
+      const taskId = await resolveTaskId(classified.taskId);
+      if (!taskId) {
+        return { type: 'error', message: 'Kein Task gefunden.' };
+      }
+
+      const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
+      if (!task) {
+        return { type: 'error', message: 'Task nicht gefunden.' };
+      }
+
+      if (task.status === 'done') {
+        return { type: 'error', message: 'Task ist bereits abgeschlossen.' };
+      }
+
+      await db
+        .update(builderTasks)
+        .set({ status: 'blocked', updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+
+      return {
+        type: 'task_action',
+        message: `Task "${task.title}" abgebrochen (blocked).`,
         taskId,
       };
     }

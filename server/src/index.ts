@@ -24,6 +24,7 @@ import { zimageRouter } from './routes/zimage.js';
 import { builderRouter } from './routes/builder.js';
 import { opusBridgeRouter } from './routes/opusBridge.js';
 import { devLogger } from './devLogger.js';
+import { startStaleDetector } from './lib/builderStaleDetector.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,4 +78,5 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   startKeepAlive();
+  startStaleDetector();
 });

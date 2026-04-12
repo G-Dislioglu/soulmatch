@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder-Chat Quick-Mode auf executeTask umgestellt + Nachdenker-Learnings im agentHabitat verdrahtet`
-- `next_recommended_block`: `Render-Live-Verifikation fuer Chat-Quick-Mode, /debug-scope und Nachdenker-Learnings nach echtem Builder-Task`
+- `last_completed_block`: `Builder-Stale-Detector blockiert haengende Tasks autonom und schreibt Maya-/Opus-Hinweise sichtbar mit`
+- `next_recommended_block`: `Render-Live-Verifikation fuer Stale-Detector-Logs und automatische blocked-Uebergaenge nach echten Timeout-Faellen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -128,6 +128,13 @@ erkannt und vor dem GitHub-Dispatch in `replace`-/`append`-Payloads
 normalisiert statt still als leerer Patch zu verschwinden. Offen ist damit
 nicht mehr der lokale Collector, sondern die Live-Verifikation des gesamten
 Pfads auf Render inklusive `@READ`-Injection und GitHub-Commit.
+
+Parallel dazu blockt die Builder-Runtime haengende Tasks jetzt auch autonom:
+ein eigener Server-Interval prueft alle 5 Minuten auf veraltete Tasks in
+`planning`, `consensus` und `push_candidate`, setzt deren Status auf `blocked`
+und schreibt den Grund sowohl in `builder_opus_log` als auch als Maya-Hinweis
+in den ChatPool, damit die Ursache in der bestehenden Observe-Ansicht sichtbar
+bleibt.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -251,6 +258,9 @@ Runtime-Wahrheit fuer Soulmatch.
   `server/src/lib/opusBridgeController.ts` und `server/src/routes/opusBridge.ts`
   tragen jetzt die aktive Opus-Bridge-Kette mit Zhipu/GLM-Modellen,
   `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
+- `server/src/lib/builderStaleDetector.ts` startet ueber `server/src/index.ts`
+  als Singleton-Interval, blockiert stale Builder-Tasks nach statusabhaengigem
+  Timeout und schreibt den Grund in ChatPool plus `builder_opus_log`.
 - `server/src/lib/builderFusionChat.ts` kennt jetzt die Builder-Blacklist
   namentlich, blockt solche Ziel-Dateien direkt im Chat vor jeder Task-Erzeugung,
   erklaert geblockte oder `review_needed`-Tasks im Status ueber Actions/Reviews
