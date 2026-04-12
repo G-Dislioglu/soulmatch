@@ -929,26 +929,31 @@ router.post('/maya/action', async (req: Request, res: Response) => {
       return;
     }
 
-    // Forward token from query
-    const token = (req.query.opus_token || req.query.token || '') as string;
+    // For opus-bridge routes: use server-side secret (trusted internal call)
+    // For builder routes: forward user token from query
+    const userToken = (req.query.opus_token || req.query.token || '') as string;
     const port = process.env.PORT || 10000;
     // Task/memory/batch endpoints are under /api/builder, opus-bridge endpoints under /api/builder/opus-bridge
     const isBuilderRoute = isTaskDelete || isMemoryOp || BUILDER_ROUTES.includes(action.endpoint);
     const baseUrl = `http://localhost:${port}/api/builder${isBuilderRoute ? '' : '/opus-bridge'}`;
+    const authToken = isBuilderRoute ? userToken : (process.env.OPUS_BRIDGE_SECRET || userToken);
 
     const method = action.method || (isTaskDelete ? 'DELETE' : 'POST');
-    const body: Record<string, unknown> = { ...action.params, opus_token: token };
+    const body: Record<string, unknown> = { ...action.params };
     if (action.branch) body.branch = action.branch;
     if (action.worker) body.worker = action.worker;
 
     const fetchOpts: RequestInit = {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
     };
     if (method !== 'DELETE') fetchOpts.body = JSON.stringify(body);
 
     const sep = action.endpoint.includes('?') ? '&' : '?';
-    const proxyRes = await fetch(`${baseUrl}${action.endpoint}${sep}token=${encodeURIComponent(token)}`, fetchOpts);
+    const proxyRes = await fetch(`${baseUrl}${action.endpoint}${sep}opus_token=${encodeURIComponent(authToken)}`, fetchOpts);
 
     const result = await proxyRes.json().catch(() => ({ status: proxyRes.status }));
 
