@@ -356,6 +356,43 @@ opusBridgeRouter.get('/metrics', async (_req: Request, res: Response) => {
   }
 });
 
+// POST /cleanup — bulk-delete old blocked/cancelled/error tasks
+opusBridgeRouter.post('/cleanup', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { statuses = ['blocked', 'cancelled', 'error'], dryRun = false } = req.body as {
+      statuses?: string[]; dryRun?: boolean;
+    };
+    const targets = await db
+      .select({ id: builderTasks.id, status: builderTasks.status, title: builderTasks.title })
+      .from(builderTasks)
+      .where(inArray(builderTasks.status, statuses));
+
+    if (dryRun) {
+      res.json({ dryRun: true, count: targets.length, statuses: statuses });
+      return;
+    }
+
+    const FK_TABLES = [
+      builderChatpool, builderActions, builderOpusLog, builderReviews,
+      builderWorkerScores, builderErrorCards, builderArtifacts, builderTestResults,
+    ];
+
+    let deleted = 0;
+    for (const task of targets) {
+      for (const table of FK_TABLES) {
+        await db.delete(table).where(eq((table as typeof builderChatpool).taskId, task.id)).catch(() => {});
+      }
+      await db.delete(builderTasks).where(eq(builderTasks.id, task.id));
+      deleted++;
+    }
+
+    res.json({ deleted, statuses });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
   try {
     const { worker, model, system, message, maxTokens } = req.body as {
