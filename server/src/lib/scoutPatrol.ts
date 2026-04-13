@@ -108,13 +108,14 @@ function getScanTargets(): string[] {
 		const allExcludes = [...DEFAULT_EXCLUDES, ...customExcludes];
 		return index.f
 			.filter(f =>
+				f.p.startsWith('server/') &&
 				(f.p.endsWith('.ts') || f.p.endsWith('.tsx')) &&
 				!f.p.includes('__tests__') &&
 				!f.p.includes('.d.ts') &&
 				!allExcludes.some(ex => f.p.includes(ex)) &&
 				f.l > 20 && f.l < 800
 			)
-			.map(f => f.p);
+			.map(f => f.p.replace(/^server\//, ''));
 	} catch {
 		return [];
 	}
