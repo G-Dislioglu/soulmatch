@@ -628,13 +628,15 @@ export function BuilderStudioPage() {
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     dialogFormatRef.current = dialogFormat;
   }, [dialogFormat]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = chatContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [chatLoading, chatMessages]);
 
   useEffect(() => () => {
@@ -1071,7 +1073,8 @@ export function BuilderStudioPage() {
     } finally {
       setChatLoading(false);
       window.setTimeout(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const el = chatContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
       }, 100);
     }
   }, [chatInput, chatLoading, chatMessages, refreshTasks, sendChat]);
@@ -1305,8 +1308,9 @@ export function BuilderStudioPage() {
                 Maya Chat
               </div>
               <div
+                ref={chatContainerRef}
                 style={{
-                  maxHeight: 240,
+                  maxHeight: 420,
                   overflowY: 'auto',
                   marginBottom: 10,
                   display: 'flex',
