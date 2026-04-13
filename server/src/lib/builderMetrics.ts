@@ -25,7 +25,24 @@ export async function getWorstPerformers(limit = 10): Promise<Array<{ worker: st
 		worker: r.worker as string,
 		avgQuality: Number(r.avg_quality),
 		taskCount: Number(r.task_count),
-	}));
+		}));
+}
+
+export async function getTaskStats(): Promise<{total: number, done: number, blocked: number}> {
+	const db = getDb();
+	const rows = await db.execute(sql`
+		SELECT
+			COUNT(*)::int AS total,
+			COUNT(*) FILTER (WHERE status = 'done')::int AS done,
+			COUNT(*) FILTER (WHERE status = 'blocked')::int AS blocked
+		FROM builder_tasks
+	`);
+	const r = (rows.rows ?? rows)[0] as any;
+	return {
+		total: Number(r.total),
+		done: Number(r.done),
+		blocked: Number(r.blocked),
+	};
 }
 
 export function getVersion() {
