@@ -1,4 +1,4 @@
-# SESSION-STATE — Stand 13.04.2026, S19
+# SESSION-STATE — Stand 13.04.2026, S20
 
 ## Kanonische Builder-Wahrheit
 
@@ -80,30 +80,47 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 7. `/builder` ist die bevorzugte UI
 8. Grosse Dateien (>20KB) besser ueber `/git-push` direkt statt Pipeline
 
+## S20 Ergebnisse (13.04.2026)
+
+### Cleanup + Bug-Fixes
+| # | Aktion | Status |
+|---|--------|--------|
+| 1 | Duplikat POST /cleanup geloescht (alter Endpoint Zeile 1009) | Deployed |
+| 2 | FK-Luecke gefixt: builderMemory + sourceTaskId Cascade | Deployed |
+| 3 | Resilientes Cleanup: per-task try/catch + raw SQL fallback | Deployed |
+| 4 | 363 alte Tasks geloescht: DB sauber (503 done, 0 blocked) | Verifiziert |
+| 5 | Status-Tracking-Bug gefixt: updateTaskStatus() Helper + 5 Phasen-Updates | Deployed |
+| 6 | Stale-Detector: council Status (15min Threshold) hinzugefuegt | Deployed |
+
+### Status-Phasen (NEU S20)
+```
+scouting -> planning -> council -> swarm -> applying -> done/error
+```
+Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt alle Phasen.
+
 ## Offene Probleme (priorisiert)
 
 ### Hoch
 1. **Worker SEARCH/REPLACE auf grossen Dateien**: Minimax produziert falsche Anker. Betrifft opusBridge.ts (45KB), builderFusionChat.ts (39KB), etc.
-2. **Status-Tracking-Bug**: Task-Status "scouting" wird nicht aktualisiert wenn Pipeline intern weiterlaeuft
 
 ### Mittel
-3. `/builder` + `/maya` Konsolidierung (beide >50KB, braucht Copilot)
-4. Chat-Intent-Klassifizierung zu konservativ (oft 'chat' statt 'task')
-5. Task-Detail-View "undefined" in `/builder`
-6. Task-DB aufraemen (869 total, 295 blocked)
-7. `/migrate` Runtime-Fix
-8. orchestrateTask entfernen (Legacy)
+2. `/builder` + `/maya` Konsolidierung (beide >50KB, braucht Copilot)
+3. Chat-Intent-Klassifizierung zu konservativ (oft 'chat' statt 'task')
+4. Task-Detail-View "undefined" in `/builder`
+5. `/migrate` Runtime-Fix
+6. orchestrateTask entfernen (Legacy)
 
 ### Perspektivisch
-9. Nachdenker-Aggregation
-10. Pipeline-Monitoring UI (Live-Fortschritt im Chat)
-11. AICOS-Card-Integration
+7. Nachdenker-Aggregation
+8. Pipeline-Monitoring UI (Live-Fortschritt im Chat)
+9. AICOS-Card-Integration
 
-## Neue Endpoints (S19)
+## Neue Endpoints (S19-S20)
 
 | Endpoint | Methode | Was |
 |----------|---------|-----|
 | `/metrics` | GET | getTaskStats() + getRecentCompletedTasks() |
+| `/cleanup` | POST | Bulk-Delete (dryRun, statuses-Filter, resilient cascade) |
 
 ## Technische Details
 
