@@ -10,6 +10,7 @@ const STALE_THRESHOLDS = {
   planning: 10 * 60 * 1000,
   scouting: 10 * 60 * 1000,
   scouted: 10 * 60 * 1000,
+  council: 15 * 60 * 1000,
   swarm: 15 * 60 * 1000,
   consensus: 15 * 60 * 1000,
   no_consensus: 10 * 60 * 1000,
