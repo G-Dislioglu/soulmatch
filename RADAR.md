@@ -245,6 +245,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Nach Provider-, `@READ`- und Patch-Collector-Hardening ist der naechste enge Block keine weitere Architektur, sondern der Live-Nachweis der kompletten Opus-Bridge von Roundtable-BDL bis GitHub-Commit.
 - `evidence`: `zhipu` ist im Provider-Layer sichtbar; Roundtable und Scout nutzen GLM-Modelle; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; Controller und Route normalisieren diese Bodies vor GitHub-Dispatch.
 
+### Kandidat F4 - Builder S17 Live Verification
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `none`
+- `non_scope`: weiterer Builder-Umbau, Persona-Routing, Scoring, breite UI-Politur
+- `risk`: mittel; die Repo-Naht ist gebaut, aber der eigentliche Produktwert haengt jetzt an drei Live-Pruefpunkten statt an weiterem Code.
+- `betroffene_bereiche`: `server/src/lib/builderFusionChat.ts`, `server/src/lib/opusDistiller.ts`, `server/src/lib/builderStaleDetector.ts`, `server/src/index.ts`, `server/src/routes/opusBridge.ts`, `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`, Render-Runtime
+- `kurzurteil`: S17 ist repo-sichtbar live im Code, aber der naechste enge Block ist jetzt die Verifikation von Distiller-Intent-Treue, sichtbarem UI-Cancel und `[stale-detector]`-Logs auf Render.
+- `evidence`: `builderFusionChat.ts` kennt `cancel` inkl. `all_stuck`; `BuilderStudioPage.tsx` zeigt einen Cancel-Knopf fuer offene Tasks; `builderStaleDetector.ts` loggt `[stale-detector]` und blockiert alte Tasks; `opusDistiller.ts` verankert `getWorstPerformers` explizit gegen Drift auf `getTopPerformers`; `opusBridge.ts` bietet `debug-scope`.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

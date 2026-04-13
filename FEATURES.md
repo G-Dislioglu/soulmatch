@@ -128,21 +128,21 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-12`
-- `quality`: `live_in_code_deploy_schema_pending`
-- `known_gap`: Builder blockt jetzt bekannte Blacklist-Dateien schon im Chat, erklaert geblockte Laeufe genauer, stoppt stale Tasks serverseitig nach Timeout automatisch und zeigt den Grund ueber Maya-/Opus-Logs in der bestehenden Observe-Ansicht. Quick-Mode-Tasks laufen ueber `executeTask`, und `agentHabitat` speichert pro Worker drei kompakte Nachdenker-Learnings fuer den naechsten Prompt. Die persistente Ebene braucht auf Render aber weiter den manuellen Schema-Push fuer `builder_memory` und jetzt auch `builder_agent_profiles.last_learnings`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
-- `next_recommended_step`: Auf Render einen echten Timeout-Fall abwarten oder provozieren und pruefen, ob `blocked`, ChatPool-Hinweis und `builder_opus_log` konsistent erscheinen; danach erst weitere Automatisierung oeffnen.
-- `evidence`: `client/src/app/App.tsx`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/lib/agentHabitat.ts`, `server/src/lib/builderStaleDetector.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`.
+- `last_checked`: `2026-04-13`
+- `quality`: `live_in_code_runtime_checks_pending`
+- `known_gap`: Builder blockt jetzt bekannte Blacklist-Dateien schon im Chat, erklaert geblockte Laeufe genauer, stoppt stale Tasks serverseitig nach Timeout automatisch und zeigt den Grund ueber Maya-/Opus-Logs in der bestehenden Observe-Ansicht. Quick-Mode-Tasks laufen ueber `executeTask`, `agentHabitat` speichert pro Worker drei kompakte Nachdenker-Learnings fuer den naechsten Prompt, und offene Tasks koennen jetzt auch direkt in der Builder-UI manuell geblockt werden. Die persistente Ebene braucht auf Render aber weiter den manuellen Schema-Push fuer `builder_memory` und `builder_agent_profiles.last_learnings`; bis dahin bleibt die neue Memory im Deploy nur RAM-gestuetzt plus soft-failing DB-Zugriffe.
+- `next_recommended_step`: Auf Render einen echten oder provozierten Timeout-Fall pruefen und gegen `[stale-detector]`, `blocked`, ChatPool-Hinweis und `builder_opus_log` abgleichen; UI-Cancel nur als Live-Check bestaetigen, nicht als neuen Umbau oeffnen.
+- `evidence`: `client/src/app/App.tsx`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`, `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/lib/agentHabitat.ts`, `server/src/lib/builderStaleDetector.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/builder.ts`, `server/src/schema/builder.ts`, `server/src/index.ts`.
 
 ### Opus-Bridge orchestration
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-06`
-- `quality`: `pipeline_live_local_verification_done`
-- `known_gap`: Scout, Roundtable, `@READ` und SEARCH/REPLACE-`@PATCH` sind jetzt repo-sichtbar verdrahtet, aber der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile und automatischen GitHub-Commit steht noch aus.
-- `next_recommended_step`: Einen echten Opus-Bridge-Task gegen die Zielruntime fahren und dabei pruefen, ob `@READ` als `[system]`-Dateiinhalt ankommt, ob `patches[]` nicht leer bleibt und ob `GITHUB_PAT` den Dispatch/Commit wirklich erlaubt.
-- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/opusBridge.ts`.
+- `last_checked`: `2026-04-13`
+- `quality`: `pipeline_live_local_verification_done_runtime_checks_pending`
+- `known_gap`: Scout, Roundtable, `@READ`, SEARCH/REPLACE-`@PATCH`, Debug-Scope und der Distiller-Intent-Anker sind jetzt repo-sichtbar verdrahtet, aber der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile, automatischen GitHub-Commit und Distiller-Treue bei `getWorstPerformers` steht noch aus.
+- `next_recommended_step`: Einen echten Builder-/Opus-Task gegen die Zielruntime fahren und dabei pruefen, ob `getWorstPerformers` im Titel und Brief erhalten bleibt, ob `@READ` als `[system]`-Dateiinhalt ankommt, ob `patches[]` nicht leer bleibt und ob `GITHUB_PAT` den Dispatch/Commit wirklich erlaubt.
+- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/routes/opusBridge.ts`.
 
 ### Schema fuer persona_memories und voice_profiles
 

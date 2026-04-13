@@ -20,7 +20,7 @@ import { MatchSelector, MatchReportPage, HallOfSouls, AffinityRadar, ConnectionT
 import { SoulPortraitCard, WeeklyInsightCard } from '../modules/M08_studio-chat';
 import { DiscussionChat } from '../modules/M06_discuss/ui/DiscussionChat';
 import { ArcanaStudioPage } from '../modules/M09_arcana';
-import { BuilderStudioPage, MayaDashboard } from '../modules/M16_builder';
+import { BuilderStudioPage } from '../modules/M16_builder';
 import { loadSettings, SettingsPage } from '../modules/M09_settings';
 import type { AppSettings } from '../shared/types/settings';
 import {
@@ -2335,7 +2335,6 @@ export function App() {
     <GuideProvider>
       <Switch>
         <Route path="/studio" component={StudioPage} />
-        <Route path="/maya" component={MayaDashboard} />
         <Route path="/builder" component={BuilderStudioPage} />
         <Route path="/" component={HomePage} />
         <Route component={NotFound} />

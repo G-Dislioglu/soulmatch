@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `e5ea891` (plus CLAUDE.md push)
+- `current_repo_head`: `7efda50`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-13`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
-- `local_drift_present`: `yes`
+- `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `S18: Auth-Fix + UI-Buttons + erster Chat→Build→Deploy Zyklus (Pipeline-Durchbruch)`
-- `next_recommended_block`: `Dead-Code-Cleanup (14 tote Dateien) + Doc-Archivierung + Builder weiter testen`
+- `last_completed_block`: `Builder S17 haertet Cancel-Intent, UI-Task-Abbruch, Stale-Detector und Distiller-Intent-Treue sichtbar im Repo`
+- `next_recommended_block`: `Builder-S17-Live-Checks fuer Distiller-Intent-Treue, UI-Cancel-Sichtbarkeit und Render-Stale-Detector-Logs`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -135,6 +135,21 @@ ein eigener Server-Interval prueft alle 5 Minuten auf veraltete Tasks in
 und schreibt den Grund sowohl in `builder_opus_log` als auch als Maya-Hinweis
 in den ChatPool, damit die Ursache in der bestehenden Observe-Ansicht sichtbar
 bleibt.
+
+Der juengste Builder-S17-Block haertet diese Lane weiter sichtbar: Der
+Fusion-Chat versteht jetzt den Intent `cancel` fuer einzelne Tasks, `latest`
+und `all_stuck`, die Builder-UI zeigt an offenen Tasks einen `x`-Abbruchknopf,
+und `opusDistiller.ts` verankert den ausdruecklichen User-Intent jetzt haerter,
+damit Funktionsnamen wie `getWorstPerformers` nicht mehr auf bereits bekannte
+Namen wie `getTopPerformers` driften. Repo-sichtbar vorhanden sind ausserdem
+der Debug-Endpunkt `/api/builder/opus-bridge/debug-scope`, die Persistenz von
+`builder_agent_profiles.last_learnings` und der Quick-Mode-Pfad ueber
+`executeTask` statt ueber den frueher haengenden Orchestrator-Zweig.
+
+Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
+und `origin/HEAD` zeigen auf `7efda50`, der Working Tree ist sauber, und der
+naechste enge Block ist jetzt kein weiterer Umbau, sondern die drei Live-Checks
+fuer Distiller, UI und Render-Logs.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
@@ -253,11 +268,23 @@ Runtime-Wahrheit fuer Soulmatch.
   `server/src/lib/builderDialogEngine.ts` und `server/src/routes/builder.ts`
   verdrahten jetzt eine Builder-Memory-Kette mit RAM-Arbeitsgedaechtnis,
   episodischer Persistenz, semantischer Verdichtung und Worker-Profilen.
+- `server/src/schema/builder.ts` erweitert `builder_agent_profiles` um
+  `last_learnings`; `server/src/lib/agentHabitat.ts` speichert die letzten drei
+  Nachdenker-Learnings pro Worker und injiziert sie wieder in spaetere Briefs.
 - `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`,
   `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`,
   `server/src/lib/opusBridgeController.ts` und `server/src/routes/opusBridge.ts`
   tragen jetzt die aktive Opus-Bridge-Kette mit Zhipu/GLM-Modellen,
   `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
+- `server/src/routes/opusBridge.ts` enthaelt jetzt zusaetzlich den Debug-Pfad
+  `/api/builder/opus-bridge/debug-scope`, um den effektiven Task-Scope gegen
+  die Zielruntime sichtbar zu pruefen.
+- `server/src/lib/builderFusionChat.ts` klassifiziert jetzt `cancel` auch fuer
+  `latest` und `all_stuck`; `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`
+  bietet dafuer an offenen Tasks einen sichtbaren Abbruchknopf mit UI-Block-Pfad.
+- `server/src/lib/opusDistiller.ts` enthaelt jetzt einen harten User-Intent-
+  Anker und einen Duplicate-Hinweis, wenn ein vom User genannter Funktionsname
+  bereits im Scope existiert.
 - `server/src/lib/builderStaleDetector.ts` startet ueber `server/src/index.ts`
   als Singleton-Interval, blockiert stale Builder-Tasks nach statusabhaengigem
   Timeout und schreibt den Grund in ChatPool plus `builder_opus_log`.
@@ -430,68 +457,77 @@ Runtime-Wahrheit fuer Soulmatch.
 
 ### Name
 
-S18: Auth-Fix + UI-Buttons + Pipeline-Durchbruch
+TTS Crush Audit und LiveTalk Hardening
 
 ### Ergebnis
 
-14 Fixes deployed: `/maya/action` Proxy Auth, Cascade Delete (8 FK-Tabellen),
-Cancel+Delete UI-Buttons in `/maya` und `/builder`, Token-Validation,
-Stale-Detector auf 10 Statuse erweitert, File-Reader GitHub API Fallback.
-
-Erster erfolgreicher Pipeline-Loop: Maya Chat → Task Creation → Pipeline-Modus
-→ Scouts → Distiller → Council (Roundtable mit @READ via GitHub API) → Worker
-→ TSC → Push → Deploy → Done. Task `getTaskStats()`, Commit `38ea269`.
-
-Erster erfolgreicher Schnellmodus-Loop: minimax hat `getTopPerformers` in 98s
-geschrieben und gepusht (Chat→Build→Deploy end-to-end).
+Der enge Crush-Audit auf den bestehenden TTS-Bestand hat zwei `kippt`-Punkte
+belegt und minimal behoben: Erstens blockierte der normale LiveTalk-Request in
+M06 die sichtbare Persona-Antwort noch bis zum fertigen TTS-Bundle; deshalb
+nutzt `DiscussionChat.tsx` fuer Audio jetzt den SSE-Pfad von `/api/discuss`.
+Zweitens koppelte der Route-/Service-Pfad Audio faktisch an gleichzeitig
+vorhandene Gemini- und OpenAI-Keys; `server/src/routes/studio.ts` und
+`server/src/lib/ttsService.ts` ueberspringen jetzt fehlende Engines sauber,
+statt den ganzen TTS-Pfad vorab zu verlieren. Weitere doppelte Playback-Pfade
+im Repo wurden als `relocate` markiert, aber bewusst nicht in diesem Block
+umgebaut.
 
 ### Nicht Teil dieses Blocks
 
-- kein Crush-Score-Verbesserung
-- kein Audio-System-Ausbau
-- kein `/builder` + `/maya` Konsolidierung
-- keine Dead-Code-Bereinigung
+- kein neuer Audio-Stack und keine neue TTS-Route
+- kein Umbau der parallelen Audio-Player in M02 oder M08
+- keine Real-Key-Ende-zu-Ende-Verifikation gegen produktive Provider
+- keine Bereinigung des bestehenden Dirty Trees
+- keine Aenderung an Scoring, Match oder globaler App-Architektur
 
 ## Next Recommended Block
 
 ### Name
 
-Dead-Code-Cleanup + Doc-Archivierung
+Real-Provider-Verifikation fuer LiveTalk TTS
 
 ### Ziel
 
-14 tote Code-Dateien entfernen, 6 erledigte Docs archivieren, CLAUDE.md-Drift
-bereits behoben (S18-Nacharbeit). Danach Builder weiter testen und `/builder`
-+ `/maya` konsolidieren.
+Die jetzt korrigierte LiveTalk-TTS-Kette mit echten Provider-Keys und realen
+Fehlerfaellen pruefen: Voice-Auswahl, Fallback von Gemini zu OpenAI,
+sichtbare Degradation ohne Audio und reproduzierbare Fehlersignale bei
+Provider- oder Autoplay-Problemen.
 
 ### Warum dieser Block jetzt sinnvoll ist
 
-- Der Pipeline-Durchbruch ist geschafft; jetzt ist Hygiene dran bevor
-  der naechste Feature-Block gebaut wird.
-- 14 tote Dateien und leere Stubs verschmutzen die Codebasis.
-- Erledigte Copilot-Briefs und alte Specs gehoeren ins Archiv.
+- Der Crush-Audit hat die zwei akuten Laufzeitbrueche geschlossen, aber noch
+  keine echte Provider-Verifikation unter Realbedingungen geliefert.
+- Audio ist jetzt produktnaeher verdrahtet als zuvor; damit steigen die Kosten
+  von stillen Fallback- oder Fehlerpfad-Irrtuemern.
+- Erst nach belastbarer TTS-Realverifikation lohnt sich ein weiterer Voice-
+  oder UX-Ausbau.
 
 ### Scope
 
-- `git rm` fuer 14 tote Dateien in `server/src/lib/` und `server/src/services/`
-- Verschieben von 6 erledigten Docs nach `docs/archive/`
-- Danach: Pipeline mit verschiedenen Task-Typen testen
+- `server/scripts/discuss-audio-probe-check.mjs`
+- `server/src/routes/studio.ts`
+- gezielte Ausfuehrung gegen lokale oder deployte Runtime mit echten Keys
 
 ### Nicht-Scope
 
-- kein neues Feature
-- kein Audio-/Voice-Ausbau
-- kein Crush-Score-Arbeit
-- kein UI-Redesign
+- neue Design-Bloecke ausserhalb von M06
+- Umbau der gesamten Audio-Architektur im Repo
+- Scoring-, Match-, Routing- oder Persistenz-Neudesign
+- broad cleanup aller historischen Voice-Pfade in einem Rutsch
+
+### Fortschritt
+
+- Repo-seitig existiert jetzt ein gezieltes Probe-Skript fuer den Block; die
+  eigentliche Real-Key-Ausfuehrung bleibt bewusst ein operativer Schritt gegen
+  eine laufende Runtime statt nur statischer Code-Aenderung.
 
 ## Alternative Valid Next Blocks
 
-- `/builder` + `/maya` Konsolidierung
-- Pipeline mit verschiedenen Task-Typen testen
-- Task-Detail-View "undefined" fixen
-- Dev Token Hardening
-- Persistence Reality Audit
-- Credits Reality Audit
+- `UI Redesign Weitere Tabs`
+- `Dev Token Hardening`
+- `Persistence Reality Audit`
+- `Provider Truth Sync`
+- `Credits Reality Audit`
 
 ## Not Now
 
@@ -500,7 +536,6 @@ bereits behoben (S18-Nacharbeit). Danach Builder weiter testen und `/builder`
 - neue TTS- oder Voice-Systeme nur aus Wunschbild heraus
 - broad cleanup des gesamten Dirty Trees als Hauptblock
 - stiller UI-Grossumbau ohne Bindung an `REDESIGN.md`
-
 
 ## Guardrails
 
