@@ -1006,31 +1006,6 @@ opusBridgeRouter.post('/self-test', async (req: Request, res: Response) => {
   }
 });
 
-// ==================== POST /cleanup — Cancel stuck tasks ====================
-
-opusBridgeRouter.post('/cleanup', async (_req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-
-    const result = await db.update(builderTasks)
-      .set({ status: 'cancelled' })
-      .where(
-        and(
-          lt(builderTasks.createdAt, twoHoursAgo),
-          inArray(builderTasks.status, [
-            'review_needed', 'applying', 'scouting',
-            'swarm', 'consensus', 'no_consensus', 'push_candidate',
-          ]),
-        ),
-      )
-      .returning({ id: builderTasks.id });
-
-    res.json({ cleaned: result.length, timestamp: new Date().toISOString() });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
 
 // ─── /benchmark: Alle Worker parallel, gesammelte Ergebnisse ───
 opusBridgeRouter.post('/benchmark', async (req: Request, res: Response) => {
