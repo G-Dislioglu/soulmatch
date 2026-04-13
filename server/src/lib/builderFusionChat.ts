@@ -275,10 +275,12 @@ function determineBuildMode(message: string, classified: ClassifiedIntent): Buil
 
 function looksLikeTaskRequest(message: string): boolean {
   const normalized = message.toLowerCase();
-  const taskVerb = /\b(fueg|füge|add|aendere|ändere|modify|update|fix|baue|bau|erstelle|create|schreib|patch|implement|refaktor|refactor|erg[aä]nz|rename|verschieb|entfern)\b/;
+  const taskVerb = /\b(fueg|füge|add|aendere|ändere|modify|update|fix|baue|bau|erstelle|create|schreib|patch|implement|refaktor|refactor|erg[aä]nz|rename|verschieb|entfern|lösch|delete|remove|deploy|push|install|konfigur|configur|import|export|extrah|extract|optimier|optimiz|integrier|integrat|split|trenn|merg|kombin|combin|migrier|migrat|generer|generat|korrigier|correct)\b/;
   const fileHint = /\b[\w./-]+\.(ts|tsx|js|jsx|mjs|json|css|md)\b/;
+  const codeHint = /\b(function|const|import|export|interface|type|class|endpoint|route|api|component|hook|modul|service|handler|controller|middleware)\b/;
+  const actionPhrase = /\b(mach|mache|sorg|kannst du|bitte|soll|sollte|muss|müsste|wäre gut|brauche|brauch|need|want|should|could you|please)\b.*\b(datei|file|code|funktion|function|endpoint|seite|page|button|component)\b/;
 
-  return taskVerb.test(normalized) || fileHint.test(normalized);
+  return taskVerb.test(normalized) || fileHint.test(normalized) || (codeHint.test(normalized) && actionPhrase.test(normalized));
 }
 
 function normalizeForPathMatching(value: string): string {
