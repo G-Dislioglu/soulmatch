@@ -376,6 +376,7 @@ opusBridgeRouter.post('/cleanup', async (req: Request, res: Response) => {
     const FK_TABLES = [
       builderChatpool, builderActions, builderOpusLog, builderReviews,
       builderWorkerScores, builderErrorCards, builderArtifacts, builderTestResults,
+      builderMemory,
     ];
 
     let deleted = 0;
@@ -383,6 +384,8 @@ opusBridgeRouter.post('/cleanup', async (req: Request, res: Response) => {
       for (const table of FK_TABLES) {
         await db.delete(table).where(eq((table as typeof builderChatpool).taskId, task.id)).catch(() => {});
       }
+      // Also clear sourceTaskId FK on builderErrorCards
+      await db.delete(builderErrorCards).where(eq(builderErrorCards.sourceTaskId, task.id)).catch(() => {});
       await db.delete(builderTasks).where(eq(builderTasks.id, task.id));
       deleted++;
     }
