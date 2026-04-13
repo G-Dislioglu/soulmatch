@@ -19,6 +19,7 @@ import { sql } from 'drizzle-orm';
 import { readFileSync } from 'fs';
 import { readFile } from './builderFileIO.js';
 import { getRepoRoot } from './builderExecutor.js';
+import { requireDevToken } from './requireDevToken.js';
 
 // ── Types ──
 export interface PatrolModel {
@@ -363,6 +364,7 @@ export function stopPatrol(): void {
 // ── ROUTER ──
 // ══════════════════════════════════════════════════════
 export const patrolRouter = Router();
+patrolRouter.use(requireDevToken);
 
 patrolRouter.get('/status', (_req: Request, res: Response) => { res.json(getPatrolStatus()); });
 
