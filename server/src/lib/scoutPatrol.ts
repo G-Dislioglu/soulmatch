@@ -18,7 +18,6 @@ import { callProvider } from './providers.js';
 import { sql } from 'drizzle-orm';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { readFile } from './builderFileIO.js';
 import { getRepoRoot } from './builderExecutor.js';
 import { requireDevToken } from './requireDevToken.js';
 
@@ -124,8 +123,9 @@ function getScanTargets(): string[] {
 async function readFileContent(filePath: string): Promise<string | null> {
 	try {
 		const root = getRepoRoot();
-		const result = await readFile(root, filePath, [], []);
-		return result.content.slice(0, MAX_FILE_CHARS);
+		const fullPath = resolve(root, filePath);
+		const content = readFileSync(fullPath, 'utf-8');
+		return content.slice(0, MAX_FILE_CHARS);
 	} catch {
 		return null;
 	}
