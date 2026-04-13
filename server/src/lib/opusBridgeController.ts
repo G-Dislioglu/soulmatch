@@ -577,7 +577,9 @@ async function runDecomposerExecution(
   };
 }
 
-/** Update task status in DB for live progress tracking */
+/**
+ * @description Updates the task status in the database for live progress tracking during pipeline execution.
+ */
 async function updateTaskStatus(taskId: string, status: string) {
   try {
     const db = getDb();
