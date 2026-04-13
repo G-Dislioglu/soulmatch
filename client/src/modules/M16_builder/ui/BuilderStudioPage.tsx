@@ -49,13 +49,16 @@ const ACTOR_COLORS: Record<string, string> = {
 
 function getInitialToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('builderToken') || params.get('token') || params.get('opus_token') || '';
+  return params.get('builderToken') || params.get('token') || params.get('opus_token')
+    || (() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } })();
 }
 
 async function validateBuilderToken(token: string) {
-  const response = await fetch(`/api/builder/opus-bridge/pipeline-info?opus_token=${encodeURIComponent(token)}`);
+  const response = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 404) {
     throw new Error('Ungültiger Token');
   }
 
@@ -63,12 +66,8 @@ async function validateBuilderToken(token: string) {
     throw new Error(`HTTP ${response.status}`);
   }
 
-  const payload = await response.json() as { canonicalExecutor?: string };
-  if (typeof payload.canonicalExecutor !== 'string') {
-    throw new Error('Builder-Authentifizierung fehlgeschlagen');
-  }
-
-  return payload;
+  const payload = await response.json() as { tasks?: unknown[] };
+  return { canonicalExecutor: '/opus-task', tasks: payload.tasks };
 }
 
 function useViewportWidth() {
@@ -495,6 +494,7 @@ export function BuilderStudioPage() {
         setSelectedTaskId(null);
         setSelectedFilePath(null);
         setAuthenticated(true);
+        try { localStorage.setItem('maya-token', trimmedToken); } catch { /* noop */ }
       } catch (error) {
         if (cancelled) {
           return;
@@ -514,6 +514,13 @@ export function BuilderStudioPage() {
       cancelled = true;
     };
   }, [token]);
+
+  // Initial load: fetch tasks and files once authenticated
+  useEffect(() => {
+    if (!authenticated) return;
+    void refreshTasks().catch(() => {});
+    void refreshFiles().catch(() => {});
+  }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -1019,7 +1026,7 @@ export function BuilderStudioPage() {
                   fontFamily: TOKENS.font.display,
                 }}
               >
-                Gemini Chat
+                Maya Chat
               </div>
               <div
                 style={{
@@ -1033,7 +1040,7 @@ export function BuilderStudioPage() {
               >
                 {chatMessages.length === 0 ? (
                   <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
-                    Beschreibe was du aendern willst — Gemini erstellt den Task automatisch.
+                    Beschreibe was du aendern willst — Maya erstellt den Task automatisch.
                   </div>
                 ) : null}
                 {chatMessages.map((message, index) => (
@@ -1057,7 +1064,7 @@ export function BuilderStudioPage() {
                 ))}
                 {chatLoading ? (
                   <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
-                    Gemini denkt nach...
+                    Maya denkt nach...
                   </div>
                 ) : null}
                 <div ref={chatEndRef} />
