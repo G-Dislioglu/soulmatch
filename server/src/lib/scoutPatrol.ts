@@ -91,8 +91,18 @@ let customExcludes: string[] = [];
 // ── Helpers ──
 function getScanTargets(): string[] {
 	try {
-		const indexPath = process.cwd() + '/data/builder-repo-index.json';
-		const raw = readFileSync(indexPath, 'utf-8');
+		const { resolve } = require('path') as typeof import('path');
+		const candidates = [
+			resolve(process.cwd(), 'data/builder-repo-index.json'),
+			resolve(process.cwd(), 'docs/builder-repo-index.json'),
+			resolve(process.cwd(), '../docs/builder-repo-index.json'),
+			resolve(process.cwd(), '../server/data/builder-repo-index.json'),
+		];
+		let raw = '';
+		for (const p of candidates) {
+			try { raw = readFileSync(p, 'utf-8'); break; } catch { /* try next */ }
+		}
+		if (!raw) return [];
 		const index = JSON.parse(raw) as { f: Array<{ p: string; l: number }> };
 		const allExcludes = [...DEFAULT_EXCLUDES, ...customExcludes];
 		return index.f
