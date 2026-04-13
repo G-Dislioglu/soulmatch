@@ -29,6 +29,7 @@ export async function getWorstPerformers(limit = 10): Promise<Array<{ worker: st
 		}));
 }
 
+/** Returns aggregated task statistics from the database */
 export async function getTaskStats(): Promise<{total: number, done: number, blocked: number}> {
 	const db = getDb();
 	const rows = await db.execute(sql`
