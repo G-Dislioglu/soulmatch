@@ -524,7 +524,7 @@ async function classifyIntent(
       ...history.map((entry) => ({ role: entry.role, content: entry.content })),
       { role: 'user' as const, content: message },
     ],
-    maxTokens: 500,
+    maxTokens: 800,
     temperature: 0.3,
   });
 
@@ -538,6 +538,14 @@ async function classifyIntent(
 
     return normalizeClassifiedIntent(message, JSON.parse(jsonMatch[0]) as ClassifiedIntent);
   } catch {
+    // JSON.parse failed — likely truncated JSON from LLM.
+    // Try to extract the message field from partial JSON.
+    const msgExtract = response.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)/);
+    if (msgExtract?.[1]) {
+      const cleaned = msgExtract[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      return { intent: 'chat', message: cleaned } as ClassifiedIntent;
+    }
+
     return looksLikeTaskRequest(message)
       ? buildFallbackTaskIntent(message)
       : { intent: 'chat', message: response };
