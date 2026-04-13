@@ -17,6 +17,7 @@ import { builderErrorCards, builderMemory } from '../schema/builder.js';
 import { callProvider } from './providers.js';
 import { sql } from 'drizzle-orm';
 import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { readFile } from './builderFileIO.js';
 import { getRepoRoot } from './builderExecutor.js';
 import { requireDevToken } from './requireDevToken.js';
@@ -91,9 +92,9 @@ let customExcludes: string[] = [];
 // ── Helpers ──
 function getScanTargets(): string[] {
 	try {
-		const { resolve } = require('path') as typeof import('path');
 		const candidates = [
 			resolve(process.cwd(), 'data/builder-repo-index.json'),
+			resolve(process.cwd(), 'server/data/builder-repo-index.json'),
 			resolve(process.cwd(), 'docs/builder-repo-index.json'),
 			resolve(process.cwd(), '../docs/builder-repo-index.json'),
 			resolve(process.cwd(), '../server/data/builder-repo-index.json'),
