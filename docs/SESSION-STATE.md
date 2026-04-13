@@ -1,4 +1,4 @@
-# SESSION-STATE — Stand 13.04.2026, S20
+# SESSION-STATE — Stand 13.04.2026, S21
 
 ## Kanonische Builder-Wahrheit
 
@@ -101,22 +101,35 @@ scouting -> planning -> council -> swarm -> applying -> done/error
 ```
 Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt alle Phasen.
 
+## S21 Ergebnisse (13.04.2026)
+
+### Live-Tests
+| Test | Ergebnis |
+|------|----------|
+| Status-Tracking (Phasen live in DB) | Verifiziert: scouting→planning→applying→done |
+| Quick Mode auf kleinen Dateien (<10KB) | Funktioniert |
+| Grosse Dateien (38KB+) via Pipeline | Blocked — Worker SEARCH/REPLACE zu ungenau |
+| Fuzzy Matching | Greift nur bei leichten Abweichungen, nicht bei komplett falschem Output |
+| Cleanup (blocked Tasks) | 3 blocked Tasks bereinigt |
+
+### Erkenntnisse
+- **Fuzzy Matching hilft bei Whitespace/Indentation-Differenzen**, nicht bei komplett falschem Worker-Output
+- **Grosse Dateien (>20KB) muessen weiterhin via /git-push direkt** geaendert werden
+- **Status-Tracking funktioniert end-to-end** — Phasen sind live sichtbar
+
 ## Offene Probleme (priorisiert)
 
 ### Hoch
-(keine — alle S19 High-Priority-Probleme geloest)
+(keine)
 
 ### Mittel
-1. **Worker SEARCH/REPLACE**: Fuzzy Matching deployed, muss in Praxis getestet werden
+1. **Worker SEARCH/REPLACE auf grossen Dateien**: Fundamentales LLM-Limit — Fuzzy Matching hilft nur bei leichten Differenzen. Loesung: /git-push fuer >20KB.
 2. `/builder` + `/maya` Konsolidierung (beide >50KB, braucht Copilot)
-3. Task-Detail-View: "undefined" nicht reproduzierbar — Rendering hat korrekte ?? Guards
-4. `/migrate`: cwd gefixt, aber drizzle-kit nur devDep → auf Render nicht verfuegbar (Schema-Push via Build-Step)
-5. orchestrateTask: kein Legacy — ist aktiver Quick-Mode-Pfad, keine Aktion noetig
 
 ### Perspektivisch
-7. Nachdenker-Aggregation
-8. Pipeline-Monitoring UI (Live-Fortschritt im Chat)
-9. AICOS-Card-Integration
+3. Nachdenker-Aggregation
+4. Pipeline-Monitoring UI (Live-Fortschritt im Chat)
+5. AICOS-Card-Integration
 
 ## Neue Endpoints (S19-S20)
 
