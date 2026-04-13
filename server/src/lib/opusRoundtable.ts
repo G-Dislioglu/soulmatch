@@ -101,7 +101,29 @@ function normalizeProvider(provider: string): string {
   return provider === 'google' ? 'gemini' : provider;
 }
 
-function resolveReadCommands(commands: BdlCommand[]): string {
+async function fetchFileFromGitHub(filePath: string): Promise<string | null> {
+  const pat = process.env.GITHUB_PAT;
+  const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+  };
+  if (pat) headers.Authorization = `Bearer ${pat}`;
+
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/${filePath}?ref=main`;
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return null;
+    const data = await response.json() as { content?: string; encoding?: string };
+    if (data.content && data.encoding === 'base64') {
+      return Buffer.from(data.content, 'base64').toString('utf-8');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveReadCommands(commands: BdlCommand[]): Promise<string> {
   const reads: string[] = [];
 
   for (const cmd of commands) {
@@ -111,8 +133,8 @@ function resolveReadCommands(commands: BdlCommand[]): string {
 
     if (filePath.includes('.env') || filePath.includes('node_modules')) continue;
 
-    let resolved = '';
-    let found = false;
+    // Try local filesystem first
+    let content: string | null = null;
     const candidates = [
       path.resolve(REPO_ROOT, filePath),
       path.resolve(REPO_ROOT, filePath.replace(/^server\//, '')),
@@ -122,28 +144,33 @@ function resolveReadCommands(commands: BdlCommand[]): string {
     for (const candidate of candidates) {
       if (!candidate.startsWith(path.resolve(REPO_ROOT, '..'))) continue;
       if (fs.existsSync(candidate)) {
-        resolved = candidate;
-        found = true;
+        try {
+          content = fs.readFileSync(candidate, 'utf-8');
+        } catch { /* fallthrough to GitHub */ }
         break;
       }
     }
 
-    if (!found) {
-      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden (geprüfte Pfade: ${candidates.map((candidate) => candidate.replace(REPO_ROOT, '.')).join(', ')})`);
+    // Fallback: GitHub Contents API (works on Render where TS sources don't exist on disk)
+    if (!content) {
+      console.log(`[file-reader] local miss for ${filePath}, trying GitHub API...`);
+      content = await fetchFileFromGitHub(filePath);
+      if (content) {
+        console.log(`[file-reader] GitHub hit for ${filePath} (${content.length} chars)`);
+      }
+    }
+
+    if (!content) {
+      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden (lokal + GitHub)`);
       continue;
     }
 
-    try {
-      const content = fs.readFileSync(resolved, 'utf-8');
-      if (content.length > MAX_FILE_SIZE) {
-        const headSize = Math.floor(MAX_FILE_SIZE * 0.6);
-        const tailSize = MAX_FILE_SIZE - headSize;
-        reads.push(`[FILE: ${filePath}] (${content.length} Zeichen, Anfang+Ende gezeigt)\n${content.slice(0, headSize)}\n\n[... ${content.length - headSize - tailSize} Zeichen ausgelassen ...]\n\n${content.slice(-tailSize)}`);
-      } else {
-        reads.push(`[FILE: ${filePath}]\n${content}`);
-      }
-    } catch {
-      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden oder nicht lesbar`);
+    if (content.length > MAX_FILE_SIZE) {
+      const headSize = Math.floor(MAX_FILE_SIZE * 0.6);
+      const tailSize = MAX_FILE_SIZE - headSize;
+      reads.push(`[FILE: ${filePath}] (${content.length} Zeichen, Anfang+Ende gezeigt)\n${content.slice(0, headSize)}\n\n[... ${content.length - headSize - tailSize} Zeichen ausgelassen ...]\n\n${content.slice(-tailSize)}`);
+    } else {
+      reads.push(`[FILE: ${filePath}]\n${content}`);
     }
   }
 
@@ -389,7 +416,7 @@ export async function runRoundtable(
     const allCommands = roundMessages.flatMap((message) =>
       Array.isArray(message.commands) ? message.commands as BdlCommand[] : [],
     );
-    const readResults = resolveReadCommands(allCommands);
+    const readResults = await resolveReadCommands(allCommands);
 
     if (readResults) {
       const readMessage = await addChatPoolMessage({
