@@ -177,6 +177,62 @@ async function resolveReadCommands(commands: BdlCommand[]): Promise<string> {
   return reads.join('\n\n');
 }
 
+async function resolveFindPatternCommands(commands: BdlCommand[]): Promise<string> {
+  const results: string[] = [];
+  const pat = process.env.GITHUB_PAT;
+  const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+
+  for (const cmd of commands) {
+    if (cmd.kind !== 'FIND_PATTERN') continue;
+    const pattern = cmd.params?.pattern;
+    if (!pattern) continue;
+    const fileGlob = cmd.params?.fileGlob;
+
+    // Try local grep first
+    try {
+      const { execSync } = await import('child_process');
+      const safePattern = pattern.replace(/"/g, '\\"');
+      const includePart = fileGlob ? ` --include="${fileGlob.replace(/"/g, '\\"')}"` : '';
+      const grepCmd = `grep -rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git${includePart} -E "${safePattern}" . 2>/dev/null | head -30`;
+      const output = execSync(grepCmd, { cwd: REPO_ROOT, encoding: 'utf-8', maxBuffer: 1024 * 1024, timeout: 5000 });
+      if (output.trim()) {
+        results.push(`[FIND_PATTERN: "${pattern}"${fileGlob ? ` glob:${fileGlob}` : ''}]\n${output.trim()}`);
+        console.log(`[find-pattern] local grep hit for "${pattern}" (${output.trim().split('\n').length} matches)`);
+        continue;
+      }
+    } catch { /* local grep failed, try GitHub */ }
+
+    // Fallback: GitHub Code Search API
+    if (pat) {
+      try {
+        const query = encodeURIComponent(`${pattern} repo:${repo}${fileGlob ? ` path:${fileGlob.replace('*', '')}` : ''}`);
+        const url = `https://api.github.com/search/code?q=${query}&per_page=10`;
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (response.ok) {
+          const data = await response.json() as { items?: Array<{ path: string; name: string }> };
+          const items = data.items ?? [];
+          if (items.length > 0) {
+            const matchList = items.map((item) => `  ${item.path}`).join('\n');
+            results.push(`[FIND_PATTERN: "${pattern}"${fileGlob ? ` glob:${fileGlob}` : ''}]\nDateien mit Treffern:\n${matchList}`);
+            console.log(`[find-pattern] GitHub search hit for "${pattern}" (${items.length} files)`);
+            continue;
+          }
+        }
+      } catch (err) {
+        console.error(`[find-pattern] GitHub search failed:`, err);
+      }
+    }
+
+    results.push(`[FIND_PATTERN: "${pattern}"${fileGlob ? ` glob:${fileGlob}` : ''}] — Kein Treffer gefunden`);
+    console.log(`[find-pattern] no results for "${pattern}"`);
+  }
+
+  return results.join('\n\n');
+}
+
 function buildRoundtableSystemPrompt(
   participant: RoundtableParticipant,
   task: { title: string; goal: string; scope?: string[]; risk?: string },
@@ -432,6 +488,24 @@ export async function runRoundtable(
         durationMs: 0,
       });
       chatPool.push(readMessage);
+    }
+
+    // Process @FIND_PATTERN commands
+    const findResults = await resolveFindPatternCommands(allCommands);
+    if (findResults) {
+      const findMessage = await addChatPoolMessage({
+        taskId: task.id,
+        round,
+        phase: 'roundtable',
+        actor: 'system',
+        model: 'pattern-finder',
+        content: `=== PATTERN-SUCHE (angefordert durch @FIND_PATTERN) ===\n\n${findResults}`,
+        commands: [],
+        executionResults: {},
+        tokensUsed: 0,
+        durationMs: 0,
+      });
+      chatPool.push(findMessage);
     }
 
     const approvals = countApprovals(chatPool, round);
