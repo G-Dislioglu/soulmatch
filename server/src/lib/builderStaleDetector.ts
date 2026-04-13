@@ -6,9 +6,16 @@ import { builderOpusLog, builderTasks } from '../schema/builder.js';
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 const STALE_THRESHOLDS = {
+  classifying: 5 * 60 * 1000,
   planning: 10 * 60 * 1000,
+  scouting: 10 * 60 * 1000,
+  scouted: 10 * 60 * 1000,
+  swarm: 15 * 60 * 1000,
   consensus: 15 * 60 * 1000,
+  no_consensus: 10 * 60 * 1000,
   push_candidate: 10 * 60 * 1000,
+  review_needed: 20 * 60 * 1000,
+  applying: 10 * 60 * 1000,
 } as const;
 
 let staleDetectorStarted = false;
