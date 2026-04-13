@@ -943,8 +943,9 @@ router.post('/maya/action', async (req: Request, res: Response) => {
     const BUILDER_ROUTES = ['/batch-delete-tasks']; // routes under /api/builder (not opus-bridge)
     // Also allow task and memory endpoints with dynamic IDs
     const isTaskDelete = /^\/tasks\/[\w-]+$/.test(action.endpoint);
+    const isOverride = /^\/override\/[\w-]+$/.test(action.endpoint);
     const isMemoryOp = /^\/maya\/memory(\/[\w-]+)?$/.test(action.endpoint);
-    if (!ALLOWED.includes(action.endpoint) && !BUILDER_ROUTES.includes(action.endpoint) && !isTaskDelete && !isMemoryOp) {
+    if (!ALLOWED.includes(action.endpoint) && !BUILDER_ROUTES.includes(action.endpoint) && !isTaskDelete && !isOverride && !isMemoryOp) {
       res.status(400).json({ error: `Endpoint ${action.endpoint} not allowed.` });
       return;
     }

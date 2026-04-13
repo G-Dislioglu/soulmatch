@@ -88,5 +88,14 @@ export function useMayaApi(token: string | null) {
     });
   }, [request]);
 
-  return { getContext, chat, chatWithFile, executeAction, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
+  const cancelTask = useCallback((taskId: string) =>
+    request<{ success: boolean; result?: unknown }>('/maya/action', {
+      method: 'POST',
+      body: JSON.stringify({ action: { endpoint: `/override/${taskId}`, params: { action: 'cancel', reason: 'Cancelled via Maya UI' } }, confirmed: true }),
+    }), [request]);
+
+  const deleteTask = useCallback((taskId: string) =>
+    request<{ deleted: boolean; taskId: string }>(`/tasks/${taskId}`, { method: 'DELETE' }), [request]);
+
+  return { getContext, chat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
 }
