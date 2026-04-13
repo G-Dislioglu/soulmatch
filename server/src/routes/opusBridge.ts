@@ -812,11 +812,12 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
 // ==================== DB MIGRATE (drizzle-kit push) ====================
 opusBridgeRouter.post('/migrate', (_req: Request, res: Response) => {
   try {
-    const serverRoot = path.resolve(process.cwd(), '..');
+    // drizzle.config.ts lives in server/ — which is process.cwd() on Render
     const output = execSync('npx drizzle-kit push', {
-      cwd: serverRoot,
+      cwd: process.cwd(),
       env: { ...process.env },
       encoding: 'utf-8',
+      timeout: 30_000,
     });
     res.json({ ok: true, output });
   } catch (err) {
