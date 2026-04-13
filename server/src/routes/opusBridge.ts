@@ -21,6 +21,7 @@ import {
 import { getDb } from '../db.js';
 import { addChatPoolMessage, getChatPoolForTask } from '../lib/opusChatPool.js';
 import { callProvider } from '../lib/providers.js';
+import { getTaskStats, getRecentCompletedTasks } from '../lib/builderMetrics.js';
 import { findPattern, readFile } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
@@ -336,6 +337,20 @@ opusBridgeRouter.get('/audit', async (_req: Request, res: Response) => {
       opusLogCount: opusLogs.length,
       totalOpusTokens: totalLogTokens,
     });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+
+// GET /metrics — builder task stats and recent completions
+opusBridgeRouter.get('/metrics', async (_req: Request, res: Response) => {
+  try {
+    const [stats, recentTasks] = await Promise.all([
+      getTaskStats(),
+      getRecentCompletedTasks(),
+    ]);
+    res.json({ stats, recentTasks });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
