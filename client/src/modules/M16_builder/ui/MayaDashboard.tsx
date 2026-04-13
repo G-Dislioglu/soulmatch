@@ -752,7 +752,7 @@ export function MayaDashboard() {
                 }}>{m.role === 'maya' ? 'M' : 'G'}</div>
                 <div style={{ maxWidth: 620, flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: m.role === 'maya' ? MAYA : TOKENS.gold, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {m.role === 'maya' ? 'Maya' : 'G\u00FCrcan'}
+                    {m.role === 'maya' ? 'Maya' : 'Gürcan'}
                     {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{m.model}</span>}
                     <CopyBtn text={m.text} />
                   </div>
@@ -771,7 +771,7 @@ export function MayaDashboard() {
                             <code style={{ fontSize: 11, color: TOKENS.text, background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6, border: `1px solid ${TOKENS.b3}` }}>{a.endpoint}{a.branch ? ` → ${a.branch}` : ''}</code>
                           </div>
                           <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10, lineHeight: 1.5 }}>{a.description}</div>
-                          {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '7px 16px', borderRadius: 999, border: `1.5px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausf\u00FChren</button>}
+                          {st === 'idle' && <button onClick={() => runAction(key, a)} style={{ fontSize: 11, fontWeight: 600, padding: '7px 16px', borderRadius: 999, border: `1.5px solid ${rc.border}`, background: 'transparent', color: rc.text, cursor: 'pointer' }}>Ausführen</button>}
                           {st === 'confirm' && (
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                               <span style={{ fontSize: 11, color: rc.text }}>Bist du sicher?</span>
