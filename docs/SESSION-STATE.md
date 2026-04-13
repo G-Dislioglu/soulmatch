@@ -147,3 +147,5 @@ Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt a
 - **Git-Push:** POST /api/builder/opus-bridge/git-push?opus_token=... (supports delete:true)
 - **TS-Check:** `cd server && npx tsc --noEmit && cd ../client && npx tsc -b`
 - **Sequential Push:** 60-75s Delay, 50KB per-file Limit (Action), unbegrenzt via /git-push
+
+<!-- deploy-trigger 2026-04-13T17:25:08.493854 -->
