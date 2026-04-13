@@ -347,6 +347,7 @@ function toSafeOverwritePayloads(
  * Uses normalized line comparison with a sliding window.
  * Returns null if confidence is below 70%.
  */
+// S21-test
 function fuzzyFindBlock(original: string, searchBlock: string): {
   startIdx: number; endIdx: number; startLine: number; endLine: number; score: number;
 } | null {
