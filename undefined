@@ -1,210 +1,80 @@
-# SESSION-STATE — Stand 14.04.2026, S22
+# Provider-Specs — Verifizierte Modell-Daten
 
-## Kanonische Builder-Wahrheit
+> **Regel:** Keine Preise/Specs aus Trainingsdaten. Vor jeder Aussage zu einem Modell
+> diese Datei prüfen. Wenn `Geprüft` älter als 2 Wochen → neu recherchieren.
 
-### Zwei Executor-Pfade (Maya routet automatisch)
+Letzte Gesamtprüfung: **14. April 2026**
 
-| Pfad | Endpoint | Wann | Laufzeit | Kosten |
-|------|----------|------|----------|--------|
-| **Schnellmodus** | `/opus-task` | Einfache Tasks, kleine Aenderungen | ~30-90s | ~$0.02 |
-| **Pipeline-Modus** | `/build` | Komplexe Tasks, Multi-File, Architektur | ~2min | ~$0.15-0.30 |
+## Unsere Worker
 
-Maya entscheidet via `determineBuildMode()` in `builderFusionChat.ts`.
+| Modell | Provider | Model-ID | Kontext | Max Output | Preis In/Out ($/1M) | Geprüft |
+|--------|----------|----------|---------|------------|---------------------|---------|
+| DeepSeek Chat | deepseek | `deepseek-chat` | 128K | 8K (Default 4K) | $0.28 / $0.42 | 09.04.2026 (Screenshot api-docs.deepseek.com) |
+| DeepSeek Reasoner | deepseek | `deepseek-reasoner` | 128K | 64K (Default 32K) | $0.28 / $0.42 | 09.04.2026 (Screenshot api-docs.deepseek.com) |
+| MiniMax M2.7 | openrouter | `minimax/minimax-m2.7` | 205K | 131K | $0.30 / $1.20 | 09.04.2026 (openrouter.ai, artificialanalysis.ai) |
+| Kimi K2.5 | openrouter | `moonshotai/kimi-k2.5` | 256K | ? | $0.60 / $3.00 | 09.04.2026 (Kimi-Eigenrecherche) |
+| Qwen 3.6 Plus | openrouter | `qwen/qwen3.6-plus` | 128K+ | ? | ~$0.40 / $1.20 | 09.04.2026 (openrouter.ai) |
+| GLM-5.1 | zhipu | `glm-5.1` | 128K+ | ? | $1.00 / $3.20 | 14.04.2026 (artificialanalysis.ai, SWE-Bench Pro 58.4) |
+| GLM-5-Turbo | zhipu | `glm-5-turbo` | 203K | 131K | $1.20 / $4.00 | 09.04.2026 (openrouter.ai, z.ai) |
+| GLM-4.7-Flash | zhipu | `glm-4.7-flash` | 203K | ? | $0.06 / $0.40 | 09.04.2026 (Kimi-Recherche, BEZAHLT über Zhipu-Guthaben) |
+| Grok-4-1-fast | xai | `grok-4-1-fast` | 128K | ? | $0.20 / $0.50 | 09.04.2026 (Handoff S7) |
 
-### Pipeline-Modus: Volle Kette
-```
-Scout (Pool) → Destillierer (Pool) → Council (Pool, Maya-moderiert)
-  → Worker (Pool, Memory-aware, Agent Brief) → TSC Verify [Auto-Retry] → GitHub Push → Deploy
-  → Nachdenker: updateAgentProfiles() + reflectOnTask() + buildAgentBrief()
-```
+## Judge
 
-### Schnellmodus: Direkt
-```
-Instruction → Scope Resolver → Worker → JSON Overwrite → Push → Deploy
-```
+| Modell | Provider | Model-ID | Kontext | Max Output | Preis In/Out ($/1M) | Geprüft |
+|--------|----------|----------|---------|------------|---------------------|---------|
+| Gemini 3 Flash | gemini | `gemini-3-flash-preview` | **1M** | 66K | $0.50 / $3.00 | 09.04.2026 (openrouter.ai, Google AI pricing page) |
 
-## UI: Eine konsolidierte Builder-Seite
+## Meister (Roundtable)
 
-| Route | Seite | Status |
-|-------|-------|--------|
-| `/builder` | BuilderStudioPage (1619 Z.) | EINZIGE Seite — Pool-Bar, Maya Chat, Tasks, Notes, Memory, System |
-| `/maya` | — | ENTFERNT (S21) — React-Route geloescht, SPA-Fallback zeigt leere Seite |
+| Modell | Provider | Model-ID | Kontext | Preis In/Out ($/1M) | Geprüft |
+|--------|----------|----------|---------|---------------------|---------|
+| Claude Opus 4.6 | anthropic | `claude-opus-4-6` | 200K | $5.00 / $25.00 | 09.04.2026 |
+| GPT-5.4 | openai | `gpt-5.4` | 128K | $2.50 / $15.00 | 09.04.2026 (Handoff S7) |
+| GLM-5-Turbo | zhipu | `glm-5-turbo` | 203K | $1.20 / $4.00 | s.o. |
+| MiniMax M2.7 | openrouter | `minimax/minimax-m2.7` | 205K | $0.30 / $1.20 | s.o. |
+| DeepSeek Reasoner | deepseek | `deepseek-reasoner` | 128K | $0.28 / $0.42 | **Geplant als neuer Meister** |
 
-Token-Logik: URL-Param `?token=` oder `?opus_token=` oder `localStorage('maya-token')`.
-Beide Secrets akzeptiert: `builder-2026-geheim` und `opus-bridge-2026-geheim`.
+## Scouts
 
-## Scout Patrol v0.2 (NEU S21)
+| Modell | Provider | Model-ID | Kontext | Preis In/Out ($/1M) | Geprüft |
+|--------|----------|----------|---------|---------------------|---------|
+| GLM-4.7-Flash | zhipu | `glm-4.7-flash` | 203K | $0.06 / $0.40 | 09.04.2026 |
+| Gemini 3 Flash | gemini | `gemini-3-flash-preview` | 1M | $0.50 / $3.00 | 09.04.2026 |
+| Grok-4-1-fast | xai | `grok-4-1-fast` | 128K | $0.20 / $0.50 | 09.04.2026 |
 
-### Routine Patrol (automatisch, stuendlich)
-- 2 guenstige Scouts (GLM-4.7-Flash + DeepSeek Chat) scannen DIESELBEN 5 Dateien
-- Cross-Referenz: beide finden gleiches → confidence: cross-confirmed, auto triaged
-- Finding-States: signal → triaged → verified → dismissed → fixed
-- Continuity Note nach jeder Runde (Maya weiss Bescheid)
-- Round-Robin durch alle Server-Dateien (20-800 Zeilen, keine dist/node_modules)
+## Entscheidungen
 
-### Deep Patrol (manuell, Premium-Modelle)
-| Modell | Provider | Preis In/Out |
-|--------|----------|-------------|
-| GLM-5.1 | zhipu | $1.00/$3.20 |
-| GLM-5-Turbo | zhipu | $1.20/$4.00 |
-| GPT-5.4 | openai | $2.50/$15.00 |
-| Claude Sonnet 4.6 | anthropic | $3.00/$15.00 |
-| DeepSeek Reasoner | deepseek | $0.28/$0.42 |
-| Kimi K2.5 | openrouter | $0.60/$3.00 |
+- **Keine Free-Tier Modelle** — Free-Versionen sammeln Prompt-Daten (Data Collection). Wir nutzen ausschließlich bezahlte APIs.
+- **GLM-4.7-Flash ist BEZAHLT** — läuft über Zhipu API mit Gürcan's $5 Guthaben, nicht über OpenRouter Free.
+- **MiniMax M2.7 statt M2.5** — Gürcan hat explizit auf M2.7 upgraden lassen (M2.5 hatte besseren SWE-Bench, M2.7 ist neuer und für Agent-Workflows optimiert).
+- **DeepSeek Reasoner als Meister geplant** — gleicher Preis wie Chat ($0.28/$0.42), aber Chain-of-Thought Thinking. Für Worker zu langsam, für Meister ideal.
+- **Gemini 3 Flash als Judge** — 1M Kontext, kein Truncation nötig, volle Worker-Outputs.
+- **GLM-5.1 als Deep Patrol** — SWE-Bench Pro #1 (58.4), schlägt GPT-5.4 (57.7) und Opus 4.6 (57.3). Code Arena Platz 3 (1530 Elo). Günstiger als GLM-5-Turbo.
 
-### Patrol Endpoints
-```
-GET  /api/builder/patrol/status          — Status, Events, Modell-Pool
-POST /api/builder/patrol/run             — Routine manuell triggern
-POST /api/builder/patrol/deep            — Deep Patrol: {models: [...], files: [...]}
-GET  /api/builder/patrol/findings        — Alle Findings
-POST /api/builder/patrol/findings/:id/verify  — Finding bestaetigen
-POST /api/builder/patrol/findings/:id/dismiss — Finding verwerfen
-POST /api/builder/patrol/exclude         — Excludes verwalten
-```
+## Patrol-Modelle (NEU S21)
 
-### Patrol UI: FEHLT NOCH
-Backend laeuft, Findings werden gesammelt, aber kein UI-Block in der Builder-Seite.
-Naechster Schritt: PATROL-Karte in Pool-Bar + Scout Console Block.
+### Routine Patrol (stuendlich, automatisch)
+| Modell | Provider | Model-ID | Preis In/Out ($/1M) |
+|--------|----------|----------|---------------------|
+| GLM-4.7-Flash | zhipu | `glm-4.7-flash` | $0.06 / $0.40 |
+| DeepSeek Chat | deepseek | `deepseek-chat` | $0.28 / $0.42 |
 
-## S19 Ergebnisse (13.04.2026)
+### Deep Patrol (manuell, Premium)
+| Modell | Provider | Model-ID | Preis In/Out ($/1M) | Staerke |
+|--------|----------|----------|---------------------|---------|
+| GLM-5.1 | zhipu | `glm-5.1` | $1.00 / $3.20 | SWE-Bench Pro #1 |
+| GLM-5-Turbo | zhipu | `glm-5-turbo` | $1.20 / $4.00 | Bewaehrt |
+| GPT-5.4 | openai | `gpt-5.4` | $2.50 / $15.00 | Premium Reasoning |
+| Claude Sonnet 4.6 | anthropic | `claude-sonnet-4-6` | $3.00 / $15.00 | Code-Analyse |
+| DeepSeek Reasoner | deepseek | `deepseek-reasoner` | $0.28 / $0.42 | CoT, guenstig |
+| Kimi K2.5 | openrouter | `moonshotai/kimi-k2.5` | $0.60 / $3.00 | 256K Kontext |
 
-### Docs + Cleanup
-| # | Aktion | Status |
-|---|--------|--------|
-| 1 | CLAUDE.md Drift gefixt (Persistence, Provider, Module, Builder) | ✅ Deployed |
-| 2 | STATE.md auf S18-Stand (Header + Bloecke) | ✅ Deployed |
-| 3 | 14 tote Code-Dateien geloescht | ✅ Verifiziert |
-| 4 | 6 Docs archiviert + 2 Artefakte geloescht | ✅ Verifiziert |
+## Quellen
 
-### Pipeline-Tests
-| # | Test | Ergebnis |
-|---|------|----------|
-| 5 | Schnellmodus: getRecentCompletedTasks (builderMetrics.ts) | ✅ Deployed, Commit 5524972 |
-| 6 | GET /metrics Endpoint (opusBridge.ts) | ✅ Manuell gepusht nach Council-Deadlock |
-| 7 | FIND_PATTERN Support im Roundtable | ✅ Fix deployed (local grep + GitHub Search API) |
-| 8 | Pipeline-Test: /pipeline-health Endpoint | ❌ Worker SEARCH/REPLACE fehlerhaft auf grosser Datei |
-
-### Pipeline-Erkenntnisse
-- **Schnellmodus funktioniert zuverlaessig** fuer kleine Dateien (<10KB)
-- **Pipeline-Modus (Council)** hat zwei behobene/bekannte Probleme:
-  1. ~~FIND_PATTERN nicht implementiert~~ → **Gefixt**: local grep + GitHub Code Search Fallback
-  2. **Worker SEARCH/REPLACE ungenau auf grossen Dateien** (>20KB): Minimax produziert falsche SEARCH-Bloecke
-- **Status-Tracking-Bug**: Task-Status bleibt auf "scouting" wenn Pipeline intern weiterlaeuft
-- **Chat→Build**: Erzeugt ACTION-Bloecke die im UI als Buttons gerendert werden (designed flow). Auto-Execute nur bei intent=task Klassifikation (konservativ)
-
-## Autonome Systeme
-
-| System | Status |
-|--------|--------|
-| Stale-Detector | Aktiv, 5-Min-Intervall, 11 Statuse (inkl. council NEU S20) |
-| Cancel-System | Override-EP + Maya-Intent + UI-Buttons |
-| Distiller Intent-Treue | Wortlaut-Anker + Duplikat-Check (S17) |
-| Auto-Index-Regen | Feuert nach jedem /git-push |
-| FIND_PATTERN | NEU S19: local grep + GitHub Code Search API Fallback |
-| Scout Patrol v0.2 | NEU S21: 2 Routine-Scouts (stuendlich) + 6 Deep-Models (manuell) |
-
-## Aktive Entscheidungen
-
-1. `/opus-task` = Schnellmodus, `/build` = Pipeline-Modus
-2. Full-File JSON Overwrite als einziger Change-Contract
-3. SEARCH/REPLACE in `/push` bleibt fuer >50KB Dateien
-4. Keine Free-Modelle (OpenRouter `:free` verboten)
-5. Preise/Specs: `docs/provider-specs.md` pruefen
-6. TSC Verify ist Pflicht vor jedem Push
-7. `/builder` ist die bevorzugte UI
-8. Grosse Dateien (>20KB): Fuzzy Line Matching hilft, aber /git-push bleibt zuverlaessiger
-
-## S20 Ergebnisse (13.04.2026)
-
-### Cleanup + Bug-Fixes
-| # | Aktion | Status |
-|---|--------|--------|
-| 1 | Duplikat POST /cleanup geloescht (alter Endpoint Zeile 1009) | Deployed |
-| 2 | FK-Luecke gefixt: builderMemory + sourceTaskId Cascade | Deployed |
-| 3 | Resilientes Cleanup: per-task try/catch + raw SQL fallback | Deployed |
-| 4 | 363 alte Tasks geloescht: DB sauber (503 done, 0 blocked) | Verifiziert |
-| 5 | Status-Tracking-Bug gefixt: updateTaskStatus() Helper + 5 Phasen-Updates | Deployed |
-| 6 | Stale-Detector: council Status (15min Threshold) hinzugefuegt | Deployed |
-| 7 | Fuzzy Line Matching fuer SEARCH/REPLACE auf grossen Dateien (70% Threshold) | Deployed |
-| 8 | /migrate cwd-Fix (process.cwd() statt parent dir) | Deployed |
-| 9 | Chat-Intent-Heuristik gestaerkt (mehr Verben, Code-Hints, Action-Phrases) | Deployed |
-
-### Status-Phasen (NEU S20)
-```
-scouting -> planning -> council -> swarm -> applying -> done/error
-```
-Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt alle Phasen.
-
-## S21 Ergebnisse (13.04.2026)
-
-### Builder Konsolidierung
-- /maya + /builder zu EINER Seite zusammengefuehrt (BuilderStudioPage 1619 Z.)
-- Pool-Stats-Bar, Worker-Dropdown, Session-Banner, Notes, Memory, System Status
-- Token-Fix: beide Secrets + opus_token Query-Param
-- /maya React-Route entfernt
-
-### Maya Chat
-- Chat-Hoehe 240→420px, Auto-Scroll nur innerhalb Container
-- JSON-Display-Bug gefixt (truncated JSON → sauberer Text)
-- maxTokens 500→800
-
-### Scout Patrol v0.2 (NEU)
-- scoutPatrol.ts deployed (~420 Zeilen)
-- Routine: GLM-4.7-Flash + DeepSeek Chat (cross-reference, stuendlich)
-- Deep: 6 Premium-Modelle (GLM-5.1, GLM-5-Turbo, GPT-5.4, Sonnet 4.6, DeepSeek-R, Kimi)
-- Finding-States: signal → triaged → verified → dismissed → fixed
-- 25 Findings in DB (5 high, 10 medium, 6 low, 4 info)
-
-### Audio-System
-- Non-Stream + SSE-Stream TTS verifiziert (Gemini Preview TTS)
-- LLM und TTS sind entkoppelt → Multi-Provider-Routing moeglich
-
-## S22 Ergebnisse (14.04.2026)
-
-### Maya Chat-Fix (KERN-FIX)
-- System-Prompt komplett umgeschrieben: freies Gespraech statt starrer JSON-Klassifizierung
-- Blacklist greift NUR bei Task-Intent, nicht bei Chat ueber gesperrte Dateien
-- Fragen-Erkennung: "haben die patrols was gefunden?" wird korrekt als Chat erkannt
-- looksLikeTaskRequest: Question-Detector verhindert false-positive Task-Klassifizierung
-
-## Offene Probleme (priorisiert)
-
-### Hoch
-1. **Patrol UI fehlt**: Backend laeuft, Findings werden gesammelt, aber kein UI in Builder-Seite. Braucht Copilot (BuilderStudioPage >50KB).
-
-### Mittel
-2. **Worker SEARCH/REPLACE auf grossen Dateien**: LLM-Limit — /git-push fuer >20KB.
-3. **Patrol-Index-Path**: Client-Dateien nicht auf Render verfuegbar (nur dist/).
-
-### Perspektivisch
-4. Nachdenker-Aggregation
-5. Governed Builder Shell (ChatGPT-Analyse als Grundlage, Phase 2)
-6. Provider-Routing: Multi-LLM fuer Personas (DeepSeek, Grok, OpenAI) + Gemini TTS
-7. AICOS-Card-Integration
-
-## Neue Endpoints (S19-S22)
-
-| Endpoint | Methode | Was |
-|----------|---------|-----|
-| `/metrics` | GET | getTaskStats() + getRecentCompletedTasks() |
-| `/cleanup` | POST | Bulk-Delete (dryRun, statuses-Filter, resilient cascade) |
-| `/patrol/status` | GET | Patrol-Status, Events, Modell-Pool |
-| `/patrol/run` | POST | Routine-Runde manuell triggern |
-| `/patrol/deep` | POST | Deep Patrol: {models, files} |
-| `/patrol/findings` | GET | Alle Patrol-Findings |
-| `/patrol/findings/:id/verify` | POST | Finding bestaetigen |
-| `/patrol/findings/:id/dismiss` | POST | Finding verwerfen |
-| `/patrol/exclude` | POST/DELETE | Excludes verwalten |
-
-## Technische Details
-
-- **Repo:** github.com/G-Dislioglu/soulmatch, Branch main
-- **Live:** soulmatch-1.onrender.com
-- **Auth:** token=builder-2026-geheim, opus_token=opus-bridge-2026-geheim
-- **Push:** POST /api/builder/opus-bridge/push?opus_token=...
-- **Git-Push:** POST /api/builder/opus-bridge/git-push?opus_token=... (supports delete:true)
-- **TS-Check:** `cd server && npx tsc --noEmit && cd ../client && npx tsc -b`
-- **Sequential Push:** 60-75s Delay, 50KB per-file Limit (Action), unbegrenzt via /git-push
-
-<!-- deploy-trigger 2026-04-14T10:00:00.000000 -->
+- DeepSeek: api-docs.deepseek.com/quick_start/pricing (Screenshot vom User verifiziert)
+- MiniMax: openrouter.ai/minimax/minimax-m2.7
+- Kimi: Kimi-Eigenrecherche (256K bestätigt)
+- GLM: openrouter.ai/z-ai/glm-5-turbo, z.ai docs
+- Gemini: ai.google.dev/gemini-api/docs/pricing
+- Grok/Qwen: openrouter.ai
