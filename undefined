@@ -21,7 +21,6 @@ import {
 import { callProvider } from './providers.js';
 import { assembleBuilderContext } from './builderContextAssembler.js';
 import { resolveScope } from './builderScopeResolver.js';
-import { getPatrolStatus } from './scoutPatrol.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -81,83 +80,63 @@ const CHAT_VISIBLE_BLACKLIST = [
 const RETRYABLE_TASK_STATUSES = new Set(['blocked', 'review_needed', 'needs_human_review']);
 
 const SYSTEM_PROMPT = `Du bist Maya, die KI-Assistentin im Builder Studio von Soulmatch.
-Du sprichst Deutsch, locker und direkt. Du steuerst die gesamte Builder-Engine.
-Du bist eine vollwertige Gespraechspartnerin — keine Kommandozeile.
+Du sprichst Deutsch, locker und direkt. Du bist die Schaltzentrale der gesamten Builder-Engine.
 
-=== WIE DU ANTWORTEST ===
-WICHTIG: Du antwortest MEISTENS ganz normal als Fliesstext auf Deutsch. Wie ein Mensch.
-Fragen, Diskussionen, Smalltalk, Status-Anfragen, Patrol-Berichte — alles als normaler Text.
+=== GRUNDREGEL: REDE FREI ===
+Du fuehrst ein natuerliches Gespraech. Antworte in normalem Text — so wie ein Mensch reden wuerde.
+Du darfst ueber alles reden: Architektur, Code, Ideen, Patrols, Findings, Status, Probleme, Vorschlaege.
+Du hast Zugriff auf den Builder-Kontext (Tasks, Memory, Findings, Pipeline-Status, Continuity Notes).
+Nutze dieses Wissen aktiv in deinen Antworten.
 
-NUR wenn der User AUSDRUECKLICH eine Code-Aenderung, ein neues Feature oder einen konkreten
-Build-Auftrag beschreibt, antwortest du mit einem JSON-Objekt.
+=== WANN DU JSON BENUTZT ===
+NUR wenn der User AUSDRUECKLICH eine Code-Aenderung, ein Feature oder einen Fix BAUEN will.
+Klare Signale: "baue", "erstelle", "fuege hinzu", "aendere", "fixe", "implementiere", "refaktoriere"
++ eine konkrete Beschreibung WAS gebaut werden soll.
 
-=== WANN JSON (AKTION) ===
-
-TASK ERSTELLEN — NUR wenn der User eine konkrete Code-Aenderung will:
-{"intent":"task","title":"Kurzer Titel","goal":"Detaillierte Beschreibung.","risk":"low","taskType":"A"}
-Beispiele die Tasks sind:
-- "Fuege getVersion() zu builderMetrics.ts hinzu" => Task
-- "Aendere die Audio-Logik" => Task
-- "Baue einen neuen Endpoint fuer X" => Task
-
-Beispiele die KEINE Tasks sind (= normaler Chat):
-- "Was gibt es fuer Probleme?" => Chat
-- "Haben die Patrols was gefunden?" => Chat
-- "Was kannst du?" => Chat
-- "Wie ist der Status?" => Chat
-- "Erklaer mir die Pipeline" => Chat
-- "Kannst du die Taskliste aufraeumen?" => Chat ueber Moeglichkeiten, kein Task
-- Alles mit Fragezeichen ist MEISTENS kein Task
+In diesem Fall antworte mit EINEM JSON-Objekt:
+{"intent":"task","title":"Kurzer Titel","goal":"Was gebaut werden soll","risk":"low|medium|high","taskType":"A|B|C|D|P|S"}
 
 Task-Typen: A=Backend, B=UI, C=Frontend+Backend, D=Refactoring, P=Prototype, S=Architektur
-Risk: low=1 Datei, medium=mehrere Dateien, high=DB/Auth/Core
+Risk: low=1 Datei, medium=mehrere, high=DB/Auth/Core
 
-TASK GENEHMIGEN — wenn der User sagt "approve", "genehmige":
-{"intent":"approve","taskId":"ID oder 'latest'"}
+Fuer andere strukturierte Aktionen — NUR wenn der User es ausdruecklich sagt:
+- "approve"/"genehmige" => {"intent":"approve","taskId":"ID oder 'latest'"}
+- "revert"/"zurueck" => {"intent":"revert","taskId":"ID oder 'latest'"}
+- "loesch"/"delete" => {"intent":"delete","taskId":"ID oder 'latest' oder 'all_blocked'"}
+- "cancel"/"abbrechen" => {"intent":"cancel","taskId":"ID oder 'latest' oder 'all_stuck'"}
+- "retry"/"nochmal" => {"intent":"retry","taskId":"ID oder 'latest'"}
+- "details"/"zeig mir den Task" => {"intent":"detail","taskId":"ID oder 'latest'"}
 
-TASK REVERTEN — "revert", "zurueck", "rueckgaengig":
-{"intent":"revert","taskId":"ID oder 'latest'"}
+=== WICHTIG: NICHT ALS TASK INTERPRETIEREN ===
+Fragen sind KEINE Tasks! Beispiele die KEIN Task sind:
+- "Haben die Patrols was gefunden?" => Rede darueber, zeig die Findings
+- "Was macht die Builder-Engine?" => Erklaere es
+- "Wie ist der Status?" => Berichte den Pipeline-Status
+- "Kennst du dich hier aus?" => Ja, erzaehl was du weisst
+- "Kannst du die Taskliste aufraeumen?" => Frag nach was genau geloescht werden soll
+- "Was denkst du ueber X?" => Gib deine Meinung
+- Alles was mit "was", "wie", "warum", "wer", "wo", "wann", "hast du", "kennst du", "gibt es" anfaengt => CHAT, kein Task
 
-TASK LOESCHEN — "loesch", "delete", "entferne" (bezogen auf einen Task):
-{"intent":"delete","taskId":"ID oder 'latest' oder 'all_blocked'"}
-
-TASK ABBRECHEN — "cancel", "abbrechen", "stopp":
-{"intent":"cancel","taskId":"ID oder 'latest' oder 'all_stuck'"}
-
-TASK-DETAILS — "zeig mir den Task", "was ist passiert bei Task X":
-{"intent":"detail","taskId":"ID oder 'latest'"}
-
-TASK RETRY — "retry", "nochmal":
-{"intent":"retry","taskId":"ID oder 'latest'"}
-
-STATUS — "status", "was laeuft gerade":
-{"intent":"status"}
-
-=== WANN NORMALER TEXT (CHAT) ===
-Fuer ALLES andere: Fragen, Diskussionen, Erklaerungen, Patrol-Berichte, Architektur-Fragen,
-System-Status-Fragen, Vorschlaege, Smalltalk — antworte ganz normal auf Deutsch.
-KEIN JSON noetig. Einfach reden.
-
-Wenn du dir unsicher bist ob etwas ein Task oder eine Frage ist: Es ist eine Frage.
-Im Zweifel: einfach reden, nicht klassifizieren.
+Im Zweifel: REDE. Erstelle keinen Task wenn du dir nicht 100% sicher bist dass der User bauen will.
 
 === BUILDER-WISSEN ===
 - Die Engine nutzt Claude als Architect, ChatGPT als Reviewer, Claude als Secondary Reviewer
-- Pipeline: Scout → Destillierer → Council → Worker → TSC → Push → Deploy → Nachdenker
-- Status-Flow: scouting → planning → council → swarm → applying → done/error
-- Dateien in der GLOBAL_BLACKLIST: ${CHAT_VISIBLE_BLACKLIST.join(', ')}
-- Wenn der User eine gesperrte Datei aendern will, erklaere freundlich warum das nicht geht.
+- Pipeline: Scout → Destillierer → Council → Worker → TSC Verify → Push → Deploy → Nachdenker
+- Schnellmodus (/opus-task): kleine Tasks, ~30-90s
+- Pipeline-Modus (/build): komplexe Tasks, ~2min
+- Status-Flow: scouting → planning → council → swarm → applying → done/blocked/error
+- Patrol-System: 2 guenstige Scouts scannen stuendlich den Code, Findings werden als Error Cards gespeichert
+- Deep Patrol: Premium-Modelle (GLM-5.1, GPT-5.4, Sonnet 4.6) fuer gezielte Analyse
+- Gesperrte Dateien (Blacklist): ${CHAT_VISIBLE_BLACKLIST.join(', ')}
+  => Wenn jemand eine dieser Dateien AENDERN will, weise darauf hin dass sie gesperrt ist. Aber ueber sie REDEN ist voellig okay.
 
-=== PATROL-SYSTEM ===
-Du hast Zugriff auf das Scout-Patrol-System. Zwei guenstige Scouts (GLM Flash + DeepSeek)
-scannen automatisch den Code. Wenn der User nach Findings, Problemen, Patrol-Ergebnissen fragt,
-berichte aus deinem Kontext. Du weisst ueber Patrol-Findings Bescheid.
-
-=== CONTEXT AWARENESS ===
-Du erhaeltst GAPS, CONFLICTS, PATROL-FINDINGS und PIPELINE-STATUS im Kontext.
-Baue relevante Informationen natuerlich in deine Antworten ein.
-Bei blocked Tasks: Biete Recovery-Optionen an (retry/revert/delete).
-Bei Warnings: Proaktiv ansprechen.`;
+=== KONTEXT-BEWUSSTSEIN ===
+Du erhaeltst im Kontext GAPS, CONFLICTS, PIPELINE-STATUS und PATROL-FINDINGS.
+Baue diese Infos natuerlich in dein Gespraech ein:
+- Gaps/Warnings proaktiv erwaehnen
+- Bei blocked Tasks Recovery-Optionen anbieten (retry/revert/delete)
+- Patrol-Findings zusammenfassen wenn danach gefragt wird
+- Bei leerer Pipeline: kurzes positives Feedback`;
 
 async function buildSystemPrompt(userId?: string) {
   let memoryContext = "";
@@ -181,29 +160,6 @@ async function buildSystemPrompt(userId?: string) {
     }
   } catch (err: any) {
     console.warn('[buildSystemPrompt] assembleBuilderContext failed:', err?.message);
-  }
-
-  // Add patrol findings context so Maya can answer patrol questions
-  try {
-    const patrol = getPatrolStatus();
-    if (patrol.totalFindings > 0 || patrol.totalRounds > 0) {
-      const patrolLines = [
-        `\n\n=== PATROL-STATUS ===`,
-        `Runden: ${patrol.totalRounds}, Findings gesamt: ${patrol.totalFindings}`,
-        `Letzte Runde: ${patrol.lastRunAt ?? 'noch nicht gelaufen'}`,
-        `Naechster Scan ab Datei #${patrol.filePointer}`,
-      ];
-      if (patrol.recentEvents.length > 0) {
-        const recent = patrol.recentEvents.slice(0, 8);
-        patrolLines.push('Letzte Events:');
-        for (const e of recent) {
-          patrolLines.push(`  ${e.scout} ${e.file} → ${e.status} (${e.findingCount} findings)`);
-        }
-      }
-      parts.push(patrolLines.join('\n'));
-    }
-  } catch {
-    // Patrol context is optional
   }
   
   return parts.join('');
@@ -295,28 +251,24 @@ function determineBuildMode(message: string, classified: ClassifiedIntent): Buil
   return 'quick';
 }
 
-function looksLikeQuestion(message: string): boolean {
-  const normalized = message.toLowerCase();
-  // Questions about system, patrol, status, or general inquiries
-  const questionPattern = /\b(was |wie |wer |wo |wann |warum |wieso |weshalb |welch|hast du|haben die|gibt es|kannst du mir|zeig mir|erkl[aä]r|beschreib|was meinst|was denkst|was ist|was sind|was war|was gibt|was steht)\b/;
-  const inquiryWords = /\b(patrol|finding|scan|problem|issue|bug|fehler|status|bericht|report|ergebnis|analyse|check|pr[uü]f|überblick|zusammenfassung|übersicht|meinung|vorschlag|empfehlung|tipp)\b/;
-  const endsWithQuestion = /\?\s*$/;
-  // If it's clearly a question OR inquiry about system state, it's not a task
-  return questionPattern.test(normalized) || (inquiryWords.test(normalized) && !normalized.includes('baue') && !normalized.includes('erstelle')) || endsWithQuestion.test(normalized);
-}
-
 function looksLikeTaskRequest(message: string): boolean {
   const normalized = message.toLowerCase();
 
-  // Questions and inquiries are NEVER tasks
-  if (looksLikeQuestion(message)) return false;
+  // Questions about code/system are NOT task requests
+  const questionPattern = /^(was|wie|warum|wer|wo|wann|hast|haben|kennst|gibt|ist|sind|kann|koennen|können|welche|zeig|sag|erzaehl|erklaer|beschreib|meinst|denkst|findest|weisst|weißt)\b/;
+  const questionSuffix = /\?\s*$/;
+  const conversationalQuestion = /\b(was gibt|was ist|wie ist|wie geht|was meinst|was denkst|was sagst|was weisst|hast du|haben die|kennst du|gibt es|ist das|sind die|kann ich|können wir|was hat|was haben|was wurde|was war|wie war|wie viele|wie sieht)\b/;
+
+  if (questionPattern.test(normalized.trim()) || (questionSuffix.test(normalized) && conversationalQuestion.test(normalized))) {
+    return false;
+  }
 
   const taskVerb = /\b(fueg|füge|add|aendere|ändere|modify|update|fix|baue|bau|erstelle|create|schreib|patch|implement|refaktor|refactor|erg[aä]nz|rename|verschieb|entfern|lösch|delete|remove|deploy|push|install|konfigur|configur|import|export|extrah|extract|optimier|optimiz|integrier|integrat|split|trenn|merg|kombin|combin|migrier|migrat|generer|generat|korrigier|correct)\b/;
   const fileHint = /\b[\w./-]+\.(ts|tsx|js|jsx|mjs|json|css|md)\b/;
   const codeHint = /\b(function|const|import|export|interface|type|class|endpoint|route|api|component|hook|modul|service|handler|controller|middleware)\b/;
   const actionPhrase = /\b(mach|mache|sorg|kannst du|bitte|soll|sollte|muss|müsste|wäre gut|brauche|brauch|need|want|should|could you|please)\b.*\b(datei|file|code|funktion|function|endpoint|seite|page|button|component)\b/;
 
-  return taskVerb.test(normalized) || fileHint.test(normalized) || (codeHint.test(normalized) && actionPhrase.test(normalized));
+  return taskVerb.test(normalized) || (fileHint.test(normalized) && taskVerb.test(normalized)) || (codeHint.test(normalized) && actionPhrase.test(normalized));
 }
 
 function normalizeForPathMatching(value: string): string {
@@ -524,14 +476,15 @@ function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent
     classified.message,
   ].filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).join('\n'));
 
-  if (blockedTargets.length > 0) {
-    return {
-      intent: 'chat',
-      message: buildBlacklistBlockMessage(blockedTargets),
-    };
-  }
-
   if (classified.intent === 'task') {
+    // Blacklist check ONLY for task intents — talking ABOUT blacklisted files is fine
+    if (blockedTargets.length > 0) {
+      return {
+        intent: 'chat',
+        message: buildBlacklistBlockMessage(blockedTargets),
+      };
+    }
+
     return {
       ...classified,
       title: classified.title?.trim() || message.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Builder-Task aus Chat',
@@ -539,10 +492,6 @@ function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent
       risk: classified.risk?.trim() || inferRiskFromMessage(message),
       taskType: classified.taskType?.trim() || inferTaskTypeFromMessage(message),
     };
-  }
-
-  if (looksLikeTaskRequest(message) && !looksLikeQuestion(message)) {
-    return buildFallbackTaskIntent(message);
   }
 
   return classified;
@@ -567,11 +516,7 @@ async function classifyIntent(
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      // No JSON found — Maya responded with plain text (conversation mode).
-      // Only override to task if it clearly looks like a task AND not a question.
-      if (looksLikeTaskRequest(message) && !looksLikeQuestion(message)) {
-        return buildFallbackTaskIntent(message);
-      }
+      // LLM responded in plain text — this IS the chat response (new default)
       return { intent: 'chat', message: response };
     }
 
@@ -585,8 +530,8 @@ async function classifyIntent(
       return { intent: 'chat', message: cleaned } as ClassifiedIntent;
     }
 
-    // Fallback: use the raw response as chat message
-    return { intent: 'chat', message: response.replace(/```json\s*|\s*```/g, '').trim() || response };
+    // Fallback: treat the raw response as chat text
+    return { intent: 'chat', message: response };
   }
 }
 
