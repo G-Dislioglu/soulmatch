@@ -376,8 +376,9 @@ function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStat
 }
 
 // Left Sidebar — Tasks only
-function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
+function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick, onCancelTask, onDeleteTask }: {
   ctx: MayaContext | null; collapsed: boolean; onToggle: () => void; onTaskClick?: (id: string, title: string) => void;
+  onCancelTask?: (id: string) => void; onDeleteTask?: (id: string) => void;
 }) {
   if (collapsed) {
     return (
@@ -395,20 +396,35 @@ function LeftSidebar({ ctx, collapsed, onToggle, onTaskClick }: {
         <span onClick={onToggle} style={{ cursor: 'pointer', fontSize: 14, color: TOKENS.text3, padding: 4 }} title="Einklappen">{'«'}</span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-        {ctx?.tasks.slice(0, 30).map(t => (
-          <button key={t.id} onClick={() => onTaskClick?.(t.id, t.title)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-              padding: '8px 10px', borderRadius: 12, marginBottom: 4, fontSize: 11,
-              cursor: 'pointer', border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card2, color: TOKENS.text,
-            }}
-            onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.10)'; }}
-            onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b2; (e.currentTarget).style.background = TOKENS.card2; }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0, boxShadow: `0 0 4px ${STATUS_COLORS[t.status] || TOKENS.text2}50` }} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 45)}</span>
-            <span style={{ fontSize: 9, color: STATUS_COLORS[t.status] || TOKENS.text3, fontFamily: 'monospace', borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px', flexShrink: 0 }}>{t.status.slice(0, 8)}</span>
-          </button>
-        ))}
+        {ctx?.tasks.slice(0, 30).map(t => {
+          const isActive = !['done', 'cancelled', 'blocked', 'deleted', 'error'].includes(t.status);
+          return (
+          <div key={t.id} style={{ display: 'flex', gap: 4, marginBottom: 4, alignItems: 'center' }}>
+            <button onClick={() => onTaskClick?.(t.id, t.title)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, textAlign: 'left',
+                padding: '8px 10px', borderRadius: 12, fontSize: 11,
+                cursor: 'pointer', border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card2, color: TOKENS.text,
+              }}
+              onMouseEnter={e => { (e.currentTarget).style.borderColor = TOKENS.gold; (e.currentTarget).style.background = 'rgba(212,175,55,0.10)'; }}
+              onMouseLeave={e => { (e.currentTarget).style.borderColor = TOKENS.b2; (e.currentTarget).style.background = TOKENS.card2; }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLORS[t.status] || TOKENS.text2, flexShrink: 0, boxShadow: `0 0 4px ${STATUS_COLORS[t.status] || TOKENS.text2}50` }} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title.slice(0, 45)}</span>
+              <span style={{ fontSize: 9, color: STATUS_COLORS[t.status] || TOKENS.text3, fontFamily: 'monospace', borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px', flexShrink: 0 }}>{t.status.slice(0, 8)}</span>
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+              {isActive && onCancelTask ? (
+                <span onClick={(e) => { e.stopPropagation(); onCancelTask(t.id); }} title="Task abbrechen"
+                  style={{ cursor: 'pointer', fontSize: 13, color: '#fca5a5', lineHeight: 1, padding: '2px 4px', borderRadius: 6, background: 'rgba(127,29,29,0.3)' }}>{'✕'}</span>
+              ) : null}
+              {onDeleteTask ? (
+                <span onClick={(e) => { e.stopPropagation(); onDeleteTask(t.id); }} title="Task löschen"
+                  style={{ cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: '2px 4px', borderRadius: 6, color: '#fde68a', background: 'rgba(120,53,15,0.3)' }}>{'🗑'}</span>
+              ) : null}
+            </div>
+          </div>
+          );
+        })}
         {(!ctx || ctx.tasks.length === 0) && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic', padding: 8 }}>Keine Tasks.</div>}
       </div>
     </div>
@@ -535,7 +551,7 @@ export function MayaDashboard() {
     return models.length > 0 ? Math.round(models.reduce((s, m) => s + m.quality, 0) / models.length) : 0;
   };
 
-  const { getContext, chat, chatWithFile, executeAction, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
+  const { getContext, chat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
 
   const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
     setActionStatus(p => ({ ...p, [key]: confirmed ? 'pending' : 'confirm' }));
@@ -717,7 +733,10 @@ export function MayaDashboard() {
 
       {/* Main 3-column */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} onTaskClick={openTaskDetail} />
+        <LeftSidebar ctx={ctx} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} onTaskClick={openTaskDetail}
+          onCancelTask={async (id) => { try { await cancelTask(id); loadContext(); } catch (e) { setMessages(prev => [...prev, { role: 'maya', text: `\u274C Cancel fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }]); } }}
+          onDeleteTask={async (id) => { try { await deleteTask(id); loadContext(); } catch (e) { setMessages(prev => [...prev, { role: 'maya', text: `\u274C Delete fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }]); } }}
+        />
 
         {/* Chat */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
