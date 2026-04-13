@@ -63,7 +63,7 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 
 | System | Status |
 |--------|--------|
-| Stale-Detector | Aktiv, 5-Min-Intervall, 10 Statuse |
+| Stale-Detector | Aktiv, 5-Min-Intervall, 11 Statuse (inkl. council NEU S20) |
 | Cancel-System | Override-EP + Maya-Intent + UI-Buttons |
 | Distiller Intent-Treue | Wortlaut-Anker + Duplikat-Check (S17) |
 | Auto-Index-Regen | Feuert nach jedem /git-push |
@@ -78,7 +78,7 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 5. Preise/Specs: `docs/provider-specs.md` pruefen
 6. TSC Verify ist Pflicht vor jedem Push
 7. `/builder` ist die bevorzugte UI
-8. Grosse Dateien (>20KB) besser ueber `/git-push` direkt statt Pipeline
+8. Grosse Dateien (>20KB): Fuzzy Line Matching hilft, aber /git-push bleibt zuverlaessiger
 
 ## S20 Ergebnisse (13.04.2026)
 
@@ -92,6 +92,8 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 | 5 | Status-Tracking-Bug gefixt: updateTaskStatus() Helper + 5 Phasen-Updates | Deployed |
 | 6 | Stale-Detector: council Status (15min Threshold) hinzugefuegt | Deployed |
 | 7 | Fuzzy Line Matching fuer SEARCH/REPLACE auf grossen Dateien (70% Threshold) | Deployed |
+| 8 | /migrate cwd-Fix (process.cwd() statt parent dir) | Deployed |
+| 9 | Chat-Intent-Heuristik gestaerkt (mehr Verben, Code-Hints, Action-Phrases) | Deployed |
 
 ### Status-Phasen (NEU S20)
 ```
@@ -102,14 +104,14 @@ Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt a
 ## Offene Probleme (priorisiert)
 
 ### Hoch
-1. **Worker SEARCH/REPLACE auf grossen Dateien**: ~~Minimax produziert falsche Anker~~ → **Mitigiert S20**: Fuzzy Line Matching (70% Threshold) als Fallback wenn exakter Match fehlschlaegt. Muss in Praxis getestet werden.
+(keine — alle S19 High-Priority-Probleme geloest)
 
 ### Mittel
+1. **Worker SEARCH/REPLACE**: Fuzzy Matching deployed, muss in Praxis getestet werden
 2. `/builder` + `/maya` Konsolidierung (beide >50KB, braucht Copilot)
-3. Chat-Intent-Klassifizierung zu konservativ (oft 'chat' statt 'task')
-4. Task-Detail-View "undefined" in `/builder`
-5. `/migrate` Runtime-Fix
-6. orchestrateTask entfernen (Legacy)
+3. Task-Detail-View: "undefined" nicht reproduzierbar — Rendering hat korrekte ?? Guards
+4. `/migrate`: cwd gefixt, aber drizzle-kit nur devDep → auf Render nicht verfuegbar (Schema-Push via Build-Step)
+5. orchestrateTask: kein Legacy — ist aktiver Quick-Mode-Pfad, keine Aktion noetig
 
 ### Perspektivisch
 7. Nachdenker-Aggregation
