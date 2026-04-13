@@ -380,17 +380,27 @@ opusBridgeRouter.post('/cleanup', async (req: Request, res: Response) => {
     ];
 
     let deleted = 0;
+    const failed: string[] = [];
     for (const task of targets) {
-      for (const table of FK_TABLES) {
-        await db.delete(table).where(eq((table as typeof builderChatpool).taskId, task.id)).catch(() => {});
+      try {
+        for (const table of FK_TABLES) {
+          await db.delete(table).where(eq((table as typeof builderChatpool).taskId, task.id)).catch(() => {});
+        }
+        // Also clear sourceTaskId FK on builderErrorCards
+        await db.delete(builderErrorCards).where(eq(builderErrorCards.sourceTaskId, task.id)).catch(() => {});
+        // Try Drizzle delete first, raw SQL CASCADE fallback
+        try {
+          await db.delete(builderTasks).where(eq(builderTasks.id, task.id));
+        } catch {
+          await db.execute(sql`DELETE FROM builder_tasks WHERE id = ${task.id}`);
+        }
+        deleted++;
+      } catch {
+        failed.push(task.id);
       }
-      // Also clear sourceTaskId FK on builderErrorCards
-      await db.delete(builderErrorCards).where(eq(builderErrorCards.sourceTaskId, task.id)).catch(() => {});
-      await db.delete(builderTasks).where(eq(builderTasks.id, task.id));
-      deleted++;
     }
 
-    res.json({ deleted, statuses });
+    res.json({ deleted, failed: failed.length, failedIds: failed.slice(0, 10), statuses });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
