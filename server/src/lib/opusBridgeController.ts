@@ -460,7 +460,10 @@ async function runDecomposerExecution(
     }))
     : context.workerAssignments;
 
-  const workerResults = await runWorkerSwarm(taskId, workerAssignments, instruction, context.fileContents);
+  const workerResults = await (async () => {
+    await updateTaskStatus(taskId, 'swarm');
+    return runWorkerSwarm(taskId, workerAssignments, instruction, context.fileContents);
+  })();
   const meister = await runMeisterValidation(taskId, instruction, workerResults, context.fileContents);
   const tokensUsed = workerResults.reduce((sum, result) => sum + (result.tokensUsed ?? 0), 0) + (meister.tokensUsed ?? 0);
 
@@ -486,6 +489,16 @@ async function runDecomposerExecution(
     tokensUsed,
     workerResults,
   };
+}
+
+/** Update task status in DB for live progress tracking */
+async function updateTaskStatus(taskId: string, status: string) {
+  try {
+    const db = getDb();
+    await db.update(builderTasks).set({ status, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+  } catch (err) {
+    console.error(`[pipeline] Failed to update status to '${status}' for ${taskId}:`, err);
+  }
 }
 
 export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
@@ -556,6 +569,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     scope: normalizedScope,
   });
   const graphBriefing = scoutResult.graphBriefing;
+  await updateTaskStatus(task.id, 'planning');
 
   // --- DISTILLER PHASE ---
   // Crush scout outputs into a structured brief for the council.
@@ -658,6 +672,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     // Maya moderates between rounds — dynamic focus, early conclude
     const moderator = createMayaModerator(instruction);
     console.log(`[council] Starting roundtable: ${participants.map((p) => p.actor).join(', ')} (${participants.length} members, threshold=${mergedConfig.consensusThreshold})`);
+    await updateTaskStatus(task.id, 'council');
 
     const roundtableResult = await runRoundtable(
       {
@@ -899,6 +914,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         githubAction = { triggered: false };
         pushSucceeded = false;
       } else {
+        await updateTaskStatus(task.id, 'applying');
         // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
         const safePayloads = toSafeOverwritePayloads(patches);
         githubAction = safePayloads
