@@ -25,6 +25,7 @@ import { builderRouter } from './routes/builder.js';
 import { opusBridgeRouter } from './routes/opusBridge.js';
 import { devLogger } from './devLogger.js';
 import { startStaleDetector } from './lib/builderStaleDetector.js';
+import { patrolRouter, startPatrol } from './lib/scoutPatrol.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +59,7 @@ app.use('/api/journey', journeyRouter);
 app.use('/api', zimageRouter);
 app.use('/api/builder/opus-bridge', opusBridgeRouter);
 app.use('/api/builder', builderRouter);
+app.use('/api/builder/patrol', patrolRouter);
 
 devLogger.info('system', 'Server starting', { port: PORT });
 
@@ -79,4 +81,5 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   startKeepAlive();
   startStaleDetector();
+  startPatrol();
 });
