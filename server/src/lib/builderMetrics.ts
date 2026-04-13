@@ -45,6 +45,18 @@ export async function getTaskStats(): Promise<{total: number, done: number, bloc
 	};
 }
 
+export async function getRecentCompletedTasks(): Promise<Array<{ id: string; title: string; durationSeconds: number }>> {
+	const db = getDb();
+	const rows = await db.execute(sql`
+		SELECT id, title, EXTRACT(EPOCH FROM (updated_at - created_at))::float AS duration_seconds
+		FROM builder_tasks
+		WHERE status = 'done' AND updated_at IS NOT NULL AND created_at IS NOT NULL
+		ORDER BY updated_at DESC NULLS LAST
+		LIMIT 5
+	`);
+	return (rows.rows ?? rows).map((r: any) => ({ id: r.id as string, title: r.title as string, durationSeconds: Number(r.duration_seconds) }));
+}
+
 export function getVersion() {
 	return '0.2.0';
 }
