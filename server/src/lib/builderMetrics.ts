@@ -1,4 +1,4 @@
-// S20 status-tracking test — safe to remove
+// S20 status-tracking verified
 import { getDb } from '../db.js';
 import { sql } from 'drizzle-orm';
 
