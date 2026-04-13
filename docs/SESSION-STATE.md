@@ -91,6 +91,7 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 | 4 | 363 alte Tasks geloescht: DB sauber (503 done, 0 blocked) | Verifiziert |
 | 5 | Status-Tracking-Bug gefixt: updateTaskStatus() Helper + 5 Phasen-Updates | Deployed |
 | 6 | Stale-Detector: council Status (15min Threshold) hinzugefuegt | Deployed |
+| 7 | Fuzzy Line Matching fuer SEARCH/REPLACE auf grossen Dateien (70% Threshold) | Deployed |
 
 ### Status-Phasen (NEU S20)
 ```
@@ -101,7 +102,7 @@ Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt a
 ## Offene Probleme (priorisiert)
 
 ### Hoch
-1. **Worker SEARCH/REPLACE auf grossen Dateien**: Minimax produziert falsche Anker. Betrifft opusBridge.ts (45KB), builderFusionChat.ts (39KB), etc.
+1. **Worker SEARCH/REPLACE auf grossen Dateien**: ~~Minimax produziert falsche Anker~~ → **Mitigiert S20**: Fuzzy Line Matching (70% Threshold) als Fallback wenn exakter Match fehlschlaegt. Muss in Praxis getestet werden.
 
 ### Mittel
 2. `/builder` + `/maya` Konsolidierung (beide >50KB, braucht Copilot)
