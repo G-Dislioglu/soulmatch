@@ -3,7 +3,14 @@ import { useLocation } from 'wouter';
 
 import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 import { TOKENS } from '../../../design/tokens';
-import { BuilderConfigPanel } from './BuilderConfigPanel';
+import {
+  BuilderConfigPanel,
+  loadPools,
+  savePools,
+  syncPoolsToServer,
+  type PoolState,
+  type PoolType,
+} from './BuilderConfigPanel';
 import { useMayaApi, type MayaContext } from '../hooks/useMayaApi';
 import {
   useBuilderApi,
@@ -47,6 +54,38 @@ const ACTOR_COLORS: Record<string, string> = {
   chatgpt: TOKENS.cyan,
   deepseek: TOKENS.green,
   system: TOKENS.rose,
+};
+
+const POOL_MODEL_META: Record<string, { label: string; quality: number }> = {
+  opus: { label: 'Opus 4.6', quality: 95 },
+  sonnet: { label: 'Sonnet 4.6', quality: 85 },
+  'gpt-5.4': { label: 'GPT-5.4', quality: 88 },
+  'glm-turbo': { label: 'GLM 5 Turbo', quality: 68 },
+  grok: { label: 'Grok 4.1', quality: 80 },
+  deepseek: { label: 'DeepSeek Chat', quality: 72 },
+  minimax: { label: 'MiniMax M2.7', quality: 60 },
+  kimi: { label: 'Kimi K2.5', quality: 65 },
+  qwen: { label: 'Qwen 3.6+', quality: 58 },
+  'glm-flash': { label: 'GLM FlashX', quality: 72 },
+  'gemini-flash': { label: 'Gemini Flash', quality: 78 },
+  'deepseek-scout': { label: 'DeepSeek Chat', quality: 70 },
+  'qwen-scout': { label: 'Qwen 3.6+', quality: 55 },
+};
+
+const POOL_OPTIONS: Record<PoolType, string[]> = {
+  maya: ['opus', 'sonnet', 'gpt-5.4', 'glm-turbo', 'grok'],
+  council: ['opus', 'sonnet', 'gpt-5.4', 'grok', 'deepseek', 'glm-turbo', 'minimax', 'kimi', 'qwen'],
+  distiller: ['glm-flash', 'deepseek-scout', 'gemini-flash', 'qwen-scout'],
+  worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
+  scout: ['deepseek-scout', 'glm-flash', 'gemini-flash', 'qwen-scout'],
+};
+
+const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
+  maya: { label: 'Maya', accent: '#7c6af7' },
+  council: { label: 'Council', accent: TOKENS.gold },
+  distiller: { label: 'Destillierer', accent: '#f59e0b' },
+  worker: { label: 'Worker', accent: TOKENS.cyan },
+  scout: { label: 'Scout', accent: TOKENS.green },
 };
 
 function getInitialToken() {
@@ -205,6 +244,188 @@ function BuilderPanel(props: { title: string; subtitle?: string; children: React
       </div>
       <div style={{ padding: 18 }}>{children}</div>
     </section>
+  );
+}
+
+function poolScore(ids: string[]) {
+  if (ids.length === 0) {
+    return 0;
+  }
+
+  const scores = ids.map((id) => POOL_MODEL_META[id]?.quality ?? 0);
+  return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+}
+
+function PoolBar(props: {
+  pools: PoolState;
+  openPool: PoolType | null;
+  onTogglePool: (pool: PoolType) => void;
+  onToggleModel: (pool: PoolType, modelId: string) => void;
+}) {
+  const { pools, openPool, onTogglePool, onToggleModel } = props;
+
+  return (
+    <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+      <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 22, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '14px 16px' }}>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          {(Object.keys(POOL_LABELS) as PoolType[]).map((pool) => {
+            const meta = POOL_LABELS[pool];
+            const activeIds = pools[pool];
+            const leadId = activeIds[0];
+            const leadLabel = leadId ? POOL_MODEL_META[leadId]?.label ?? leadId : 'leer';
+            const score = poolScore(activeIds);
+
+            return (
+              <button
+                key={pool}
+                onClick={() => onTogglePool(pool)}
+                style={{
+                  textAlign: 'left',
+                  borderRadius: 18,
+                  border: `1.5px solid ${openPool === pool ? meta.accent : TOKENS.b2}`,
+                  background: openPool === pool ? `${meta.accent}16` : TOKENS.card2,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: meta.accent, fontWeight: 700 }}>{meta.label}</span>
+                  <span style={{ fontSize: 12, color: score >= 80 ? TOKENS.green : score >= 60 ? TOKENS.gold : TOKENS.text2, fontFamily: 'monospace', fontWeight: 700 }}>{score}%</span>
+                </div>
+                <div style={{ fontSize: 13, color: TOKENS.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leadLabel}</div>
+                <div style={{ fontSize: 12, color: TOKENS.text2 }}>{activeIds.length} aktiv</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {openPool ? (
+        <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 22, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: POOL_LABELS[openPool].accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>{POOL_LABELS[openPool].label}</div>
+            <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>✕</button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {POOL_OPTIONS[openPool].map((modelId) => {
+              const active = pools[openPool].includes(modelId);
+              const model = POOL_MODEL_META[modelId];
+              return (
+                <button
+                  key={modelId}
+                  onClick={() => onToggleModel(openPool, modelId)}
+                  style={{
+                    borderRadius: 999,
+                    border: `1.5px solid ${active ? `${POOL_LABELS[openPool].accent}88` : TOKENS.b2}`,
+                    background: active ? `${POOL_LABELS[openPool].accent}18` : 'transparent',
+                    color: active ? POOL_LABELS[openPool].accent : TOKENS.text2,
+                    padding: '6px 12px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {model?.label ?? modelId}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ContextPanel(props: {
+  ctx: MayaContext | null;
+  onDeleteMemory: (id: string) => void;
+  onAddNote: (summary: string) => void;
+}) {
+  const { ctx, onDeleteMemory, onAddNote } = props;
+  const [showAdd, setShowAdd] = useState(false);
+  const [newNote, setNewNote] = useState('');
+
+  if (!ctx) {
+    return <div style={{ fontSize: 12, color: TOKENS.text3 }}>Kein Maya-Kontext geladen.</div>;
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Continuity Notes</div>
+          <button onClick={() => setShowAdd((current) => !current)} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, background: 'transparent', color: TOKENS.gold, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</button>
+        </div>
+        {showAdd ? (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <input
+              value={newNote}
+              onChange={(event) => setNewNote(event.target.value)}
+              placeholder="Session-Notiz..."
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && newNote.trim()) {
+                  onAddNote(newNote.trim());
+                  setNewNote('');
+                  setShowAdd(false);
+                }
+              }}
+              style={{ flex: 1, background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }}
+            />
+            <button onClick={() => {
+              if (!newNote.trim()) {
+                return;
+              }
+              onAddNote(newNote.trim());
+              setNewNote('');
+              setShowAdd(false);
+            }} style={{ fontSize: 10, padding: '6px 12px', borderRadius: 10, border: 'none', background: TOKENS.gold, color: '#000', cursor: 'pointer', fontWeight: 600 }}>OK</button>
+          </div>
+        ) : null}
+        <div style={{ display: 'grid', gap: 6 }}>
+          {ctx.continuityNotes.map((note, index) => (
+            <div key={note.id || index} style={{ display: 'flex', gap: 6, padding: '5px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5, borderBottom: `1px solid ${TOKENS.b3}` }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatDate(note.updatedAt)}</span>{' '}
+                {note.summary}
+              </div>
+              {note.id ? <button onClick={() => onDeleteMemory(note.id!)} style={{ border: 'none', background: 'transparent', color: TOKENS.text3, cursor: 'pointer', fontSize: 10 }}>✕</button> : null}
+            </div>
+          ))}
+          {ctx.continuityNotes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Continuity Notes.</div> : null}
+        </div>
+      </div>
+
+      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+        <div style={{ fontSize: 11, color: TOKENS.purple, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>Memory Episodes</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {ctx.memory.episodes.slice(0, 6).map((entry, index) => (
+            <div key={entry.id || index} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{entry.key}</span>
+                <span style={{ fontSize: 10, color: TOKENS.text3, fontFamily: 'monospace' }}>{formatDate(entry.updatedAt)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.5 }}>{entry.summary}</div>
+            </div>
+          ))}
+          {ctx.memory.episodes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Memory Episodes.</div> : null}
+        </div>
+      </div>
+
+      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>System Status</div>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, boxShadow: `0 0 8px ${TOKENS.green}60`, display: 'inline-block' }} />
+            Render
+          </span>
+          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.tasks.length} Tasks</span>
+          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.workerStats.length} Worker</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -388,15 +609,18 @@ export function BuilderStudioPage() {
     deleteTask: deleteBuilderTask,
     sendChat,
   } = useBuilderApi(token || null);
-  const { getContext: getMayaContext } = useMayaApi(token || null);
+  const { getContext: getMayaContext, createMemory, deleteMemory } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
+  const [pools, setPools] = useState<PoolState>(() => loadPools());
+  const [openPool, setOpenPool] = useState<PoolType | null>(null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
   const compact = viewportWidth < 1180;
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
+  const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const previewUrl = activeTask
     ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`
     : null;
@@ -468,6 +692,11 @@ export function BuilderStudioPage() {
     }
   }, [getBuilderEvidence]);
 
+  const refreshMayaContext = useCallback(async () => {
+    const nextContext = await getMayaContext();
+    setMayaCtx(nextContext);
+  }, [getMayaContext]);
+
   useEffect(() => {
     const trimmedToken = token.trim();
 
@@ -525,7 +754,7 @@ export function BuilderStudioPage() {
     if (!authenticated) return;
     void refreshTasks().catch(() => {});
     void refreshFiles().catch(() => {});
-    void getMayaContext().then(setMayaCtx).catch(() => {});
+    void refreshMayaContext().catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -588,6 +817,35 @@ export function BuilderStudioPage() {
   const handleAuthSubmit = useCallback(() => {
     setToken(tokenInput.trim());
   }, [tokenInput]);
+
+  const handleTogglePool = useCallback((pool: PoolType) => {
+    setOpenPool((current) => current === pool ? null : pool);
+  }, []);
+
+  const handleTogglePoolModel = useCallback((pool: PoolType, modelId: string) => {
+    setPools((current) => {
+      const isSingle = pool === 'maya';
+      const nextIds = isSingle
+        ? [modelId]
+        : current[pool].includes(modelId)
+          ? current[pool].filter((entry) => entry !== modelId)
+          : [...current[pool], modelId];
+      const nextPools = { ...current, [pool]: nextIds };
+      savePools(nextPools);
+      void syncPoolsToServer(token, nextPools);
+      return nextPools;
+    });
+  }, [token]);
+
+  const handleAddNote = useCallback(async (summary: string) => {
+    await createMemory('continuity', `note-${Date.now()}`, summary);
+    await refreshMayaContext();
+  }, [createMemory, refreshMayaContext]);
+
+  const handleDeleteMemory = useCallback(async (id: string) => {
+    await deleteMemory(id);
+    await refreshMayaContext();
+  }, [deleteMemory, refreshMayaContext]);
 
   const handleCreateTask = useCallback(async () => {
     setIsBusy(true);
@@ -863,7 +1121,7 @@ export function BuilderStudioPage() {
               <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Zur App
               </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void getMayaContext().then(setMayaCtx).catch(() => {}); }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Refresh
               </button>
               <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -881,6 +1139,15 @@ export function BuilderStudioPage() {
         {pageError ? (
           <div style={{ marginBottom: 16, borderRadius: 16, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '12px 14px', fontSize: 13 }}>
             {pageError}
+          </div>
+        ) : null}
+
+        <PoolBar pools={pools} openPool={openPool} onTogglePool={handleTogglePool} onToggleModel={handleTogglePoolModel} />
+
+        {sessionSummary ? (
+          <div style={{ border: `1.5px solid rgba(212,175,55,0.28)`, borderRadius: 18, background: 'rgba(212,175,55,0.12)', boxShadow: TOKENS.shadow.card, padding: '10px 14px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Session</span>
+            <span style={{ fontSize: 13, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionSummary}</span>
           </div>
         ) : null}
 
@@ -1259,6 +1526,10 @@ export function BuilderStudioPage() {
                   ) : null}
                 </div>
               </div>
+            </BuilderPanel>
+
+            <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
+              <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
             </BuilderPanel>
 
             <BuilderPanel title="Check Results" subtitle="Runtime- und Build-Befunde aus dem aktuellen Evidence Pack." accent={TOKENS.cyan}>
