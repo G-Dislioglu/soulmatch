@@ -3,6 +3,8 @@ import { useLocation } from 'wouter';
 
 import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 import { TOKENS } from '../../../design/tokens';
+import { BuilderConfigPanel } from './BuilderConfigPanel';
+import { useMayaApi, type MayaContext } from '../hooks/useMayaApi';
 import {
   useBuilderApi,
   type BuilderAction,
@@ -386,6 +388,9 @@ export function BuilderStudioPage() {
     deleteTask: deleteBuilderTask,
     sendChat,
   } = useBuilderApi(token || null);
+  const { getContext: getMayaContext } = useMayaApi(token || null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -520,6 +525,7 @@ export function BuilderStudioPage() {
     if (!authenticated) return;
     void refreshTasks().catch(() => {});
     void refreshFiles().catch(() => {});
+    void getMayaContext().then(setMayaCtx).catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -857,8 +863,11 @@ export function BuilderStudioPage() {
               <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Zur App
               </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { void refreshTasks(); void refreshFiles(); void getMayaContext().then(setMayaCtx).catch(() => {}); }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Refresh
+              </button>
+              <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                {showConfig ? 'Config ✕' : 'Config'}
               </button>
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text2, fontSize: 12 }}>
@@ -1190,6 +1199,11 @@ export function BuilderStudioPage() {
                 </div>
 
                 <div style={{ borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 14, display: 'grid', gap: 10 }}>
+                  {showConfig && (
+                    <div style={{ border: `1.5px solid rgba(124,106,247,0.3)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden', marginBottom: 10 }}>
+                      <BuilderConfigPanel token={token} ctx={mayaCtx} />
+                    </div>
+                  )}
                   <div style={{ fontFamily: TOKENS.font.display, fontSize: 22, color: TOKENS.text }}>{activeTask?.title ?? 'Keine Task gewählt'}</div>
                   <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>{activeTask?.goal ?? 'Links eine Task wählen oder oben eine neue erstellen.'}</div>
                   <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
