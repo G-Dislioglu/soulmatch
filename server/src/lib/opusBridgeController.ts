@@ -322,7 +322,15 @@ function toSafeOverwritePayloads(
 
     // Apply SEARCH/REPLACE in memory
     if (!original.includes(searchBlock)) {
-      console.error(`[toSafeOverwrite] SEARCH block not found in ${patch.file}`);
+      // Exact match failed — try fuzzy line matching
+      const fuzzyResult = fuzzyFindBlock(original, searchBlock);
+      if (fuzzyResult) {
+        console.log(`[toSafeOverwrite] Fuzzy match for ${patch.file}: ${fuzzyResult.score}% confidence (lines ${fuzzyResult.startLine}-${fuzzyResult.endLine})`);
+        const updated = original.slice(0, fuzzyResult.startIdx) + replaceBlock + original.slice(fuzzyResult.endIdx);
+        results.push({ file: patch.file, action: 'overwrite', content: updated });
+        continue;
+      }
+      console.error(`[toSafeOverwrite] SEARCH block not found in ${patch.file} (exact and fuzzy both failed)`);
       return null; // Fall back to normal path
     }
 
@@ -331,6 +339,84 @@ function toSafeOverwritePayloads(
   }
 
   return results;
+}
+
+/**
+ * Fuzzy line matching: find the region in `original` that best matches `searchBlock`.
+ * Uses normalized line comparison with a sliding window.
+ * Returns null if confidence is below 70%.
+ */
+function fuzzyFindBlock(original: string, searchBlock: string): {
+  startIdx: number; endIdx: number; startLine: number; endLine: number; score: number;
+} | null {
+  const origLines = original.split('\n');
+  const searchLines = searchBlock.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  if (searchLines.length < 2) return null; // Too short for reliable fuzzy matching
+
+  const normalize = (s: string) => s.trim().replace(/\s+/g, ' ');
+
+  let bestScore = 0;
+  let bestStart = -1;
+
+  // Sliding window over original lines
+  const windowSize = searchLines.length;
+  for (let i = 0; i <= origLines.length - windowSize; i++) {
+    let matches = 0;
+    for (let j = 0; j < windowSize; j++) {
+      if (normalize(origLines[i + j]) === normalize(searchLines[j])) {
+        matches++;
+      }
+    }
+    const score = (matches / windowSize) * 100;
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = i;
+    }
+  }
+
+  // Also try with slightly different window sizes (model may add/remove lines)
+  for (const delta of [-2, -1, 1, 2]) {
+    const adjSize = windowSize + delta;
+    if (adjSize < 2 || adjSize > origLines.length) continue;
+    for (let i = 0; i <= origLines.length - adjSize; i++) {
+      let matches = 0;
+      const compareLen = Math.min(adjSize, searchLines.length);
+      for (let j = 0; j < compareLen; j++) {
+        const origIdx = i + Math.round((j / compareLen) * adjSize);
+        if (origIdx < origLines.length && normalize(origLines[origIdx]) === normalize(searchLines[j])) {
+          matches++;
+        }
+      }
+      const score = (matches / searchLines.length) * 100;
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = i;
+      }
+    }
+  }
+
+  if (bestScore < 70 || bestStart < 0) return null;
+
+  // Calculate character indices from line indices
+  let startIdx = 0;
+  for (let i = 0; i < bestStart; i++) {
+    startIdx += origLines[i].length + 1; // +1 for \n
+  }
+  let endIdx = startIdx;
+  for (let i = 0; i < windowSize && (bestStart + i) < origLines.length; i++) {
+    endIdx += origLines[bestStart + i].length + 1;
+  }
+  // Don't include trailing newline if we're at the exact end
+  if (endIdx > original.length) endIdx = original.length;
+
+  return {
+    startIdx,
+    endIdx,
+    startLine: bestStart + 1,
+    endLine: bestStart + windowSize,
+    score: Math.round(bestScore),
+  };
 }
 
 /**
