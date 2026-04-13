@@ -341,6 +341,7 @@ function toSafeOverwritePayloads(
   return results;
 }
 
+// S21 verified: fuzzy line matching active
 /**
  * Fuzzy line matching: find the region in `original` that best matches `searchBlock`.
  * Uses normalized line comparison with a sliding window.
