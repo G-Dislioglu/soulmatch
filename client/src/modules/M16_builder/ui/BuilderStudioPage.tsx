@@ -738,7 +738,7 @@ export function BuilderStudioPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ action: 'block', reason: 'Manually cancelled via UI' }),
+        body: JSON.stringify({ action: 'cancel', reason: 'Manually cancelled via UI' }),
       });
 
       if (!response.ok) {
@@ -754,6 +754,25 @@ export function BuilderStudioPage() {
       setIsBusy(false);
     }
   }, [refreshTaskDetail, refreshTasks, token]);
+
+  const handleDeleteInline = useCallback(async (taskId: string) => {
+    setIsBusy(true);
+    setPageError(null);
+    try {
+      await deleteBuilderTask(taskId);
+      if (selectedTaskId === taskId) {
+        setSelectedTaskId(null);
+        setTaskDetail(null);
+        setDialogActions([]);
+        setEvidencePack(null);
+      }
+      await refreshTasks();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelöscht werden');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [deleteBuilderTask, refreshTasks, selectedTaskId]);
 
   const handleSendChat = useCallback(async () => {
     const message = chatInput.trim();
@@ -862,13 +881,13 @@ export function BuilderStudioPage() {
               <div style={{ display: 'grid', gap: 10 }}>
                 {tasks.map((task) => {
                   const selected = task.id === selectedTaskId;
-                  const canCancel = task.status !== 'done';
+                  const isActive = !['done', 'cancelled', 'blocked', 'deleted'].includes(task.status);
                   return (
                     <div
                       key={task.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: canCancel ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)',
+                        gridTemplateColumns: 'minmax(0, 1fr) auto',
                         gap: 8,
                         alignItems: 'start',
                       }}
@@ -892,28 +911,48 @@ export function BuilderStudioPage() {
                         </div>
                         <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.55, color: TOKENS.text2 }}>{task.goal}</div>
                       </button>
-                      {canCancel ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'center' }}>
+                        {isActive ? (
+                          <button
+                            onClick={() => { void handleCancelTask(task.id); }}
+                            title="Task abbrechen"
+                            disabled={isBusy}
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 999,
+                              border: `1.5px solid rgba(239,68,68,0.45)`,
+                              background: 'rgba(127,29,29,0.22)',
+                              color: '#fecaca',
+                              cursor: isBusy ? 'not-allowed' : 'pointer',
+                              fontSize: 16,
+                              lineHeight: 1,
+                              opacity: isBusy ? 0.6 : 1,
+                            }}
+                          >
+                            ×
+                          </button>
+                        ) : null}
                         <button
-                          onClick={() => { void handleCancelTask(task.id); }}
-                          title="Task abbrechen"
+                          onClick={() => { void handleDeleteInline(task.id); }}
+                          title="Task löschen"
                           disabled={isBusy}
                           style={{
                             width: 34,
                             height: 34,
                             borderRadius: 999,
-                            border: `1.5px solid rgba(239,68,68,0.45)`,
-                            background: 'rgba(127,29,29,0.22)',
-                            color: '#fecaca',
+                            border: `1.5px solid rgba(161,98,7,0.45)`,
+                            background: 'rgba(120,53,15,0.22)',
+                            color: '#fde68a',
                             cursor: isBusy ? 'not-allowed' : 'pointer',
-                            fontSize: 16,
+                            fontSize: 15,
                             lineHeight: 1,
-                            alignSelf: 'center',
                             opacity: isBusy ? 0.6 : 1,
                           }}
                         >
-                          ×
+                          🗑
                         </button>
-                      ) : null}
+                      </div>
                     </div>
                   );
                 })}
