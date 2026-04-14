@@ -1130,6 +1130,19 @@ export function BuilderStudioPage() {
               <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 {showConfig ? 'Config ✕' : 'Config'}
               </button>
+              <a
+                href="/patrol?opus_token=opus-bridge-2026-geheim"
+                style={{
+                  color: '#f97316',
+                  textDecoration: 'none',
+                  fontSize: '0.8rem',
+                  marginLeft: '6px',
+                  padding: '10px 4px',
+                  fontWeight: 600,
+                }}
+              >
+                🛡️ Patrol Console
+              </a>
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text2, fontSize: 12 }}>
               <span>Token {maskToken(token)}</span>
@@ -1187,15 +1200,64 @@ export function BuilderStudioPage() {
                           background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
                           padding: '12px 14px',
                           cursor: 'pointer',
+                          overflow: 'hidden',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text }}>{task.title}</div>
-                          <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, color: STATUS_COLORS[task.status] ?? TOKENS.text2, padding: '3px 8px', fontSize: 11, textTransform: 'uppercase' }}>
+                          <div
+                            style={{
+                              minWidth: 0,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: TOKENS.text,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word',
+                            }}
+                          >
+                            {task.title}
+                          </div>
+                          <span
+                            style={{
+                              borderRadius: 999,
+                              border: `1px solid ${TOKENS.b1}`,
+                              color: STATUS_COLORS[task.status] ?? TOKENS.text2,
+                              padding: '3px 8px',
+                              fontSize: 11,
+                              textTransform: 'uppercase',
+                              flexShrink: 0,
+                              maxWidth: 80,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             {task.status}
                           </span>
                         </div>
-                        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.55, color: TOKENS.text2 }}>{task.goal}</div>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            lineHeight: 1.55,
+                            color: TOKENS.text2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                          }}
+                        >
+                          {task.goal}
+                        </div>
                       </button>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'center' }}>
                         {isActive ? (
@@ -1475,8 +1537,30 @@ export function BuilderStudioPage() {
                       <BuilderConfigPanel token={token} ctx={mayaCtx} />
                     </div>
                   )}
-                  <div style={{ fontFamily: TOKENS.font.display, fontSize: 22, color: TOKENS.text }}>{activeTask?.title ?? 'Keine Task gewählt'}</div>
-                  <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>{activeTask?.goal ?? 'Links eine Task wählen oder oben eine neue erstellen.'}</div>
+                  <div
+                    style={{
+                      fontFamily: TOKENS.font.display,
+                      fontSize: 22,
+                      color: TOKENS.text,
+                      wordBreak: 'break-all',
+                      overflowWrap: 'break-word',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {activeTask?.title ?? 'Keine Task gewählt'}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: TOKENS.text2,
+                      lineHeight: 1.7,
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {activeTask?.goal ?? 'Links eine Task wählen oder oben eine neue erstellen.'}
+                  </div>
                   <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
                     <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? '—'}</strong></span>
                     <span>Risk: {activeTask?.risk ?? '—'} · Type: {activeTask?.taskType ?? '—'}</span>

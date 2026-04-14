@@ -345,6 +345,12 @@ export function PatrolConsole() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
+          <a
+            href="/builder"
+            style={{ color: '#d4af37', textDecoration: 'none', fontSize: '0.8rem', display: 'inline-flex', marginBottom: 8 }}
+          >
+            ← Builder Studio
+          </a>
           <h1
             style={{
               fontSize: 22,
