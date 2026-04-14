@@ -1,86 +1,14 @@
 /**
- * Builder Internals — read-file + anchor-patch primitives
- * Mounted on opusBridgeRouter via dynamic import (no circular dep)
+ * Bootstrap for builder internals.
+ * Side-effect import this from any small lib file.
+ * Uses dynamic import() to avoid circular dependency with opusBridge.
  */
-import { Request, Response, Router } from 'express';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import crypto from 'node:crypto';
-
-const REPO_ROOT = process.cwd();
-
-function toSha(content: string): string {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
-}
-
-function resolveRepoPath(relPath: string): string {
-  const full = path.resolve(REPO_ROOT, relPath);
-  if (!full.startsWith(REPO_ROOT)) throw new Error('invalid_path');
-  return full;
-}
-
-export function registerInternalRoutes(router: Router): void {
-  // Read any file from the deployed repo
-  router.get('/internal/read-file', async (req: Request, res: Response) => {
-    try {
-      const relPath = String(req.query.path || '');
-      if (!relPath) { res.status(400).json({ ok: false, error: 'missing_path' }); return; }
-      const fullPath = resolveRepoPath(relPath);
-      const content = await fs.readFile(fullPath, 'utf8');
-      res.json({ ok: true, path: relPath, sha: toSha(content), lines: content.split('\n').length, content });
-    } catch (error) {
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'read_failed' });
-    }
-  });
-
-  // Apply anchor-based patch to a local file
-  router.post('/internal/apply-anchor-patch', async (req: Request, res: Response) => {
-    try {
-      const { path: relPath, expectedSha, mode, anchor, content } = req.body as {
-        path: string; expectedSha: string;
-        mode: 'replace' | 'insert-before' | 'insert-after';
-        anchor: string; content: string;
-      };
-      if (!relPath || !expectedSha || !mode || !anchor || typeof content !== 'string') {
-        res.status(400).json({ ok: false, error: 'invalid_payload' }); return;
-      }
-      const fullPath = resolveRepoPath(relPath);
-      const original = await fs.readFile(fullPath, 'utf8');
-      const currentSha = toSha(original);
-      if (currentSha !== expectedSha) {
-        res.status(409).json({ ok: false, error: 'sha_mismatch', currentSha }); return;
-      }
-      const idx = original.indexOf(anchor);
-      if (idx === -1) {
-        res.status(404).json({ ok: false, error: 'anchor_not_found' }); return;
-      }
-      let updated: string;
-      if (mode === 'replace') {
-        updated = original.replace(anchor, content);
-      } else if (mode === 'insert-before') {
-        updated = original.slice(0, idx) + content + original.slice(idx);
-      } else {
-        updated = original.slice(0, idx + anchor.length) + content + original.slice(idx + anchor.length);
-      }
-      await fs.writeFile(fullPath, updated, 'utf8');
-      res.json({ ok: true, path: relPath, oldSha: currentSha, newSha: toSha(updated) });
-    } catch (error) {
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'patch_failed' });
-    }
-  });
-
-  // List repo files (for debugging)
-  router.get('/internal/ls', async (req: Request, res: Response) => {
-    try {
-      const dir = String(req.query.dir || '.');
-      const fullPath = resolveRepoPath(dir);
-      const entries = await fs.readdir(fullPath, { withFileTypes: true });
-      const items = entries.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' }));
-      res.json({ ok: true, dir, items });
-    } catch (error) {
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'ls_failed' });
-    }
-  });
-
-  console.log('[builder-internals] read-file + anchor-patch + ls registered');
-}
+setTimeout(async () => {
+  try {
+    const { opusBridgeRouter } = await import('../routes/opusBridge.js');
+    const { registerInternalRoutes } = await import('./builderInternals.js');
+    registerInternalRoutes(opusBridgeRouter);
+  } catch (err) {
+    console.error('[internals-bootstrap] Failed:', err);
+  }
+}, 200);
