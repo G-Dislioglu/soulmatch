@@ -336,6 +336,7 @@ export function PatrolConsole() {
         padding: '24px 20px',
       }}
     >
+      <a href="/builder" style={{ color: "#d4af37", textDecoration: "none", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>← Builder Studio</a>
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
