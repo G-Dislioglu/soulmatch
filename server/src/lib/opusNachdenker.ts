@@ -1,3 +1,4 @@
+// S23: patrol internals active —
 /**
  * Nachdenker Phase — Opus-Bridge v4
  *
