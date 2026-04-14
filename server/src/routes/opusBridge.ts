@@ -42,6 +42,50 @@ export const opusBridgeRouter = Router();
 
 opusBridgeRouter.use(requireOpusToken);
 
+type PatrolSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+function normalizePatrolSeverity(value: string | null | undefined): PatrolSeverity {
+  const raw = typeof value === 'string' ? value.toLowerCase() : '';
+
+  if (raw === 'critical' || raw === 'high' || raw === 'medium' || raw === 'low' || raw === 'info') {
+    return raw;
+  }
+
+  if (raw === 'warning') {
+    return 'medium';
+  }
+
+  return 'info';
+}
+
+function normalizePatrolTags(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function isPatrolTriaged(card: typeof builderErrorCards.$inferSelect): boolean {
+  const tags = normalizePatrolTags(card.tags);
+  return Boolean(card.rootCause || card.solution || card.prevention || card.resolvedAt || tags.includes('triaged'));
+}
+
+function toPatrolFinding(card: typeof builderErrorCards.$inferSelect) {
+  return {
+    id: card.id,
+    severity: normalizePatrolSeverity(card.severity),
+    category: card.category,
+    title: card.title,
+    problem: card.problem,
+    solution: card.solution,
+    affectedFiles: Array.isArray(card.affectedFiles) ? card.affectedFiles : [],
+    tags: normalizePatrolTags(card.tags),
+    createdAt: card.createdAt,
+    foundBy: card.foundBy,
+  };
+}
+
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
     const result = await executeTask(req.body);
@@ -336,6 +380,68 @@ opusBridgeRouter.get('/audit', async (_req: Request, res: Response) => {
       })),
       opusLogCount: opusLogs.length,
       totalOpusTokens: totalLogTokens,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const errorCards = await db.select().from(builderErrorCards).orderBy(desc(builderErrorCards.createdAt));
+
+    const bySeverity: Record<PatrolSeverity, number> = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+    };
+
+    let triaged = 0;
+    let crossConfirmed = 0;
+
+    for (const card of errorCards) {
+      const severity = normalizePatrolSeverity(card.severity);
+      bySeverity[severity] += 1;
+
+      if (isPatrolTriaged(card)) {
+        triaged += 1;
+      }
+
+      if (normalizePatrolTags(card.tags).includes('cross-confirmed')) {
+        crossConfirmed += 1;
+      }
+    }
+
+    res.json({
+      totalFindings: errorCards.length,
+      lastRound: errorCards[0]?.createdAt ?? null,
+      triaged,
+      crossConfirmed,
+      bySeverity,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number(req.query.limit ?? 100);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.trunc(rawLimit), 500)) : 100;
+
+    const db = getDb();
+    const findings = await db
+      .select()
+      .from(builderErrorCards)
+      .orderBy(desc(builderErrorCards.createdAt))
+      .limit(limit);
+
+    res.json({
+      findings: findings.map(toPatrolFinding),
+      limit,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
