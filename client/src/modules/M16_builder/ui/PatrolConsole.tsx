@@ -30,7 +30,35 @@ interface DeepResult {
   verdict?: string;
 }
 
+interface PatrolModelSlot {
+  role: string;
+  model: string;
+  color: string;
+}
+
 const API = 'https://soulmatch-1.onrender.com/api/builder/opus-bridge';
+
+const AVAILABLE_MODELS = [
+  'GLM-5-Turbo', 'GLM-5.1', 'GLM-5', 'GLM-4.7',
+  'GPT-5.4', 'GPT-5-mini', 'GPT-5-nano',
+  'Sonnet 4.6', 'Opus 4.6',
+  'DeepSeek-R', 'DeepSeek Chat',
+  'Kimi', 'Qwen', 'Minimax',
+];
+
+const ROUTINE_SCOUT_SLOTS: PatrolModelSlot[] = [
+  { role: 'SCOUT #1', model: 'GLM-5-Turbo', color: '#39ff14' },
+  { role: 'SCOUT #2', model: 'DeepSeek Chat', color: '#39ff14' },
+  { role: 'SCOUT #3', model: 'Minimax', color: '#39ff14' },
+];
+
+const DEEP_ANALYSIS_SLOTS: PatrolModelSlot[] = [
+  { role: 'DEEP #1', model: 'GPT-5.4', color: '#00f0ff' },
+  { role: 'DEEP #2', model: 'Sonnet 4.6', color: '#a78bfa' },
+  { role: 'DEEP #3', model: 'DeepSeek-R', color: '#f97316' },
+  { role: 'DEEP #4', model: 'Kimi', color: '#f472b6' },
+  { role: 'DEEP #5', model: 'GLM-5.1', color: '#22d3ee' },
+];
 
 const SEV_CONFIG: Record<Severity, { color: string; bg: string; icon: string; label: string }> = {
   critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '⛔', label: 'Kritisch' },
@@ -144,6 +172,51 @@ function DeepResultCard({ result }: DeepResultCardProps) {
       {result.analysis && (
         <div style={{ fontSize: 12, color: '#8b8fa3', lineHeight: 1.5 }}>{result.analysis}</div>
       )}
+    </div>
+  );
+}
+
+interface PatrolModelCardProps {
+  role: string;
+  model: string;
+  color: string;
+  onChange: (value: string) => void;
+}
+
+function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        background: 'rgba(255,255,255,0.04)',
+        border: `1px solid ${color}33`,
+        borderRadius: 10,
+        padding: '10px 16px',
+        minWidth: 140,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
+          <div style={{ fontSize: 14, color: '#e2e4f0', marginTop: 4 }}>{model}</div>
+        </div>
+        <span style={{ fontSize: 12, color, fontWeight: 700, flexShrink: 0 }}>▼</span>
+      </div>
+      <select
+        value={model}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={`${role} Modell auswählen`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {AVAILABLE_MODELS.map((entry) => (
+          <option key={entry} value={entry}>{entry}</option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -276,6 +349,12 @@ export function PatrolConsole() {
   const [loading, setLoading] = useState(true);
   const [deepResults, setDeepResults] = useState<Record<string, DeepResult[]>>({});
   const [deepLoading, setDeepLoading] = useState<Record<string, boolean>>({});
+  const [routineModels, setRoutineModels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(ROUTINE_SCOUT_SLOTS.map((slot) => [slot.role, slot.model])),
+  );
+  const [deepModels, setDeepModels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(DEEP_ANALYSIS_SLOTS.map((slot) => [slot.role, slot.model])),
+  );
 
   const api = useCallback(async <T,>(endpoint: string, extraParams = ''): Promise<T> => {
     const response = await fetch(`${API}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
@@ -336,7 +415,6 @@ export function PatrolConsole() {
         padding: '24px 20px',
       }}
     >
-      <a href="/builder" style={{ color: "#d4af37", textDecoration: "none", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "12px" }}>← Builder Studio</a>
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -397,29 +475,34 @@ export function PatrolConsole() {
         <StatCard label="Niedrig" value={sev.low || 0} accent="#6ec6ff" />
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '20px 0' }}>
-        {[
-          { role: 'ROUTINE', model: 'GLM-5-Turbo', color: '#39ff14' },
-          { role: 'DEEP #1', model: 'GPT-5.4', color: '#00f0ff' },
-          { role: 'DEEP #2', model: 'Sonnet 4.6', color: '#a78bfa' },
-          { role: 'DEEP #3', model: 'DeepSeek-R', color: '#f97316' },
-          { role: 'DEEP #4', model: 'Kimi', color: '#f472b6' },
-          { role: 'DEEP #5', model: 'GLM-5.1', color: '#22d3ee' },
-        ].map(({ role, model, color }) => (
-          <div
-            key={role}
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: `1px solid ${color}33`,
-              borderRadius: 10,
-              padding: '10px 16px',
-              minWidth: 140,
-            }}
-          >
-            <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
-            <div style={{ fontSize: 14, color: '#e2e4f0', marginTop: 4 }}>{model}</div>
-          </div>
-        ))}
+      <div style={{ margin: '20px 0 24px' }}>
+        <div style={{ fontSize: 11, color: '#39ff14', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Routine Scouts</div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          {ROUTINE_SCOUT_SLOTS.map((slot) => (
+            <PatrolModelCard
+              key={slot.role}
+              role={slot.role}
+              model={routineModels[slot.role] ?? slot.model}
+              color={slot.color}
+              onChange={(value) => setRoutineModels((current) => ({ ...current, [slot.role]: value }))}
+            />
+          ))}
+        </div>
+
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0 16px' }} />
+
+        <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Deep Analysis</div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {DEEP_ANALYSIS_SLOTS.map((slot) => (
+            <PatrolModelCard
+              key={slot.role}
+              role={slot.role}
+              model={deepModels[slot.role] ?? slot.model}
+              color={slot.color}
+              onChange={(value) => setDeepModels((current) => ({ ...current, [slot.role]: value }))}
+            />
+          ))}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
