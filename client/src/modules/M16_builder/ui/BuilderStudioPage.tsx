@@ -153,6 +153,24 @@ function toLines(text: string) {
   return text.split(/\r?\n/).filter(Boolean).slice(0, 18);
 }
 
+function parseTaskConfirmation(content: string) {
+  try {
+    const trimmed = content.trim();
+    if (!trimmed.startsWith('{') || !trimmed.includes('"intent"')) {
+      return null;
+    }
+
+    const parsed = JSON.parse(trimmed) as { intent?: string; title?: string; goal?: string };
+    if (parsed.intent !== 'task') {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function extractBubbleContent(action: BuilderAction, format: DialogFormat) {
   if (format === 'text') {
     return typeof action.text === 'string' && action.text.trim().length > 0
@@ -1388,25 +1406,52 @@ export function BuilderStudioPage() {
                     Beschreibe was du aendern willst — Maya erstellt den Task automatisch.
                   </div>
                 ) : null}
-                {chatMessages.map((message, index) => (
-                  <div
-                    key={`${message.role}-${index}`}
-                    style={{
-                      alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                      background: message.role === 'user' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${message.role === 'user' ? `${TOKENS.gold}30` : TOKENS.b1}`,
-                      borderRadius: 14,
-                      padding: '8px 12px',
-                      maxWidth: '85%',
-                      fontSize: 13,
-                      color: TOKENS.text,
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {message.content}
-                  </div>
-                ))}
+                {chatMessages.map((message, index) => {
+                  const parsedTask = message.role === 'assistant'
+                    ? parseTaskConfirmation(message.content)
+                    : null;
+
+                  return (
+                    <div
+                      key={`${message.role}-${index}`}
+                      style={{
+                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                        background: message.role === 'user' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${message.role === 'user' ? `${TOKENS.gold}30` : TOKENS.b1}`,
+                        borderRadius: 14,
+                        padding: '8px 12px',
+                        maxWidth: '85%',
+                        fontSize: 13,
+                        color: TOKENS.text,
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {parsedTask ? (
+                        <div
+                          style={{
+                            background: 'rgba(212,175,55,0.08)',
+                            border: '1px solid rgba(212,175,55,0.25)',
+                            borderRadius: 10,
+                            padding: '12px 16px',
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                            ✨ Task erstellt
+                          </div>
+                          <div style={{ fontSize: 15, color: '#e2e4f0', fontWeight: 600 }}>
+                            {parsedTask.title}
+                          </div>
+                          {parsedTask.goal ? (
+                            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                              {parsedTask.goal}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : message.content}
+                    </div>
+                  );
+                })}
                 {chatLoading ? (
                   <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
                     Maya denkt nach...
@@ -1545,9 +1590,14 @@ export function BuilderStudioPage() {
                       fontFamily: TOKENS.font.display,
                       fontSize: 22,
                       color: TOKENS.text,
-                      wordBreak: 'break-all',
                       overflowWrap: 'break-word',
+                      wordBreak: 'normal',
+                      hyphens: 'auto',
                       overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
                     }}
                   >
                     {activeTask?.title ?? 'Keine Task gewählt'}
