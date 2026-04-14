@@ -273,8 +273,13 @@ function determineBuildMode(message: string, classified: ClassifiedIntent): Buil
   return 'quick';
 }
 
-function looksLikeTaskRequest(message: string): boolean {
-  const normalized = message.toLowerCase();
+export function looksLikeTaskRequest(message: string): boolean {
+  const normalized = message
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss');
   const taskVerb = /\b(fueg|füge|add|aendere|ändere|modify|update|fix|baue|bau|erstelle|create|schreib|patch|implement|refaktor|refactor|erg[aä]nz|rename|verschieb|entfern|lösch|delete|remove|deploy|push|install|konfigur|configur|import|export|extrah|extract|optimier|optimiz|integrier|integrat|split|trenn|merg|kombin|combin|migrier|migrat|generer|generat|korrigier|correct)\b/;
   const fileHint = /\b[\w./-]+\.(ts|tsx|js|jsx|mjs|json|css|md)\b/;
   const codeHint = /\b(function|const|import|export|interface|type|class|endpoint|route|api|component|hook|modul|service|handler|controller|middleware)\b/;

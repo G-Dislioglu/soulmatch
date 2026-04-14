@@ -19,7 +19,7 @@ import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
-import { handleBuilderChat, type ChatMessage } from '../lib/builderFusionChat.js';
+import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
@@ -736,6 +736,39 @@ router.post('/maya/chat', async (req: Request, res: Response) => {
     if (!message) {
       res.status(400).json({ error: 'message required' });
       return;
+    }
+
+    const userId = req.body?.userId ?? (req as any).user?.id ?? (req as any).session?.userId ?? undefined;
+    const mappedHistory: ChatMessage[] = history.map((entry) => ({
+      role: entry.role,
+      content: entry.content,
+    }));
+
+    if (!file && looksLikeTaskRequest(message)) {
+      const routed = await handleBuilderChat(message, mappedHistory, userId);
+      const taskContextUsed = { tasksLoaded: 0, hasContinuity: false };
+
+      if (routed.type === 'task_created' || routed.type === 'task_action' || routed.type === 'task_status') {
+        res.json({
+          response: routed.message,
+          model: 'opus-bridge' as const,
+          contextUsed: taskContextUsed,
+          isTask: routed.type === 'task_created',
+          taskId: routed.taskId ?? null,
+          taskTitle: routed.taskTitle ?? null,
+        });
+        return;
+      }
+
+      if (routed.type === 'error') {
+        res.json({
+          response: routed.message,
+          model: 'opus-bridge' as const,
+          contextUsed: taskContextUsed,
+          isTask: false,
+        });
+        return;
+      }
     }
 
     const db = getDb();
