@@ -1,93 +1,29 @@
-# HANDOFF S22 — 14.04.2026
+import { Router, Request, Response } from "express";
+import { getDb } from "../lib/db.js";
+import { sql } from "drizzle-orm";
 
-## Zusammenfassung
-Maya Chat-Fix deployed (freies Gespraech statt starrer JSON-Klassifizierung).
-Docs aktualisiert (SESSION-STATE S22, Provider-Specs +GLM-5.1).
-Regex-Bug in looksLikeTaskRequest gefunden — noch nicht gefixt.
+export const patrolApiRouter = Router();
 
-## Deployed Changes (S22)
+// Diagnostic: list all tables with patrol/finding/scout in name
+patrolApiRouter.get("/schema-check", async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const result = await db.execute(sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND (tablename ILIKE '%patrol%' OR tablename ILIKE '%finding%' OR tablename ILIKE '%scout%' OR tablename ILIKE '%deep%')`);
+    res.json({ tables: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 
-### Maya Chat-Fix (KERN-AENDERUNG)
-1. System-Prompt komplett umgeschrieben: "Rede frei" statt "Antworte IMMER mit JSON"
-2. Blacklist greift NUR bei Task-Intent, nicht bei Chat ueber gesperrte Dateien
-3. Fragen-Erkennung: Question-Detector verhindert false-positive Task-Klassifizierung
-4. Task-Fallback re-added: klare Bauauftraege erstellen trotzdem Tasks
-5. Datei: server/src/lib/builderFusionChat.ts (1097 Zeilen)
-
-### Docs
-6. SESSION-STATE.md auf S22 (Patrol, Konsolidierung, Maya-Fix)
-7. provider-specs.md: GLM-5.1 ($1.00/$3.20, SWE-Bench Pro 58.4) + Patrol-Modelle Sektion
-
-## Test-Ergebnisse
-
-| Test | Ergebnis |
-|------|----------|
-| Patrol-Frage ("haben die scouts bugs gefunden?") | OK — Maya chattet frei |
-| Smalltalk ("was kannst du alles?") | OK — natuerlicher Text |
-| Frage ueber Blacklist-Datei ("erklaer opusBridgeController") | OK — redet darueber |
-| Task auf Blacklist-Datei ("fuege Kommentar in opusBridgeController hinzu") | BUG — Blacklist greift nicht |
-| Task auf erlaubte Datei ("erstelle getVersion in builderMetrics") | TEILWEISE — kein Task-ID |
-
-## SOFORT FIXEN im naechsten Chat
-
-### 1. Regex-Bug in looksLikeTaskRequest (5 Minuten)
-Datei: server/src/lib/builderFusionChat.ts, Zeile ~254
-
-Problem: `fueg` im Regex matched nicht "fuege" wegen Word-Boundary.
-Fix: Pattern aendern von `fueg` zu `fuege?` und `füge` zu `füge` (schon korrekt).
-
-Ausserdem: Logik ist redundant.
-Alt: `return taskVerb.test(normalized) || (fileHint.test(normalized) && taskVerb.test(normalized));`
-Neu: `return taskVerb.test(normalized);`
-
-Dann re-push + alle 5 Tests nochmal laufen lassen.
-
-### 2. Patrol UI (Copilot-Brief, ~30 Min Implementierung)
-BuilderStudioPage.tsx (1619 Z.) und BuilderConfigPanel.tsx (323 Z.) sind >50KB — braucht Copilot.
-
-Was gebaut werden muss:
-- PoolType um 'patrol' erweitern (BuilderConfigPanel.tsx)
-- PATROL-Karte in Pool-Stats-Bar (neben Scout)
-- Model-Dropdown fuer Deep Patrol (6 Modelle: GLM-5.1, GLM-5-Turbo, GPT-5.4, Sonnet 4.6, DeepSeek-R, Kimi)
-- Scout Console Block in der rechten Spalte:
-  - Live-Status (idle/scanning/signal) mit farbigem Punkt
-  - Aktuelle/letzte gescannte Datei
-  - Finding-Zaehler mit Severity-Farben
-  - Findings-Liste mit Verify/Dismiss Buttons
-  - Deep Patrol Trigger: Model-Checkboxen + Datei-Eingabe + "Patrol starten"
-  - Exclude-Editor
-- Pollt /api/builder/patrol/status alle 15s
-- Pollt /api/builder/patrol/findings bei Seitenlade
-
-Backend-Endpoints sind ALLE LIVE:
-```
-GET  /api/builder/patrol/status?token=builder-2026-geheim
-POST /api/builder/patrol/run?token=builder-2026-geheim
-POST /api/builder/patrol/deep?token=builder-2026-geheim  {models:[], files:[]}
-GET  /api/builder/patrol/findings?token=builder-2026-geheim
-POST /api/builder/patrol/findings/:id/verify?token=builder-2026-geheim
-POST /api/builder/patrol/findings/:id/dismiss?token=builder-2026-geheim
-```
-
-## Aktueller Patrol-Stand (LIVE)
-- 1 Routine-Runde gelaufen (13.04, 20:06 UTC)
-- 25 Findings in DB: 5 high, 10 medium, 6 low, 4 info
-- 6 cross-confirmed (auto triaged), 19 signal
-- Timer laeuft (naechste Runde in ~60min nach Serverstart)
-
-## Geaenderte Dateien (S22)
-- server/src/lib/builderFusionChat.ts — Maya Chat-Fix (System-Prompt, Blacklist, Question-Detector)
-- docs/SESSION-STATE.md — S22 Stand
-- docs/provider-specs.md — GLM-5.1 + Patrol-Modelle
-
-## Commits (chronologisch)
-1. f9247b18 — fix(maya): conversational chat
-2. 56b8bf92 — S22: Maya conversation-first (Duplikat, gleicher Inhalt)
-3. e5588635 — docs(S22): SESSION-STATE + provider-specs (erster Versuch)
-4. 2a19ad6b — docs(S22): SESSION-STATE + provider-specs (Update)
-5. 22ec0901 — fix(maya): re-add limited task fallback
-
-## Naechster Chat starten mit
-"Lies docs/HANDOFF-S22.md und docs/SESSION-STATE.md, dann:
-1. Regex-Bug in looksLikeTaskRequest fixen (fuege? statt fueg)
-2. Patrol UI Copilot-Brief schreiben und ausfuehren"
+// Diagnostic: get sample data from any table  
+patrolApiRouter.get("/table-sample", async (req: Request, res: Response) => {
+  try {
+    const table = String(req.query.table || "");
+    if (!table || !/^[a-z_]+$/.test(table)) { res.status(400).json({ error: "invalid table name" }); return; }
+    const db = getDb();
+    const result = await db.execute(sql.raw(`SELECT * FROM ${table} ORDER BY created_at DESC LIMIT 3`));
+    res.json({ table, rows: result.rows, count: result.rows?.length });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
