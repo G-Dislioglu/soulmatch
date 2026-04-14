@@ -1,326 +1,90 @@
-import { useState } from 'react';
-import { TOKENS } from '../../../design/tokens';
-import type { MayaContext } from '../hooks/useMayaApi';
+# HANDOFF S23 — Scout Patrol UI + Pipeline-Upgrade
 
-// ── Model Catalogs ──
+**Datum:** 14.04.2026
+**Vorgänger:** HANDOFF-S22.md
 
-export interface ModelEntry {
-  id: string; label: string; provider: string; model: string; quality: number; speed: string; color: string;
-}
+---
 
-const MAYA = '#7c6af7';
+## Erledigt in S23
 
-const MAYA_MODELS: ModelEntry[] = [
-  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
-  { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
-  { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
-  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
-  { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
-];
+### 1. Regex-Fix in `looksLikeTaskRequest` (builderFusionChat.ts)
+- `fueg` → `fuege?` — erkennt jetzt "füge" und "fuege"
+- Worker-Bug gefixt: `.test(normalized)` war entfernt worden → immer `true` → wiederhergestellt
+- Commits: `767cf32`, `6a7c9ba`
 
-const STRONG_MODELS: ModelEntry[] = [
-  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
-  { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
-  { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
-  { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
-  { id: 'deepseek', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 72, speed: 'fast', color: '#4ade80' },
-  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
-  { id: 'minimax', label: 'MiniMax M2.7', provider: 'openrouter', model: 'minimax/minimax-m2.7', quality: 60, speed: 'medium', color: '#fbbf24' },
-  { id: 'kimi', label: 'Kimi K2.5', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', quality: 65, speed: 'medium', color: '#f472b6' },
-  { id: 'qwen', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 58, speed: 'fast', color: '#a78bfa' },
-];
+### 2. Patrol Backend-Endpoints (opusBridge.ts)
+- `GET /patrol-status` → totalFindings, bySeverity, lastRound, triaged, crossConfirmed
+- `GET /patrol-findings` → Findings-Liste mit Severity-Filter, Limit
+- Datenquelle: `builder_error_cards` Tabelle
+- Copilot hat die Endpoints sauber in opusBridge.ts integriert (Commit `c7f53e0`)
 
-const SCOUT_MODELS: ModelEntry[] = [
-  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
-  { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
-  { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
-  { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
-];
+### 3. PatrolConsole UI (PatrolConsole.tsx)
+- Eigene React-Komponente unter `client/src/modules/M16_builder/ui/PatrolConsole.tsx`
+- Dark Theme, Severity-Filter (Alle/Kritisch/Hoch/Mittel/Niedrig/Info)
+- Expandierbare Finding-Cards mit Problem/Lösung/betroffene Dateien
+- Deep Patrol Trigger-Button (🔬 Deep Analyse) pro Finding
+- Route: `/patrol?opus_token=...`
+- Barrel-Export in `M16_builder/index.ts`
 
-const DISTILLER_MODELS: ModelEntry[] = [
-  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
-  { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
-  { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
-  { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
-];
+### 4. Patrol als 6. Pool in BuilderConfigPanel
+- PoolType um `'patrol'` erweitert
+- Pool-Karte mit Orange-Akzent (#ff8c42)
+- Reused Scout-Models für Deep-Analyse
 
-// ── Pool Types & State ──
+### 5. Worker Token-Limits aufgehoben
+- `opusWorkerSwarm.ts`: maxTokens von 6000 → 100000
+- Bestätigt: Minimax liefert jetzt 17.491 chars Output (vorher max 6000)
+- Pipeline kann Files bis ~400 Zeilen zuverlässig verarbeiten
 
-export type PoolType = 'maya' | 'council' | 'distiller' | 'worker' | 'scout' | 'patrol';
+### 6. SESSION-STATE.md aktualisiert
+- S23-Block via opus-task (Worker: Qwen) deployed
 
-export interface PoolState { maya: string[]; council: string[]; distiller: string[]; worker: string[]; patrol: string[]; scout: string[] }
+### 7. opus-status Endpoint
+- Fix deployed via opus-task (Worker: Minimax) — zeigt jetzt reale Token-Limits
 
-function getModelsForPool(pool: PoolType): ModelEntry[] {
-  if (pool === 'maya') return MAYA_MODELS;
-  if (pool === 'scout') return SCOUT_MODELS;
-  if (pool === 'patrol') return SCOUT_MODELS; // patrol reuses scout models for deep analysis
-  if (pool === 'distiller') return DISTILLER_MODELS;
-  return STRONG_MODELS;
-}
+### 8. Cleanup & Build-Fix
+- Render-Hänger (8h stuck deploy) gelöst via Manual Deploy + Build Cache Clear
+- 5 obsolete Müll-Dateien entfernt (patrolMount.ts, fileReader.ts, patrol.ts, patrolApi.ts, patrolRoutes.ts)
+- Broken import in opusVordenker.ts entfernt
 
-export function loadPools(): PoolState {
-  try {
-    const saved = localStorage.getItem('maya-pools-v2');
-    if (saved) {
-      const parsed = JSON.parse(saved) as Partial<PoolState>;
-      return {
-        maya: parsed.maya ?? ['opus'],
-        council: parsed.council ?? ['opus', 'sonnet', 'gpt-5.4'],
-        distiller: parsed.distiller ?? ['glm-flash', 'deepseek-scout'],
-        worker: parsed.worker ?? ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
-        scout: parsed.scout ?? ['deepseek-scout', 'glm-flash', 'gemini-flash'],
-      };
-    }
-  } catch { /* noop */ }
-  return {
-    maya: ['opus'], council: ['opus', 'sonnet', 'gpt-5.4'], distiller: ['glm-flash', 'deepseek-scout'],
-    worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'], scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
-  };
-}
+---
 
-export function savePools(pools: PoolState) {
-  try { localStorage.setItem('maya-pools-v2', JSON.stringify(pools)); } catch { /* noop */ }
-}
+## Live-Status nach S23
 
-export async function syncPoolsToServer(token: string, pools: PoolState) {
-  try {
-    await fetch(`/api/builder/maya/pools?token=${encodeURIComponent(token)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pools }),
-    });
-  } catch { /* fire and forget */ }
-}
+| System | Wert |
+|--------|------|
+| Patrol Findings | 166 total: 3 critical, 27 high, 67 medium, 59 low, 10 info |
+| Patrol Rounds | Automatisch alle 60 Min |
+| Deep Patrol Models | 6 registriert |
+| Token Limits | 100.000 (Worker + Meister) |
+| Pipeline Success | PatrolConsole (320Z), ConfigPanel (323Z) — beide per opus-task |
+| Builder Pools | 6: Maya, Council, Distiller, Worker, Scout, Patrol |
 
-// ── Helpers ──
+---
 
-function perfColor(pct: number): string {
-  if (pct >= 80) return '#22c55e';
-  if (pct >= 65) return '#84cc16';
-  if (pct >= 50) return '#eab308';
-  if (pct >= 35) return '#f97316';
-  return '#ef4444';
-}
+## Bekannte offene Punkte
 
-function formatTime(d: string | null | undefined) {
-  if (!d) return '\u2014';
-  return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
+1. **Maya Chat-Endpoint nicht erreichbar per API** — Auth-Pattern unklar (`/api/builder/chat` gibt 404). Chat funktioniert über die UI, aber kein programmatischer Test möglich.
+2. **Render Request-Timeout ~30-60s** — Lange opus-tasks (>90s Swarm-Phase) liefern HTML statt JSON zurück. Workaround: dryRun → Content extrahieren → git-push.
+3. **opusBridge.ts (1400 Zeilen)** — Weiterhin zu groß für Full-File-Overwrite. Nächster Schritt: Anchor-Patch-Modus (insert-after mit Ankerstelle statt komplette Datei).
+4. **BuilderStudioPage.tsx (1600 Zeilen)** — Nur per Copilot editierbar.
+5. **Patrol-Route in BuilderStudioPage** — Patrol-Karte und Scout Console Block in der Builder UI fehlen noch (innerhalb der 1600-Zeilen-Datei).
 
-// ── SectionPanel ──
+---
 
-function SectionPanel({ title, accent = TOKENS.gold, children }: { title: string; accent?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ border: `1.5px solid ${TOKENS.b1}`, borderRadius: 18, background: TOKENS.card, boxShadow: TOKENS.shadow.card, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', borderBottom: `2px solid ${TOKENS.b1}`, background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
-        <div style={{ fontSize: 10, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600, fontFamily: TOKENS.font.body }}>{title}</div>
-      </div>
-      <div style={{ padding: 14 }}>{children}</div>
-    </div>
-  );
-}
+## Nächste Session (S24) — Empfohlene Prioritäten
 
-// ── PoolPanel ──
+1. **Anchor-Patch-Modus** für die Pipeline — größter Hebel
+2. **Patrol-Karte in BuilderStudioPage** (per Copilot)
+3. **Deep Patrol Backend** testen — POST trigger-deep Endpoint verifizieren
+4. **Maya Chat-Intent** in der UI testen (Bauauftrag vs. Frage)
 
-function PoolPanel({ poolType, accent, activeIds, onToggle, onSelect, workerStats, onClose, singleSelect }: {
-  poolType: PoolType; accent: string; activeIds: string[];
-  onToggle: (id: string) => void; onSelect?: (id: string) => void;
-  workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
-  onClose: () => void; singleSelect?: boolean;
-}) {
-  const catalog = getModelsForPool(poolType);
-  const activeModels = catalog.filter(m => activeIds.includes(m.id));
-  const avg = activeModels.length > 0 ? Math.round(activeModels.reduce((s, m) => s + m.quality, 0) / activeModels.length) : 0;
-  const avgCol = perfColor(avg);
+---
 
-  const POOL_LABELS: Record<PoolType, string> = { maya: 'Maya KI', council: 'Master Council', distiller: 'Destillierer', worker: 'Worker Pool', scout: 'Scout Pool' , patrol: 'Patrol' };
+## Workflow-Reminder
 
-  return (
-    <div style={{ background: TOKENS.card, borderBottom: `1.5px solid ${TOKENS.b1}`, boxShadow: TOKENS.shadow.dropdown, padding: '14px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>{POOL_LABELS[poolType]}</div>
-          {!singleSelect && <span style={{ fontSize: 14, fontWeight: 700, color: avgCol, fontFamily: 'monospace' }}>{avg}%</span>}
-        </div>
-        <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 16, color: TOKENS.text2, padding: '2px 6px' }}>{'✕'}</span>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        {catalog.map(m => {
-          const on = activeIds.includes(m.id);
-          return (
-            <button key={m.id} onClick={() => singleSelect && onSelect ? onSelect(m.id) : onToggle(m.id)}
-              style={{
-                fontSize: 11, padding: '4px 12px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontFamily: 'monospace',
-                border: `1.5px solid ${on ? accent + '80' : TOKENS.b2}`, background: on ? accent + '20' : 'transparent', color: on ? accent : TOKENS.text2,
-              }}>
-              {m.label}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ display: 'grid', gap: 4 }}>
-        {catalog.filter(m => activeIds.includes(m.id)).map(m => {
-          const stat = workerStats.find(w => String(w.worker).toLowerCase().includes(m.id.split('-')[0] ?? ''));
-          const pct = stat ? Math.min(100, Number(stat.avg_quality) || 0) : m.quality;
-          const barCol = perfColor(pct);
-          return (
-            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: barCol, flexShrink: 0 }} />
-              <span style={{ minWidth: 80, fontFamily: 'monospace', color: TOKENS.text, fontSize: 11 }}>{m.label}</span>
-              <div style={{ flex: 1, height: 8, background: TOKENS.bg, borderRadius: 4, overflow: 'hidden', border: `1px solid ${TOKENS.b2}`, minWidth: 60 }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: barCol, borderRadius: 4 }} />
-              </div>
-              <span style={{ minWidth: 30, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: barCol }}>{pct}%</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── ContextPanel ──
-
-function ContextPanel({ ctx, onDeleteMemory, onAddNote }: {
-  ctx: MayaContext | null; onDeleteMemory?: (id: string) => void; onAddNote?: (s: string) => void;
-}) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [newNote, setNewNote] = useState('');
-  if (!ctx) return <div style={{ padding: 14, color: TOKENS.text3, fontSize: 11 }}>Nicht verbunden.</div>;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}>
-      <SectionPanel title="Continuity Notes" accent={TOKENS.gold}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: TOKENS.text3 }}>{ctx.continuityNotes.length} Notes</span>
-          <button onClick={() => setShowAdd(!showAdd)}
-            style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, background: 'transparent', color: TOKENS.gold, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</button>
-        </div>
-        {showAdd && (
-          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-            <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Session-Notiz..."
-              onKeyDown={e => { if (e.key === 'Enter' && newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
-              style={{ flex: 1, background: TOKENS.bg, border: `1px solid ${TOKENS.b1}`, borderRadius: 8, padding: '5px 8px', color: TOKENS.text, fontSize: 11, outline: 'none' }} />
-            <button onClick={() => { if (newNote.trim()) { onAddNote?.(newNote.trim()); setNewNote(''); setShowAdd(false); } }}
-              style={{ fontSize: 10, padding: '5px 10px', borderRadius: 8, border: 'none', background: TOKENS.gold, color: '#000', cursor: 'pointer', fontWeight: 600 }}>OK</button>
-          </div>
-        )}
-        {ctx.continuityNotes.map((n, i) => (
-          <div key={n.id || i} style={{ display: 'flex', gap: 4, padding: '4px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.4, borderBottom: `1px solid ${TOKENS.b3}` }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatTime(n.updatedAt)}</span>{' '}
-              {n.summary.slice(0, 100)}{n.summary.length > 100 ? '...' : ''}
-            </div>
-            {n.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(n.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.6, flexShrink: 0 }} title="Löschen">{'✕'}</span>
-            )}
-          </div>
-        ))}
-        {ctx.continuityNotes.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Notes.</div>}
-      </SectionPanel>
-      <SectionPanel title="Memory Episodes" accent="#7c6af7">
-        {ctx.memory.episodes.slice(0, 4).map((e, i) => (
-          <div key={e.id || i} style={{ display: 'flex', gap: 4, padding: '3px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.4 }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatTime(e.updatedAt)}</span>{' '}
-              {e.summary.slice(0, 80)}{e.summary.length > 80 ? '...' : ''}
-            </div>
-            {e.id && onDeleteMemory && (
-              <span onClick={() => onDeleteMemory(e.id!)} style={{ color: TOKENS.text3, cursor: 'pointer', fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Löschen">{'✕'}</span>
-            )}
-          </div>
-        ))}
-        {ctx.memory.episodes.length === 0 && <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Episoden.</div>}
-      </SectionPanel>
-      <SectionPanel title="System" accent={TOKENS.cyan}>
-        <div style={{ display: 'flex', gap: 10, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2, alignItems: 'center' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: TOKENS.green, display: 'inline-block' }} />
-            Render
-          </span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '1px 6px' }}>{ctx.tasks.length} Tasks</span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '1px 6px' }}>{ctx.workerStats.length} Worker</span>
-        </div>
-      </SectionPanel>
-    </div>
-  );
-}
-
-// ── Composite Config Panel (used in BuilderStudioPage) ──
-
-const POOL_CONFIGS: Array<{ type: PoolType; label: string; accent: string; single?: boolean }> = [
-  { type: 'maya', label: 'Maya', accent: '#7c6af7', single: true },
-  { type: 'council', label: 'Council', accent: TOKENS.gold },
-  { type: 'distiller', label: 'Destillierer', accent: '#f59e0b' },
-  { type: 'worker', label: 'Worker', accent: TOKENS.cyan },
-  { type: 'scout', label: 'Scout', accent: TOKENS.green },
-    { type: 'patrol' as PoolType, label: 'Patrol', accent: '#ff8c42' },
-];
-
-export function BuilderConfigPanel({ token, ctx }: { token: string; ctx: MayaContext | null }) {
-  const [pools, setPools] = useState<PoolState>(loadPools);
-  const [openPool, setOpenPool] = useState<PoolType | null>(null);
-
-  const handleToggle = (poolType: PoolType, id: string) => {
-    const current = pools[poolType];
-    const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
-    const updated = { ...pools, [poolType]: next };
-    setPools(updated);
-    savePools(updated);
-    void syncPoolsToServer(token, updated);
-  };
-
-  const handleSelect = (poolType: PoolType, id: string) => {
-    const updated = { ...pools, [poolType]: [id] };
-    setPools(updated);
-    savePools(updated);
-    void syncPoolsToServer(token, updated);
-  };
-
-  const handleDeleteMemory = async (id: string) => {
-    try {
-      await fetch(`/api/builder/maya/memory/${id}?token=${encodeURIComponent(token)}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch { /* noop */ }
-  };
-
-  const handleAddNote = async (note: string) => {
-    try {
-      await fetch(`/api/builder/maya/memory?token=${encodeURIComponent(token)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ layer: 'continuity', key: `note-${Date.now()}`, summary: note }),
-      });
-    } catch { /* noop */ }
-  };
-
-  return (
-    <div>
-      <div style={{ padding: '10px 14px', borderBottom: `1.5px solid ${TOKENS.b1}`, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {POOL_CONFIGS.map(pc => (
-          <button key={pc.type} onClick={() => setOpenPool(openPool === pc.type ? null : pc.type)}
-            style={{
-              fontSize: 10, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontWeight: 600,
-              border: `1.5px solid ${openPool === pc.type ? pc.accent : TOKENS.b2}`,
-              background: openPool === pc.type ? pc.accent + '18' : 'transparent',
-              color: openPool === pc.type ? pc.accent : TOKENS.text2,
-            }}>
-            {pc.label} ({pools[pc.type].length})
-          </button>
-        ))}
-      </div>
-      {openPool && (
-        <PoolPanel
-          poolType={openPool}
-          accent={POOL_CONFIGS.find(p => p.type === openPool)?.accent ?? TOKENS.gold}
-          activeIds={pools[openPool]}
-          onToggle={(id) => handleToggle(openPool, id)}
-          onSelect={(id) => handleSelect(openPool, id)}
-          workerStats={ctx?.workerStats ?? []}
-          onClose={() => setOpenPool(null)}
-          singleSelect={openPool === 'maya'}
-        />
-      )}
-      <ContextPanel ctx={ctx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(n) => { void handleAddNote(n); }} />
-    </div>
-  );
-}
-// PATROL_POOL_PLACEHOLDER
+- **Regie-Rolle:** Claude gibt Builder-Calls, kein manuelles Repo-Clonen
+- **dryRun→git-push:** Bewährter Workaround für Render-Timeouts
+- **Token-Auth:** `opus_token=opus-bridge-2026-geheim`
+- **TypeScript-Check vor Push:** `cd client && npx tsc -b` + `cd server && pnpm build`
+- **opusBridge.ts zu groß:** Nur per Copilot oder Anchor-Patch
