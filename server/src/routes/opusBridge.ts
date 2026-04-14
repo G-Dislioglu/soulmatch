@@ -1123,6 +1123,118 @@ opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
   });
 });
 
+// ==================== PATROL ENDPOINTS ====================
+import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
+
+// GET /patrol-status — aggregated patrol statistics
+opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+
+    // Count all patrol findings by severity
+    const allFindings = await db
+      .select({ severity: builderErrorCards.severity, tags: builderErrorCards.tags })
+      .from(builderErrorCards)
+      .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`);
+
+    const bySeverity = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    let triaged = 0;
+    let crossConfirmed = 0;
+
+    for (const f of allFindings) {
+      const sev = (f.severity ?? 'medium') as keyof typeof bySeverity;
+      if (sev in bySeverity) bySeverity[sev]++;
+
+      const tags = f.tags ?? [];
+      if (tags.includes('triaged') || tags.includes('verified') || tags.includes('fixed')) triaged++;
+      if (tags.includes('cross-confirmed')) crossConfirmed++;
+    }
+
+    // Get latest round timestamp
+    const [latest] = await db
+      .select({ createdAt: builderErrorCards.createdAt })
+      .from(builderErrorCards)
+      .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`)
+      .orderBy(desc(builderErrorCards.createdAt))
+      .limit(1);
+
+    res.json({
+      lastRound: latest?.createdAt ?? null,
+      totalFindings: allFindings.length,
+      bySeverity,
+      triaged,
+      crossConfirmed,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /patrol-findings — list patrol findings with optional filters
+opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
+    const limit = Math.min(parseInt(String(req.query.limit ?? '50'), 10), 200);
+
+    const baseWhere = sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`;
+    const severityWhere = severity ? sql`${builderErrorCards.severity} = ${severity}` : sql``;
+
+    const findings = await db
+      .select()
+      .from(builderErrorCards)
+      .where(severity ? and(baseWhere, severityWhere) : baseWhere)
+      .orderBy(desc(builderErrorCards.createdAt))
+      .limit(limit);
+
+    res.json({
+      count: findings.length,
+      findings: findings.map((f) => ({
+        id: f.id,
+        title: f.title,
+        category: f.category,
+        severity: f.severity,
+        tags: f.tags,
+        problem: f.problem,
+        solution: f.solution,
+        affectedFiles: f.affectedFiles,
+        foundBy: f.foundBy,
+        createdAt: f.createdAt,
+        resolvedAt: f.resolvedAt,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// POST /patrol-trigger-round — trigger a routine patrol round
+opusBridgeRouter.post('/patrol-trigger-round', async (_req: Request, res: Response) => {
+  try {
+    const result = await runRoutinePatrol();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// POST /patrol-trigger-deep — trigger a deep patrol scan
+opusBridgeRouter.post('/patrol-trigger-deep', async (req: Request, res: Response) => {
+  try {
+    const { models, files } = req.body as { models?: string[]; files?: string[] };
+
+    if (!models?.length || !files?.length) {
+      res.status(400).json({ error: 'models[] and files[] are required' });
+      return;
+    }
+
+    const results = await runDeepPatrol(models, files);
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
   try {
     const { query, glob, maxFiles = 8, maxLinesPerFile = 200 } = req.body as {
