@@ -62,31 +62,31 @@ interface MeisterCouncilResponse {
 
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
-const WORKER_TOKEN_HEADROOM = 900;
-const WORKER_MAX_TOKEN_CAP = 10000;
+const WORKER_TOKEN_HEADROOM = 0;
+const WORKER_MAX_TOKEN_CAP = 100000;
 
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
-  deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 6000 },
-  sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 6000 },
-  gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
-  glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
-  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', maxTokens: 6000 },
-  grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 6000 },
-  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 6000 },
-  minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 6000 },
-  qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 6000 },
-  kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 6000 },
+  deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 100000 },
+  sonnet: { actor: 'sonnet', provider: 'anthropic', model: 'claude-sonnet-4-6', maxTokens: 100000 },
+  gpt: { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 100000 },
+  glm: { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 100000 },
+  'glm-flash': { actor: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', maxTokens: 100000 },
+  grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 100000 },
+  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 100000 },
+  minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 100000 },
+  qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 100000 },
+  kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 100000 },
   // Pool ID aliases (pool uses 'glm-turbo', preset uses 'glm', etc.)
-  'glm-turbo': { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
-  'gpt-5.4': { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
+  'glm-turbo': { actor: 'glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 100000 },
+  'gpt-5.4': { actor: 'gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 100000 },
 };
 
 const MEISTER_COUNCIL: MeisterCouncilMember[] = [
-  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 6000 },
-  { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 6000 },
-  { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 6000 },
-  { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 6000 },
-  { actor: 'meister-deepseek-r', provider: 'deepseek', model: 'deepseek-reasoner', maxTokens: 6000 },
+  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 100000 },
+  { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 100000 },
+  { actor: 'meister-glm', provider: 'zhipu', model: 'glm-5-turbo', maxTokens: 100000 },
+  { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 100000 },
+  { actor: 'meister-deepseek-r', provider: 'deepseek', model: 'deepseek-reasoner', maxTokens: 100000 },
 ];
 
 function estimateTokens(text: string): number {
@@ -95,17 +95,11 @@ function estimateTokens(text: string): number {
 
 function resolveWorkerMaxTokens(
   preset: WorkerPreset,
-  fileContent?: string,
-  dependencyPatch?: { file: string; body: string },
+  _fileContent?: string,
+  _dependencyPatch?: { file: string; body: string },
 ): number {
-  const estimatedOutputTokens = estimateTokens(fileContent ?? '');
-  const dependencyTokens = estimateTokens(dependencyPatch?.body ?? '');
-  const suggestedTokens = estimatedOutputTokens + dependencyTokens + WORKER_TOKEN_HEADROOM;
-
-  return Math.min(
-    WORKER_MAX_TOKEN_CAP,
-    Math.max(preset.maxTokens, suggestedTokens),
-  );
+  // No artificial ceiling - workers can output as much as needed
+  return WORKER_MAX_TOKEN_CAP;
 }
 
 function normalizeAssignmentReason(value: string | undefined): string {
