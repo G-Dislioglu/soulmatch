@@ -86,6 +86,7 @@ function parseScoutResponse(raw: string): Omit<ScoutReport, 'durationMs'> {
     warnings: ['Failed to parse scout response'],
   };
 
+
   try {
     // Strip markdown fences if present
     let cleaned = raw.trim();
