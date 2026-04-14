@@ -1133,12 +1133,15 @@ export function BuilderStudioPage() {
               <a
                 href="/patrol?opus_token=opus-bridge-2026-geheim"
                 style={{
+                  borderRadius: 999,
+                  border: '1.5px solid #f97316',
+                  background: 'rgba(249,115,22,0.14)',
                   color: '#f97316',
                   textDecoration: 'none',
-                  fontSize: '0.8rem',
-                  marginLeft: '6px',
-                  padding: '10px 4px',
+                  padding: '10px 16px',
+                  fontSize: 13,
                   fontWeight: 600,
+                  cursor: 'pointer',
                 }}
               >
                 🛡️ Patrol Console

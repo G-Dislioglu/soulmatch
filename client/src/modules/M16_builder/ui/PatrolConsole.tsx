@@ -397,6 +397,31 @@ export function PatrolConsole() {
         <StatCard label="Niedrig" value={sev.low || 0} accent="#6ec6ff" />
       </div>
 
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '20px 0' }}>
+        {[
+          { role: 'ROUTINE', model: 'GLM-5-Turbo', color: '#39ff14' },
+          { role: 'DEEP #1', model: 'GPT-5.4', color: '#00f0ff' },
+          { role: 'DEEP #2', model: 'Sonnet 4.6', color: '#a78bfa' },
+          { role: 'DEEP #3', model: 'DeepSeek-R', color: '#f97316' },
+          { role: 'DEEP #4', model: 'Kimi', color: '#f472b6' },
+          { role: 'DEEP #5', model: 'GLM-5.1', color: '#22d3ee' },
+        ].map(({ role, model, color }) => (
+          <div
+            key={role}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: `1px solid ${color}33`,
+              borderRadius: 10,
+              padding: '10px 16px',
+              minWidth: 140,
+            }}
+          >
+            <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
+            <div style={{ fontSize: 14, color: '#e2e4f0', marginTop: 4 }}>{model}</div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
           { key: 'all', label: 'Alle', count: findings.length },
