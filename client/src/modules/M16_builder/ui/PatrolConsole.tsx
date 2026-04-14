@@ -23,6 +23,13 @@ interface PatrolStatus {
   bySeverity?: Partial<Record<Severity, number>>;
 }
 
+interface DeepResult {
+  model: string;
+  severity?: string;
+  analysis?: string;
+  verdict?: string;
+}
+
 const API = 'https://soulmatch-1.onrender.com/api/builder/opus-bridge';
 
 const SEV_CONFIG: Record<Severity, { color: string; bg: string; icon: string; label: string }> = {
@@ -96,8 +103,61 @@ function StatCard({ label, value, accent, sub }: { label: string; value: string 
   );
 }
 
-function FindingCard(props: { finding: PatrolFinding; expanded: boolean; onToggle: () => void }) {
-  const { finding, expanded, onToggle } = props;
+interface DeepResultCardProps {
+  result: DeepResult;
+}
+
+function DeepResultCard({ result }: DeepResultCardProps) {
+  return (
+    <div
+      style={{
+        background: '#12132a',
+        borderRadius: 8,
+        padding: '10px 14px',
+        border: '1px solid #7c6af733',
+        marginBottom: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#7c6af7' }}>{result.model || 'Model'}</span>
+        {result.severity && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: '#7c6af7',
+              background: '#7c6af718',
+              padding: '2px 8px',
+              borderRadius: 10,
+              textTransform: 'uppercase',
+            }}
+          >
+            {result.severity}
+          </span>
+        )}
+      </div>
+      {result.verdict && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#a8e6cf', marginBottom: 4 }}>
+          ✓ {result.verdict}
+        </div>
+      )}
+      {result.analysis && (
+        <div style={{ fontSize: 12, color: '#8b8fa3', lineHeight: 1.5 }}>{result.analysis}</div>
+      )}
+    </div>
+  );
+}
+
+interface FindingCardProps {
+  finding: PatrolFinding;
+  expanded: boolean;
+  onToggle: () => void;
+  deepResult: DeepResult[] | null;
+  deepLoading: boolean;
+  onDeepPatrol: () => void;
+}
+
+function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onDeepPatrol }: FindingCardProps) {
   const cfg = SEV_CONFIG[finding.severity] || SEV_CONFIG.info;
   return (
     <div
@@ -140,7 +200,49 @@ function FindingCard(props: { finding: PatrolFinding; expanded: boolean; onToggl
               <div style={{ fontSize: 13, color: '#a8e6cf', lineHeight: 1.5 }}>{finding.solution}</div>
             </div>
           ) : null}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+
+          {/* Deep Patrol Section */}
+          <div style={{ marginBottom: 12 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeepPatrol(); }}
+              disabled={deepLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: deepLoading ? '#4a4d80' : '#7c6af7',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '7px 14px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: deepLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {deepLoading ? (
+                <>
+                  <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span>
+                  Analyse läuft...
+                </>
+              ) : (
+                '🔬 Deep Analyse'
+              )}
+            </button>
+          </div>
+
+          {/* Deep Patrol Results */}
+          {deepResult && deepResult.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: '#7c6af7', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>🔬 Deep Patrol Ergebnisse</div>
+              {deepResult.map((r, i) => (
+                <DeepResultCard key={`${r.model}-${i}`} result={r} />
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
             {(finding.affectedFiles || []).map((file, index) => (
               <span
                 key={`${file}-${index}`}
@@ -172,6 +274,8 @@ export function PatrolConsole() {
   const [filter, setFilter] = useState<'all' | Severity>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deepResults, setDeepResults] = useState<Record<string, DeepResult[]>>({});
+  const [deepLoading, setDeepLoading] = useState<Record<string, boolean>>({});
 
   const api = useCallback(async <T,>(endpoint: string, extraParams = ''): Promise<T> => {
     const response = await fetch(`${API}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
@@ -179,6 +283,24 @@ export function PatrolConsole() {
       throw new Error(`HTTP ${response.status}`);
     }
     return response.json() as Promise<T>;
+  }, [token]);
+
+  const triggerDeep = useCallback(async (findingId: string) => {
+    setDeepLoading((prev) => ({ ...prev, [findingId]: true }));
+    try {
+      const response = await fetch(`${API}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ findingId }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json() as DeepResult[];
+      setDeepResults((prev) => ({ ...prev, [findingId]: data }));
+    } catch (error) {
+      console.error('Deep patrol error:', error);
+    } finally {
+      setDeepLoading((prev) => ({ ...prev, [findingId]: false }));
+    }
   }, [token]);
 
   const load = useCallback(async () => {
@@ -214,6 +336,13 @@ export function PatrolConsole() {
         padding: '24px 20px',
       }}
     >
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1
@@ -309,6 +438,9 @@ export function PatrolConsole() {
               finding={finding}
               expanded={expanded === finding.id}
               onToggle={() => setExpanded(expanded === finding.id ? null : finding.id)}
+              deepResult={deepResults[finding.id] ?? null}
+              deepLoading={!!deepLoading[finding.id]}
+              onDeepPatrol={() => void triggerDeep(finding.id)}
             />
           ))
         )}
