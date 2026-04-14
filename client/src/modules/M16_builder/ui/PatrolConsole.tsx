@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -183,11 +183,96 @@ interface PatrolModelCardProps {
   onChange: (value: string) => void;
 }
 
+function ModelSelect({ value, onChange, models }: {
+  value: string;
+  onChange: (v: string) => void;
+  models: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handler);
+
+    return () => {
+      document.removeEventListener('mousedown', handler);
+    };
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen((current) => !current)}
+        style={{
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 14, color: '#e2e4f0' }}>{value}</span>
+        <span style={{ fontSize: 10, opacity: 0.5 }}>▼</span>
+      </div>
+      {open ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: -12,
+            marginTop: 8,
+            background: '#1a1a2e',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 8,
+            padding: '4px 0',
+            zIndex: 1000,
+            minWidth: 180,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            maxHeight: 280,
+            overflowY: 'auto',
+          }}
+        >
+          {models.map((entry) => (
+            <div
+              key={entry}
+              onClick={() => {
+                onChange(entry);
+                setOpen(false);
+              }}
+              style={{
+                padding: '8px 14px',
+                cursor: 'pointer',
+                fontSize: 13,
+                color: entry === value ? '#d4af37' : '#e2e4f0',
+                background: entry === value ? 'rgba(212,175,55,0.1)' : 'transparent',
+                fontWeight: entry === value ? 700 : 400,
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = entry === value ? 'rgba(212,175,55,0.1)' : 'transparent';
+              }}
+            >
+              {entry}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps) {
   return (
     <div
       style={{
-        position: 'relative',
         background: 'rgba(255,255,255,0.04)',
         border: `1px solid ${color}33`,
         borderRadius: 10,
@@ -198,25 +283,12 @@ function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps)
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div>
           <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
-          <div style={{ fontSize: 14, color: '#e2e4f0', marginTop: 4 }}>{model}</div>
+          <div style={{ marginTop: 4 }}>
+            <ModelSelect value={model} onChange={onChange} models={AVAILABLE_MODELS} />
+          </div>
         </div>
-        <span style={{ fontSize: 12, color, fontWeight: 700, flexShrink: 0 }}>▼</span>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 12px ${color}66`, flexShrink: 0 }} />
       </div>
-      <select
-        value={model}
-        onChange={(event) => onChange(event.target.value)}
-        aria-label={`${role} Modell auswählen`}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: 0,
-          cursor: 'pointer',
-        }}
-      >
-        {AVAILABLE_MODELS.map((entry) => (
-          <option key={entry} value={entry}>{entry}</option>
-        ))}
-      </select>
     </div>
   );
 }
