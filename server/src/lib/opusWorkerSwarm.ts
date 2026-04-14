@@ -63,7 +63,7 @@ interface MeisterCouncilResponse {
 const FILE_START_MARKER = '---FILE_START---';
 const FILE_END_MARKER = '---FILE_END---';
 const WORKER_TOKEN_HEADROOM = 0;
-const WORKER_MAX_TOKEN_CAP = 100000;
+export const WORKER_MAX_TOKEN_CAP = 100000;
 
 const WORKER_PRESETS: Record<string, WorkerPreset> = {
   deepseek: { actor: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', maxTokens: 100000 },

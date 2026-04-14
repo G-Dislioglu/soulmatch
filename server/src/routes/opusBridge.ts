@@ -12,7 +12,9 @@ import { executeTask } from '../lib/opusBridgeController.js';
 import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
 import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
+import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
 import {
+  WORKER_MAX_TOKEN_CAP,
   runMeisterValidation,
   saveWorkerScores,
   runWorkerSwarm,
@@ -567,7 +569,7 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
     const responseText = await callProvider(provider, resolvedModel, {
       system: system || 'Du bist ein hilfreicher Assistent.',
       messages: [{ role: 'user', content: message }],
-      maxTokens: maxTokens || 6000,
+      maxTokens: maxTokens || WORKER_MAX_TOKEN_CAP,
       temperature: 0.7,
       forceJsonObject: false,
     });
@@ -1223,15 +1225,13 @@ opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
   res.json({
     endpoints: 36,
     workers: 6,
-    meisterTokens: 6000,
-    workerTokens: 6000,
+    meisterTokens: WORKER_MAX_TOKEN_CAP,
+    workerTokens: WORKER_MAX_TOKEN_CAP,
     features: ['benchmark', 'deploy-wait', 'opus-task', 'build', 'self-test'],
   });
 });
 
 // ==================== PATROL ENDPOINTS ====================
-import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
-
 // GET /patrol-status — aggregated patrol statistics
 opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
   try {
