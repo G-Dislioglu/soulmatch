@@ -1,88 +1,42 @@
-/**
- * Quick smoke test for anchorPatch module.
- * Run: npx tsx server/src/lib/anchorPatch.test.ts
- */
+import assert from 'node:assert/strict';
 import { applyEdit, parseWorkerEdit, validateEdit } from './anchorPatch.js';
 
-const sampleFile = `import express from 'express';
-const router = express.Router();
+function testReplace(): void {
+  const parsed = parseWorkerEdit('{"mode":"replace","search":"oldValue","replace":"newValue"}');
+  assert.equal(validateEdit('const x = oldValue;', parsed), null);
+  const result = applyEdit('const x = oldValue;', parsed);
+  assert.equal(result.success, true);
+  assert.equal(result.newContent, 'const x = newValue;');
+}
 
-// ─── Health ───
-router.get('/health', (req, res) => {
-  res.json({ ok: true });
-});
+function testInsertAfter(): void {
+  const parsed = parseWorkerEdit(JSON.stringify({
+    mode: 'insert_after',
+    anchor: 'const ready = true;\n',
+    content: 'const next = false;\n',
+  }));
+  assert.equal(validateEdit('const ready = true;\nreturn ready;\n', parsed), null);
+  const result = applyEdit('const ready = true;\nreturn ready;\n', parsed);
+  assert.equal(result.success, true);
+  assert.equal(result.newContent, 'const ready = true;\nconst next = false;\nreturn ready;\n');
+}
 
-// ─── Exports ───
-export default router;
-`;
+function testLegacyFallback(): void {
+  const parsed = parseWorkerEdit(['<<<SEARCH', 'foo', '===REPLACE', 'bar', '>>>'].join('\n'));
+  assert.equal(validateEdit('foo', parsed), null);
+  const result = applyEdit('foo', parsed);
+  assert.equal(result.success, true);
+  assert.equal(result.newContent, 'bar');
+}
 
-// Test 1: insert-after
-const r1 = applyEdit(sampleFile, {
-  mode: 'insert-after',
-  path: 'test.ts',
-  anchor: "router.get('/health'",
-  content: `
-router.get('/status', (req, res) => {
-  res.json({ status: 'running' });
-});`,
-  anchorOffset: 2, // skip closing brace
-});
-console.log('Test 1 (insert-after):', r1.success ? '✅' : `❌ ${r1.error}`);
-if (r1.newContent?.includes('/status')) console.log('  Content verified ✅');
+function testNonUniqueAnchor(): void {
+  const parsed = parseWorkerEdit('{"mode":"insert_before","anchor":"x","content":"y"}');
+  assert.equal(validateEdit('xx', parsed), 'anchor is not unique in file');
+}
 
-// Test 2: insert-before
-const r2 = applyEdit(sampleFile, {
-  mode: 'insert-before',
-  path: 'test.ts',
-  anchor: '// ─── Exports ───',
-  content: `// ─── Patrol ───
-router.get('/patrol', (req, res) => {
-  res.json({ findings: [] });
-});
-`,
-});
-console.log('Test 2 (insert-before):', r2.success ? '✅' : `❌ ${r2.error}`);
+testReplace();
+testInsertAfter();
+testLegacyFallback();
+testNonUniqueAnchor();
 
-// Test 3: replace-block
-const r3 = applyEdit(sampleFile, {
-  mode: 'replace-block',
-  path: 'test.ts',
-  startAnchor: '// ─── Health ───',
-  endAnchor: '// ─── Exports ───',
-  content: `// ─── Health v2 ───
-router.get('/health', (req, res) => {
-  res.json({ ok: true, version: 2, uptime: process.uptime() });
-});
-
-`,
-});
-console.log('Test 3 (replace-block):', r3.success ? '✅' : `❌ ${r3.error}`);
-
-// Test 4: parse worker output
-const workerOutput = JSON.stringify({
-  mode: 'insert-after',
-  path: 'server/src/routes/opusBridge.ts',
-  anchor: "opusBridgeRouter.get('/opus-status'",
-  content: "opusBridgeRouter.get('/new-endpoint', (req, res) => { res.json({ok:true}); });",
-});
-const parsed = parseWorkerEdit(workerOutput);
-console.log('Test 4 (parse):', parsed ? '✅' : '❌');
-
-// Test 5: validate against file
-const v1 = validateEdit(sampleFile, {
-  mode: 'insert-after',
-  path: 'test.ts',
-  anchor: 'NONEXISTENT LINE',
-  content: 'code',
-});
-console.log('Test 5 (validate missing anchor):', v1 ? `✅ Caught: ${v1}` : '❌ Should have failed');
-
-// Test 6: classic patch still works
-const r6 = applyEdit(sampleFile, {
-  mode: 'patch',
-  path: 'test.ts',
-  patches: [{ search: '{ ok: true }', replace: '{ ok: true, v: 2 }' }],
-});
-console.log('Test 6 (classic patch):', r6.success ? '✅' : `❌ ${r6.error}`);
-
-console.log('\nAll tests done.');
+console.log('anchorPatch tests passed');

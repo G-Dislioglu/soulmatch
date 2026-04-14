@@ -1,367 +1,307 @@
-/**
- * Anchor-Patch Module — Opus-Bridge v4.1
- *
- * Enables surgical edits in large files without full-file-overwrite.
- * Workers specify an anchor pattern + new content → module handles insertion.
- *
- * Supported modes:
- *   - insert-after:   Insert content after the anchor line
- *   - insert-before:  Insert content before the anchor line
- *   - replace-block:  Replace everything between startAnchor and endAnchor
- *   - patch:          Existing search/replace mode (unchanged)
- *   - overwrite:      Existing full-file mode (unchanged)
- */
+type PatchPair = { search: string; replace: string };
 
-// ─── Types ───
+export type EditOperation =
+  | { mode: 'overwrite'; path?: string; content: string }
+  | { mode: 'replace'; path?: string; search: string; replace: string }
+  | { mode: 'patch'; path?: string; patches: PatchPair[] }
+  | { mode: 'insert-before'; path?: string; anchor: string; content: string; anchorOffset?: number }
+  | { mode: 'insert-after'; path?: string; anchor: string; content: string; anchorOffset?: number }
+  | { mode: 'replace-block'; path?: string; startAnchor: string; endAnchor: string; content: string; inclusive?: boolean };
 
-export interface AnchorInsert {
-  mode: 'insert-after' | 'insert-before';
-  path: string;
-  anchor: string;        // Unique line/pattern to find in the file
-  content: string;       // New code to insert
-  anchorOffset?: number; // Optional: skip N lines after/before anchor (default 0)
+export const ANCHOR_PATCH_PROMPT = [
+  'Antworte NUR mit genau EINEM JSON-Objekt fuer den Edit.',
+  'Keine Markdown-Fences, kein Fliesstext, keine Erklaerung.',
+  'Der path-Wert MUSS exakt der zugewiesenen Datei entsprechen.',
+  'Erlaubte Modi:',
+  '- {"mode":"patch","path":"file.ts","patches":[{"search":"exakter alter Text","replace":"exakter neuer Text"}]}',
+  '- {"mode":"insert-after","path":"file.ts","anchor":"eindeutiger Anker","content":"einzufuegender Text nach dem Anker"}',
+  '- {"mode":"insert-before","path":"file.ts","anchor":"eindeutiger Anker","content":"einzufuegender Text vor dem Anker"}',
+  '- {"mode":"replace-block","path":"file.ts","startAnchor":"Start-Anker","endAnchor":"End-Anker","content":"neuer Block"}',
+  '- {"mode":"overwrite","path":"file.ts","content":"vollstaendiger neuer Dateiinhalt"} nur als letzte Option.',
+  'Regeln:',
+  '- search/anchor muessen exakt zum aktuellen Dateiinhalt passen.',
+  '- insert/replace-block nur mit eindeutigen Anchors verwenden.',
+  '- Behalte Einrueckung, Zeilenumbrueche und Stil der Datei exakt bei.',
+].join('\n');
+
+function stripCodeFences(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('```')) {
+    return trimmed;
+  }
+
+  return trimmed.replace(/^```(?:json|typescript)?\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
-export interface AnchorReplaceBlock {
-  mode: 'replace-block';
-  path: string;
-  startAnchor: string;   // Pattern marking start of block to replace
-  endAnchor: string;     // Pattern marking end of block to replace
-  content: string;       // New code to replace the block with
-  inclusive?: boolean;    // Replace anchors themselves too? (default false)
+function countOccurrences(source: string, target: string): number {
+  if (!target) {
+    return 0;
+  }
+
+  let count = 0;
+  let index = 0;
+  while (true) {
+    const nextIndex = source.indexOf(target, index);
+    if (nextIndex < 0) {
+      return count;
+    }
+    count += 1;
+    index = nextIndex + target.length;
+  }
 }
 
-export interface ClassicPatch {
-  mode: 'patch';
-  path: string;
-  patches: Array<{ search: string; replace: string }>;
+function findUniqueAnchorIndex(source: string, anchor: string): { index: number; error?: string } {
+  const count = countOccurrences(source, anchor);
+  if (count === 0) {
+    return { index: -1, error: 'anchor not found in file' };
+  }
+  if (count > 1) {
+    return { index: -1, error: 'anchor is not unique in file' };
+  }
+  return { index: source.indexOf(anchor) };
 }
 
-export interface FullOverwrite {
-  mode: 'overwrite';
-  path: string;
-  content: string;
-}
+function parseLegacySearchReplace(raw: string): EditOperation | null {
+  const lines = raw.split(/\r?\n/);
+  const searchLines: string[] = [];
+  const replaceLines: string[] = [];
+  let mode: 'search' | 'replace' | null = null;
 
-export type EditOperation = AnchorInsert | AnchorReplaceBlock | ClassicPatch | FullOverwrite;
-
-// ─── Result ───
-
-export interface ApplyResult {
-  success: boolean;
-  path: string;
-  mode: string;
-  newContent?: string;
-  error?: string;
-  anchorLine?: number;   // Line number where anchor was found
-  linesAdded?: number;
-  linesRemoved?: number;
-}
-
-// ─── Core Logic ───
-
-/**
- * Find the line number of an anchor pattern in file content.
- * Returns -1 if not found, throws if found multiple times.
- */
-function findAnchorLine(lines: string[], anchor: string): number {
-  const trimmedAnchor = anchor.trim();
-  const matches: number[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(trimmedAnchor)) {
-      matches.push(i);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('<<<SEARCH')) {
+      mode = 'search';
+      continue;
+    }
+    if (trimmed === '===REPLACE') {
+      mode = 'replace';
+      continue;
+    }
+    if (trimmed === '>>>') {
+      break;
+    }
+    if (mode === 'search') {
+      searchLines.push(line);
+    } else if (mode === 'replace') {
+      replaceLines.push(line);
     }
   }
 
-  if (matches.length === 0) return -1;
-  if (matches.length > 1) {
-    // Try exact trim match as tiebreaker
-    const exact = matches.filter(i => lines[i].trim() === trimmedAnchor);
-    if (exact.length === 1) return exact[0];
-    // Return first match but log warning — caller can decide
-    return matches[0];
-  }
-  return matches[0];
-}
-
-/**
- * Apply an insert-after or insert-before operation.
- */
-function applyAnchorInsert(fileContent: string, op: AnchorInsert): ApplyResult {
-  const lines = fileContent.split('\n');
-  const anchorIdx = findAnchorLine(lines, op.anchor);
-
-  if (anchorIdx === -1) {
-    return {
-      success: false,
-      path: op.path,
-      mode: op.mode,
-      error: `Anchor not found: "${op.anchor.substring(0, 80)}"`,
-    };
-  }
-
-  const offset = op.anchorOffset ?? 0;
-  const insertIdx = op.mode === 'insert-after'
-    ? anchorIdx + 1 + offset
-    : anchorIdx - offset;
-
-  const clampedIdx = Math.max(0, Math.min(lines.length, insertIdx));
-  const newLines = op.content.split('\n');
-
-  lines.splice(clampedIdx, 0, ...newLines);
-
-  return {
-    success: true,
-    path: op.path,
-    mode: op.mode,
-    newContent: lines.join('\n'),
-    anchorLine: anchorIdx + 1, // 1-indexed for human readability
-    linesAdded: newLines.length,
-    linesRemoved: 0,
-  };
-}
-
-/**
- * Apply a replace-block operation.
- */
-function applyReplaceBlock(fileContent: string, op: AnchorReplaceBlock): ApplyResult {
-  const lines = fileContent.split('\n');
-  const startIdx = findAnchorLine(lines, op.startAnchor);
-  const endIdx = findAnchorLine(lines, op.endAnchor);
-
-  if (startIdx === -1) {
-    return {
-      success: false, path: op.path, mode: op.mode,
-      error: `Start anchor not found: "${op.startAnchor.substring(0, 80)}"`,
-    };
-  }
-  if (endIdx === -1) {
-    return {
-      success: false, path: op.path, mode: op.mode,
-      error: `End anchor not found: "${op.endAnchor.substring(0, 80)}"`,
-    };
-  }
-  if (endIdx <= startIdx) {
-    return {
-      success: false, path: op.path, mode: op.mode,
-      error: `End anchor (line ${endIdx + 1}) must come after start anchor (line ${startIdx + 1})`,
-    };
-  }
-
-  const inclusive = op.inclusive ?? false;
-  const removeStart = inclusive ? startIdx : startIdx + 1;
-  const removeEnd = inclusive ? endIdx + 1 : endIdx;
-  const removeCount = removeEnd - removeStart;
-  const newLines = op.content.split('\n');
-
-  lines.splice(removeStart, removeCount, ...newLines);
-
-  return {
-    success: true,
-    path: op.path,
-    mode: op.mode,
-    newContent: lines.join('\n'),
-    anchorLine: startIdx + 1,
-    linesAdded: newLines.length,
-    linesRemoved: removeCount,
-  };
-}
-
-/**
- * Apply a classic search/replace patch.
- */
-function applyClassicPatch(fileContent: string, op: ClassicPatch): ApplyResult {
-  let content = fileContent;
-  let totalAdded = 0;
-  let totalRemoved = 0;
-
-  for (const patch of op.patches) {
-    const searchTrimmed = patch.search.trim();
-    if (!content.includes(searchTrimmed)) {
-      return {
-        success: false, path: op.path, mode: 'patch',
-        error: `Search pattern not found: "${searchTrimmed.substring(0, 80)}"`,
-      };
-    }
-    const before = content.split('\n').length;
-    content = content.replace(searchTrimmed, patch.replace);
-    const after = content.split('\n').length;
-    totalAdded += Math.max(0, after - before);
-    totalRemoved += Math.max(0, before - after);
-  }
-
-  return {
-    success: true,
-    path: op.path,
-    mode: 'patch',
-    newContent: content,
-    linesAdded: totalAdded,
-    linesRemoved: totalRemoved,
-  };
-}
-
-// ─── Public API ───
-
-/**
- * Apply any edit operation to file content.
- * This is the single entry point for the validation phase.
- */
-export function applyEdit(fileContent: string, op: EditOperation): ApplyResult {
-  switch (op.mode) {
-    case 'insert-after':
-    case 'insert-before':
-      return applyAnchorInsert(fileContent, op);
-    case 'replace-block':
-      return applyReplaceBlock(fileContent, op);
-    case 'patch':
-      return applyClassicPatch(fileContent, op);
-    case 'overwrite':
-      return {
-        success: true,
-        path: op.path,
-        mode: 'overwrite',
-        newContent: op.content,
-        linesAdded: op.content.split('\n').length,
-        linesRemoved: fileContent.split('\n').length,
-      };
-    default:
-      return {
-        success: false,
-        path: (op as EditOperation).path ?? 'unknown',
-        mode: String((op as Record<string, unknown>).mode ?? 'unknown'),
-        error: `Unknown edit mode: ${(op as Record<string, unknown>).mode}`,
-      };
-  }
-}
-
-/**
- * Parse a worker's raw JSON output into an EditOperation.
- * Handles the new anchor modes + classic modes.
- */
-export function parseWorkerEdit(raw: string): EditOperation | null {
-  try {
-    let cleaned = raw.trim();
-    // Strip markdown fences
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```(?:json|typescript)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    }
-    const parsed = JSON.parse(cleaned);
-
-    // Validate required fields based on mode
-    if (!parsed.mode || !parsed.path) return null;
-
-    switch (parsed.mode) {
-      case 'insert-after':
-      case 'insert-before':
-        if (!parsed.anchor || !parsed.content) return null;
-        return {
-          mode: parsed.mode,
-          path: parsed.path,
-          anchor: parsed.anchor,
-          content: parsed.content,
-          anchorOffset: parsed.anchorOffset,
-        };
-
-      case 'replace-block':
-        if (!parsed.startAnchor || !parsed.endAnchor || !parsed.content) return null;
-        return {
-          mode: parsed.mode,
-          path: parsed.path,
-          startAnchor: parsed.startAnchor,
-          endAnchor: parsed.endAnchor,
-          content: parsed.content,
-          inclusive: parsed.inclusive,
-        };
-
-      case 'patch':
-        if (!Array.isArray(parsed.patches)) return null;
-        return {
-          mode: 'patch',
-          path: parsed.path,
-          patches: parsed.patches,
-        };
-
-      case 'overwrite':
-        if (typeof parsed.content !== 'string') return null;
-        return {
-          mode: 'overwrite',
-          path: parsed.path,
-          content: parsed.content,
-        };
-
-      default:
-        return null;
-    }
-  } catch {
+  if (mode === null) {
     return null;
   }
+
+  const search = searchLines.join('\n');
+  const replace = replaceLines.join('\n');
+  if (!search) {
+    return { mode: 'overwrite', content: replace };
+  }
+  return { mode: 'patch', patches: [{ search, replace }] };
 }
 
-/**
- * Validate an edit operation against the actual file content.
- * Returns error string if invalid, null if valid.
- */
-export function validateEdit(fileContent: string, op: EditOperation): string | null {
-  switch (op.mode) {
+function normalizeMode(mode: string): EditOperation['mode'] {
+  switch (mode) {
+    case 'insert_after':
+      return 'insert-after';
+    case 'insert_before':
+      return 'insert-before';
+    case 'replace':
+    case 'patch':
+    case 'overwrite':
     case 'insert-after':
-    case 'insert-before': {
-      const lines = fileContent.split('\n');
-      const idx = findAnchorLine(lines, (op as AnchorInsert).anchor);
-      if (idx === -1) return `Anchor not found: "${(op as AnchorInsert).anchor.substring(0, 60)}"`;
-      if (!(op as AnchorInsert).content.trim()) return 'Content is empty';
-      return null;
+    case 'insert-before':
+    case 'replace-block':
+      return mode;
+    case 'replace_block':
+      return 'replace-block';
+    default:
+      throw new Error(`Unknown edit mode: ${mode}`);
+  }
+}
+
+function normalizeOperation(value: unknown): EditOperation {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Worker edit is not an object');
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const mode = normalizeMode(typeof candidate.mode === 'string' ? candidate.mode : '');
+  const path = typeof candidate.path === 'string' ? candidate.path : undefined;
+
+  if (mode === 'overwrite') {
+    if (typeof candidate.content !== 'string') {
+      throw new Error('overwrite requires content');
     }
-    case 'replace-block': {
-      const rb = op as AnchorReplaceBlock;
-      const lines = fileContent.split('\n');
-      const s = findAnchorLine(lines, rb.startAnchor);
-      const e = findAnchorLine(lines, rb.endAnchor);
-      if (s === -1) return `Start anchor not found: "${rb.startAnchor.substring(0, 60)}"`;
-      if (e === -1) return `End anchor not found: "${rb.endAnchor.substring(0, 60)}"`;
-      if (e <= s) return 'End anchor must come after start anchor';
+    return { mode, path, content: candidate.content };
+  }
+
+  if (mode === 'patch' || mode === 'replace') {
+    if (Array.isArray(candidate.patches)) {
+      return {
+        mode: 'patch',
+        path,
+        patches: candidate.patches.map((entry) => {
+          const pair = entry as Record<string, unknown>;
+          return {
+            search: String(pair.search ?? ''),
+            replace: String(pair.replace ?? ''),
+          };
+        }),
+      };
+    }
+
+    if (typeof candidate.search === 'string' && typeof candidate.replace === 'string') {
+      return { mode: 'replace', path, search: candidate.search, replace: candidate.replace };
+    }
+
+    throw new Error(`${mode} requires patches[] or search/replace`);
+  }
+
+  if (mode === 'insert-before' || mode === 'insert-after') {
+    if (typeof candidate.anchor !== 'string' || typeof candidate.content !== 'string') {
+      throw new Error(`${mode} requires anchor and content`);
+    }
+    return {
+      mode,
+      path,
+      anchor: candidate.anchor,
+      content: candidate.content,
+      ...(typeof candidate.anchorOffset === 'number' ? { anchorOffset: candidate.anchorOffset } : {}),
+    };
+  }
+
+  if (typeof candidate.startAnchor !== 'string' || typeof candidate.endAnchor !== 'string' || typeof candidate.content !== 'string') {
+    throw new Error('replace-block requires startAnchor, endAnchor and content');
+  }
+
+  return {
+    mode,
+    path,
+    startAnchor: candidate.startAnchor,
+    endAnchor: candidate.endAnchor,
+    content: candidate.content,
+    ...(typeof candidate.inclusive === 'boolean' ? { inclusive: candidate.inclusive } : {}),
+  };
+}
+
+export function parseWorkerEdit(rawOutput: string): EditOperation {
+  const cleaned = stripCodeFences(rawOutput);
+  const legacy = parseLegacySearchReplace(cleaned);
+  if (legacy) {
+    return legacy;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (error) {
+    throw new Error(`Worker edit is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  if (Array.isArray(parsed)) {
+    if (parsed.length !== 1) {
+      throw new Error('Worker edit array must contain exactly one operation');
+    }
+    return normalizeOperation(parsed[0]);
+  }
+
+  const wrapped = parsed as Record<string, unknown>;
+  if (wrapped.edit && typeof wrapped.edit === 'object') {
+    return normalizeOperation(wrapped.edit);
+  }
+  if (wrapped.operation && typeof wrapped.operation === 'object') {
+    return normalizeOperation(wrapped.operation);
+  }
+
+  return normalizeOperation(parsed);
+}
+
+export function validateEdit(fileContent: string | undefined, parsed: EditOperation): string | null {
+  const source = fileContent ?? '';
+
+  switch (parsed.mode) {
+    case 'overwrite':
       return null;
+    case 'replace': {
+      if (!parsed.search) {
+        return 'replace requires a non-empty search block';
+      }
+      return source.includes(parsed.search) ? null : `replace search block not found in file: ${parsed.search.slice(0, 60)}`;
     }
     case 'patch': {
-      for (const p of (op as ClassicPatch).patches) {
-        if (!fileContent.includes(p.search.trim())) {
-          return `Search not found: "${p.search.trim().substring(0, 60)}"`;
+      for (const patch of parsed.patches) {
+        if (!patch.search) {
+          return 'patch requires a non-empty search block';
+        }
+        if (!source.includes(patch.search)) {
+          return `patch search block not found in file: ${patch.search.slice(0, 60)}`;
         }
       }
       return null;
     }
-    case 'overwrite':
+    case 'insert-before':
+    case 'insert-after':
+      return findUniqueAnchorIndex(source, parsed.anchor).error ?? null;
+    case 'replace-block': {
+      const start = findUniqueAnchorIndex(source, parsed.startAnchor);
+      if (start.error) {
+        return `start ${start.error}`;
+      }
+      const end = findUniqueAnchorIndex(source, parsed.endAnchor);
+      if (end.error) {
+        return `end ${end.error}`;
+      }
+      if (end.index <= start.index) {
+        return 'end anchor must come after start anchor';
+      }
       return null;
-    default:
-      return `Unknown mode: ${(op as Record<string, unknown>).mode}`;
+    }
   }
 }
 
-/**
- * Worker prompt snippet for anchor-patch modes.
- * Append this to the worker system prompt so workers know about the new modes.
- */
-export const ANCHOR_PATCH_PROMPT = `
-EDIT MODES (choose the most efficient one):
+export function applyEdit(fileContent: string | undefined, parsed: EditOperation): { success: boolean; newContent: string; error?: string } {
+  const source = fileContent ?? '';
+  const validationError = validateEdit(fileContent, parsed);
+  if (validationError) {
+    return { success: false, newContent: source, error: validationError };
+  }
 
-1. **patch** (preferred for small changes in existing code):
-   {"mode":"patch","path":"file.ts","patches":[{"search":"old code","replace":"new code"}]}
-
-2. **insert-after** (preferred for adding NEW code to a file):
-   {"mode":"insert-after","path":"file.ts","anchor":"unique line to find","content":"new code to insert after that line"}
-
-3. **insert-before** (insert before a specific line):
-   {"mode":"insert-before","path":"file.ts","anchor":"unique line","content":"new code before it"}
-
-4. **replace-block** (replace a section between two anchors):
-   {"mode":"replace-block","path":"file.ts","startAnchor":"// --- START","endAnchor":"// --- END","content":"replacement code"}
-
-5. **overwrite** (LAST RESORT — only if 70%+ of the file changes):
-   {"mode":"overwrite","path":"file.ts","content":"entire new file content"}
-
-RULES:
-- Use patch or insert-after/before for files > 200 lines. NEVER overwrite large files.
-- Anchors must be UNIQUE lines in the file. Use function signatures, comments, or export lines.
-- Content must be valid TypeScript with correct indentation.
-- Respond with ONLY the JSON edit object, no other text.
-`;
+  switch (parsed.mode) {
+    case 'overwrite':
+      return { success: true, newContent: parsed.content };
+    case 'replace':
+      return { success: true, newContent: source.replace(parsed.search, parsed.replace) };
+    case 'patch': {
+      let nextContent = source;
+      for (const patch of parsed.patches) {
+        nextContent = nextContent.replace(patch.search, patch.replace);
+      }
+      return { success: true, newContent: nextContent };
+    }
+    case 'insert-before':
+    case 'insert-after': {
+      const anchorInfo = findUniqueAnchorIndex(source, parsed.anchor);
+      if (anchorInfo.error) {
+        return { success: false, newContent: source, error: anchorInfo.error };
+      }
+      const anchorIndex = anchorInfo.index;
+      const anchorEnd = anchorIndex + parsed.anchor.length;
+      return parsed.mode === 'insert-before'
+        ? { success: true, newContent: `${source.slice(0, anchorIndex)}${parsed.content}${source.slice(anchorIndex)}` }
+        : { success: true, newContent: `${source.slice(0, anchorEnd)}${parsed.content}${source.slice(anchorEnd)}` };
+    }
+    case 'replace-block': {
+      const startInfo = findUniqueAnchorIndex(source, parsed.startAnchor);
+      const endInfo = findUniqueAnchorIndex(source, parsed.endAnchor);
+      if (startInfo.error || endInfo.error || endInfo.index < 0 || startInfo.index < 0) {
+        return { success: false, newContent: source, error: startInfo.error || endInfo.error || 'replace-block anchors invalid' };
+      }
+      const startIndex = parsed.inclusive ? startInfo.index : startInfo.index + parsed.startAnchor.length;
+      const endIndex = parsed.inclusive ? endInfo.index + parsed.endAnchor.length : endInfo.index;
+      return {
+        success: true,
+        newContent: `${source.slice(0, startIndex)}${parsed.content}${source.slice(endIndex)}`,
+      };
+    }
+  }
+}

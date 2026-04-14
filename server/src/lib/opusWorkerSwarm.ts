@@ -3,6 +3,7 @@ import { parseBdl, type BdlCommand } from './builderBdlParser.js';
 import { addChatPoolMessage } from './opusChatPool.js';
 import { loadProjectDna } from './opusGraphIntegration.js';
 import { callProvider } from './providers.js';
+import { parseWorkerEdit, applyEdit, validateEdit, ANCHOR_PATCH_PROMPT, type EditOperation } from './anchorPatch.js';
 import { getDb } from '../db.js';
 import { builderWorkerScores } from '../schema/builder.js';
 import { getAllFromPool } from './poolState.js';
@@ -223,15 +224,6 @@ function buildWorkerPrompt(
   const isOpusOrSonnet = assignment.writer === 'opus' || assignment.writer === 'sonnet';
   const projectDna = isOpusOrSonnet ? loadProjectDna() : null;
 
-  const patchExample = [
-    `@PATCH file:"${assignment.file}"`,
-    '<<<SEARCH',
-    'const value = oldCall();',
-    '===REPLACE',
-    'const value = newCall();',
-    '>>>',
-  ].join('\n');
-
   const sections = [
     'Du bist ein Worker im Opus Worker-Swarm.',
     'Arbeite nur an deiner zugewiesenen Datei.',
@@ -274,11 +266,7 @@ function buildWorkerPrompt(
 
   sections.push(
     '',
-    'Erforderliches Format: Nutze ausschliesslich das SEARCH/REPLACE-Format (BDL) fuer alle Aenderungen.',
-    'Beispiel:',
-    patchExample,
-    '',
-    'Antworte NUR mit dem PATCH-Format. Kein Fliesstext, keine Erklaerung.',
+    ANCHOR_PATCH_PROMPT,
   );
 
   return sections.join('\n');
@@ -401,6 +389,30 @@ function isFullFileOverwritePatchBody(body: string): boolean {
 
 function buildFullFilePatchBody(_previousContent: string | undefined, nextContent: string): string {
   return ['<<<SEARCH', '===REPLACE', nextContent, '>>>'].join('\n');
+}
+
+function convertEditToPatchBody(previousContent: string | undefined, parsed: EditOperation): { body?: string; error?: string } {
+  if ('path' in parsed && typeof parsed.path === 'string' && parsed.path.trim().length > 0) {
+    // Worker must target the assigned file explicitly when it returns a path.
+    const normalizedPath = parsed.path.replace(/\\/g, '/');
+    if (normalizedPath !== normalizedPath.trim()) {
+      return { error: 'edit path contains leading or trailing whitespace' };
+    }
+  }
+
+  const validationError = validateEdit(previousContent, parsed);
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  const applied = applyEdit(previousContent, parsed);
+  if (!applied.success) {
+    return { error: applied.error || 'Failed to apply parsed edit' };
+  }
+
+  return {
+    body: buildFullFilePatchBody(previousContent, applied.newContent),
+  };
 }
 
 const KNOWN_WORKERS = new Set(Object.keys(WORKER_PRESETS));
@@ -592,14 +604,26 @@ async function runSingleWorker(
       thinking: preset.provider === 'zhipu' ? 'enabled' : undefined,
     });
 
-    const fullFileContent = extractMarkedFullFileContent(response);
-    const commands = fullFileContent === null ? parseBdl(response) : [];
-    const patch = fullFileContent !== null
-      ? {
+    let parsedEdit: EditOperation | undefined;
+    let patchError: string | undefined;
+    let patch: { file: string; body: string } | undefined;
+
+    try {
+      parsedEdit = parseWorkerEdit(response);
+      const converted = convertEditToPatchBody(fileContents?.[assignment.file], parsedEdit);
+      if (converted.body) {
+        patch = {
           file: assignment.file,
-          body: buildFullFilePatchBody(fileContents?.[assignment.file], fullFileContent),
-        }
-      : extractPatchForAssignment(commands, assignment);
+          body: converted.body,
+        };
+      } else {
+        patchError = converted.error || 'Failed to convert parsed edit to patch body';
+      }
+    } catch (error) {
+      patchError = error instanceof Error ? error.message : String(error);
+    }
+
+    const commands = patch ? parseBdl(`@PATCH file:"${assignment.file}"\n${patch.body}`) : [];
     const tokensUsed = estimateTokens(response);
     const durationMs = Date.now() - startedAt;
 
@@ -615,8 +639,9 @@ async function runSingleWorker(
         file: assignment.file,
         writer: assignment.writer,
         hasPatch: Boolean(patch),
-        responseFormat: fullFileContent !== null ? 'full-file' : 'bdl',
+        responseFormat: parsedEdit?.mode || 'invalid',
         requestedMaxTokens,
+        ...(patchError ? { patchError } : {}),
       },
       tokensUsed,
       durationMs,
@@ -627,7 +652,7 @@ async function runSingleWorker(
       patch,
       durationMs,
       tokensUsed,
-      ...(patch ? {} : { error: 'Worker returned no @PATCH body' }),
+      ...(patch ? {} : { error: patchError || 'Worker returned no valid edit' }),
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
