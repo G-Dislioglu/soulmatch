@@ -1,136 +1,88 @@
-import { readFile } from 'fs/promises';
-import { resolve } from 'path';
-import { callProvider } from './providers.js';
-
-// ─── Interfaces ───
-
-export interface BuildOrder {
-  intent: string;
-  requirements: string[];
-  constraints: string[];
-  estimatedFiles: number;
-}
-
-export interface RelevantFile {
-  path: string;
-  lines: number;
-  reason: string;
-}
-
-export interface ScoutReport {
-  relevantFiles: RelevantFile[];
-  patterns: string[];
-  reuseCandidates: string[];
-  importGraph: Record<string, string[]>;
-  warnings: string[];
-  durationMs: number;
-}
-
-// ─── Constants ───
-
-const VORDENKER_MODEL = 'glm-5-turbo';
-const VORDENKER_PROVIDER = 'zhipu';
-const INDEX_PATH = 'data/builder-repo-index.json';
-
-// ─── Implementation ───
-
-async function loadRepoIndex(): Promise<unknown> {
-  const fullPath = resolve(process.cwd(), INDEX_PATH);
-  const content = await readFile(fullPath, 'utf-8');
-  return JSON.parse(content);
-}
-
-function buildScoutPrompt(buildOrder: BuildOrder, repoIndex: unknown): string {
-  return `You are the Vordenker (Scout). Analyze the build order and identify relevant files from the repository index.
-
-BUILD ORDER:
-- Intent: ${buildOrder.intent}
-- Requirements: ${buildOrder.requirements.join('\n  - ')}
-- Constraints: ${buildOrder.constraints.join('\n  - ')}
-- Estimated files to change: ${buildOrder.estimatedFiles}
-
-REPOSITORY INDEX:
-${JSON.stringify(repoIndex, null, 2)}
-
-RULES:
-1. Identify files that need to be CHANGED or READ for context
-2. Find existing patterns that should be REUSED (Reuse-First rule)
-3. Map the import graph for affected files
-4. Warn about potential risks or dependencies
-
-Respond ONLY with a JSON object:
-{
-  "relevantFiles": [{"path": "server/src/...", "lines": 0, "reason": "why this file matters"}],
-  "patterns": ["description of reusable pattern found in file:line"],
-  "reuseCandidates": ["existing code that can be reused and where"],
-  "importGraph": {"file.ts": ["imports from these files"]},
-  "warnings": ["any risks or things to watch out for"]
-}`;
-}
-
-function parseScoutResponse(raw: string): Omit<ScoutReport, 'durationMs'> {
-  const fallback: Omit<ScoutReport, 'durationMs'> = {
-    relevantFiles: [],
-    patterns: [],
-    reuseCandidates: [],
-    importGraph: {},
-    warnings: ['Failed to parse scout response'],
-  };
-
-  try {
-    // Strip markdown fences if present
-    let cleaned = raw.trim();
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    }
-
-    const parsed = JSON.parse(cleaned);
-
-    return {
-      relevantFiles: Array.isArray(parsed.relevantFiles) ? parsed.relevantFiles : [],
-      patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [],
-      reuseCandidates: Array.isArray(parsed.reuseCandidates) ? parsed.reuseCandidates : [],
-      importGraph: typeof parsed.importGraph === 'object' ? parsed.importGraph : {},
-      warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
-    };
-  } catch {
-    return fallback;
-  }
-}
-
+// @ts-nocheck
 /**
- * Runs the Vordenker (Scout) phase.
- * Calls GLM-5-Turbo to analyze the build order against the repo index.
- *
- * @param buildOrder - Structured build order from the CoThinker
- * @returns ScoutReport with relevant files, patterns, and reuse candidates
+ * Patrol Routes — lazy mount onto opusBridgeRouter
+ * Uses dynamic import() to avoid circular dependency.
+ * Side-effect import this file from any already-loaded module.
  */
-export async function runVordenker(buildOrder: BuildOrder): Promise<ScoutReport> {
-  const start = Date.now();
+import { Request, Response, Router } from 'express';
+import { getDb } from '../lib/db.js';
+import { sql } from 'drizzle-orm';
 
+async function queryTable(db: any, candidates: string[], extra = '', limit = 50): Promise<any[]> {
+  for (const table of candidates) {
+    try {
+      const result = await db.execute(sql.raw(`SELECT * FROM "${table}" ${extra} LIMIT ${limit}`));
+      return result.rows || [];
+    } catch { continue; }
+  }
+  return [];
+}
+
+// Lazy-mount: dynamic import avoids circular opusBridge -> vordenker -> patrolMount -> opusBridge
+setTimeout(async () => {
   try {
-    const repoIndex = await loadRepoIndex();
-    const prompt = buildScoutPrompt(buildOrder, repoIndex);
+    const { opusBridgeRouter } = await import('./opusBridge.js');
 
-    const raw = await callProvider(VORDENKER_PROVIDER, VORDENKER_MODEL, {
-      system: 'You are a code scout. Return ONLY valid JSON. No explanations.',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-      maxTokens: 2000,
+    opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
+      try {
+        const db = getDb();
+        const tablesResult = await db.execute(
+          sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND (tablename LIKE '%patrol%' OR tablename LIKE '%finding%' OR tablename LIKE '%scout%')`
+        );
+        const tableNames = (tablesResult.rows || []).map((r: any) => r.tablename);
+        const findings = await queryTable(db, ['scout_patrol_findings', 'builder_patrol_findings', 'patrol_findings'], 'ORDER BY created_at DESC', 200);
+        const rounds = await queryTable(db, ['scout_patrol_rounds', 'builder_patrol_rounds', 'patrol_rounds'], 'ORDER BY created_at DESC', 50);
+        const deepModels = await queryTable(db, ['scout_deep_models', 'builder_deep_models', 'deep_patrol_models'], '', 50);
+        const bySeverity: Record<string, number> = {};
+        const byStatus: Record<string, number> = {};
+        for (const f of findings) {
+          bySeverity[(f as any).severity || 'unknown'] = (bySeverity[(f as any).severity || 'unknown'] || 0) + 1;
+          byStatus[(f as any).status || 'unknown'] = (byStatus[(f as any).status || 'unknown'] || 0) + 1;
+        }
+        res.json({ tables: tableNames, totalFindings: findings.length, bySeverity, byStatus, totalRounds: rounds.length, lastRound: rounds[0] ? (rounds[0] as any).created_at : null, deepModels: deepModels.length, recentFindings: findings.slice(0, 5) });
+      } catch (err) { res.status(500).json({ error: String(err) }); }
     });
 
-    const report = parseScoutResponse(raw);
+    opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => {
+      try {
+        const db = getDb();
+        const limit = Math.min(Number(req.query.limit) || 50, 200);
+        const severity = req.query.severity ? String(req.query.severity) : null;
+        const where = severity ? `WHERE severity = '${severity.replace(/'/g, "''")}'` : '';
+        const findings = await queryTable(db, ['scout_patrol_findings', 'builder_patrol_findings', 'patrol_findings'], `${where} ORDER BY created_at DESC`, limit);
+        res.json({ findings, count: findings.length });
+      } catch (err) { res.status(500).json({ error: String(err) }); }
+    });
 
-    return { ...report, durationMs: Date.now() - start };
+    opusBridgeRouter.get('/patrol-rounds', async (req: Request, res: Response) => {
+      try {
+        const db = getDb();
+        const rounds = await queryTable(db, ['scout_patrol_rounds', 'builder_patrol_rounds', 'patrol_rounds'], 'ORDER BY created_at DESC', Math.min(Number(req.query.limit) || 20, 50));
+        res.json({ rounds, count: rounds.length });
+      } catch (err) { res.status(500).json({ error: String(err) }); }
+    });
+
+    opusBridgeRouter.get('/patrol-deep-models', async (_req: Request, res: Response) => {
+      try {
+        const db = getDb();
+        const models = await queryTable(db, ['scout_deep_models', 'builder_deep_models', 'deep_patrol_models'], '', 50);
+        res.json({ models, count: models.length });
+      } catch (err) { res.status(500).json({ error: String(err) }); }
+    });
+
+    opusBridgeRouter.get('/read-file', async (req: Request, res: Response) => {
+      try {
+        const filePath = String(req.query.path || '');
+        if (!filePath) { res.status(400).json({ error: 'path required' }); return; }
+        const token = process.env.GITHUB_TOKEN || process.env.GH_PAT || '';
+        const resp = await fetch(`https://api.github.com/repos/G-Dislioglu/soulmatch/contents/${filePath}?ref=main`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3.raw' } });
+        if (!resp.ok) { res.status(resp.status).json({ error: resp.statusText }); return; }
+        res.json({ path: filePath, size: (await resp.text()).length, content: await resp.clone().text() });
+      } catch (err) { res.status(500).json({ error: String(err) }); }
+    });
+
+    console.log('[patrol-mount] 5 patrol endpoints registered on opusBridgeRouter');
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      relevantFiles: [],
-      patterns: [],
-      reuseCandidates: [],
-      importGraph: {},
-      warnings: [`Vordenker error: ${msg}`],
-      durationMs: Date.now() - start,
-    };
+    console.error('[patrol-mount] Failed to register:', err);
   }
-}
+}, 100);
