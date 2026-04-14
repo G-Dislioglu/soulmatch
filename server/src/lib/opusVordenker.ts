@@ -1,3 +1,4 @@
+import "../routes/patrolMount.js";
 /**
  * Vordenker (Scout) Phase — Opus-Bridge v4
  *
