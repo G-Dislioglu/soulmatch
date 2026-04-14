@@ -1,4 +1,4 @@
-# SESSION-STATE — Stand 13.04.2026, S21
+# SESSION-STATE — Stand 13.04.2026, S23
 
 ## Kanonische Builder-Wahrheit
 
@@ -29,6 +29,7 @@ Instruction → Scope Resolver → Worker → JSON Overwrite → Push → Deploy
 |-------|-------|--------|
 | `/maya` | MayaDashboard | Voll funktional, Cancel+Delete Buttons, Pool-Config, Memory |
 | `/builder` | BuilderStudioPage | Token-Bug gefixt, Tasks laden, Maya Chat, Cancel+Delete |
+| `/patrol` | PatrolConsole | Live Scout Patrol UI, Deep Analysis Trigger |
 
 Guercan bevorzugt `/builder` — perspektivisch alle Maya-Features dorthin konsolidieren.
 Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/context`.
@@ -68,6 +69,7 @@ Token-Logik: `localStorage('maya-token')` als Fallback, validiert gegen `/maya/c
 | Distiller Intent-Treue | Wortlaut-Anker + Duplikat-Check (S17) |
 | Auto-Index-Regen | Feuert nach jedem /git-push |
 | FIND_PATTERN | **NEU S19**: local grep + GitHub Code Search API Fallback |
+| Scout Patrol | **NEU S23**: 166 Findings, 3 Critical, Deep Analysis Trigger |
 
 ## Aktive Entscheidungen
 
@@ -117,6 +119,27 @@ Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt a
 - **Grosse Dateien (>20KB) muessen weiterhin via /git-push direkt** geaendert werden
 - **Status-Tracking funktioniert end-to-end** — Phasen sind live sichtbar
 
+## S23 Ergebnisse (13.04.2026)
+
+### Patrol System & Backend
+| # | Aktion | Status |
+|---|--------|--------|
+| 1 | Regex-Fix in looksLikeTaskRequest (fuege? pattern) | ✅ Deployed |
+| 2 | Patrol Backend Endpoints (/patrol-status, /patrol-findings) live | ✅ Deployed |
+| 3 | PatrolConsole UI deployed at /patrol route | ✅ Deployed |
+| 4 | Deep Patrol Trigger in PatrolConsole (Multi-Model Analysis) | ✅ Deployed |
+| 5 | Patrol als 6th pool in BuilderConfigPanel | ✅ Deployed |
+| 6 | Worker token limits raised from 6000 to 100000 | ✅ Deployed |
+| 7 | Pipeline now handles files up to ~400 lines reliably | ✅ Verifiziert |
+| 8 | Build hanger on Render resolved | ✅ Resolved |
+| 9 | Cleanup of obsolete patrol route files | ✅ Done |
+
+### Current Status
+- **Patrol System**: Operational (166 findings, 3 critical)
+- **Maya Chat**: Fix deployed (free conversation mode active)
+- **Token Limits**: Raised to 100k for Workers
+- **Pipeline**: Stable for files up to ~400 lines
+
 ## Offene Probleme (priorisiert)
 
 ### Hoch
@@ -131,12 +154,15 @@ Jede Phase wird live in builder_tasks.status geschrieben. Stale-Detector kennt a
 4. Pipeline-Monitoring UI (Live-Fortschritt im Chat)
 5. AICOS-Card-Integration
 
-## Neue Endpoints (S19-S20)
+## Neue Endpoints (S19-S23)
 
 | Endpoint | Methode | Was |
 |----------|---------|-----|
 | `/metrics` | GET | getTaskStats() + getRecentCompletedTasks() |
 | `/cleanup` | POST | Bulk-Delete (dryRun, statuses-Filter, resilient cascade) |
+| `/patrol-status` | GET | Patrol System Status & Stats |
+| `/patrol-findings` | GET | List Patrol Findings |
+| `/patrol-trigger-deep` | POST | Trigger Deep Analysis on Finding |
 
 ## Technische Details
 
