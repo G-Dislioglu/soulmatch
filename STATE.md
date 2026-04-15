@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Der Builder behandelt neue Dateien jetzt explizit als Create-Flow statt nur implizit ueber fehlende Inhalte: Scope-Resolver, ChangeRouter, Worker-Prompt und SmartPush tragen denselben Create-Zustand durch`
-- `next_recommended_block`: `Den bestehenden semantischen Judge gegen die Original-Instruktion erweitern und danach die Related-Files-Briefing-Lane deterministisch nachziehen`
+- `last_completed_block`: `Der bestehende Opus-Judge entscheidet jetzt nicht mehr nur zwischen Kandidaten, sondern kann sie gegen die Original-Instruktion auch ablehnen: explizite Pfade, Create-Targets und Out-of-Scope-Drift fliessen als echte Gate-Signale in die Freigabe ein`
+- `next_recommended_block`: `Die Related-Files-Briefing-Lane deterministisch aus Imports, Rueckreferenzen und Dateinaehe nachziehen statt dafuer neuen LLM-Scope zu oeffnen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -191,6 +191,10 @@ an der echten Repo-Wahrheit. Direkt danach ist auch der New-File-Pfad expliziter
 gezogen: Wenn der Resolver jetzt eine neue Datei als Ziel erkennt, bleibt diese
 Absicht nicht mehr still als `NEW FILE` im Prompt stecken, sondern wird als
 Create-Mode bis in ChangeRouter, Worker-Anweisung und SmartPush durchgereicht.
+Darauf aufbauend ist jetzt auch die Siegerwahl haerter: `opusJudge.ts` waehlt
+nicht mehr blind irgendeinen formalen Gewinner, sondern kann Kandidaten bei
+fehlenden expliziten Zielpfaden, fehlenden Create-Targets oder zu breitem
+Out-of-Scope-Drift komplett verwerfen.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,

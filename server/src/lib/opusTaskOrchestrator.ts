@@ -264,9 +264,19 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 4b: Judge
   const s4b = Date.now();
-  const best = await judgeValidCandidates(input.instruction, valid);
-  phases.push({ phase: 'judge', status: 'ok', durationMs: Date.now() - s4b,
-    detail: { winner: best.worker, files: best.edits.map(e => e.path), summary: best.summary } });
+  const judge = await judgeValidCandidates(input.instruction, valid, {
+    scopeFiles: scope.files,
+    createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path),
+  });
+  phases.push({ phase: 'judge', status: judge.approved && judge.winner ? 'ok' : 'error', durationMs: Date.now() - s4b,
+    detail: judge.approved && judge.winner
+      ? { winner: judge.worker, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
+      : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
+  if (!judge.approved || !judge.winner) {
+    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
+      summary: `Judge rejected all candidates: ${judge.reason}` };
+  }
+  const best = judge.winner;
 
   // Dry run?
   if (input.dryRun) {

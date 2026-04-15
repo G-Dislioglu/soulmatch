@@ -299,16 +299,29 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat F5d - Semantischer Judge gegen Instruktionsdrift
 
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `why_not_now`: `none`
+- `non_scope`: neuer Parallel-Judge, breite Pipeline-Neuarchitektur, Scout-Umbau
+- `risk`: mittel; der Block haertet den bestehenden Judge sichtbar, aber die Laufzeitqualitaet haengt weiter daran, ob der spaetere Briefing-Kontext deterministisch und nicht driftig bleibt.
+- `betroffene_bereiche`: `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, Worker-Briefing-Kontext
+- `kurzurteil`: Der bestehende Judge ist jetzt haerter statt breiter geworden: Er kann Kandidaten bei fehlenden expliziten Zielpfaden, fehlenden Create-Targets oder zu breitem Scope auch komplett ablehnen, statt immer einen Sieger zu kueren.
+- `evidence`: `opusJudge.ts` bewertet jetzt Blocking-Issues und Warnings pro Kandidat und kann per `approved: false` alle Kandidaten verwerfen; `opusTaskOrchestrator.ts` bricht nach einer Judge-Ablehnung vor dem Push sauber ab.
+
+### Kandidat F5e - Deterministische Related-Files-Briefing-Lane
+
 - `status`: `active`
 - `truth_class`: `derived_from_review`
 - `source_type`: `repo_review`
 - `next_gate`: `implementation`
 - `why_not_now`: `none`
-- `non_scope`: neuer Parallel-Judge, breite Pipeline-Neuarchitektur, Scout-Umbau
-- `risk`: mittel; ohne diesen Block kann der bestehende Judge formal valide, aber semantisch zu breite Kandidaten weiter durchlassen.
-- `betroffene_bereiche`: `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, Worker-Briefing-Kontext
-- `kurzurteil`: Der naechste enge Block soll den bestehenden Judge haerter an die Original-Instruktion binden, statt noch einen zweiten Auswahlpfad daneben zu bauen.
-- `evidence`: `opusJudge.ts` existiert bereits als Winner-Selektion; der abgeschlossene Create-Block hat die Eingangsabsicht fuer neue Dateien expliziter gemacht, aber keine semantische Ueberscoper-Pruefung hinzugefuegt.
+- `non_scope`: neuer Scout-Mix, LLM-Dateisuche, breiter Resolver-Umbau
+- `risk`: mittel; ohne diesen Block bekommt der Worker weiter weniger belastbaren Kontext als ueber Imports, Rueckreferenzen und Dateinaehe eigentlich moeglich waere.
+- `betroffene_bereiche`: `server/src/lib/opusTaskOrchestrator.ts`, Repo-Index-/Import-Helfer, Worker-Briefing-Kontext
+- `kurzurteil`: Nach Create-Mode und Judge-Hardening ist der naechste enge Hebel keine neue Intelligenzschicht, sondern ein deterministischer Neben-Kontext fuer thematisch benachbarte Dateien.
+- `evidence`: Der Scope-Resolver ist heute deterministisch, aber das nachgelagerte Worker-Briefing kennt noch keine gezielte Related-Files-Anreicherung aus Imports oder Rueckreferenzen.
 
 ### Kandidat G - Provider Truth Sync
 
