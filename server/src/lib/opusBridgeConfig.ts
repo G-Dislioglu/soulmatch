@@ -20,3 +20,8 @@ export const WORKER_MAX_OUTPUT_TOKENS = 16000;
 export const MEISTER_MAX_OUTPUT_TOKENS = 100000;
 
 export const PIPELINE_VERSION = "S25-stress-test";
+
+export const S25_TASKS_PUSHED = 7;
+
+export const S25_LAST_RUN = "2026-04-15T07:30:00Z";
+export const PIPELINE_STATUS = "operational";
