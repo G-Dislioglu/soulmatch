@@ -258,6 +258,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: S17 ist repo-sichtbar live im Code, aber der naechste enge Block ist jetzt die Verifikation von Distiller-Intent-Treue, sichtbarem UI-Cancel und `[stale-detector]`-Logs auf Render.
 - `evidence`: `builderFusionChat.ts` kennt `cancel` inkl. `all_stuck`; `BuilderStudioPage.tsx` zeigt einen Cancel-Knopf fuer offene Tasks; `builderStaleDetector.ts` loggt `[stale-detector]` und blockiert alte Tasks; `opusDistiller.ts` verankert `getWorstPerformers` explizit gegen Drift auf `getTopPerformers`; `opusBridge.ts` bietet `debug-scope`.
 
+### Kandidat F5 - Director Live Verification
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `none`
+- `non_scope`: neuer Director-Skill-Baum, breite UI-Politur, neuer Patrol-Endpoint-Faecherschnitt
+- `risk`: mittel; der Director ist repo-sichtbar verdrahtet, aber sein realer Nutzwert haengt an der Live-Verifikation von Action-Delegation, Async-Status und sauberer Chat-Rueckmeldung.
+- `betroffene_bereiche`: `server/src/lib/directorContext.ts`, `server/src/lib/directorPrompt.ts`, `server/src/lib/directorActions.ts`, `server/src/routes/builder.ts`, `server/src/routes/health.ts`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, Render-Runtime
+- `kurzurteil`: Der neue enge Builder-Block ist kein weiterer Director-Ausbau, sondern der Live-Nachweis, dass eine echte Maya-Nachricht im Director-Modus Actions ausfuehrt, den Async-Status korrekt nachfuehrt und im UI nachvollziehbar bleibt.
+- `evidence`: `MayaDashboard.tsx` kann jetzt zwischen normalem Maya-Chat und Director (`Opus 4.6` oder `GPT 5.4`) umschalten; `builder.ts` bietet `POST /api/builder/maya/director`; `directorActions.ts` fuehrt interne Repo-/Opus-Aktionen aus; `health.ts` enthaelt wieder Async-Task-Status-Endpunkte.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

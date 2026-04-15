@@ -17,14 +17,17 @@ export interface MayaContext {
 
 export interface MayaChatResponse {
   response: string;
-  model: 'opus' | 'flash';
+  model: string;
   contextUsed: { tasksLoaded: number; hasContinuity: boolean };
+  actions?: Array<{ tool: string; ok: boolean; summary: string }>;
 }
 
 export interface MayaChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export type DirectorModel = 'opus' | 'gpt-5.4';
 
 function buildUrl(path: string, token: string) {
   const sep = path.includes('?') ? '&' : '?';
@@ -52,6 +55,12 @@ export function useMayaApi(token: string | null) {
     request<MayaChatResponse>('/maya/chat', {
       method: 'POST',
       body: JSON.stringify({ message, history }),
+    }), [request]);
+
+  const directorChat = useCallback((message: string, directorModel: DirectorModel, conversationHistory: MayaChatMessage[] = []) =>
+    request<MayaChatResponse>('/maya/director', {
+      method: 'POST',
+      body: JSON.stringify({ message, directorModel, conversationHistory }),
     }), [request]);
 
   const createMemory = useCallback((layer: string, key: string, summary: string) =>
@@ -97,5 +106,5 @@ export function useMayaApi(token: string | null) {
   const deleteTask = useCallback((taskId: string) =>
     request<{ deleted: boolean; taskId: string }>(`/tasks/${taskId}`, { method: 'DELETE' }), [request]);
 
-  return { getContext, chat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
+  return { getContext, chat, directorChat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
 }

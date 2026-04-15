@@ -1011,6 +1011,10 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
           ? await triggerGithubAction(task.id, safePayloads)
           : await triggerGithubAction(task.id, toPatchPayloads(patches));
         pushSucceeded = githubAction.triggered === true;
+        if (pushSucceeded) {
+          const { regenerateRepoIndex } = await import('./opusIndexGenerator.js');
+          await regenerateRepoIndex().catch((err) => console.error('[opus] Index refresh failed:', err));
+        }
         status = githubAction.triggered ? 'applying' : 'error';
       }
     }

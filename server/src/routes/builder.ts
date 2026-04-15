@@ -19,9 +19,12 @@ import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
+import { buildDirectorContext } from '../lib/directorContext.js';
+import { executeDirectorActions, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
+import { buildDirectorSystemPrompt } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
@@ -723,6 +726,65 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('[maya] GET /maya/context error:', err);
     res.status(500).json({ error: 'Context aggregation failed' });
+  }
+});
+
+// POST /api/builder/maya/chat — Maya command center chat
+router.post('/maya/director', async (req: Request, res: Response) => {
+  try {
+    const { message, directorModel, conversationHistory = [] } = req.body as {
+      message?: string;
+      directorModel?: 'opus' | 'gpt-5.4';
+      conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    };
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: 'message required' });
+      return;
+    }
+
+    if (directorModel !== 'opus' && directorModel !== 'gpt-5.4') {
+      res.status(400).json({ error: 'directorModel must be opus or gpt-5.4' });
+      return;
+    }
+
+    const context = await buildDirectorContext();
+    const systemPrompt = buildDirectorSystemPrompt(context);
+    const providerConfig = directorModel === 'opus'
+      ? { provider: 'anthropic', model: 'claude-opus-4-6' }
+      : { provider: 'openai', model: 'gpt-5.4' };
+
+    const messages = conversationHistory
+      .filter((entry) => entry && (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string')
+      .slice(-16)
+      .map((entry) => ({ role: entry.role, content: entry.content }));
+
+    const response = await callProvider(providerConfig.provider, providerConfig.model, {
+      system: systemPrompt,
+      messages: [...messages, { role: 'user', content: message }],
+      maxTokens: 4000,
+      temperature: 0.3,
+      forceJsonObject: false,
+    });
+
+    const actions = parseDirectorActions(response);
+    const actionResults = await executeDirectorActions(actions);
+    const visibleResponse = stripDirectorActions(response);
+    const actionSummary = renderDirectorActionSummary(actionResults);
+    const finalResponse = [visibleResponse, actionSummary].filter(Boolean).join('\n\n').trim() || 'Director ohne sichtbare Antwort.';
+
+    res.json({
+      response: finalResponse,
+      model: `director-${directorModel}`,
+      contextUsed: {
+        tasksLoaded: context.recentTasks.length,
+        hasContinuity: context.continuityNote !== 'Keine Continuity Note vorhanden.',
+      },
+      actions: actionResults,
+    });
+  } catch (err) {
+    console.error('[maya] POST /maya/director error:', err);
+    res.status(500).json({ error: 'Director failed: ' + String(err) });
   }
 });
 

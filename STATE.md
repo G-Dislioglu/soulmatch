@@ -13,13 +13,13 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 - `current_repo_head`: `7efda50`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-13`
+- `last_verified_against_code`: `2026-04-15`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder S17 haertet Cancel-Intent, UI-Task-Abbruch, Stale-Detector und Distiller-Intent-Treue sichtbar im Repo`
-- `next_recommended_block`: `Builder-S17-Live-Checks fuer Distiller-Intent-Treue, UI-Cancel-Sichtbarkeit und Render-Stale-Detector-Logs`
+- `last_completed_block`: `Builder S25 stellt Maya-Director, Async-Opus-Task-Health-Endpunkte und Index-Refresh nach Controller-Push repo-sichtbar her`
+- `next_recommended_block`: `Director live auf Render gegen echte Maya-Anfragen pruefen und die ersten delegierten Opus-Tasks sichtbar im Builder-Studio verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -146,6 +146,16 @@ Namen wie `getTopPerformers` driften. Repo-sichtbar vorhanden sind ausserdem
 der Debug-Endpunkt `/api/builder/opus-bridge/debug-scope`, die Persistenz von
 `builder_agent_profiles.last_learnings` und der Quick-Mode-Pfad ueber
 `executeTask` statt ueber den frueher haengenden Orchestrator-Zweig.
+
+Der danach geschnittene Builder-S25-Block oeffnet jetzt die naechste
+Steuerungsebene direkt im Produkt: `health.ts` stellt den frueher ueberschriebenen
+Async-Opus-Task-Endpunkt samt Job-Status wieder her, `opusBridgeController.ts`
+regeneriert nach erfolgreichem GitHub-Push den Repo-Index wieder serverseitig,
+und der Builder-Maya-Pfad hat jetzt einen separaten Director-Modus. Dieser
+Director baut aus `STATE.md`, Continuity, letzten Tasks, Agent-Profilen und
+Patrol-Lage einen System-Prompt auf, kann interne Builder-/Opus-Aktionen aus
+`action`-Bloecken ausfuehren und ist im `MayaDashboard` zwischen `Opus 4.6`
+und `GPT 5.4` umschaltbar, ohne einen zweiten Chat-Stack neben Maya zu bauen.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
 und `origin/HEAD` zeigen auf `7efda50`, der Working Tree ist sauber, und der
@@ -277,6 +287,11 @@ Runtime-Wahrheit fuer Soulmatch.
   `server/src/lib/opusBridgeController.ts` und `server/src/routes/opusBridge.ts`
   tragen jetzt die aktive Opus-Bridge-Kette mit OpenRouter-GLM-Modellen,
   `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
+- `server/src/lib/directorContext.ts`, `server/src/lib/directorPrompt.ts`,
+  `server/src/lib/directorActions.ts`, `server/src/routes/builder.ts` und
+  `client/src/modules/M16_builder/ui/MayaDashboard.tsx` tragen jetzt den
+  produktnahen Maya-Director-Pfad; `server/src/routes/health.ts` enthaelt
+  wieder `/api/health/opus-task-async` und `/api/health/opus-job-status`.
 - `server/src/routes/opusBridge.ts` enthaelt jetzt zusaetzlich den Debug-Pfad
   `/api/builder/opus-bridge/debug-scope`, um den effektiven Task-Scope gegen
   die Zielruntime sichtbar zu pruefen.

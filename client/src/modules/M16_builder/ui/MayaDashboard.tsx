@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { TOKENS } from '../../../design/tokens';
-import { useMayaApi, type MayaContext, type MayaChatMessage } from '../hooks/useMayaApi';
+import { useMayaApi, type DirectorModel, type MayaContext, type MayaChatMessage } from '../hooks/useMayaApi';
 
 const MAYA = '#7c6af7';
 const MAYA_DIM = 'rgba(124,106,247,0.12)';
@@ -503,6 +503,7 @@ export function MayaDashboard() {
   const [, navigate] = useLocation();
   const [token, setToken] = useState(() => getInitialToken());
   const [authenticated, setAuthenticated] = useState(false);
+  const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -551,7 +552,7 @@ export function MayaDashboard() {
     return models.length > 0 ? Math.round(models.reduce((s, m) => s + m.quality, 0) / models.length) : 0;
   };
 
-  const { getContext, chat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
+  const { getContext, chat, directorChat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, deleteMemory, getTaskDialog, getTaskEvidence } = useMayaApi(token || null);
 
   const runAction = async (key: string, action: ParsedAction, confirmed?: boolean) => {
     setActionStatus(p => ({ ...p, [key]: confirmed ? 'pending' : 'confirm' }));
@@ -601,9 +602,11 @@ export function MayaDashboard() {
     setChatLoading(true);
     try {
       const history: MayaChatMessage[] = messages.slice(-16).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-      const result = await chat(text, history);
+      const result = directorModel
+        ? await directorChat(text, directorModel, history)
+        : await chat(text, history);
       setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
-      if (/build|push|deploy|task|status/i.test(text)) loadContext();
+      if (directorModel || /build|push|deploy|task|status/i.test(text)) loadContext();
     } catch (e) {
       setMessages(prev => [...prev, { role: 'maya', text: `Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
     }
@@ -644,6 +647,10 @@ export function MayaDashboard() {
     if (!file) return;
     e.target.value = '';
     if (file.size > 10 * 1024 * 1024) { setMessages(prev => [...prev, { role: 'maya', text: '\u274C Datei zu gro\u00DF (max 10MB).' }]); return; }
+    if (directorModel) {
+      setMessages(prev => [...prev, { role: 'maya', text: 'Director-Modus unterstuetzt aktuell keine Datei-Uploads. Schalte auf Maya zurueck oder sende Text.' }]);
+      return;
+    }
     setChatLoading(true);
     const userMsg = input.trim() || `\uD83D\uDCCE ${file.name}`;
     setInput('');
@@ -674,6 +681,24 @@ export function MayaDashboard() {
   const sAvg = poolAvg(scoutIds, 'scout');
 
   const selectedMayaModel = MAYA_MODELS.find(m => mayaIds.includes(m.id));
+  const directorBtn = (id: DirectorModel, label: string) => (
+    <button
+      key={id}
+      onClick={() => setDirectorModel(prev => prev === id ? null : id)}
+      style={{
+        borderRadius: 999,
+        border: `1.5px solid ${directorModel === id ? MAYA : TOKENS.b1}`,
+        background: directorModel === id ? MAYA_DIM : 'transparent',
+        color: directorModel === id ? MAYA : TOKENS.text2,
+        padding: '6px 12px',
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </button>
+  );
 
   const poolBtn = (label: string, pool: PoolType, accent: string, avg: number, count: number, modelName?: string) => (
     <button key={pool} onClick={() => togglePool(pool)}
@@ -702,6 +727,12 @@ export function MayaDashboard() {
           <div>
             <span style={{ fontSize: 10, color: MAYA, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Maya</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: TOKENS.text, marginLeft: 8 }}>Builder Studio</span>
+          </div>
+          <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Director</span>
+            {directorBtn('opus', 'Opus 4.6')}
+            {directorBtn('gpt-5.4', 'GPT 5.4')}
           </div>
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
           {poolBtn('Maya', 'maya', MAYA, myAvg, mayaIds.length, selectedMayaModel?.label)}
@@ -792,7 +823,7 @@ export function MayaDashboard() {
             {chatLoading && (
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: MAYA_DIM, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: MAYA, border: `1.5px solid ${MAYA}50` }}>M</div>
-                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 7 }}>Maya denkt...</div>
+                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 7 }}>{directorModel ? 'Director denkt...' : 'Maya denkt...'}</div>
               </div>
             )}
             <div ref={chatEndRef} />
@@ -807,7 +838,7 @@ export function MayaDashboard() {
             </button>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Maya fragen, Tasks erstellen, Builds starten..."
+              placeholder={directorModel ? 'Director beauftragen, planen, pruefen...' : 'Maya fragen, Tasks erstellen, Builds starten...'}
               rows={2}
               style={{ flex: 1, background: TOKENS.bg2, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 14, padding: '14px 16px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }} />
             <button onClick={sendMessage} disabled={chatLoading || !input.trim()}

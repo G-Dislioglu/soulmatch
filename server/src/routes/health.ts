@@ -5,6 +5,16 @@ import path from 'path';
 
 export const healthRouter = Router();
 
+interface AsyncOpusJob {
+  id: string;
+  status: 'running' | 'done' | 'failed';
+  instruction: string;
+  result?: unknown;
+  error?: string;
+}
+
+const asyncOpusJobs = new Map<string, AsyncOpusJob>();
+
 // GET /api/health
 healthRouter.get('/', (_req: Request, res: Response) => {
   console.log('🏥 Health endpoint hit - sweph test running...');
@@ -65,6 +75,61 @@ healthRouter.get('/read-file', (req: Request, res: Response) => {
   }
 });
 
-const jobs = new Map<string, any>();
-healthRouter.post("/opus-task-async", async (req: Request, res: Response) => { const token = req.query.opus_token as string; if (token !== process.env.OPUS_BRIDGE_SECRET) return res.status(401).json({error:"unauthorized"}); const id = "j-"+Date.now().toString(36); jobs.set(id, {id, status:"running"}); res.json({status:"accepted",jobId:id}); try { const {orchestrateTask} = await import("../lib/opusTaskOrchestrator.js"); const r = await orchestrateTask(req.body); const j=jobs.get(id); if(j){j.status="done";j.result=r;} } catch(e:any) { const j=jobs.get(id); if(j){j.status="failed";j.error=String(e);} } });
-healthRouter.get("/opus-job-status", (req: Request, res: Response) => { const token = req.query.opus_token as string; if (token !== process.env.OPUS_BRIDGE_SECRET) return res.status(401).json({error:"unauthorized"}); const id = req.query.id as string; if(!id) return res.json({jobs:Array.from(jobs.values()).slice(-20)}); const j=jobs.get(id); if(!j) return res.status(404).json({error:"not found"}); res.json(j); });
+// POST /api/health/opus-task-async
+healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
+  const token = typeof req.query.opus_token === 'string' ? req.query.opus_token : '';
+  if (!process.env.OPUS_BRIDGE_SECRET || token !== process.env.OPUS_BRIDGE_SECRET) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+
+  const { instruction, dryRun } = req.body as { instruction?: string; dryRun?: boolean };
+  if (!instruction?.trim()) {
+    res.status(400).json({ error: 'instruction required' });
+    return;
+  }
+
+  const id = `job-${Date.now().toString(36)}`;
+  asyncOpusJobs.set(id, { id, status: 'running', instruction });
+  res.json({ status: 'accepted', jobId: id });
+
+  void import('../lib/opusTaskOrchestrator.js')
+    .then(({ orchestrateTask }) => orchestrateTask({ instruction, dryRun: Boolean(dryRun) }))
+    .then((result) => {
+      const job = asyncOpusJobs.get(id);
+      if (job) {
+        job.status = 'done';
+        job.result = result;
+      }
+    })
+    .catch((error) => {
+      const job = asyncOpusJobs.get(id);
+      if (job) {
+        job.status = 'failed';
+        job.error = error instanceof Error ? error.message : String(error);
+      }
+    });
+});
+
+// GET /api/health/opus-job-status
+healthRouter.get('/opus-job-status', (req: Request, res: Response) => {
+  const token = typeof req.query.opus_token === 'string' ? req.query.opus_token : '';
+  if (!process.env.OPUS_BRIDGE_SECRET || token !== process.env.OPUS_BRIDGE_SECRET) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+
+  const id = typeof req.query.id === 'string' ? req.query.id : '';
+  if (!id) {
+    res.json({ jobs: Array.from(asyncOpusJobs.values()).slice(-20) });
+    return;
+  }
+
+  const job = asyncOpusJobs.get(id);
+  if (!job) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+
+  res.json(job);
+});
