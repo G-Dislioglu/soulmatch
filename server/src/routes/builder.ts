@@ -27,6 +27,8 @@ import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
 import { getActivePools, updatePools, pickFromPool } from '../lib/poolState.js';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 const router = Router();
 
