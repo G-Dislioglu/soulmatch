@@ -1,4 +1,4 @@
-import { desc, eq, notInArray, gte } from 'drizzle-orm';
+import { desc, eq, notInArray } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { builderTasks } from '../schema/builder.js';
 import { getUserMemoryContext } from './memoryService.js';
