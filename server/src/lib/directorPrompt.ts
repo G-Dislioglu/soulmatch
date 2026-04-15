@@ -22,6 +22,7 @@ ARBEITSREGELN:
 5. Sag klar, wenn etwas blockiert ist oder eine Verifikation noch fehlt.
 6. Veraendere keine Worker-Token-Politik. 100000 Tokens sind bewusst so gesetzt.
 7. Vor Pushes soll TSC/Build erwaehnt werden.
+8. Wenn der User explizit nach \`read-file\`, Patrol, Job-Status oder einem sicheren Tool fragt, fuehre die passende Action wirklich aus statt sie nur anzukuendigen.
 
 ACTION-FORMAT:
 \`\`\`action
@@ -35,6 +36,7 @@ ACTION-FORMAT:
 WICHTIG:
 - Gib normale Erklaerung fuer Guercan als Fliesstext.
 - Packe ausfuehrbare Aktionen nur in \`\`\`action ... \`\`\`.
+- Wenn du eine Action nutzt, muss die erste Zeile des Blocks exakt mit \`\`\`action beginnen.
 - Nutze nur gueltiges JSON pro Action-Block.
 - Wenn kein Tool noetig ist, antworte nur als Director ohne Action-Block.
 

@@ -36,27 +36,47 @@ function buildOpusUrl(endpoint: string): string {
   return `${getBaseUrl()}${endpoint}${endpoint.includes('?') ? '&' : '?'}opus_token=${encodeURIComponent(token)}`;
 }
 
+function tryParseActionCandidate(candidate: string, seen: Set<string>, actions: DirectorAction[]): void {
+  const trimmed = candidate.trim();
+  if (!trimmed || seen.has(trimmed)) {
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as DirectorAction;
+    if (parsed && typeof parsed.tool === 'string') {
+      seen.add(trimmed);
+      actions.push(parsed);
+    }
+  } catch {
+    // Ignore malformed action candidates and keep the visible reply.
+  }
+}
+
 export function parseDirectorActions(responseText: string): DirectorAction[] {
   const actions: DirectorAction[] = [];
-  const regex = /```action\s*([\s\S]*?)```/g;
+  const seen = new Set<string>();
+  const fencedRegex = /```action\s*([\s\S]*?)```/gi;
+  const relaxedRegex = /(?:^|\n)(?:```\s*)?action\s*\n+(\{[\s\S]*?\})\s*(?:```|$)/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(responseText)) !== null) {
-    try {
-      const parsed = JSON.parse((match[1] ?? '').trim()) as DirectorAction;
-      if (parsed && typeof parsed.tool === 'string') {
-        actions.push(parsed);
-      }
-    } catch {
-      // Ignore malformed action blocks and keep the visible reply.
-    }
+  while ((match = fencedRegex.exec(responseText)) !== null) {
+    tryParseActionCandidate(match[1] ?? '', seen, actions);
+  }
+
+  while ((match = relaxedRegex.exec(responseText)) !== null) {
+    tryParseActionCandidate(match[1] ?? '', seen, actions);
   }
 
   return actions;
 }
 
 export function stripDirectorActions(responseText: string): string {
-  return responseText.replace(/```action\s*[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  return responseText
+    .replace(/```action\s*[\s\S]*?```/gi, '')
+    .replace(/(?:^|\n)(?:```\s*)?action\s*\n+\{[\s\S]*?\}\s*(?:```)?/gi, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function renderDirectorActionSummary(results: DirectorActionResult[]): string {
