@@ -133,6 +133,14 @@ export function resolveScope(instruction: string): ScopeResult {
     }
   }
 
+  if (files.length === 0) {
+    const pm = instruction.match(/server\/src\/[\w/.-]+\.tsx?/i);
+    if (pm) {
+      files.push(pm[0]);
+      reasoning.push(pm[0] + " (CREATE)");
+    }
+  }
+
   return {
     files,
     reasoning,
