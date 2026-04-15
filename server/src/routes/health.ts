@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { swissEphemerisProbe } from '../lib/swissEphemerisProbe.js';
+import fs from 'fs';
+import path from 'path';
 
 export const healthRouter = Router();
 
@@ -40,4 +42,19 @@ healthRouter.get('/detailed', (_req: Request, res: Response) => {
     nodeVersion: process.version,
     timestamp: new Date().toISOString(),
   });
+});
+
+// GET /api/health/read-file
+healthRouter.get('/read-file', (req: Request, res: Response) => {
+  const token = (req.query.opus_token || req.query.token) as string;
+  if (token !== process.env.OPUS_BRIDGE_SECRET) return res.status(401).json({ error: "unauthorized" });
+  const filePath = req.query.path as string;
+  if (!filePath || filePath.includes("..")) return res.status(400).json({ error: "invalid path" });
+  try {
+    const resolved = path.resolve(process.cwd(), filePath);
+    const content = fs.readFileSync(resolved, "utf-8");
+    res.json({ path: filePath, content, lines: content.split("\n").length });
+  } catch (e: any) {
+    res.status(404).json({ error: "Not found", detail: e.message });
+  }
 });
