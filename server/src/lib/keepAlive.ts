@@ -1,5 +1,5 @@
 const KEEP_ALIVE_URL = 'https://soulmatch-1.onrender.com/api/health';
-const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
+const KEEP_ALIVE_INTERVAL_MS = parseInt(process.env.KEEP_ALIVE_INTERVAL_MS || "600000", 10);
 const SERVER_START = new Date();
 const SERVER_STARTED_AT = new Date();
 
@@ -16,6 +16,7 @@ export function startKeepAlive(): void {
       console.error('[KeepAlive] ping failed', new Date().toISOString(), String(error));
     }
   };
+
 
   void ping();
   setInterval(() => {
