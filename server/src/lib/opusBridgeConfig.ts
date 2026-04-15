@@ -15,13 +15,13 @@ export const WORKER_TIMEOUT_MS = 90000;
 
 export const MAX_FILE_LINES_FOR_OVERWRITE = 500;
 
-export const WORKER_MAX_OUTPUT_TOKENS = 16000;
+export const WORKER_MAX_OUTPUT_TOKENS = 100000;
 
 export const MEISTER_MAX_OUTPUT_TOKENS = 100000;
 
 export const MEISTER_TOKEN_LIMIT = 100000;
 
-export const WORKER_TOKEN_LIMIT = 16000;
+export const WORKER_TOKEN_LIMIT = 100000;
 
 export const PIPELINE_VERSION = "S25-stress-test";
 
