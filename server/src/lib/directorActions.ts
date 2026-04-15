@@ -87,23 +87,62 @@ export function renderDirectorActionSummary(results: DirectorActionResult[]): st
   return ['### Director-Aktionen', ...results.map((result) => `- ${result.ok ? 'OK' : 'Fehler'} · ${result.tool}: ${result.summary}`)].join('\n');
 }
 
-async function readRepoFile(filePath: string): Promise<DirectorActionResult> {
-  const repoRoot = getRepoRoot();
-  const resolved = path.resolve(repoRoot, filePath.replace(/^[/\\]+/, ''));
-  if (!resolved.startsWith(repoRoot)) {
-    return { tool: 'read-file', ok: false, summary: 'Pfad liegt ausserhalb des Repos.' };
+function normalizeRepoPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function buildReadRoots(repoRoot: string): string[] {
+  const parentRoot = path.resolve(repoRoot, '..');
+  return [...new Set([repoRoot, parentRoot])];
+}
+
+function buildReadCandidates(rootDir: string, normalizedPath: string): string[] {
+  const candidates = [path.resolve(rootDir, normalizedPath)];
+
+  if (normalizedPath.startsWith('server/')) {
+    candidates.push(path.resolve(rootDir, normalizedPath.slice('server/'.length)));
   }
 
-  const content = await fs.readFile(resolved, 'utf-8');
-  const truncated = content.length > 12000;
+  if (normalizedPath.startsWith('client/')) {
+    candidates.push(path.resolve(rootDir, normalizedPath.slice('client/'.length)));
+  }
+
+  return [...new Set(candidates)];
+}
+
+async function readRepoFile(filePath: string): Promise<DirectorActionResult> {
+  const repoRoot = getRepoRoot();
+  const normalizedPath = normalizeRepoPath(filePath);
+
+  for (const rootDir of buildReadRoots(repoRoot)) {
+    for (const candidate of buildReadCandidates(rootDir, normalizedPath)) {
+      const relative = path.relative(rootDir, candidate);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        continue;
+      }
+
+      try {
+        const content = await fs.readFile(candidate, 'utf-8');
+        const truncated = content.length > 12000;
+        return {
+          tool: 'read-file',
+          ok: true,
+          summary: `${normalizedPath} gelesen${truncated ? ' (gekuerzt)' : ''}.`,
+          data: {
+            path: normalizedPath,
+            content: truncated ? `${content.slice(0, 12000)}\n\n...[gekuerzt]` : content,
+          },
+        };
+      } catch {
+        // Try the next valid candidate.
+      }
+    }
+  }
+
   return {
     tool: 'read-file',
-    ok: true,
-    summary: `${filePath} gelesen${truncated ? ' (gekuerzt)' : ''}.`,
-    data: {
-      path: filePath,
-      content: truncated ? `${content.slice(0, 12000)}\n\n...[gekuerzt]` : content,
-    },
+    ok: false,
+    summary: `Datei nicht gefunden: ${normalizedPath}`,
   };
 }
 
