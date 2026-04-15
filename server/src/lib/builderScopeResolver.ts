@@ -124,6 +124,16 @@ export function resolveScope(instruction: string): ScopeResult {
     .slice(0, 8)
     .map(([path]) => path);
 
+  // CREATE MODE: If no files found but instruction contains a file path, allow creation
+  if (files.length === 0) {
+    const pathMatch = instruction.match(/(?:server|client)\/src\/[\w/.-]+\.(?:ts|tsx)/i);
+    const createWords = /(?:erstell|create|neue[sr]? datei|new file|hinzufueg|add file)/i;
+    if (pathMatch && createWords.test(instruction)) {
+      files.push(pathMatch[0]);
+      reasoning.push(pathMatch[0] + " (CREATE MODE): file does not exist, instruction requests creation");
+    }
+  }
+
   return {
     files,
     reasoning,
