@@ -284,6 +284,32 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Der bestehende Index-Refresh war auf mehreren direkten Push-Pfaden schon da, aber nicht sauber auf dem Callback-Randpfad abgesichert. Dieser Pfad zieht den Refresh jetzt nach Commit-Bestaetigung ebenfalls.
 - `evidence`: `opusBridgeController.ts` regeneriert den Index nach erfolgreichem Push bereits direkt; `builder.ts` triggert `regenerateRepoIndex()` jetzt auch im `execution-result`-Commit-Callback; `opusIndexGenerator.ts` invalidiert danach den Resolver-Cache.
 
+### Kandidat F5c - Builder Create-Mode explizit
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `why_not_now`: `none`
+- `non_scope`: neuer Judge, Related-Files-Recherche, UI-Ausbau, Deploy-Verifikation
+- `risk`: niedrig; der Block macht einen schon halb vorhandenen New-File-Pfad explizit, statt ein zweites Erstellungsmodell einzufuehren.
+- `betroffene_bereiche`: `server/src/lib/builderScopeResolver.ts`, `server/src/lib/opusChangeRouter.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`
+- `kurzurteil`: Neue Dateien sind im internen Opus-Task jetzt kein impliziter Sonderfall mehr. Resolver, ChangeRouter, Worker-Prompt und SmartPush tragen denselben Create-Zustand durch, statt sich nur auf fehlende Datei-Inhalte zu verlassen.
+- `evidence`: `builderScopeResolver.ts` liefert fuer Create-Faelle jetzt `method: create`; `opusChangeRouter.ts` kennt `create` als eigenen Modus; `opusTaskOrchestrator.ts` gibt Create-Targets explizit in den Worker-Prompt; `opusSmartPush.ts` behaelt den Envelope-Modus bis zum Push statt ihn wieder zu erraten.
+
+### Kandidat F5d - Semantischer Judge gegen Instruktionsdrift
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `none`
+- `non_scope`: neuer Parallel-Judge, breite Pipeline-Neuarchitektur, Scout-Umbau
+- `risk`: mittel; ohne diesen Block kann der bestehende Judge formal valide, aber semantisch zu breite Kandidaten weiter durchlassen.
+- `betroffene_bereiche`: `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, Worker-Briefing-Kontext
+- `kurzurteil`: Der naechste enge Block soll den bestehenden Judge haerter an die Original-Instruktion binden, statt noch einen zweiten Auswahlpfad daneben zu bauen.
+- `evidence`: `opusJudge.ts` existiert bereits als Winner-Selektion; der abgeschlossene Create-Block hat die Eingangsabsicht fuer neue Dateien expliziter gemacht, aber keine semantische Ueberscoper-Pruefung hinzugefuegt.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

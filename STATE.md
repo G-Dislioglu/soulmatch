@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die tote MayaDashboard-Naht ist entfernt, und der Builder-Index-Refresh greift jetzt auch auf dem GitHub-Callback-Pfad nach echten Commit-Bestaetigungen statt nur auf den bereits bekannten direkten Push-Pfaden`
-- `next_recommended_block`: `Create-Mode im Scope-Resolver explizit durchreichen und danach den semantischen Judge gegen die Original-Instruktion auf dem bestehenden Judge-Pfad erweitern`
+- `last_completed_block`: `Der Builder behandelt neue Dateien jetzt explizit als Create-Flow statt nur implizit ueber fehlende Inhalte: Scope-Resolver, ChangeRouter, Worker-Prompt und SmartPush tragen denselben Create-Zustand durch`
+- `next_recommended_block`: `Den bestehenden semantischen Judge gegen die Original-Instruktion erweitern und danach die Related-Files-Briefing-Lane deterministisch nachziehen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -187,7 +187,10 @@ ist der Builder-Pipeline-Drift enger bereinigt: Die tote `MayaDashboard`-
 Nebenflaeche ist entfernt, und der Repo-Index wird jetzt auch dann neu erzeugt,
 wenn ein GitHub-Actions-Commit erst ueber den spaeteren Callback als erfolgreich
 bestaetigt wird. Damit bleibt der Scope-Resolver auch auf diesem Randpfad naeher
-an der echten Repo-Wahrheit.
+an der echten Repo-Wahrheit. Direkt danach ist auch der New-File-Pfad expliziter
+gezogen: Wenn der Resolver jetzt eine neue Datei als Ziel erkennt, bleibt diese
+Absicht nicht mehr still als `NEW FILE` im Prompt stecken, sondern wird als
+Create-Mode bis in ChangeRouter, Worker-Anweisung und SmartPush durchgereicht.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,

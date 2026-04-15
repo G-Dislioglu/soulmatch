@@ -1,10 +1,10 @@
 import { MAX_FILE_LINES_FOR_OVERWRITE } from './opusBridgeConfig.js';
 
-export type ChangeMode = 'overwrite' | 'patch';
+export type ChangeMode = 'create' | 'overwrite' | 'patch';
 
 export function decideChangeMode(fileContent: string | null): ChangeMode {
   if (fileContent === null) {
-    return 'overwrite';
+    return 'create';
   }
 
   const lineCount = fileContent.split('\n').length;
@@ -17,6 +17,10 @@ export function decideChangeMode(fileContent: string | null): ChangeMode {
 }
 
 export function getWorkerPromptForMode(mode: ChangeMode): string {
+  if (mode === 'create') {
+    return 'If the scoped path is a new file, respond with JSON using {path, mode: "create", content}. Create the full file content and do not emit patch mode for that file.';
+  }
+
   if (mode === 'overwrite') {
     return 'Return the complete file content as JSON with format: {path, mode: "overwrite", content}. Include the full file content in the response.';
   }

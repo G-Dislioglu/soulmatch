@@ -19,8 +19,8 @@ try {
 import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
-import { resolveScope, fetchFileContents } from './builderScopeResolver.js';
-import { decideChangeMode, getWorkerPromptForMode } from './opusChangeRouter.js';
+import { resolveScope, fetchFileContents, isIndexedRepoFile, type ScopeMethod } from './builderScopeResolver.js';
+import { decideChangeMode, getWorkerPromptForMode, type ChangeMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
@@ -67,9 +67,11 @@ function internalUrl(path: string): string {
   return `http://localhost:${port}/api/builder/opus-bridge${path}?opus_token=${token}`;
 }
 
+type OrchestratorScopeMethod = ScopeMethod | 'manual';
+
 // ─── Phase 1: Deterministic Scope ───
 
-function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): { files: string[]; reasoning: string[]; method: string } {
+function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): { files: string[]; reasoning: string[]; method: OrchestratorScopeMethod } {
   if (manualScope && manualScope.length > 0) {
     return { files: manualScope, reasoning: ['manual override'], method: 'manual' };
   }
@@ -77,13 +79,24 @@ function runScopePhase(instruction: string, manualScope?: string[], targetFile?:
   if (targetFile && !result.files.includes(targetFile)) {
     result.files.unshift(targetFile);
     result.reasoning.unshift(`${targetFile} (forced): targetFile parameter`);
+    if (!isIndexedRepoFile(targetFile) && /erstell|create|neue|hinzufueg|new file/i.test(instruction)) {
+      result.method = 'create';
+      result.reasoning.unshift(`${targetFile} (CREATE): targetFile is not in repo index`);
+    }
   }
   return result;
 }
 
 // ─── Phase 3: Worker Swarm (Full-File Overwrite) ───
 
-function buildWorkerPrompt(instruction: string, fileContents: Map<string, string>, scopeFiles: string[]): string {
+function buildWorkerPrompt(
+  instruction: string,
+  fileContents: Map<string, string>,
+  scopeFiles: string[],
+  scopeMethod: OrchestratorScopeMethod,
+  fileModes: Array<{ path: string; mode: ChangeMode }>,
+): string {
+  const createTargets = fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path);
   const fileSection = scopeFiles.map(f => {
     const content = fileContents.get(f);
     return content
@@ -92,6 +105,9 @@ function buildWorkerPrompt(instruction: string, fileContents: Map<string, string
   }).join('\n\n');
 
   return `TASK: ${instruction}
+
+SCOPE METHOD: ${scopeMethod}
+CREATE TARGETS: ${createTargets.length > 0 ? createTargets.join(', ') : 'none'}
 
 FILES IN SCOPE:
 ${fileSection}
@@ -111,6 +127,7 @@ RESPONSE FORMAT — respond with ONLY this JSON structure, nothing else:
 RULES:
 - For existing files: return the COMPLETE updated content (mode: overwrite)
 - For new files: return complete content (mode: create)
+- If a file is listed under CREATE TARGETS, do not treat it as an overwrite of an existing file
 - Do NOT use SEARCH/REPLACE, diffs, or partial patches
 - Do NOT wrap in markdown code blocks
 - Return ONLY valid JSON`;
@@ -152,7 +169,7 @@ async function pushEdits(
     const files = envelope.edits.map((edit) =>
       edit.mode === 'patch'
         ? { file: edit.path, patches: edit.patches }
-        : { file: edit.path, content: edit.content ?? '' },
+        : { file: edit.path, mode: edit.mode, content: edit.content ?? '' },
     );
     const result = await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`);
     return { pushed: result.pushed, filesCount: files.length, error: result.error, durationMs: Date.now() - start };
@@ -201,19 +218,20 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const fileContents = await fetchFileContents(scope.files);
   
   // ChangeRouter: Decide mode for each file
-  const modePrompts: string[] = [];
-  for (const [filePath, content] of fileContents.entries()) {
+  const fileModes = scope.files.map((filePath) => {
+    const content = fileContents.get(filePath) ?? null;
     const changeMode = decideChangeMode(content);
     console.log(`[ChangeRouter] ${filePath}: ${changeMode}`);
-    modePrompts.push(getWorkerPromptForMode(changeMode));
-  }
+    return { path: filePath, mode: changeMode };
+  });
+  const modePrompts = [...new Set(fileModes.map((entry) => getWorkerPromptForMode(entry.mode)))];
 
   phases.push({ phase: 'fetch', status: 'ok', durationMs: Date.now() - s2,
-    detail: { fetched: fileContents.size, total: scope.files.length } });
+    detail: { fetched: fileContents.size, total: scope.files.length, createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path) } });
 
   // Phase 3: Swarm
   const s3 = Date.now();
-  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files)}\n\n${modePrompts.join('\n\n')}`;
+  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files, scope.method, fileModes)}\n\n${modePrompts.join('\n\n')}`;
   const results = await runWorkerSwarm(prompt, workers, maxTokens);
   const okResults = results.filter(r => r.response.length > 50 && !r.error);
   phases.push({ phase: 'swarm', status: okResults.length > 0 ? 'ok' : 'error',

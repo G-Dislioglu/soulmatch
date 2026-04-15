@@ -12,6 +12,7 @@ const REPO_NAME = 'soulmatch';
 
 interface SmartPushFile {
   file: string;
+  mode?: 'overwrite' | 'create' | 'patch';
   content?: string;          // full file for overwrite
   patches?: PatchEdit[];     // search/replace for patch mode
   originalContent?: string;  // current content (for mode decision)
@@ -20,7 +21,7 @@ interface SmartPushFile {
 interface SmartPushResult {
   pushed: boolean;
   filesCount: number;
-  modes: Record<string, 'overwrite' | 'patch'>;
+  modes: Record<string, 'overwrite' | 'create' | 'patch'>;
   error?: string;
   durationMs: number;
 }
@@ -30,13 +31,13 @@ export async function smartPush(
   message: string,
 ): Promise<SmartPushResult> {
   const start = Date.now();
-  const modes: Record<string, 'overwrite' | 'patch'> = {};
+  const modes: Record<string, 'overwrite' | 'create' | 'patch'> = {};
 
   const overwrites: Array<{ file: string; content: string }> = [];
   const patchJobs: Array<{ file: string; patches: PatchEdit[] }> = [];
 
   for (const f of files) {
-    const mode = f.patches ? 'patch' : decideChangeMode(f.originalContent ?? null);
+    const mode = f.mode ?? (f.patches ? 'patch' : decideChangeMode(f.originalContent ?? null));
     modes[f.file] = mode;
 
     if (mode === 'patch' && f.patches && f.patches.length > 0) {

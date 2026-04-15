@@ -23,10 +23,12 @@ interface RepoIndex {
   files: RepoFileEntry[];
 }
 
-interface ScopeResult {
+export type ScopeMethod = 'deterministic' | 'hybrid' | 'create';
+
+export interface ScopeResult {
   files: string[];
   reasoning: string[];
-  method: 'deterministic' | 'hybrid';
+  method: ScopeMethod;
 }
 
 let cachedIndex: RepoIndex | null = null;
@@ -59,6 +61,10 @@ export function invalidateIndexCache(): void {
   cachedIndex = null;
 }
 
+export function isIndexedRepoFile(path: string): boolean {
+  return loadIndex().files.some((file) => file.path === path);
+}
+
 /**
  * Resolve scope deterministically from instruction text.
  * No LLM call. Pure text matching against repo index.
@@ -67,6 +73,7 @@ export function resolveScope(instruction: string): ScopeResult {
   const index = loadIndex();
   const reasoning: string[] = [];
   const scored = new Map<string, number>();
+  let method: ScopeMethod = 'deterministic';
 
   const instrLower = instruction.toLowerCase();
   const instrWords = new Set(instrLower.split(/[\s,;:()\[\]{}`'"`]+/).filter(w => w.length > 2));
@@ -130,6 +137,7 @@ export function resolveScope(instruction: string): ScopeResult {
     if (pm && /erstell|create|neue|hinzufueg/i.test(instruction)) {
       files.push(pm[0]);
       reasoning.push(pm[0] + " (CREATE): path not in index, instruction requests creation");
+      method = 'create';
     }
   }
 
@@ -138,13 +146,14 @@ export function resolveScope(instruction: string): ScopeResult {
     if (pm) {
       files.push(pm[0]);
       reasoning.push(pm[0] + " (CREATE)");
+      method = 'create';
     }
   }
 
   return {
     files,
     reasoning,
-    method: 'deterministic',
+    method,
   };
 }
 
