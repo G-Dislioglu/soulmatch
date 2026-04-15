@@ -66,3 +66,32 @@ healthRouter.get('/read-file', (req: Request, res: Response) => {
 });
 
 const asyncJobs = new Map<string, Record<string, unknown>>();
+
+const jobs = new Map<string, { id: string; status: string; instruction: string; result?: unknown; error?: string }>();
+
+healthRouter.post("/opus-task-async", async (req, res) => {
+  const token = req.query.opus_token as string;
+  if (token !== process.env.OPUS_BRIDGE_SECRET) return res.status(401).json({error:"unauthorized"});
+  const { instruction, dryRun } = req.body;
+  if (!instruction) return res.status(400).json({error:"instruction required"});
+  const id = "job-" + Date.now().toString(36);
+  jobs.set(id, { id, status: "running", instruction });
+  res.json({ status: "accepted", jobId: id });
+  import("../lib/opusTaskOrchestrator.js").then(m => m.orchestrateTask({ instruction, dryRun })).then(r => {
+    const j = jobs.get(id);
+    if(j){j.status="done";j.result=r;}
+  }).catch(e => {
+    const j = jobs.get(id);
+    if(j){j.status="failed";j.error=String(e);}
+  });
+});
+
+healthRouter.get("/opus-job-status", (req, res) => {
+  const token = req.query.opus_token as string;
+  if (token !== process.env.OPUS_BRIDGE_SECRET) return res.status(401).json({error:"unauthorized"});
+  const id = req.query.id as string;
+  if (!id) return res.json({ jobs: Array.from(jobs.values()).slice(-20) });
+  const job = jobs.get(id);
+  if (!job) return res.status(404).json({error:"not found"});
+  res.json(job);
+});
