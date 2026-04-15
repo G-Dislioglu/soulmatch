@@ -175,18 +175,23 @@ function taskMatchesStageRules(task: CanaryTask, config: CanaryStageConfig) {
 }
 
 async function countStartedToday(taskId: string) {
-  const db = getDb();
-  const today = getStartOfToday();
-  const tasks = await db
-    .select({ id: builderTasks.id })
-    .from(builderTasks)
-    .where(and(
-      gte(builderTasks.updatedAt, today),
-      ne(builderTasks.id, taskId),
-      ne(builderTasks.status, 'queued'),
-    ));
+  try {
+    const db = getDb();
+    const today = getStartOfToday();
+    const tasks = await db
+      .select({ id: builderTasks.id })
+      .from(builderTasks)
+      .where(and(
+        gte(builderTasks.updatedAt, today),
+        ne(builderTasks.id, taskId),
+        ne(builderTasks.status, 'queued'),
+      ));
 
-  return tasks.length;
+    return tasks.length;
+  } catch (error) {
+    console.error(error);
+    return 0;
+  }
 }
 
 function isGreenTask(task: CanaryTask) {
