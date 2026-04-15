@@ -16,6 +16,7 @@ healthRouter.get('/', (_req: Request, res: Response) => {
     sweph: swephProbe.available,
     swephError: swephProbe.error,
     runtime: swephProbe.runtime,
+    pipelineVersion: "S25"
   });
 });
 
