@@ -2,7 +2,9 @@
 
 ## Render staging deployment
 
-This repo includes a Render blueprint in `render.yaml`.
+This repo does not currently include a checked-in `render.yaml` blueprint.
+The reliable deploy path is a GitHub Actions workflow that triggers Render via
+deploy hook and then waits until `/api/health` reports the pushed commit.
 
 ### 1) Required Render environment variables
 
@@ -16,10 +18,9 @@ Set these in **Render → Service → Environment**:
 - `FAL_KEY` (optional, only for `/api/zimage/*`)
 - `DEV_TOKEN` (optional, protects `/api/dev/*`)
 
-Already configured in `render.yaml`:
+Recommended additional GitHub secret:
 
-- `NODE_VERSION=20.11.0`
-- `BUILD_AT=render`
+- `RENDER_DEPLOY_HOOK_URL` (Render Web Service deploy hook)
 
 ### 2) Deploy from GitHub
 
@@ -32,9 +33,14 @@ git push origin <your-branch>
 ```
 
 2. In Render:
-   - Create/attach Web Service from this repo (Blueprint auto-detects `render.yaml`)
-   - Select the branch
-   - Trigger deploy (or rely on Auto Deploy)
+   - Create/attach the Web Service from this repo
+   - Select branch `main`
+   - Create a Deploy Hook and store it as GitHub secret `RENDER_DEPLOY_HOOK_URL`
+   - Keep Render Auto Deploy enabled if you want, but do not rely on it as the only trigger
+
+3. In GitHub:
+   - The workflow `.github/workflows/render-deploy.yml` triggers Render on every push to `main`
+   - The workflow fails if `/api/health` does not advance to the exact pushed commit
 
 ### 3) Staging smoke checks
 

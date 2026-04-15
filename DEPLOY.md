@@ -26,6 +26,10 @@ Erstelle `.env` im Root mit `OPENAI_API_KEY=sk-...`
 
 ## Render Deployment
 
+Wichtige Realitaet: Der zuverlaessige Standardpfad ist nicht mehr "auf Render Auto Deploy hoffen".
+Das Repo triggert Render jetzt ueber GitHub Actions per Deploy Hook und verifiziert
+danach den live Commit ueber `/api/health`.
+
 ### 1. Neuen Web Service erstellen
 
 - Render → **New +** → **Web Service**
@@ -48,7 +52,15 @@ Erstelle `.env` im Root mit `OPENAI_API_KEY=sk-...`
 
 ### 4. Deploy
 
-Render baut automatisch bei jedem Push. Nach dem Deploy:
+Empfohlener produktiver Pfad:
+
+- In Render einen Deploy Hook fuer den Web Service anlegen
+- In GitHub den Secret `RENDER_DEPLOY_HOOK_URL` setzen
+- Push auf `main` triggert `.github/workflows/render-deploy.yml`
+- Der Workflow wartet, bis `/api/health` genau den gepushten Commit meldet
+
+Render Auto Deploy kann zusaetzlich aktiv bleiben, ist aber nicht mehr die einzige
+oder vertrauenswuerdige Deploy-Quelle. Nach dem Deploy:
 - Frontend erreichbar unter der Render-URL
 - Studio mit LLM: Einstellungen → Provider=OpenAI → LLM aktiviert → Studio öffnen
 

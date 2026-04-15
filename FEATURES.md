@@ -134,6 +134,16 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `next_recommended_step`: Auf Render einen echten Maya-Brain-Flow mit delegiertem Async-Opus-Task pruefen, dabei `Fast`/`Deep`, Jobstatus, Continuity-Rueckschreibung und Builder-Studio-Sichtbarkeit verfolgen und parallel `[stale-detector]`, `blocked`, ChatPool-Hinweis und `builder_opus_log` gegen den Live-Lauf abgleichen.
 - `evidence`: `client/src/app/App.tsx`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`, `server/src/lib/builderGithubBridge.ts`, `.github/workflows/builder-executor.yml`, `server/src/lib/builderMemory.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/builderDialogEngine.ts`, `server/src/lib/agentHabitat.ts`, `server/src/lib/builderStaleDetector.ts`, `server/src/lib/directorContext.ts`, `server/src/lib/directorPrompt.ts`, `server/src/lib/directorActions.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/builder.ts`, `server/src/routes/health.ts`, `server/src/schema/builder.ts`, `server/src/index.ts`.
 
+### Render deploy pipeline
+
+- `status`: `active`
+- `truth_basis`: `repo_visible`
+- `last_checked`: `2026-04-15`
+- `quality`: `repo_triggered_live_verification_pending`
+- `known_gap`: Render Auto Deploy alleine ist als Betriebsweg zu unzuverlaessig. Das Repo nutzt jetzt einen GitHub-Workflow, der Render ueber `RENDER_DEPLOY_HOOK_URL` triggert und den Live-Commit ueber `/api/health` verifiziert. Voll bestaetigt ist das erst nach einem echten Lauf mit gesetztem Secret im Ziel-Repo.
+- `next_recommended_step`: GitHub-Secret `RENDER_DEPLOY_HOOK_URL` setzen, einen Push auf `main` ausloesen und pruefen, ob `.github/workflows/render-deploy.yml` bis zum erwarteten Commit auf Render durchlaeuft.
+- `evidence`: `.github/workflows/render-deploy.yml`, `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, `server/src/routes/health.ts`.
+
 ### Opus-Bridge orchestration
 
 - `status`: `active`

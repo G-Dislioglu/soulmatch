@@ -1,0 +1,33 @@
+name: Render Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Missing GitHub secret: RENDER_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Wait for live Render commit
+        env:
+          DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
+          EXPECT_COMMIT: ${{ github.sha }}
+        run: bash tools/wait-for-deploy.sh

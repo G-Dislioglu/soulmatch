@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die sichtbare Builder-Frontend-Drift ist enger gefixt: Die live Route /builder rendert weiter BuilderStudioPage statt MayaDashboard, und genau dort sind jetzt Maya-Brain-Toggle, Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Umschaltung, Action-Badges und GLM-5.1-Pool-Buttons fuer Maya/Council/Worker sichtbar verdrahtet`
-- `next_recommended_block`: `Den jetzt sichtbaren Maya-Brain-Flow auf Render gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus, Continuity-Rueckschreibung und UI-Sichtbarkeit zusammen verifizieren`
+- `last_completed_block`: `Der Render-Deploy-Pfad ist jetzt repo-gesteuert und verifizierbar: GitHub Actions triggert Render ueber einen Deploy Hook nach jedem Push auf main, und das Wait-Script akzeptiert Deploys erst, wenn /api/health genau den erwarteten Commit meldet`
+- `next_recommended_block`: `Den neuen GitHub→Render-Deploypfad einmal mit gesetztem RENDER_DEPLOY_HOOK_URL live pruefen und danach den sichtbaren Maya-Brain-Flow gegen einen echten delegierten Async-Opus-Task auf Render verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -175,10 +175,14 @@ Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Schalter, Action-Badges und die
 GLM-5.1-Pool-Buttons fuer Maya/Council/Worker jetzt zusaetzlich in der real
 gerenderten Builder-Studio-Oberflaeche selbst.
 
-Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
-und `origin/HEAD` zeigen auf `55dc6cb`, der Working Tree ist sauber, und der
-naechste enge Block ist jetzt kein weiterer Umbau, sondern die drei Live-Checks
-fuer Distiller, UI und Render-Logs.
+Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
+Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
+keine aktive `render.yaml`, aber jetzt einen eigenen GitHub-Deploypfad:
+`.github/workflows/render-deploy.yml` triggert Render ueber
+`RENDER_DEPLOY_HOOK_URL`, und `tools/wait-for-deploy.sh` wartet optional auf den
+exakten Commit aus `/api/health` statt nur auf irgendein HTTP 200. Der naechste
+enge Block ist damit kein weiterer Deploy-Umbau, sondern die Live-Verifikation
+dieses Pfads plus die produktive Maya-Brain-Pruefung auf Render.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
