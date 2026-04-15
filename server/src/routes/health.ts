@@ -24,7 +24,6 @@ healthRouter.get('/pipeline', (_req: Request, res: Response) => {
   res.json({
     pipelineOk: true,
     timestamp: new Date().toISOString(),
-    workers: ['glm', 'deepseek', 'minimax', 'qwen', 'kimi'],
   });
 });
 
