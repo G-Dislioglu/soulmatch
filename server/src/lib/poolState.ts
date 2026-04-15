@@ -13,6 +13,7 @@ export const POOL_MODEL_MAP: Record<string, { provider: string; model: string }>
   grok: { provider: 'xai', model: 'grok-4-1-fast' },
   deepseek: { provider: 'deepseek', model: 'deepseek-chat' },
   'glm-turbo': { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
+  glm51: { provider: 'openrouter', model: 'z-ai/glm-5.1' },
   minimax: { provider: 'openrouter', model: 'minimax/minimax-m2.7' },
   kimi: { provider: 'openrouter', model: 'moonshotai/kimi-k2.5' },
   qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },

@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Director liest auf Render repo-relative Dateien wieder bewusst ueber Action-Blocks; der read-file-Pfadfehler durch /app/server ist behoben und live verifiziert`
-- `next_recommended_block`: `Director live gegen einen echten delegierten Async-Opus-Task pruefen und Jobstatus plus UI-Sichtbarkeit im Builder-Studio verifizieren`
+- `last_completed_block`: `Builder-Director hat jetzt ein echtes Modell-Dropdown mit Opus 4.6, GPT 5.4 und GLM 5.1, Fast/Deep-Thinking und sichtbare Action-Badges; GLM 5.1 ist ausserdem als Meister und Worker repo-sichtbar verdrahtet`
+- `next_recommended_block`: `Director live gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus und UI-Sichtbarkeit im Builder-Studio zusammen verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -154,8 +154,14 @@ regeneriert nach erfolgreichem GitHub-Push den Repo-Index wieder serverseitig,
 und der Builder-Maya-Pfad hat jetzt einen separaten Director-Modus. Dieser
 Director baut aus `STATE.md`, Continuity, letzten Tasks, Agent-Profilen und
 Patrol-Lage einen System-Prompt auf, kann interne Builder-/Opus-Aktionen aus
-`action`-Bloecken ausfuehren und ist im `MayaDashboard` zwischen `Opus 4.6`
-und `GPT 5.4` umschaltbar, ohne einen zweiten Chat-Stack neben Maya zu bauen.
+`action`-Bloecken ausfuehren und ist im `MayaDashboard` jetzt ueber ein
+Director-Dropdown zwischen `Opus 4.6`, `GPT 5.4` und `GLM 5.1` umschaltbar.
+Dazu kommt ein `Fast`/`Deep`-Thinking-Schalter, der fuer Opus, GPT 5.4 und
+GLM 5.1 bis in die echte Provider-Konfiguration durchgereicht wird; unter den
+Director-Antworten erscheinen die serverseitig ausgefuehrten Actions als
+eigene Badges statt nur als Fliesstext-Zusammenfassung. GLM 5.1 ist parallel
+auch als `meister-glm51` im Council und als `glm51` in Worker-Registry,
+Worker-Preset und Pool-Mapping repo-sichtbar aufgenommen.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
 und `origin/HEAD` zeigen auf `7efda50`, der Working Tree ist sauber, und der

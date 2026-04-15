@@ -732,9 +732,10 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
 // POST /api/builder/maya/chat — Maya command center chat
 router.post('/maya/director', async (req: Request, res: Response) => {
   try {
-    const { message, directorModel, conversationHistory = [] } = req.body as {
+    const { message, directorModel, thinking = false, conversationHistory = [] } = req.body as {
       message?: string;
-      directorModel?: 'opus' | 'gpt-5.4';
+      directorModel?: 'opus' | 'gpt5.4' | 'glm5.1';
+      thinking?: boolean;
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
     };
 
@@ -743,16 +744,38 @@ router.post('/maya/director', async (req: Request, res: Response) => {
       return;
     }
 
-    if (directorModel !== 'opus' && directorModel !== 'gpt-5.4') {
-      res.status(400).json({ error: 'directorModel must be opus or gpt-5.4' });
+    if (directorModel !== 'opus' && directorModel !== 'gpt5.4' && directorModel !== 'glm5.1') {
+      res.status(400).json({ error: 'directorModel must be opus, gpt5.4 or glm5.1' });
       return;
     }
 
     const context = await buildDirectorContext();
     const systemPrompt = buildDirectorSystemPrompt(context);
-    const providerConfig = directorModel === 'opus'
-      ? { provider: 'anthropic', model: 'claude-opus-4-6' }
-      : { provider: 'openai', model: 'gpt-5.4' };
+    const providerConfig = (() => {
+      switch (directorModel) {
+        case 'opus':
+          return {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            maxTokens: 100000,
+            anthropicThinking: thinking ? { type: 'enabled' as const, budget_tokens: 50000 } : undefined,
+          };
+        case 'gpt5.4':
+          return {
+            provider: 'openai',
+            model: 'gpt-5.4',
+            maxTokens: 100000,
+            reasoning: thinking,
+          };
+        case 'glm5.1':
+          return {
+            provider: 'openrouter',
+            model: 'z-ai/glm-5.1',
+            maxTokens: 100000,
+            reasoning: { enabled: thinking },
+          };
+      }
+    })();
 
     const messages = conversationHistory
       .filter((entry) => entry && (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string')
@@ -762,20 +785,21 @@ router.post('/maya/director', async (req: Request, res: Response) => {
     const response = await callProvider(providerConfig.provider, providerConfig.model, {
       system: systemPrompt,
       messages: [...messages, { role: 'user', content: message }],
-      maxTokens: 4000,
+      maxTokens: providerConfig.maxTokens,
       temperature: 0.3,
       forceJsonObject: false,
+      reasoning: 'reasoning' in providerConfig ? providerConfig.reasoning : undefined,
+      anthropicThinking: 'anthropicThinking' in providerConfig ? providerConfig.anthropicThinking : undefined,
     });
 
     const actions = parseDirectorActions(response);
     const actionResults = await executeDirectorActions(actions);
     const visibleResponse = stripDirectorActions(response);
-    const actionSummary = renderDirectorActionSummary(actionResults);
-    const finalResponse = [visibleResponse, actionSummary].filter(Boolean).join('\n\n').trim() || 'Director ohne sichtbare Antwort.';
+    const finalResponse = visibleResponse.trim() || (actionResults.length > 0 ? 'Director-Aktionen ausgefuehrt.' : 'Director ohne sichtbare Antwort.');
 
     res.json({
       response: finalResponse,
-      model: `director-${directorModel}`,
+      model: `director-${directorModel}-${thinking ? 'deep' : 'fast'}`,
       contextUsed: {
         tasksLoaded: context.recentTasks.length,
         hasContinuity: context.continuityNote !== 'Keine Continuity Note vorhanden.',

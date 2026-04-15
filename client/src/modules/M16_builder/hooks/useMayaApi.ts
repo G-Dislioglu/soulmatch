@@ -27,7 +27,7 @@ export interface MayaChatMessage {
   content: string;
 }
 
-export type DirectorModel = 'opus' | 'gpt-5.4';
+export type DirectorModel = 'opus' | 'gpt5.4' | 'glm5.1';
 
 function buildUrl(path: string, token: string) {
   const sep = path.includes('?') ? '&' : '?';
@@ -57,10 +57,10 @@ export function useMayaApi(token: string | null) {
       body: JSON.stringify({ message, history }),
     }), [request]);
 
-  const directorChat = useCallback((message: string, directorModel: DirectorModel, conversationHistory: MayaChatMessage[] = []) =>
+  const directorChat = useCallback((message: string, directorModel: DirectorModel, thinking: boolean, conversationHistory: MayaChatMessage[] = []) =>
     request<MayaChatResponse>('/maya/director', {
       method: 'POST',
-      body: JSON.stringify({ message, directorModel, conversationHistory }),
+      body: JSON.stringify({ message, directorModel, thinking, conversationHistory }),
     }), [request]);
 
   const createMemory = useCallback((layer: string, key: string, summary: string) =>

@@ -48,7 +48,31 @@ const RISK_COLORS: Record<string, { bg: string; border: string; text: string }> 
   destructive: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.35)', text: '#f87171' },
 };
 
-interface ChatMsg { role: 'user' | 'maya'; text: string; model?: string; }
+interface ChatMsg {
+  role: 'user' | 'maya';
+  text: string;
+  model?: string;
+  label?: string;
+  actions?: Array<{ tool: string; ok: boolean; summary: string }>;
+}
+
+const DIRECTOR_CHOICES: Array<{ id: DirectorModel; label: string; color: string }> = [
+  { id: 'opus', label: 'Opus 4.6', color: MAYA },
+  { id: 'gpt5.4', label: 'GPT 5.4', color: TOKENS.cyan },
+  { id: 'glm5.1', label: 'GLM 5.1', color: TOKENS.green },
+];
+
+function getDirectorChoice(id: DirectorModel | null) {
+  return DIRECTOR_CHOICES.find((choice) => choice.id === id) ?? null;
+}
+
+function getDirectorLabel(model: DirectorModel | null, deep: boolean): string {
+  const choice = getDirectorChoice(model);
+  if (!choice) {
+    return 'Maya';
+  }
+  return `Director (${choice.label} ${deep ? 'Deep' : 'Fast'})`;
+}
 
 function getInitialToken() {
   const p = new URLSearchParams(window.location.search);
@@ -207,7 +231,7 @@ const MAYA_MODELS = [
   { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
-  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
+  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'openrouter', model: 'z-ai/glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
   { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
 ];
 
@@ -215,16 +239,17 @@ const STRONG_MODELS = [
   { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
+  { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },
   { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
   { id: 'deepseek', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 72, speed: 'fast', color: '#4ade80' },
-  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
+  { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'openrouter', model: 'z-ai/glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
   { id: 'minimax', label: 'MiniMax M2.7', provider: 'openrouter', model: 'minimax/minimax-m2.7', quality: 60, speed: 'medium', color: '#fbbf24' },
   { id: 'kimi', label: 'Kimi K2.5', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', quality: 65, speed: 'medium', color: '#f472b6' },
   { id: 'qwen', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 58, speed: 'fast', color: '#a78bfa' },
 ];
 
 const SCOUT_MODELS = [
-  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
+  { id: 'glm-flash', label: 'GLM FlashX', provider: 'openrouter', model: 'z-ai/glm-4.7-flash', quality: 72, speed: 'fast', color: TOKENS.green },
   { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
   { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
   { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
@@ -233,7 +258,7 @@ const SCOUT_MODELS = [
 type PoolType = 'maya' | 'council' | 'distiller' | 'worker' | 'scout';
 
 const DISTILLER_MODELS = [
-  { id: 'glm-flash', label: 'GLM FlashX', provider: 'zhipu', model: 'glm-4.7-flashx', quality: 72, speed: 'fast', color: TOKENS.green },
+  { id: 'glm-flash', label: 'GLM FlashX', provider: 'openrouter', model: 'z-ai/glm-4.7-flash', quality: 72, speed: 'fast', color: TOKENS.green },
   { id: 'deepseek-scout', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 70, speed: 'fast', color: '#4ade80' },
   { id: 'gemini-flash', label: 'Gemini Flash', provider: 'gemini', model: 'gemini-3-flash-preview', quality: 78, speed: 'fast', color: TOKENS.gold },
   { id: 'qwen-scout', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 55, speed: 'fast', color: '#a78bfa' },
@@ -504,6 +529,8 @@ export function MayaDashboard() {
   const [token, setToken] = useState(() => getInitialToken());
   const [authenticated, setAuthenticated] = useState(false);
   const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
+  const [directorThinking, setDirectorThinking] = useState(false);
+  const [directorMenuOpen, setDirectorMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -603,9 +630,15 @@ export function MayaDashboard() {
     try {
       const history: MayaChatMessage[] = messages.slice(-16).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
       const result = directorModel
-        ? await directorChat(text, directorModel, history)
+        ? await directorChat(text, directorModel, directorThinking, history)
         : await chat(text, history);
-      setMessages(prev => [...prev, { role: 'maya', text: result.response, model: result.model }]);
+      setMessages(prev => [...prev, {
+        role: 'maya',
+        text: result.response,
+        model: result.model,
+        label: directorModel ? getDirectorLabel(directorModel, directorThinking) : undefined,
+        actions: directorModel ? result.actions : undefined,
+      }]);
       if (directorModel || /build|push|deploy|task|status/i.test(text)) loadContext();
     } catch (e) {
       setMessages(prev => [...prev, { role: 'maya', text: `Fehler: ${e instanceof Error ? e.message : String(e)}` }]);
@@ -681,19 +714,24 @@ export function MayaDashboard() {
   const sAvg = poolAvg(scoutIds, 'scout');
 
   const selectedMayaModel = MAYA_MODELS.find(m => mayaIds.includes(m.id));
+  const selectedDirector = getDirectorChoice(directorModel);
   const directorBtn = (id: DirectorModel, label: string) => (
     <button
       key={id}
-      onClick={() => setDirectorModel(prev => prev === id ? null : id)}
+      onClick={() => {
+        setDirectorModel(id);
+        setDirectorMenuOpen(false);
+      }}
       style={{
         borderRadius: 999,
-        border: `1.5px solid ${directorModel === id ? MAYA : TOKENS.b1}`,
-        background: directorModel === id ? MAYA_DIM : 'transparent',
-        color: directorModel === id ? MAYA : TOKENS.text2,
+        border: `1.5px solid ${directorModel === id ? (getDirectorChoice(id)?.color ?? MAYA) : TOKENS.b1}`,
+        background: directorModel === id ? `${(getDirectorChoice(id)?.color ?? MAYA)}20` : 'transparent',
+        color: directorModel === id ? (getDirectorChoice(id)?.color ?? MAYA) : TOKENS.text2,
         padding: '6px 12px',
         fontSize: 11,
         fontWeight: 600,
         cursor: 'pointer',
+        textAlign: 'left',
       }}
     >
       {label}
@@ -729,10 +767,46 @@ export function MayaDashboard() {
             <span style={{ fontSize: 13, fontWeight: 700, color: TOKENS.text, marginLeft: 8 }}>Builder Studio</span>
           </div>
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
             <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Director</span>
-            {directorBtn('opus', 'Opus 4.6')}
-            {directorBtn('gpt-5.4', 'GPT 5.4')}
+            <button
+              onClick={() => setDirectorMenuOpen(prev => !prev)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                borderRadius: 999, border: `1.5px solid ${selectedDirector?.color ?? TOKENS.b1}`,
+                background: selectedDirector ? `${selectedDirector.color}18` : 'transparent',
+                color: selectedDirector?.color ?? TOKENS.text2,
+                padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <span>{selectedDirector?.label ?? 'Maya Standard'}</span>
+              <span style={{ fontSize: 10 }}>{directorMenuOpen ? '▴' : '▾'}</span>
+            </button>
+            {directorMenuOpen && (
+              <div style={{ position: 'absolute', top: 34, left: 62, zIndex: 20, minWidth: 180, background: TOKENS.card, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 16, boxShadow: TOKENS.shadow.dropdown, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={() => { setDirectorModel(null); setDirectorMenuOpen(false); }}
+                  style={{ borderRadius: 12, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text2, padding: '8px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
+                >
+                  Maya Standard
+                </button>
+                {DIRECTOR_CHOICES.map((choice) => directorBtn(choice.id, choice.label))}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, padding: 3, background: TOKENS.bg2 }}>
+              <button
+                onClick={() => setDirectorThinking(false)}
+                style={{ borderRadius: 999, border: 'none', background: !directorThinking ? TOKENS.gold : 'transparent', color: !directorThinking ? '#120d05' : TOKENS.text2, padding: '5px 10px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Fast
+              </button>
+              <button
+                onClick={() => setDirectorThinking(true)}
+                style={{ borderRadius: 999, border: 'none', background: directorThinking ? MAYA : 'transparent', color: directorThinking ? '#fff' : TOKENS.text2, padding: '5px 10px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Deep
+              </button>
+            </div>
           </div>
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
           {poolBtn('Maya', 'maya', MAYA, myAvg, mayaIds.length, selectedMayaModel?.label)}
@@ -783,12 +857,14 @@ export function MayaDashboard() {
                 }}>{m.role === 'maya' ? 'M' : 'G'}</div>
                 <div style={{ maxWidth: 620, flex: 1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: m.role === 'maya' ? MAYA : TOKENS.gold, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {m.role === 'maya' ? 'Maya' : 'Gürcan'}
-                    {m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{m.model}</span>}
+                    {m.label ?? (m.role === 'maya' ? 'Maya' : 'Gürcan')}
+                    {!m.label && m.model && <span style={{ fontSize: 9, color: TOKENS.text3, fontWeight: 400, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '1px 6px' }}>{m.model}</span>}
                     <CopyBtn text={m.text} />
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.65, color: TOKENS.text }}>
-                    {m.role === 'maya' ? parseActionBlocks(m.text).map((part, pi) => {
+                    {m.role === 'maya' ? (() => {
+                      const parts = m.actions?.length ? [{ type: 'text', content: m.text } as MessagePart] : parseActionBlocks(m.text);
+                      return parts.map((part, pi) => {
                       if (part.type === 'text') return <MayaMarkdown key={pi} text={part.content} />;
                       const a = part.action!;
                       const rcFallback = { bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.35)', text: '#4ade80' };
@@ -815,7 +891,30 @@ export function MayaDashboard() {
                           {st === 'error' && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{'❌'} Fehlgeschlagen</span>}
                         </div>
                       );
-                    }) : <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>}
+                      });
+                    })() : <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>}
+                    {m.actions && m.actions.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                        {m.actions.map((action, actionIndex) => (
+                          <span
+                            key={`${action.tool}-${actionIndex}`}
+                            title={action.summary}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 6,
+                              fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                              textTransform: 'uppercase', borderRadius: 999,
+                              padding: '5px 10px',
+                              border: `1px solid ${action.ok ? 'rgba(74,222,128,0.35)' : 'rgba(239,68,68,0.35)'}`,
+                              background: action.ok ? 'rgba(74,222,128,0.12)' : 'rgba(239,68,68,0.12)',
+                              color: action.ok ? TOKENS.green : '#fca5a5',
+                            }}
+                          >
+                            <span>{action.ok ? 'OK' : 'Fehler'}</span>
+                            <span style={{ color: action.ok ? TOKENS.text2 : '#fecaca' }}>{action.tool}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -823,7 +922,7 @@ export function MayaDashboard() {
             {chatLoading && (
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: MAYA_DIM, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: MAYA, border: `1.5px solid ${MAYA}50` }}>M</div>
-                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 7 }}>{directorModel ? 'Director denkt...' : 'Maya denkt...'}</div>
+                <div style={{ fontSize: 13, color: TOKENS.text3, paddingTop: 7 }}>{directorModel ? `${getDirectorLabel(directorModel, directorThinking)} denkt...` : 'Maya denkt...'}</div>
               </div>
             )}
             <div ref={chatEndRef} />
@@ -838,7 +937,7 @@ export function MayaDashboard() {
             </button>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder={directorModel ? 'Director beauftragen, planen, pruefen...' : 'Maya fragen, Tasks erstellen, Builds starten...'}
+              placeholder={directorModel ? `${getDirectorLabel(directorModel, directorThinking)} beauftragen, planen, pruefen...` : 'Maya fragen, Tasks erstellen, Builds starten...'}
               rows={2}
               style={{ flex: 1, background: TOKENS.bg2, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 14, padding: '14px 16px', color: TOKENS.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }} />
             <button onClick={sendMessage} disabled={chatLoading || !input.trim()}

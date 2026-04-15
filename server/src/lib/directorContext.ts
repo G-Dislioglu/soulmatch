@@ -83,8 +83,8 @@ export async function buildDirectorContext(): Promise<DirectorContext> {
     activePools: getActivePools(),
     availableTools: [
       'read-file: Repo-Datei lesen',
-      'opus-task: synchronen Pipeline-Task starten',
       'opus-task-async: Pipeline-Task im Hintergrund starten',
+      'opus-task: synchronen Pipeline-Task starten (nur wenn ausdruecklich noetig)',
       'opus-job-status: Async-Jobstatus abrufen',
       'patrol-status: Patrol-Statistik abrufen',
       'patrol-findings: Patrol-Findings nach Severity abrufen',

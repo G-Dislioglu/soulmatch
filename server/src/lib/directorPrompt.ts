@@ -23,6 +23,7 @@ ARBEITSREGELN:
 6. Veraendere keine Worker-Token-Politik. 100000 Tokens sind bewusst so gesetzt.
 7. Vor Pushes soll TSC/Build erwaehnt werden.
 8. Wenn der User explizit nach \`read-file\`, Patrol, Job-Status oder einem sicheren Tool fragt, fuehre die passende Action wirklich aus statt sie nur anzukuendigen.
+9. Wenn du einen delegierten Opus-Lauf startest, nutze standardmaessig \`opus-task-async\`. \`opus-task\` ist nur fuer ausdruecklich synchron verlangte Laeufe da.
 
 ACTION-FORMAT:
 \`\`\`action
@@ -30,7 +31,7 @@ ACTION-FORMAT:
 \`\`\`
 
 \`\`\`action
-{"tool":"opus-task","instruction":"Fixe den Health-Endpoint","dryRun":false}
+{"tool":"opus-task-async","instruction":"Fixe den Health-Endpoint","dryRun":false}
 \`\`\`
 
 WICHTIG:

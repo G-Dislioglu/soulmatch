@@ -26,6 +26,44 @@ function shouldDisableOpenRouterReasoning(model: string): boolean {
   return model.startsWith('qwen/') || model.startsWith('z-ai/glm-');
 }
 
+function normalizeOpenAiReasoning(
+  model: string,
+  reasoning: CallProviderParams['reasoning'],
+): { effort: 'low' | 'medium' | 'high' } | undefined {
+  if (reasoning === false) {
+    return undefined;
+  }
+
+  if (reasoning === true) {
+    return { effort: 'low' };
+  }
+
+  if (reasoning && typeof reasoning === 'object' && 'effort' in reasoning && reasoning.effort) {
+    return { effort: reasoning.effort };
+  }
+
+  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
+    return { effort: 'low' };
+  }
+
+  return undefined;
+}
+
+function normalizeOpenRouterReasoning(
+  model: string,
+  reasoning: CallProviderParams['reasoning'],
+): { enabled: boolean } | undefined {
+  if (reasoning && typeof reasoning === 'object' && 'enabled' in reasoning && typeof reasoning.enabled === 'boolean') {
+    return { enabled: reasoning.enabled };
+  }
+
+  if (shouldDisableOpenRouterReasoning(model)) {
+    return { enabled: false };
+  }
+
+  return undefined;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -80,6 +118,8 @@ export interface CallProviderParams {
   forceJsonObject?: boolean;
   /** Controls GLM thinking/reasoning mode. 'enabled' for workers (quality), 'disabled' for scouts (speed). Default: 'disabled'. */
   thinking?: 'enabled' | 'disabled';
+  reasoning?: boolean | { enabled: boolean } | { effort: 'low' | 'medium' | 'high' };
+  anthropicThinking?: { type: 'enabled'; budget_tokens: number } | { type: 'disabled' };
 }
 
 /**
@@ -93,6 +133,9 @@ export async function callProvider(
   params: CallProviderParams,
   clientApiKey?: string,
 ): Promise<string> {
+  const openAiReasoning = normalizeOpenAiReasoning(model, params.reasoning);
+  const openRouterReasoning = normalizeOpenRouterReasoning(model, params.reasoning);
+
   if (provider === 'gemini') {
     const apiKey = process.env.GEMINI_API_KEY || clientApiKey;
     if (!apiKey) throw new Error('No API key for gemini. Set GEMINI_API_KEY on server.');
@@ -154,7 +197,7 @@ export async function callProvider(
         system: params.system || undefined,
         messages: params.messages,
         max_tokens: params.maxTokens ?? 2000,
-        temperature: params.temperature ?? 0.7,
+        ...(params.anthropicThinking ? { thinking: params.anthropicThinking } : { temperature: params.temperature ?? 0.7 }),
       }),
     }, 'anthropic');
 
@@ -204,10 +247,8 @@ export async function callProvider(
               { role: 'system', content: params.system },
               ...params.messages,
             ],
-            ...(model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')
-              ? { reasoning: { effort: 'low' } }
-              : {}),
-            max_output_tokens: 2000,
+            ...(openAiReasoning ? { reasoning: openAiReasoning } : {}),
+            max_output_tokens: params.maxTokens ?? 2000,
           }
         : {
             // Chat Completions format (xAI, DeepSeek, OpenRouter, Zhipu)
@@ -222,9 +263,8 @@ export async function callProvider(
             ...(provider === 'deepseek' && model.includes('reasoner')
               ? { max_completion_tokens: params.maxTokens ?? 2000 }
               : {}),
-            // Keep OpenRouter calls on the conservative non-reasoning path for Qwen and GLM during pipeline execution.
-            ...(provider === 'openrouter' && shouldDisableOpenRouterReasoning(model)
-              ? { reasoning: { enabled: false } }
+            ...(provider === 'openrouter' && openRouterReasoning
+              ? { reasoning: openRouterReasoning }
               : {}),
             // Direct Zhipu calls still use the native thinking parameter.
             ...(provider === 'zhipu'

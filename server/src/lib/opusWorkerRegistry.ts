@@ -17,6 +17,7 @@ export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   kimi:        { provider: 'openrouter',  model: 'moonshotai/kimi-k2.5',      contextK: 256 },
   qwen:        { provider: 'openrouter',  model: 'qwen/qwen3.6-plus',         contextK: 128 },
   glm:         { provider: 'openrouter',  model: 'z-ai/glm-5-turbo',          contextK: 203 },
+  glm51:       { provider: 'openrouter',  model: 'z-ai/glm-5.1',              contextK: 203 },
   'glm-flash': { provider: 'openrouter',  model: 'z-ai/glm-4.7-flash',        contextK: 203 },
   grok:        { provider: 'xai',         model: 'grok-4-1-fast',             contextK: 128 },
   gemini:      { provider: 'gemini',      model: 'gemini-3-flash-preview',    contextK: 1000 },
@@ -26,7 +27,7 @@ export const WORKER_REGISTRY: Record<string, WorkerConfig> = {
   gpt:         { provider: 'openai',      model: 'gpt-5.4',                   contextK: 128 },
 };
 
-export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'qwen', 'kimi'];
+export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'glm51', 'qwen', 'kimi'];
 
 // Judge: GPT-5.4 — bester Reviewer im Benchmark (82/100, spec-treu, defensiv)
 export const JUDGE_WORKER = 'gpt';
