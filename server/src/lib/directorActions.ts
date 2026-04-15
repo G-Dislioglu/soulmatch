@@ -1,5 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { desc, eq } from 'drizzle-orm';
+import { getDb } from '../db.js';
+import { builderMemory } from '../schema/builder.js';
 import { getRepoRoot } from './builderExecutor.js';
 
 export interface DirectorAction {
@@ -146,6 +149,77 @@ async function readRepoFile(filePath: string): Promise<DirectorActionResult> {
   };
 }
 
+function resolveMemoryLayer(action: DirectorAction): string | undefined {
+  return typeof action.layer === 'string' && action.layer.trim() ? action.layer.trim() : undefined;
+}
+
+function resolveMemoryLimit(action: DirectorAction): number {
+  if (typeof action.limit !== 'number' || !Number.isFinite(action.limit)) {
+    return 10;
+  }
+  return Math.min(20, Math.max(1, Math.trunc(action.limit)));
+}
+
+async function writeMemory(action: DirectorAction): Promise<DirectorActionResult> {
+  const summary = typeof action.summary === 'string' ? action.summary.trim() : '';
+  if (!summary) {
+    return { tool: 'memory-write', ok: false, summary: 'summary fehlt.' };
+  }
+
+  const layer = resolveMemoryLayer(action) ?? 'continuity';
+  const key = typeof action.key === 'string' && action.key.trim()
+    ? action.key.trim()
+    : `maya-brain-${Date.now()}`;
+  const payload = action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)
+    ? action.payload as Record<string, unknown>
+    : { source: 'maya-director-tool' };
+
+  const db = getDb();
+  const [entry] = await db.insert(builderMemory).values({
+    layer,
+    key,
+    summary,
+    payload,
+  }).returning({
+    id: builderMemory.id,
+    layer: builderMemory.layer,
+    key: builderMemory.key,
+    updatedAt: builderMemory.updatedAt,
+  });
+
+  return {
+    tool: 'memory-write',
+    ok: true,
+    summary: `${layer}/${key} gespeichert.`,
+    data: entry,
+  };
+}
+
+async function readMemory(action: DirectorAction): Promise<DirectorActionResult> {
+  const db = getDb();
+  const layer = resolveMemoryLayer(action);
+  const limit = resolveMemoryLimit(action);
+
+  const baseQuery = db.select({
+    id: builderMemory.id,
+    layer: builderMemory.layer,
+    key: builderMemory.key,
+    summary: builderMemory.summary,
+    updatedAt: builderMemory.updatedAt,
+  }).from(builderMemory);
+
+  const entries = layer
+    ? await baseQuery.where(eq(builderMemory.layer, layer)).orderBy(desc(builderMemory.updatedAt)).limit(limit)
+    : await baseQuery.orderBy(desc(builderMemory.updatedAt)).limit(limit);
+
+  return {
+    tool: 'memory-read',
+    ok: true,
+    summary: `${entries.length} ${layer ? `${layer}-` : ''}Memory-Eintraege geladen.`,
+    data: { layer: layer ?? 'all', entries },
+  };
+}
+
 export async function executeDirectorAction(action: DirectorAction): Promise<DirectorActionResult> {
   try {
     switch (action.tool) {
@@ -213,6 +287,12 @@ export async function executeDirectorAction(action: DirectorAction): Promise<Dir
           body: JSON.stringify({ task }),
         });
         return { tool: 'benchmark', ok: true, summary: 'Benchmark ausgefuehrt.', data: result };
+      }
+      case 'memory-write': {
+        return await writeMemory(action);
+      }
+      case 'memory-read': {
+        return await readMemory(action);
       }
       default:
         return { tool: action.tool, ok: false, summary: `Unbekanntes Tool: ${action.tool}` };

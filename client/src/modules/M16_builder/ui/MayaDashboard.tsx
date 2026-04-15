@@ -71,7 +71,7 @@ function getDirectorLabel(model: DirectorModel | null, deep: boolean): string {
   if (!choice) {
     return 'Maya';
   }
-  return `Director (${choice.label} ${deep ? 'Deep' : 'Fast'})`;
+  return `Maya (${choice.label} ${deep ? 'Deep' : 'Fast'})`;
 }
 
 function getInitialToken() {
@@ -681,7 +681,7 @@ export function MayaDashboard() {
     e.target.value = '';
     if (file.size > 10 * 1024 * 1024) { setMessages(prev => [...prev, { role: 'maya', text: '\u274C Datei zu gro\u00DF (max 10MB).' }]); return; }
     if (directorModel) {
-      setMessages(prev => [...prev, { role: 'maya', text: 'Director-Modus unterstuetzt aktuell keine Datei-Uploads. Schalte auf Maya zurueck oder sende Text.' }]);
+      setMessages(prev => [...prev, { role: 'maya', text: 'Maya Brain-Modus unterstuetzt aktuell keine Datei-Uploads. Schalte auf Maya Standard zurueck oder sende Text.' }]);
       return;
     }
     setChatLoading(true);
@@ -768,7 +768,7 @@ export function MayaDashboard() {
           </div>
           <div style={{ width: 1, height: 24, background: TOKENS.b2 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-            <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Director</span>
+            <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Maya Brain</span>
             <button
               onClick={() => setDirectorMenuOpen(prev => !prev)}
               style={{
@@ -779,7 +779,7 @@ export function MayaDashboard() {
                 padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
               }}
             >
-              <span>{selectedDirector?.label ?? 'Maya Standard'}</span>
+              <span>{selectedDirector?.label ?? 'Standard'}</span>
               <span style={{ fontSize: 10 }}>{directorMenuOpen ? '▴' : '▾'}</span>
             </button>
             {directorMenuOpen && (
@@ -788,7 +788,7 @@ export function MayaDashboard() {
                   onClick={() => { setDirectorModel(null); setDirectorMenuOpen(false); }}
                   style={{ borderRadius: 12, border: `1px solid ${TOKENS.b2}`, background: 'transparent', color: TOKENS.text2, padding: '8px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
                 >
-                  Maya Standard
+                  Standard
                 </button>
                 {DIRECTOR_CHOICES.map((choice) => directorBtn(choice.id, choice.label))}
               </div>
@@ -901,16 +901,16 @@ export function MayaDashboard() {
                             title={action.summary}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: 6,
-                              fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                              textTransform: 'uppercase', borderRadius: 999,
+                              fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
+                              borderRadius: 999,
                               padding: '5px 10px',
                               border: `1px solid ${action.ok ? 'rgba(74,222,128,0.35)' : 'rgba(239,68,68,0.35)'}`,
                               background: action.ok ? 'rgba(74,222,128,0.12)' : 'rgba(239,68,68,0.12)',
                               color: action.ok ? TOKENS.green : '#fca5a5',
                             }}
                           >
-                            <span>{action.ok ? 'OK' : 'Fehler'}</span>
-                            <span style={{ color: action.ok ? TOKENS.text2 : '#fecaca' }}>{action.tool}</span>
+                            <span>{`${action.tool}: ${action.summary}`}</span>
+                            <span style={{ color: action.ok ? TOKENS.green : '#fecaca' }}>{action.ok ? '✅' : '❌'}</span>
                           </span>
                         ))}
                       </div>

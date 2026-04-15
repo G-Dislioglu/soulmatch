@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder-Director hat jetzt ein echtes Modell-Dropdown mit Opus 4.6, GPT 5.4 und GLM 5.1, Fast/Deep-Thinking und sichtbare Action-Badges; GLM 5.1 ist ausserdem als Meister und Worker repo-sichtbar verdrahtet`
-- `next_recommended_block`: `Director live gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus und UI-Sichtbarkeit im Builder-Studio zusammen verifizieren`
+- `last_completed_block`: `Maya Brain ist jetzt sauber als Maya-Werkzeug statt als separates Director-Ich verdrahtet: Maya-Labeling, automatische Continuity-Notizen und direkte Memory-Read/Write-Tools sind repo-sichtbar aktiv; GLM 5.1 bleibt auf Brain-, Meister- und Worker-Ebene verdrahtet`
+- `next_recommended_block`: `Maya Brain live gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus, Continuity-Rueckschreibung und UI-Sichtbarkeit zusammen verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -161,7 +161,14 @@ GLM 5.1 bis in die echte Provider-Konfiguration durchgereicht wird; unter den
 Director-Antworten erscheinen die serverseitig ausgefuehrten Actions als
 eigene Badges statt nur als Fliesstext-Zusammenfassung. GLM 5.1 ist parallel
 auch als `meister-glm51` im Council und als `glm51` in Worker-Registry,
-Worker-Preset und Pool-Mapping repo-sichtbar aufgenommen.
+Worker-Preset und Pool-Mapping repo-sichtbar aufgenommen. Der engere naechste
+Korrekturschnitt macht aus diesem Director jetzt explizit kein zweites Wesen,
+sondern ein Maya-Brain: Im UI heisst der Schalter jetzt `Maya Brain`, die
+Antwortlabels bleiben `Maya (...)`, und jede Brain-Interaktion schreibt Maya
+best-effort eine neue Continuity-Notiz in `builder_memory`. Parallel dazu kann
+Maya ueber `memory-read` und `memory-write` dieselbe Builder-Memory direkt als
+Tool lesen und beschreiben, ohne ueber eigene geschuetzte HTTP-Routen zu
+loopen.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
 und `origin/HEAD` zeigen auf `55dc6cb`, der Working Tree ist sauber, und der

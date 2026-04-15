@@ -795,11 +795,36 @@ router.post('/maya/director', async (req: Request, res: Response) => {
     const actions = parseDirectorActions(response);
     const actionResults = await executeDirectorActions(actions);
     const visibleResponse = stripDirectorActions(response);
-    const finalResponse = visibleResponse.trim() || (actionResults.length > 0 ? 'Director-Aktionen ausgefuehrt.' : 'Director ohne sichtbare Antwort.');
+    const finalResponse = visibleResponse.trim() || (actionResults.length > 0 ? 'Maya-Aktionen ausgefuehrt.' : 'Maya ohne sichtbare Antwort.');
+
+    try {
+      const db = getDb();
+      const messageSnippet = message.trim().replace(/\s+/g, ' ').slice(0, 100);
+      const actionSummary = actionResults.length > 0
+        ? actionResults.map((result) => `${result.tool}:${result.ok ? 'ok' : 'fail'}`).join(', ')
+        : 'keine';
+      const responseSnippet = finalResponse.replace(/\s+/g, ' ').slice(0, 200);
+
+      await db.insert(builderMemory).values({
+        layer: 'continuity',
+        key: `maya-brain-${Date.now()}`,
+        summary: `[${directorModel}/${thinking ? 'deep' : 'fast'}] User: "${messageSnippet}" -> Actions: ${actionSummary} -> Ergebnis: ${responseSnippet}`,
+        payload: {
+          source: 'maya-director',
+          directorModel,
+          thinking,
+          actionResults,
+          message: message.slice(0, 500),
+          response: finalResponse.slice(0, 1000),
+        },
+      });
+    } catch (memoryError) {
+      console.warn('[maya] director continuity write failed:', memoryError);
+    }
 
     res.json({
       response: finalResponse,
-      model: `director-${directorModel}-${thinking ? 'deep' : 'fast'}`,
+      model: `maya-brain-${directorModel}-${thinking ? 'deep' : 'fast'}`,
       contextUsed: {
         tasksLoaded: context.recentTasks.length,
         hasContinuity: context.continuityNote !== 'Keine Continuity Note vorhanden.',

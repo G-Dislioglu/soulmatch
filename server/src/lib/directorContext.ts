@@ -86,6 +86,8 @@ export async function buildDirectorContext(): Promise<DirectorContext> {
       'opus-task-async: Pipeline-Task im Hintergrund starten',
       'opus-task: synchronen Pipeline-Task starten (nur wenn ausdruecklich noetig)',
       'opus-job-status: Async-Jobstatus abrufen',
+      'memory-read: Builder-Memory nach Layer lesen',
+      'memory-write: Builder-Memory-Notiz speichern',
       'patrol-status: Patrol-Statistik abrufen',
       'patrol-findings: Patrol-Findings nach Severity abrufen',
       'benchmark: Worker-Benchmark ausfuehren',
