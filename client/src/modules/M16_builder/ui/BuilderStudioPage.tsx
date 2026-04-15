@@ -11,7 +11,7 @@ import {
   type PoolState,
   type PoolType,
 } from './BuilderConfigPanel';
-import { useMayaApi, type MayaContext } from '../hooks/useMayaApi';
+import { useMayaApi, type DirectorModel, type MayaContext } from '../hooks/useMayaApi';
 import {
   useBuilderApi,
   type BuilderAction,
@@ -31,6 +31,12 @@ interface BuilderBubble {
   roundNumber: number;
   createdAt: string;
   content: string;
+}
+
+interface StudioChatMessage extends BuilderChatMessage {
+  label?: string;
+  endpoint?: string;
+  actions?: Array<{ tool: string; ok: boolean; summary: string }>;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -61,6 +67,7 @@ const POOL_MODEL_META: Record<string, { label: string; quality: number }> = {
   sonnet: { label: 'Sonnet 4.6', quality: 85 },
   'gpt-5.4': { label: 'GPT-5.4', quality: 88 },
   'glm-turbo': { label: 'GLM 5 Turbo', quality: 68 },
+  glm51: { label: 'GLM 5.1', quality: 90 },
   grok: { label: 'Grok 4.1', quality: 80 },
   deepseek: { label: 'DeepSeek Chat', quality: 72 },
   minimax: { label: 'MiniMax M2.7', quality: 60 },
@@ -72,11 +79,17 @@ const POOL_MODEL_META: Record<string, { label: string; quality: number }> = {
   'qwen-scout': { label: 'Qwen 3.6+', quality: 55 },
 };
 
+const DIRECTOR_MODEL_META: Record<DirectorModel, { label: string }> = {
+  opus: { label: 'Opus 4.6' },
+  'gpt5.4': { label: 'GPT 5.4' },
+  'glm5.1': { label: 'GLM 5.1' },
+};
+
 const POOL_OPTIONS: Record<PoolType, string[]> = {
-  maya: ['opus', 'sonnet', 'gpt-5.4', 'glm-turbo', 'grok'],
-  council: ['opus', 'sonnet', 'gpt-5.4', 'grok', 'deepseek', 'glm-turbo', 'minimax', 'kimi', 'qwen'],
+  maya: ['opus', 'sonnet', 'gpt-5.4', 'glm-turbo', 'glm51', 'grok'],
+  council: ['opus', 'sonnet', 'gpt-5.4', 'grok', 'deepseek', 'glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],
   distiller: ['glm-flash', 'deepseek-scout', 'gemini-flash', 'qwen-scout'],
-  worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
+  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen', 'deepseek'],
   scout: ['deepseek-scout', 'glm-flash', 'gemini-flash', 'qwen-scout'],
 };
 
@@ -169,6 +182,11 @@ function parseTaskConfirmation(content: string) {
   } catch {
     return null;
   }
+}
+
+function getDirectorLabel(model: DirectorModel, thinking: boolean) {
+  const meta = DIRECTOR_MODEL_META[model];
+  return `Maya (${meta.label} ${thinking ? 'Deep' : 'Fast'})`;
 }
 
 function extractBubbleContent(action: BuilderAction, format: DialogFormat) {
@@ -599,9 +617,11 @@ export function BuilderStudioPage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [chatMessages, setChatMessages] = useState<BuilderChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<StudioChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
+  const [directorThinking, setDirectorThinking] = useState(false);
   const [commitHash, setCommitHash] = useState('');
   const [draft, setDraft] = useState<BuilderCreateTaskInput>({
     title: '',
@@ -627,7 +647,7 @@ export function BuilderStudioPage() {
     deleteTask: deleteBuilderTask,
     sendChat,
   } = useBuilderApi(token || null);
-  const { getContext: getMayaContext, createMemory, deleteMemory } = useMayaApi(token || null);
+  const { getContext: getMayaContext, createMemory, deleteMemory, directorChat } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const [pools, setPools] = useState<PoolState>(() => loadPools());
@@ -642,6 +662,8 @@ export function BuilderStudioPage() {
   const previewUrl = activeTask
     ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`
     : null;
+  const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
+  const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1071,23 +1093,48 @@ export function BuilderStudioPage() {
       return;
     }
 
-    const userMessage: BuilderChatMessage = { role: 'user', content: message };
+    const history: BuilderChatMessage[] = chatMessages.map((entry) => ({ role: entry.role, content: entry.content }));
+    const userMessage: StudioChatMessage = { role: 'user', content: message };
     setChatMessages((current) => [...current, userMessage]);
     setChatInput('');
     setChatLoading(true);
     setPageError(null);
 
     try {
-      const response = await sendChat(message, chatMessages);
-      const assistantMessage: BuilderChatMessage = { role: 'assistant', content: response.message };
-      setChatMessages((current) => [...current, assistantMessage]);
+      if (directorModel) {
+        const response = await directorChat(message, directorModel, directorThinking, history);
+        const assistantMessage: StudioChatMessage = {
+          role: 'assistant',
+          content: response.response,
+          label: getDirectorLabel(directorModel, directorThinking),
+          endpoint: '/api/builder/maya/director',
+          actions: response.actions ?? [],
+        };
+        setChatMessages((current) => [...current, assistantMessage]);
+        await refreshMayaContext();
+      } else {
+        const response = await sendChat(message, history);
+        const assistantMessage: StudioChatMessage = {
+          role: 'assistant',
+          content: response.message,
+          label: 'Maya Standard',
+          endpoint: '/api/builder/chat',
+        };
+        setChatMessages((current) => [...current, assistantMessage]);
 
-      if (response.type === 'task_created' && response.taskId) {
-        await refreshTasks();
-        setSelectedTaskId(response.taskId);
+        if (response.type === 'task_created' && response.taskId) {
+          await refreshTasks();
+          setSelectedTaskId(response.taskId);
+        }
       }
-    } catch {
-      setChatMessages((current) => [...current, { role: 'assistant', content: 'Fehler bei der Verbindung.' }]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Fehler bei der Verbindung.';
+      setChatMessages((current) => [...current, {
+        role: 'assistant',
+        content: errorMessage,
+        label: activeChatLabel,
+        endpoint: activeChatEndpoint,
+      }]);
     } finally {
       setChatLoading(false);
       window.setTimeout(() => {
@@ -1095,7 +1142,7 @@ export function BuilderStudioPage() {
         if (el) el.scrollTop = el.scrollHeight;
       }, 100);
     }
-  }, [chatInput, chatLoading, chatMessages, refreshTasks, sendChat]);
+  }, [activeChatEndpoint, activeChatLabel, chatInput, chatLoading, chatMessages, directorChat, directorModel, directorThinking, refreshMayaContext, refreshTasks, sendChat]);
 
   if (!authenticated) {
     return (
@@ -1390,6 +1437,68 @@ export function BuilderStudioPage() {
               >
                 Maya Chat
               </div>
+              <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    onClick={() => setDirectorModel((current) => current ? null : 'opus')}
+                    style={{
+                      borderRadius: 999,
+                      border: `1.5px solid ${directorModel ? '#7c6af7' : TOKENS.b1}`,
+                      background: directorModel ? 'rgba(124,106,247,0.14)' : 'transparent',
+                      color: directorModel ? '#c4b5fd' : TOKENS.text2,
+                      padding: '7px 12px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Maya Brain {directorModel ? 'AN' : 'AUS'}
+                  </button>
+                  {directorModel ? (Object.entries(DIRECTOR_MODEL_META) as Array<[DirectorModel, { label: string }]>).map(([id, meta]) => (
+                    <button
+                      key={id}
+                      onClick={() => setDirectorModel(id)}
+                      style={{
+                        borderRadius: 999,
+                        border: `1px solid ${directorModel === id ? TOKENS.gold : TOKENS.b1}`,
+                        background: directorModel === id ? 'rgba(212,175,55,0.14)' : 'transparent',
+                        color: directorModel === id ? TOKENS.gold : TOKENS.text2,
+                        padding: '6px 11px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {meta.label}
+                    </button>
+                  )) : null}
+                  {directorModel ? (
+                    <button
+                      onClick={() => setDirectorThinking((current) => !current)}
+                      style={{
+                        borderRadius: 999,
+                        border: `1px solid ${directorThinking ? TOKENS.cyan : TOKENS.b1}`,
+                        background: directorThinking ? 'rgba(34,211,238,0.12)' : 'transparent',
+                        color: directorThinking ? TOKENS.cyan : TOKENS.text2,
+                        padding: '6px 11px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {directorThinking ? 'Deep' : 'Fast'}
+                    </button>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 14, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.03)' }}>
+                  <span style={{ fontSize: 12, color: TOKENS.text }}>
+                    {directorModel ? 'Mehrstufiger Maya-Brain aktiv' : 'Normaler Builder-Chat aktiv'}
+                  </span>
+                  <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                    {activeChatLabel} · {activeChatEndpoint}
+                  </span>
+                </div>
+              </div>
               <div
                 ref={chatContainerRef}
                 style={{
@@ -1403,7 +1512,9 @@ export function BuilderStudioPage() {
               >
                 {chatMessages.length === 0 ? (
                   <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
-                    Beschreibe was du aendern willst — Maya erstellt den Task automatisch.
+                    {directorModel
+                      ? 'Beschreibe den naechsten Builder-Schritt — Maya Brain kann analysieren, delegieren und Actions ausfuehren.'
+                      : 'Beschreibe was du aendern willst — Maya erstellt den Task automatisch.'}
                   </div>
                 ) : null}
                 {chatMessages.map((message, index) => {
@@ -1427,6 +1538,11 @@ export function BuilderStudioPage() {
                         whiteSpace: 'pre-wrap',
                       }}
                     >
+                      {message.role === 'assistant' && message.label ? (
+                        <div style={{ marginBottom: 6, fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                          {message.label}
+                        </div>
+                      ) : null}
                       {parsedTask ? (
                         <div
                           style={{
@@ -1448,13 +1564,38 @@ export function BuilderStudioPage() {
                             </div>
                           ) : null}
                         </div>
-                      ) : message.content}
+                      ) : (
+                        <>
+                          {message.content}
+                          {message.actions && message.actions.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                              {message.actions.map((action, actionIndex) => (
+                                <span
+                                  key={`${action.tool}-${actionIndex}`}
+                                  style={{
+                                    borderRadius: 999,
+                                    border: `1px solid ${action.ok ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.35)'}`,
+                                    background: action.ok ? 'rgba(20,83,45,0.26)' : 'rgba(127,29,29,0.22)',
+                                    color: action.ok ? '#bbf7d0' : '#fecaca',
+                                    padding: '3px 8px',
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                  }}
+                                  title={action.summary}
+                                >
+                                  {action.tool}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   );
                 })}
                 {chatLoading ? (
                   <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
-                    Maya denkt nach...
+                    {directorModel ? `${activeChatLabel} denkt nach...` : 'Maya denkt nach...'}
                   </div>
                 ) : null}
                 <div ref={chatEndRef} />
@@ -1469,7 +1610,7 @@ export function BuilderStudioPage() {
                       void handleSendChat();
                     }
                   }}
-                  placeholder="z.B. 'Erstelle einen Health-Check Endpoint'"
+                  placeholder={directorModel ? "z.B. 'Pruefe den Patrol-Status und delegiere den naechsten sinnvollen Schritt'" : "z.B. 'Erstelle einen Health-Check Endpoint'"}
                   style={{
                     flex: 1,
                     borderRadius: 12,

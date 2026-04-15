@@ -15,6 +15,7 @@ const MAYA_MODELS: ModelEntry[] = [
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
   { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
+  { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },
   { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
 ];
 
@@ -25,6 +26,7 @@ const STRONG_MODELS: ModelEntry[] = [
   { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
   { id: 'deepseek', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 72, speed: 'fast', color: '#4ade80' },
   { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
+  { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },
   { id: 'minimax', label: 'MiniMax M2.7', provider: 'openrouter', model: 'minimax/minimax-m2.7', quality: 60, speed: 'medium', color: '#fbbf24' },
   { id: 'kimi', label: 'Kimi K2.5', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', quality: 65, speed: 'medium', color: '#f472b6' },
   { id: 'qwen', label: 'Qwen 3.6+', provider: 'openrouter', model: 'qwen/qwen3.6-plus', quality: 58, speed: 'fast', color: '#a78bfa' },

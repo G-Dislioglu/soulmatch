@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Maya Brain ist jetzt sauber als Maya-Werkzeug statt als separates Director-Ich verdrahtet: Maya-Labeling, automatische Continuity-Notizen und direkte Memory-Read/Write-Tools sind repo-sichtbar aktiv; GLM 5.1 bleibt auf Brain-, Meister- und Worker-Ebene verdrahtet`
-- `next_recommended_block`: `Maya Brain live gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus, Continuity-Rueckschreibung und UI-Sichtbarkeit zusammen verifizieren`
+- `last_completed_block`: `Die sichtbare Builder-Frontend-Drift ist enger gefixt: Die live Route /builder rendert weiter BuilderStudioPage statt MayaDashboard, und genau dort sind jetzt Maya-Brain-Toggle, Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Umschaltung, Action-Badges und GLM-5.1-Pool-Buttons fuer Maya/Council/Worker sichtbar verdrahtet`
+- `next_recommended_block`: `Den jetzt sichtbaren Maya-Brain-Flow auf Render gegen einen echten delegierten Async-Opus-Task pruefen und dabei Fast/Deep, Jobstatus, Continuity-Rueckschreibung und UI-Sichtbarkeit zusammen verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -168,7 +168,12 @@ Antwortlabels bleiben `Maya (...)`, und jede Brain-Interaktion schreibt Maya
 best-effort eine neue Continuity-Notiz in `builder_memory`. Parallel dazu kann
 Maya ueber `memory-read` und `memory-write` dieselbe Builder-Memory direkt als
 Tool lesen und beschreiben, ohne ueber eigene geschuetzte HTTP-Routen zu
-loopen.
+loopen. Der spaetere Frontend-Check hat dabei einen echten Sichtbarkeitsdrift
+offengelegt: Die live Route `/builder` rendert `BuilderStudioPage` und nicht das
+zuvor gepatchte `MayaDashboard`. Deshalb sitzen Maya-Brain-Toggle,
+Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Schalter, Action-Badges und die
+GLM-5.1-Pool-Buttons fuer Maya/Council/Worker jetzt zusaetzlich in der real
+gerenderten Builder-Studio-Oberflaeche selbst.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
 und `origin/HEAD` zeigen auf `55dc6cb`, der Working Tree ist sauber, und der
