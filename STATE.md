@@ -11,7 +11,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `7efda50`
+- `current_repo_head`: `55dc6cb`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-15`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
@@ -164,7 +164,7 @@ auch als `meister-glm51` im Council und als `glm51` in Worker-Registry,
 Worker-Preset und Pool-Mapping repo-sichtbar aufgenommen.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: `HEAD`, `origin/main`
-und `origin/HEAD` zeigen auf `7efda50`, der Working Tree ist sauber, und der
+und `origin/HEAD` zeigen auf `55dc6cb`, der Working Tree ist sauber, und der
 naechste enge Block ist jetzt kein weiterer Umbau, sondern die drei Live-Checks
 fuer Distiller, UI und Render-Logs.
 
