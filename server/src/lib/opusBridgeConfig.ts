@@ -14,3 +14,5 @@ export const getAuthUrl = (path: string, port?: number): string =>
 export const WORKER_TIMEOUT_MS = 90000;
 
 export const MAX_FILE_LINES_FOR_OVERWRITE = 500;
+
+export const WORKER_MAX_OUTPUT_TOKENS = 16000;
