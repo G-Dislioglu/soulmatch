@@ -636,6 +636,10 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
+      const { regenerateRepoIndex } = await import('../lib/opusIndexGenerator.js');
+      await regenerateRepoIndex().catch((regenErr) => {
+        console.error('[builder] index refresh after commit callback failed:', regenErr);
+      });
     } else if (tsc === 'true' && build === 'true') {
       // Build-result callback (first call from GitHub Action)
       await db

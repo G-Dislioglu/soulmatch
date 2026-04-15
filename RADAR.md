@@ -271,6 +271,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Der bisherige Director fuehlt sich jetzt repo-sichtbar als Maya-Werkzeug an statt wie ein zweites Wesen: Maya Brain, Maya-Labels, direkte Memory-Tools und automatische Continuity-Notizen sind gebaut. Der fruehere UI-Drift ist enger bereinigt: die live Route `/builder` zeigt diese Brain-Steuerung nur noch in `BuilderStudioPage`, und die tote Nebenflaeche ist aus dem aktiven Builder-Modul entfernt. Der naechste enge Block bleibt trotzdem der Live-Nachweis fuer delegierte Async-Tasks samt Status, UI-Spur und echter Memory-Rueckwirkung.
 - `evidence`: `BuilderStudioPage.tsx` zeigt den sichtbaren Brain-Toggle inkl. Opus/GPT 5.4/GLM 5.1, Fast/Deep und Action-Badges auf der realen `/builder`-Route; `builder.ts` persistiert nach jeder Brain-Interaktion eine neue Continuity-Notiz in `builder_memory`; `directorActions.ts` bietet direkte `memory-read`- und `memory-write`-Tools; `directorPrompt.ts` beschreibt Maya explizit als dieselbe Identitaet mit wechselbarem Brain; `opusWorkerSwarm.ts`, `opusWorkerRegistry.ts` und `poolState.ts` fuehren `GLM 5.1` als Meister-/Worker-Pfad.
 
+### Kandidat F5b - Builder Index Refresh Randpfad
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `why_not_now`: `none`
+- `non_scope`: neuer Resolver, breitere Pipeline-Architektur, Render-Deploy
+- `risk`: niedrig; der Fix haengt nur den bereits existierenden Repo-Index-Refresh an den spaeteren GitHub-Commit-Callback.
+- `betroffene_bereiche`: `server/src/routes/builder.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusIndexGenerator.ts`, `server/src/lib/builderScopeResolver.ts`
+- `kurzurteil`: Der bestehende Index-Refresh war auf mehreren direkten Push-Pfaden schon da, aber nicht sauber auf dem Callback-Randpfad abgesichert. Dieser Pfad zieht den Refresh jetzt nach Commit-Bestaetigung ebenfalls.
+- `evidence`: `opusBridgeController.ts` regeneriert den Index nach erfolgreichem Push bereits direkt; `builder.ts` triggert `regenerateRepoIndex()` jetzt auch im `execution-result`-Commit-Callback; `opusIndexGenerator.ts` invalidiert danach den Resolver-Cache.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`

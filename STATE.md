@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Der Render-Deploy-Pfad ist jetzt repo-gesteuert und verifizierbar: GitHub Actions triggert Render ueber einen Deploy Hook nach jedem Push auf main, und das Wait-Script akzeptiert Deploys erst, wenn /api/health genau den erwarteten Commit meldet`
-- `next_recommended_block`: `Den neuen GitHub→Render-Deploypfad einmal mit gesetztem RENDER_DEPLOY_HOOK_URL live pruefen und danach den sichtbaren Maya-Brain-Flow gegen einen echten delegierten Async-Opus-Task auf Render verifizieren`
+- `last_completed_block`: `Die tote MayaDashboard-Naht ist entfernt, und der Builder-Index-Refresh greift jetzt auch auf dem GitHub-Callback-Pfad nach echten Commit-Bestaetigungen statt nur auf den bereits bekannten direkten Push-Pfaden`
+- `next_recommended_block`: `Create-Mode im Scope-Resolver explizit durchreichen und danach den semantischen Judge gegen die Original-Instruktion auf dem bestehenden Judge-Pfad erweitern`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -182,7 +182,12 @@ keine aktive `render.yaml`, aber jetzt einen eigenen GitHub-Deploypfad:
 `RENDER_DEPLOY_HOOK_URL`, und `tools/wait-for-deploy.sh` wartet optional auf den
 exakten Commit aus `/api/health` statt nur auf irgendein HTTP 200. Der naechste
 enge Block ist damit kein weiterer Deploy-Umbau, sondern die Live-Verifikation
-dieses Pfads plus die produktive Maya-Brain-Pruefung auf Render.
+dieses Pfads plus die produktive Maya-Brain-Pruefung auf Render. Parallel dazu
+ist der Builder-Pipeline-Drift enger bereinigt: Die tote `MayaDashboard`-
+Nebenflaeche ist entfernt, und der Repo-Index wird jetzt auch dann neu erzeugt,
+wenn ein GitHub-Actions-Commit erst ueber den spaeteren Callback als erfolgreich
+bestaetigt wird. Damit bleibt der Scope-Resolver auch auf diesem Randpfad naeher
+an der echten Repo-Wahrheit.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,
