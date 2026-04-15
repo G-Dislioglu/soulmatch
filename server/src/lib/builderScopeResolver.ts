@@ -69,7 +69,8 @@ export function resolveScope(instruction: string): ScopeResult {
   const scored = new Map<string, number>();
 
   const instrLower = instruction.toLowerCase();
-  const instrWords = new Set(instrLower.split(/[\s,;:()\[\]{}"'`]+/).filter(w => w.length > 2));
+  const instrWords = new Set(instrLower.split(/[\s,;:()\[\]{}`'"`]+/).filter(w => w.length > 2));
+
 
   for (const file of index.files) {
     let score = 0;
@@ -124,13 +125,11 @@ export function resolveScope(instruction: string): ScopeResult {
     .slice(0, 8)
     .map(([path]) => path);
 
-  // CREATE MODE: If no files found but instruction contains a file path, allow creation
   if (files.length === 0) {
-    const pathMatch = instruction.match(/(?:server|client)\/src\/[\w/.-]+\.(?:ts|tsx)/i);
-    const createWords = /(?:erstell|create|neue[sr]? datei|new file|hinzufueg|add file)/i;
-    if (pathMatch && createWords.test(instruction)) {
-      files.push(pathMatch[0]);
-      reasoning.push(pathMatch[0] + " (CREATE MODE): file does not exist, instruction requests creation");
+    const pm = instruction.match(/(?:server|client)\/src\/[\w/. -]+\.tsx?/i);
+    if (pm && /erstell|create|neue|hinzufueg/i.test(instruction)) {
+      files.push(pm[0]);
+      reasoning.push(pm[0] + " (CREATE): path not in index, instruction requests creation");
     }
   }
 
