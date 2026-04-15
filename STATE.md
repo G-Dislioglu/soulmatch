@@ -154,7 +154,7 @@ regeneriert nach erfolgreichem GitHub-Push den Repo-Index wieder serverseitig,
 und der Builder-Maya-Pfad hat jetzt einen separaten Director-Modus. Dieser
 Director baut aus `STATE.md`, Continuity, letzten Tasks, Agent-Profilen und
 Patrol-Lage einen System-Prompt auf, kann interne Builder-/Opus-Aktionen aus
-`action`-Bloecken ausfuehren und ist im `MayaDashboard` jetzt ueber ein
+`action`-Bloecken ausfuehren und ist in der aktiven `BuilderStudioPage` jetzt ueber ein
 Director-Dropdown zwischen `Opus 4.6`, `GPT 5.4` und `GLM 5.1` umschaltbar.
 Dazu kommt ein `Fast`/`Deep`-Thinking-Schalter, der fuer Opus, GPT 5.4 und
 GLM 5.1 bis in die echte Provider-Konfiguration durchgereicht wird; unter den
@@ -169,8 +169,8 @@ best-effort eine neue Continuity-Notiz in `builder_memory`. Parallel dazu kann
 Maya ueber `memory-read` und `memory-write` dieselbe Builder-Memory direkt als
 Tool lesen und beschreiben, ohne ueber eigene geschuetzte HTTP-Routen zu
 loopen. Der spaetere Frontend-Check hat dabei einen echten Sichtbarkeitsdrift
-offengelegt: Die live Route `/builder` rendert `BuilderStudioPage` und nicht das
-zuvor gepatchte `MayaDashboard`. Deshalb sitzen Maya-Brain-Toggle,
+offengelegt: Die live Route `/builder` rendert `BuilderStudioPage` als einzige
+aktive Builder-Maya-Flaeche. Deshalb sitzen Maya-Brain-Toggle,
 Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Schalter, Action-Badges und die
 GLM-5.1-Pool-Buttons fuer Maya/Council/Worker jetzt zusaetzlich in der real
 gerenderten Builder-Studio-Oberflaeche selbst.
@@ -273,11 +273,11 @@ Runtime-Wahrheit fuer Soulmatch.
   ausgerichtet.
 - `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx` ist die aktive
   Builder-Oberflaeche fuer Task-Liste, Dialogansicht, Evidence Packs und
-  eingebettete Prototype-Previews.
-- `client/src/modules/M16_builder/ui/MayaDashboard.tsx` und
-  `client/src/modules/M16_builder/hooks/useMayaApi.ts` sind jetzt repo-sichtbar
-  vorhanden; `client/src/app/App.tsx` verdrahtet die Builder-Maya-Flaeche ueber
-  die Route `/maya`.
+  eingebettete Prototype-Previews und traegt jetzt auch die sichtbare Maya-
+  Brain-Steuerung ueber die Route `/builder`.
+- `client/src/modules/M16_builder/hooks/useMayaApi.ts` verdrahtet den Builder-
+  Maya-Pfad fuer Context, Chat, Director, Memory und Actions; `client/src/app/App.tsx`
+  rendert die Builder-Flaeche aktuell nur ueber `/builder`.
 - Der Server nutzt Express im ESM-Modus; API-Routen werden in
   `server/src/index.ts` gemountet.
 - `server/src/index.ts` mountet aktuell u. a. `/api/health`, `/api/meta`,
@@ -311,7 +311,7 @@ Runtime-Wahrheit fuer Soulmatch.
   `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
 - `server/src/lib/directorContext.ts`, `server/src/lib/directorPrompt.ts`,
   `server/src/lib/directorActions.ts`, `server/src/routes/builder.ts` und
-  `client/src/modules/M16_builder/ui/MayaDashboard.tsx` tragen jetzt den
+  `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx` tragen jetzt den
   produktnahen Maya-Director-Pfad; `server/src/routes/health.ts` enthaelt
   wieder `/api/health/opus-task-async` und `/api/health/opus-job-status`.
 - `server/src/routes/opusBridge.ts` enthaelt jetzt zusaetzlich den Debug-Pfad

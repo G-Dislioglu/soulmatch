@@ -1,6 +1,5 @@
 export { BuilderStudioPage } from './ui/BuilderStudioPage';
 export { PatrolConsole } from './ui/PatrolConsole';
-export { MayaDashboard } from './ui/MayaDashboard';
 export { useBuilderApi } from './hooks/useBuilderApi';
 export { useMayaApi } from './hooks/useMayaApi';
 export type {
