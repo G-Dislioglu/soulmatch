@@ -27,6 +27,7 @@ import { getTaskStats, getRecentCompletedTasks } from '../lib/builderMetrics.js'
 import { findPattern, readFile } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
+import repoFileRouter from './repoFile.js';
 import {
   builderActions,
   builderArtifacts,
@@ -43,6 +44,7 @@ import {
 export const opusBridgeRouter = Router();
 
 opusBridgeRouter.use(requireOpusToken);
+opusBridgeRouter.use(repoFileRouter);
 
 type PatrolSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
