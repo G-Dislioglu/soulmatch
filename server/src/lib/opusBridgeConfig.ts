@@ -19,6 +19,10 @@ export const WORKER_MAX_OUTPUT_TOKENS = 16000;
 
 export const MEISTER_MAX_OUTPUT_TOKENS = 100000;
 
+export const MEISTER_TOKEN_LIMIT = 100000;
+
+export const WORKER_TOKEN_LIMIT = 16000;
+
 export const PIPELINE_VERSION = "S25-stress-test";
 
 export const S25_TASKS_PUSHED = 7;
