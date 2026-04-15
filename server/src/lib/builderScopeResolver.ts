@@ -76,6 +76,7 @@ export function resolveScope(instruction: string): ScopeResult {
   let method: ScopeMethod = 'deterministic';
 
   const instrLower = instruction.toLowerCase();
+  const hasCreateSignal = /(?:erstell|create|neue datei|new file|hinzufueg)/i.test(instruction);
   const instrWords = new Set(instrLower.split(/[\s,;:()\[\]{}`'"`]+/).filter(w => w.length > 2));
 
 
@@ -134,7 +135,7 @@ export function resolveScope(instruction: string): ScopeResult {
 
   if (files.length === 0) {
     const pm = instruction.match(/(?:server|client)\/src\/[\w/. -]+\.tsx?/i);
-    if (pm && /erstell|create|neue|hinzufueg/i.test(instruction)) {
+    if (pm && hasCreateSignal) {
       files.push(pm[0]);
       reasoning.push(pm[0] + " (CREATE): path not in index, instruction requests creation");
       method = 'create';
@@ -142,8 +143,8 @@ export function resolveScope(instruction: string): ScopeResult {
   }
 
   if (files.length === 0) {
-    const pm = instruction.match(/server\/src\/[\w/.-]+\.tsx?/i);
-    if (pm) {
+    const pm = instruction.match(/(?:server|client)\/src\/[\w/.-]+\.tsx?/i);
+    if (pm && hasCreateSignal) {
       files.push(pm[0]);
       reasoning.push(pm[0] + " (CREATE)");
       method = 'create';

@@ -224,6 +224,13 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     console.log(`[ChangeRouter] ${filePath}: ${changeMode}`);
     return { path: filePath, mode: changeMode };
   });
+  const ambiguousTargets = fileModes.filter((entry) => entry.mode === 'ambiguous').map((entry) => entry.path);
+  if (ambiguousTargets.length > 0) {
+    phases.push({ phase: 'fetch', status: 'error', durationMs: Date.now() - s2,
+      detail: { fetched: fileContents.size, total: scope.files.length, ambiguousTargets } });
+    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
+      summary: `Ambiguous file state for: ${ambiguousTargets.join(', ')}` };
+  }
   const modePrompts = [...new Set(fileModes.map((entry) => getWorkerPromptForMode(entry.mode)))];
 
   phases.push({ phase: 'fetch', status: 'ok', durationMs: Date.now() - s2,

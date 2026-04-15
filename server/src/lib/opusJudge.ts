@@ -98,8 +98,16 @@ function assessCandidate(
     blockingIssues.push(`missing required create target(s): ${missingCreateTargets.join(', ')}`);
   }
 
+  if (context.createTargets.length === 0 && candidate.envelope.edits.some((edit) => edit.mode === 'create')) {
+    blockingIssues.push('create edit without a clear create target in scope');
+  }
+
   if (outOfScopePaths.length > 0) {
-    warnings.push(`adds out-of-scope edits: ${outOfScopePaths.join(', ')}`);
+    if (candidate.envelope.edits.length === 1 || context.scopeFiles.length > 0) {
+      blockingIssues.push(`adds out-of-scope edits: ${outOfScopePaths.join(', ')}`);
+    } else {
+      warnings.push(`adds out-of-scope edits: ${outOfScopePaths.join(', ')}`);
+    }
   }
 
   return {

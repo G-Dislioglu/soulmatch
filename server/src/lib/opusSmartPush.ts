@@ -12,7 +12,7 @@ const REPO_NAME = 'soulmatch';
 
 interface SmartPushFile {
   file: string;
-  mode?: 'overwrite' | 'create' | 'patch';
+  mode?: 'ambiguous' | 'overwrite' | 'create' | 'patch';
   content?: string;          // full file for overwrite
   patches?: PatchEdit[];     // search/replace for patch mode
   originalContent?: string;  // current content (for mode decision)
@@ -21,7 +21,7 @@ interface SmartPushFile {
 interface SmartPushResult {
   pushed: boolean;
   filesCount: number;
-  modes: Record<string, 'overwrite' | 'create' | 'patch'>;
+  modes: Record<string, 'ambiguous' | 'overwrite' | 'create' | 'patch'>;
   error?: string;
   durationMs: number;
 }
@@ -31,7 +31,8 @@ export async function smartPush(
   message: string,
 ): Promise<SmartPushResult> {
   const start = Date.now();
-  const modes: Record<string, 'overwrite' | 'create' | 'patch'> = {};
+  const modes: Record<string, 'ambiguous' | 'overwrite' | 'create' | 'patch'> = {};
+  const errors: string[] = [];
 
   const overwrites: Array<{ file: string; content: string }> = [];
   const patchJobs: Array<{ file: string; patches: PatchEdit[] }> = [];
@@ -40,14 +41,17 @@ export async function smartPush(
     const mode = f.mode ?? (f.patches ? 'patch' : decideChangeMode(f.originalContent ?? null));
     modes[f.file] = mode;
 
+    if (mode === 'ambiguous') {
+      errors.push(`ambiguous file state for ${f.file}`);
+      continue;
+    }
+
     if (mode === 'patch' && f.patches && f.patches.length > 0) {
       patchJobs.push({ file: f.file, patches: f.patches });
     } else if (f.content !== undefined) {
       overwrites.push({ file: f.file, content: f.content });
     }
   }
-
-  const errors: string[] = [];
 
   // Overwrites via internal /push endpoint (chunked, via GitHub Action)
   if (overwrites.length > 0) {
