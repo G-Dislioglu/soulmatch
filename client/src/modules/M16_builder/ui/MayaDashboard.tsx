@@ -231,6 +231,7 @@ const MAYA_MODELS = [
   { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
+  { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },
   { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'openrouter', model: 'z-ai/glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
   { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
 ];
@@ -715,6 +716,7 @@ export function MayaDashboard() {
 
   const selectedMayaModel = MAYA_MODELS.find(m => mayaIds.includes(m.id));
   const selectedDirector = getDirectorChoice(directorModel);
+  const activeBrainLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const directorBtn = (id: DirectorModel, label: string) => (
     <button
       key={id}
@@ -845,6 +847,21 @@ export function MayaDashboard() {
 
         {/* Chat */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 22px', borderBottom: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Modus</span>
+              <span style={{ borderRadius: 999, border: `1px solid ${directorModel ? (selectedDirector?.color ?? MAYA) : TOKENS.b2}`, background: directorModel ? `${selectedDirector?.color ?? MAYA}18` : 'transparent', color: directorModel ? (selectedDirector?.color ?? MAYA) : TOKENS.text2, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>
+                {activeBrainLabel}
+              </span>
+              <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b2}`, color: TOKENS.text3, padding: '4px 10px', fontSize: 10, fontWeight: 600 }}>
+                {directorModel ? '/api/builder/maya/director' : '/api/builder/maya/chat'}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+              {directorModel ? 'Mehrstufiger Maya-Brain aktiv' : `Maya Chat · ${selectedMayaModel?.label ?? 'Standard'}`}
+            </div>
+          </div>
+
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}>
             {messages.map((m, i) => (
               <div key={i} style={{ display: 'flex', gap: 12 }}>
