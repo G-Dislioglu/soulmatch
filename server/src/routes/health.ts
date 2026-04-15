@@ -19,6 +19,15 @@ healthRouter.get('/', (_req: Request, res: Response) => {
   });
 });
 
+// GET /api/health/pipeline
+healthRouter.get('/pipeline', (_req: Request, res: Response) => {
+  res.json({
+    pipelineOk: true,
+    timestamp: new Date().toISOString(),
+    workers: ['glm', 'deepseek', 'minimax', 'qwen', 'kimi'],
+  });
+});
+
 // GET /api/health/detailed
 healthRouter.get('/detailed', (_req: Request, res: Response) => {
   const memoryUsage = process.memoryUsage();
