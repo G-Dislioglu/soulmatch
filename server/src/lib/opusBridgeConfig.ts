@@ -11,7 +11,7 @@ export const getLocalBaseUrl = (port?: number): string =>
 export const getAuthUrl = (path: string, port?: number): string =>
   `${getLocalBaseUrl(port)}${path}?opus_token=${getOpusToken()}`;
 
-export const WORKER_TIMEOUT_MS = 90000;
+export const WORKER_TIMEOUT_MS = 150000;
 
 export const MAX_FILE_LINES_FOR_OVERWRITE = 500;
 
