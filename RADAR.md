@@ -243,7 +243,7 @@ Ein guter Soulmatch-Kandidat:
 - `risk`: mittel; der lokale Collector ist jetzt repariert, aber Render kann weiter an `@READ`-Pfaden, BDL-Disziplin oder fehlendem `GITHUB_PAT` scheitern.
 - `betroffene_bereiche`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/opusBridge.ts`, Ziel-Runtime auf Render
 - `kurzurteil`: Nach Provider-, `@READ`- und Patch-Collector-Hardening ist der naechste enge Block keine weitere Architektur, sondern der Live-Nachweis der kompletten Opus-Bridge von Roundtable-BDL bis GitHub-Commit.
-- `evidence`: `zhipu` ist im Provider-Layer sichtbar; Roundtable und Scout nutzen GLM-Modelle; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; Controller und Route normalisieren diese Bodies vor GitHub-Dispatch.
+- `evidence`: Der Provider-Layer kennt `zhipu` und `openrouter`; der aktive GLM-Pfad fuer Scout, Distiller, Roundtable und Worker ist auf OpenRouter-Modelle umgestellt; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; Controller und Route normalisieren diese Bodies vor GitHub-Dispatch.
 
 ### Kandidat F4 - Builder S17 Live Verification
 

@@ -60,7 +60,7 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 2000,
   },
   glm: {
-    actor: 'glm-turbo', model: 'glm-5-turbo', provider: 'zhipu',
+    actor: 'glm-turbo', model: 'z-ai/glm-5-turbo', provider: 'openrouter',
     strengths: 'Agent-optimiert, niedrigste Tool-Error Rate',
     maxTokensPerRound: 1500,
   },

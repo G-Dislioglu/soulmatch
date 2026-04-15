@@ -118,8 +118,9 @@ ueber den haengenden Orchestrator-Pfad, und das `agentHabitat` speichert pro
 Worker die letzten drei Nachdenker-Learnings fuer den naechsten Prompt mit.
 
 Parallel dazu ist auch die Opus-Bridge-Lane enger an ihre reale Laufzeitwahrheit
-gezogen worden: `providers.ts` kennt jetzt `zhipu`, der Scout nutzt
-`glm-4.7-flash`, der Roundtable faehrt mit `glm-5-turbo`, `@READ` kann Dateien
+gezogen worden: `providers.ts` kennt jetzt `zhipu` und `openrouter`, der aktive
+GLM-Pfad fuer Scout, Distiller, Roundtable und Worker laeuft ueber OpenRouter
+(`z-ai/glm-4.7-flash`, `z-ai/glm-5-turbo`), `@READ` kann Dateien
 per Multi-Pfad-Aufloesung in den ChatPool injizieren, und die L1-/BDL-Regeln
 sind auf eigene Befehlszeilen zugeschnitten. Der akute Patch-Collector-Bruch
 ist jetzt an der Parser-Naht gefixt: `@PATCH` mit folgendem
@@ -274,7 +275,7 @@ Runtime-Wahrheit fuer Soulmatch.
 - `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`,
   `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`,
   `server/src/lib/opusBridgeController.ts` und `server/src/routes/opusBridge.ts`
-  tragen jetzt die aktive Opus-Bridge-Kette mit Zhipu/GLM-Modellen,
+  tragen jetzt die aktive Opus-Bridge-Kette mit OpenRouter-GLM-Modellen,
   `@READ`-Datei-Injektion und SEARCH/REPLACE-faehigem Patch-Collector.
 - `server/src/routes/opusBridge.ts` enthaelt jetzt zusaetzlich den Debug-Pfad
   `/api/builder/opus-bridge/debug-scope`, um den effektiven Task-Scope gegen

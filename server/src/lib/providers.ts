@@ -22,6 +22,10 @@ const RETRY_DELAY_MS = [250, 800];
 const PROVIDER_TIMEOUT_MS = 90_000; // 90s per request — large files need more time
 const ANTHROPIC_ENV_KEY = 'ANTHROPIC_API_KEY';
 
+function shouldDisableOpenRouterReasoning(model: string): boolean {
+  return model.startsWith('qwen/') || model.startsWith('z-ai/glm-');
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -218,11 +222,11 @@ export async function callProvider(
             ...(provider === 'deepseek' && model.includes('reasoner')
               ? { max_completion_tokens: params.maxTokens ?? 2000 }
               : {}),
-            // Disable always-on thinking for Qwen 3.6+ models to reduce OpenRouter latency.
-            ...(provider === 'openrouter' && model.startsWith('qwen/')
+            // Keep OpenRouter calls on the conservative non-reasoning path for Qwen and GLM during pipeline execution.
+            ...(provider === 'openrouter' && shouldDisableOpenRouterReasoning(model)
               ? { reasoning: { enabled: false } }
               : {}),
-            // GLM thinking mode: enabled for workers (quality), disabled for scouts (speed).
+            // Direct Zhipu calls still use the native thinking parameter.
             ...(provider === 'zhipu'
               ? { thinking: { type: params.thinking ?? 'disabled' } }
               : {}),

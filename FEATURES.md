@@ -138,11 +138,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-13`
+- `last_checked`: `2026-04-15`
 - `quality`: `pipeline_live_local_verification_done_runtime_checks_pending`
-- `known_gap`: Scout, Roundtable, `@READ`, SEARCH/REPLACE-`@PATCH`, Debug-Scope und der Distiller-Intent-Anker sind jetzt repo-sichtbar verdrahtet, aber der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile, automatischen GitHub-Commit und Distiller-Treue bei `getWorstPerformers` steht noch aus.
+- `known_gap`: Scout, Distiller, Roundtable und Worker nutzen fuer GLM jetzt OpenRouter statt Direkt-Zhipu, aber der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile, automatischen GitHub-Commit, Distiller-Treue bei `getWorstPerformers` und stabile GLM-Laufzeit unter OpenRouter steht noch aus.
 - `next_recommended_step`: Einen echten Builder-/Opus-Task gegen die Zielruntime fahren und dabei pruefen, ob `getWorstPerformers` im Titel und Brief erhalten bleibt, ob `@READ` als `[system]`-Dateiinhalt ankommt, ob `patches[]` nicht leer bleibt und ob `GITHUB_PAT` den Dispatch/Commit wirklich erlaubt.
-- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/routes/opusBridge.ts`.
+- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/poolState.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/lib/opusWorkerSwarm.ts`, `server/src/lib/opusWorkerRegistry.ts`, `server/src/routes/opusBridge.ts`.
 
 ### Schema fuer persona_memories und voice_profiles
 

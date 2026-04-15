@@ -87,8 +87,8 @@ export const DEFAULT_ROUNDTABLE_CONFIG: RoundtableConfig = {
     },
     {
       actor: 'glm-turbo',
-      model: 'glm-5-turbo',
-      provider: 'zhipu',
+      model: 'z-ai/glm-5-turbo',
+      provider: 'openrouter',
       strengths: 'Agent-optimiert, niedrigste Tool-Error Rate, findet Architektur-Fehler die andere übersehen',
       maxTokensPerRound: 1500,
     },

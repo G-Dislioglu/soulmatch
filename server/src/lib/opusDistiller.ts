@@ -28,7 +28,7 @@ export interface DistillerResult {
 
 // ─── Distiller KI Configuration ───
 // Defaults used when pool is empty. Otherwise reads from activePools.distiller.
-const DEFAULT_EXTRACTOR: ResolvedModel = { id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx' };
+const DEFAULT_EXTRACTOR: ResolvedModel = { id: 'glm-flash', provider: 'openrouter', model: 'z-ai/glm-4.7-flash' };
 const DEFAULT_REASONER: ResolvedModel = { id: 'deepseek-scout', provider: 'deepseek', model: 'deepseek-chat' };
 
 const USER_INTENT_ANCHOR = [

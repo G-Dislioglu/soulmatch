@@ -183,7 +183,7 @@ export async function runScoutPhase(task: ScoutTask): Promise<ScoutPhaseResult> 
   if (scoutModels.length === 0) {
     console.warn('[scout] No scout models in pool, using fallback');
     scoutModels.push(
-      { id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx' },
+      { id: 'glm-flash', provider: 'openrouter', model: 'z-ai/glm-4.7-flash' },
       { id: 'deepseek-scout', provider: 'deepseek', model: 'deepseek-chat' },
     );
   }
