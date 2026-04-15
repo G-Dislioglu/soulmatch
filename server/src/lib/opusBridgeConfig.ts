@@ -30,25 +30,25 @@ export const S25_TASKS_PUSHED = 7;
 export const S25_LAST_RUN = "2026-04-15T07:30:00Z";
 export const PIPELINE_STATUS = "operational";
 export const PIPELINE_BUILD_ID = "S25-" + Date.now().toString(36);
-type JobStatus = "running" | "success" | "failed";
-interface OpusJob { id: string; status: JobStatus; instruction: string; startedAt: string; completedAt?: string; result?: unknown; error?: string; }
-const opusJobs = new Map<string, OpusJob>();
-export function createOpusJob(instruction: string): string {
-  const id = "job-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6);
-  opusJobs.set(id, { id, status: "running", instruction, startedAt: new Date().toISOString() });
-  return id;
+
+const opusJobs = new Map<string, { id: string; status: string; result?: unknown; error?: string }>();
+export function createOpusJob(id: string, instruction: string) {
+  opusJobs.set(id, { id, status: "running" });
 }
-export function completeOpusJob(id: string, result: unknown): void {
+export function completeOpusJob(id: string, result: unknown) {
   const j = opusJobs.get(id);
-  if(j){ j.status="success"; j.result=result; j.completedAt=new Date().toISOString(); }
+  if(j) {
+    j.status = "done";
+    j.result = result;
+  }
 }
-export function failOpusJob(id: string, error: string): void {
+export function failOpusJob(id: string, err: string) {
   const j = opusJobs.get(id);
-  if(j){ j.status="failed"; j.error=error; j.completedAt=new Date().toISOString(); }
+  if(j) {
+    j.status = "failed";
+    j.error = err;
+  }
 }
-export function getOpusJob(id: string): OpusJob | undefined {
+export function getOpusJob(id: string) {
   return opusJobs.get(id);
-}
-export function listOpusJobs(limit = 20): OpusJob[] {
-  return Array.from(opusJobs.values()).slice(-limit).reverse();
 }
