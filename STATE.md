@@ -18,8 +18,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Builder S25 stellt Maya-Director, Async-Opus-Task-Health-Endpunkte und Index-Refresh nach Controller-Push repo-sichtbar her`
-- `next_recommended_block`: `Director live auf Render gegen echte Maya-Anfragen pruefen und die ersten delegierten Opus-Tasks sichtbar im Builder-Studio verifizieren`
+- `last_completed_block`: `Director liest auf Render repo-relative Dateien wieder bewusst ueber Action-Blocks; der read-file-Pfadfehler durch /app/server ist behoben und live verifiziert`
+- `next_recommended_block`: `Director live gegen einen echten delegierten Async-Opus-Task pruefen und Jobstatus plus UI-Sichtbarkeit im Builder-Studio verifizieren`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag

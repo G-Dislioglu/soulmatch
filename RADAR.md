@@ -263,13 +263,13 @@ Ein guter Soulmatch-Kandidat:
 - `status`: `active`
 - `truth_class`: `repo_visible`
 - `source_type`: `repo_review`
-- `next_gate`: `implementation`
+- `next_gate`: `live_async_validation`
 - `why_not_now`: `none`
 - `non_scope`: neuer Director-Skill-Baum, breite UI-Politur, neuer Patrol-Endpoint-Faecherschnitt
-- `risk`: mittel; der Director ist repo-sichtbar verdrahtet, aber sein realer Nutzwert haengt an der Live-Verifikation von Action-Delegation, Async-Status und sauberer Chat-Rueckmeldung.
+- `risk`: mittel; die grundlegende Action-Delegation ist jetzt live belegt, aber der produktive Nutzwert haengt weiter an echtem Async-Task-Lauf, Statusnachfuehrung und sauberer Chat-/UI-Rueckmeldung.
 - `betroffene_bereiche`: `server/src/lib/directorContext.ts`, `server/src/lib/directorPrompt.ts`, `server/src/lib/directorActions.ts`, `server/src/routes/builder.ts`, `server/src/routes/health.ts`, `client/src/modules/M16_builder/hooks/useMayaApi.ts`, `client/src/modules/M16_builder/ui/MayaDashboard.tsx`, Render-Runtime
-- `kurzurteil`: Der neue enge Builder-Block ist kein weiterer Director-Ausbau, sondern der Live-Nachweis, dass eine echte Maya-Nachricht im Director-Modus Actions ausfuehrt, den Async-Status korrekt nachfuehrt und im UI nachvollziehbar bleibt.
-- `evidence`: `MayaDashboard.tsx` kann jetzt zwischen normalem Maya-Chat und Director (`Opus 4.6` oder `GPT 5.4`) umschalten; `builder.ts` bietet `POST /api/builder/maya/director`; `directorActions.ts` fuehrt interne Repo-/Opus-Aktionen aus; `health.ts` enthaelt wieder Async-Task-Status-Endpunkte.
+- `kurzurteil`: Der enge Builder-Block hat die Live-Basis erbracht: Eine echte Maya-Nachricht im Director-Modus fuehrt auf Render jetzt bewusst `read-file` aus. Der naechste Block ist kein weiterer Ausbau, sondern der Nachweis fuer delegierte Async-Tasks samt Status und UI-Spur.
+- `evidence`: `MayaDashboard.tsx` kann jetzt zwischen normalem Maya-Chat und Director (`Opus 4.6` oder `GPT 5.4`) umschalten; `builder.ts` bietet `POST /api/builder/maya/director`; `directorActions.ts` fuehrt interne Repo-/Opus-Aktionen aus und loest repo-relative Pfade auch unter Render korrekt auf; `health.ts` enthaelt wieder Async-Task-Status-Endpunkte; der Live-Render-Check bestaetigt erfolgreiche `read-file`-Ausfuehrung gegen `server/src/routes/health.ts`.
 
 ### Kandidat G - Provider Truth Sync
 
