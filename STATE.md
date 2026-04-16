@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `40d95ed`
+- `current_repo_head`: `f108854`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Im Builder Studio lebt Maya jetzt als sichtbare Presence Shell: ein kleiner leuchtender Guide mit DOM-basierter Target Registry, weicher Navigation zwischen Builder-Zielen, Highlight-Ring, Sprechblase und temporaerer Maya-Tour; Pools, Patrol und bestehende Builder-Aktionen bleiben funktional bestehen`
-- `next_recommended_block`: `Die Maya-Figure von der Demo-Tour auf echte event-basierte Trigger heben, ohne Voice/TTS oder autonome Steuerung mitzuziehen; alternativ den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad weiter gegen reale Provider pruefen`
+- `last_completed_block`: `Die Maya-Presence-Shell im Builder reagiert jetzt nicht mehr nur auf die Demo-Tour: Task-Auswahl, Prototype-Review, freigabebereite Tasks und der geoeffnete Patrol-Feed triggern Maya direkt an echte Builder-Ziele, und ihre Farblogik bleibt goldnah statt in die gruene LiveTalk-Sprache zu kippen`
+- `next_recommended_block`: `Die Maya-Figure als naechstes an semantische Chat-/Director-Zustaende wie Thinking, Tool-Status und Fehler koppeln, ohne Audio/TTS oder autonome Steuerung mitzuziehen; alternativ den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad weiter gegen reale Provider pruefen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
