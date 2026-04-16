@@ -87,7 +87,7 @@ export function useMayaTargetRegistry(containerRef: RefObject<HTMLElement | null
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ['data-maya-target', 'style', 'class'],
+      attributeFilter: ['data-maya-target', 'class', 'open', 'aria-expanded'],
     });
 
     window.addEventListener('resize', scheduleRefresh);

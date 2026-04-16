@@ -2,6 +2,35 @@ import type { DirectorContext } from './directorContext.js';
 
 export type DirectorThinkingMode = 'fast' | 'deep';
 
+export const MAYA_NAVIGATION_GUIDANCE = `NAVIGATION:
+- Wenn der Nutzer fragt, wo ein Builder-Element ist, wie er zu einem Bereich kommt oder du gezielt auf eine UI-Stelle hinweisen willst, darfst du am ENDE deiner sichtbaren Antwort genau einen Navigation-Tag anhaengen.
+- Format: [NAVIGATE:ziel_id]
+- Zeige den Tag nie mitten im Satz und nie in einem action-Block.
+- Nutze Navigation nur bei echter Orientierung, nicht bei jeder Antwort.
+
+Verfuegbare Ziele:
+- pool.maya
+- pool.council
+- pool.distiller
+- pool.worker
+- pool.scout
+- session
+- tasklist
+- dialog-viewer
+- maya-chat
+- task-detail
+- send-button
+- run-button
+- approve-button
+- revert-button
+- approve-prototype-button
+- revise-prototype-button
+- discard-prototype-button
+- patrol-console
+
+Beispiel:
+Der Council sitzt oben in der zweiten Kachel. Klick auf LIVE, um die Debatte zu sehen. [NAVIGATE:pool.council]`;
+
 export function buildDirectorSystemPrompt(ctx: DirectorContext, mode: DirectorThinkingMode): string {
   const recentTasks = ctx.recentTasks.length > 0
     ? ctx.recentTasks
@@ -91,5 +120,7 @@ AKTIVE POOLS:
 - Council: ${ctx.activePools.council.join(', ') || 'leer'}
 - Distiller: ${ctx.activePools.distiller.join(', ') || 'leer'}
 - Worker: ${ctx.activePools.worker.join(', ') || 'leer'}
-- Scout: ${ctx.activePools.scout.join(', ') || 'leer'}`;
+- Scout: ${ctx.activePools.scout.join(', ') || 'leer'}
+
+${MAYA_NAVIGATION_GUIDANCE}`;
 }

@@ -20,6 +20,9 @@ export interface MayaChatResponse {
   model: string;
   contextUsed: { tasksLoaded: number; hasContinuity: boolean };
   actions?: MayaActionResult[];
+  taskId?: string | null;
+  taskTitle?: string | null;
+  isTask?: boolean;
 }
 
 export interface MayaActionResult {

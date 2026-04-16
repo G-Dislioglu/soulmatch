@@ -24,7 +24,7 @@ import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAct
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
-import { buildDirectorSystemPrompt } from '../lib/directorPrompt.js';
+import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
@@ -983,7 +983,9 @@ PROAKTIVES HANDELN:
 - Bei "fix Bug X" → sofort /build Action-Block mit passendem Worker
 - Bei "was macht Task X" → direkt die Details abrufen und zusammenfassen
 - Bei "deploy" → /push + /render/redeploy Action-Blöcke
-- Bei "zeig Worker" → Tabelle mit allen Workern und ihrer Performance`;
+- Bei "zeig Worker" → Tabelle mit allen Workern und ihrer Performance
+
+${MAYA_NAVIGATION_GUIDANCE}`;
 
     // Route to Opus for complex reasoning, cheaper model for simple status queries
     // If file attached → always use Gemini (multimodal)

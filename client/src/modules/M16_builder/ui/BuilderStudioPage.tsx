@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 
 import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 import { TOKENS } from '../../../design/tokens';
+import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import {
   BuilderConfigPanel,
   loadPools,
@@ -266,6 +267,18 @@ function shortenGuideLabel(value: string, maxLength = 48) {
   }
 
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function extractNavigationDirective(content: string) {
+  const matches = [...content.matchAll(/\[NAVIGATE:([^\]]+)\]/g)];
+  const lastMatch = matches.length > 0 ? matches[matches.length - 1] : null;
+  const targetId = lastMatch?.[1]?.trim() || null;
+  const cleanContent = content.replace(/\s*\[NAVIGATE:[^\]]+\]/g, '').trim();
+
+  return {
+    targetId,
+    cleanContent,
+  };
 }
 
 function formatPatrolAffectedFiles(files: string[] | undefined) {
@@ -1025,9 +1038,8 @@ export function BuilderStudioPage() {
     discardPrototype: discardBuilderPrototype,
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
-    sendChat,
   } = useBuilderApi(token || null, opusToken || token || null);
-  const { getContext: getMayaContext, createMemory, deleteMemory, directorChat } = useMayaApi(token || null);
+  const { getContext: getMayaContext, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const [pools, setPools] = useState<PoolState>(() => loadPools());
@@ -1062,7 +1074,7 @@ export function BuilderStudioPage() {
       })()
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
-  const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
+  const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/maya/chat';
   const directorStatusText = directorModel
     ? getDirectorStatusText(
         directorThinking,
@@ -1075,9 +1087,6 @@ export function BuilderStudioPage() {
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const directorStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mayaTourTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-  const lastGuidedTaskIdRef = useRef<string | null>(null);
-  const lastGuidedTaskStatusRef = useRef<string | null>(null);
-  const lastPatrolGuideKeyRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -1149,77 +1158,6 @@ export function BuilderStudioPage() {
     const el = chatContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatLoading, chatMessages]);
-
-  useEffect(() => {
-    if (!authenticated) {
-      return;
-    }
-
-    if (!selectedTaskId || !activeTask) {
-      lastGuidedTaskIdRef.current = null;
-      return;
-    }
-
-    if (lastGuidedTaskIdRef.current === selectedTaskId) {
-      return;
-    }
-
-    lastGuidedTaskIdRef.current = selectedTaskId;
-    guideMayaTo('task-detail', `Hier liegen Status und Aktionen fuer "${shortenGuideLabel(activeTask.title)}".`);
-  }, [activeTask, authenticated, guideMayaTo, selectedTaskId]);
-
-  useEffect(() => {
-    if (!authenticated || !activeTask) {
-      lastGuidedTaskStatusRef.current = null;
-      return;
-    }
-
-    const statusKey = `${activeTask.id}:${activeTask.status}`;
-    if (lastGuidedTaskStatusRef.current === statusKey) {
-      return;
-    }
-
-    let targetId: string | null = null;
-    let guideText: string | undefined;
-
-    if (activeTask.status === 'prototype_review') {
-      targetId = 'approve-prototype-button';
-      guideText = 'Preview hier freigeben, revidieren oder verwerfen.';
-    } else if (activeTask.status === 'push_candidate' || activeTask.status === 'done') {
-      targetId = 'approve-button';
-      guideText = 'Fertige Tasks hier freigeben.';
-    } else if (activeTask.status === 'blocked') {
-      targetId = 'dialog-viewer';
-      guideText = 'Hier siehst du, warum die Task blockiert ist.';
-    }
-
-    if (!targetId) {
-      return;
-    }
-
-    lastGuidedTaskStatusRef.current = statusKey;
-    guideMayaTo(targetId, guideText);
-  }, [activeTask, authenticated, guideMayaTo]);
-
-  useEffect(() => {
-    if (!authenticated || !patrolOpen) {
-      lastPatrolGuideKeyRef.current = null;
-      return;
-    }
-
-    const guideKey = `${patrolStatus?.totalFindings ?? 0}:${sortedPatrolFindings[0]?.id ?? 'none'}`;
-    if (lastPatrolGuideKeyRef.current === guideKey) {
-      return;
-    }
-
-    lastPatrolGuideKeyRef.current = guideKey;
-    guideMayaTo(
-      'session',
-      sortedPatrolFindings.length > 0
-        ? 'Hier tauchen globale Patrol-Findings gesammelt auf.'
-        : 'Hier erscheint die Patrol-Summary, sobald Findings vorliegen.',
-    );
-  }, [authenticated, guideMayaTo, patrolOpen, patrolStatus?.totalFindings, sortedPatrolFindings]);
 
   useEffect(() => {
     if (!chatLoading) {
@@ -1693,8 +1631,8 @@ export function BuilderStudioPage() {
     }
   }, [deleteBuilderTask, refreshTasks, selectedTaskId]);
 
-  const handleSendChat = useCallback(async () => {
-    const message = chatInput.trim();
+  const sendMayaMessage = useCallback(async (rawMessage: string) => {
+    const message = rawMessage.trim();
     if (!message || chatLoading) {
       return;
     }
@@ -1718,14 +1656,20 @@ export function BuilderStudioPage() {
     try {
       if (directorModel) {
         const response = await directorChat(message, directorModel, directorThinking, history);
+        const { targetId, cleanContent } = extractNavigationDirective(response.response);
+        const finalContent = cleanContent || 'Ich zeige es dir direkt.';
         const assistantMessage: StudioChatMessage = {
           role: 'assistant',
-          content: response.response,
+          content: finalContent,
           label: getDirectorLabel(directorModel, directorThinking),
           endpoint: '/api/builder/maya/director',
           actions: response.actions ?? [],
         };
         setChatMessages((current) => [...current, assistantMessage]);
+        if (targetId) {
+          refreshMayaTargets();
+          guideMayaTo(targetId, shortenGuideLabel(finalContent, 120));
+        }
         const firstTool = response.actions?.find((action) => action.ok)?.tool ?? response.actions?.[0]?.tool;
         if (firstTool) {
           setDirectorLiveStatus({ phase: 'tool', tool: firstTool });
@@ -1738,18 +1682,25 @@ export function BuilderStudioPage() {
         }
         await refreshMayaContext();
       } else {
-        const response = await sendChat(message, history);
+        const response = await mayaChat(message, history);
+        const { targetId, cleanContent } = extractNavigationDirective(response.response);
+        const finalContent = cleanContent || 'Ich zeige es dir direkt.';
         const assistantMessage: StudioChatMessage = {
           role: 'assistant',
-          content: response.message,
+          content: finalContent,
           label: 'Maya Standard',
-          endpoint: '/api/builder/chat',
+          endpoint: '/api/builder/maya/chat',
         };
         setChatMessages((current) => [...current, assistantMessage]);
 
-        if (response.type === 'task_created' && response.taskId) {
+        if (response.taskId) {
           await refreshTasks();
           setSelectedTaskId(response.taskId);
+        }
+
+        if (targetId) {
+          refreshMayaTargets();
+          guideMayaTo(targetId, shortenGuideLabel(finalContent, 120));
         }
       }
     } catch (error) {
@@ -1771,7 +1722,33 @@ export function BuilderStudioPage() {
         if (el) el.scrollTop = el.scrollHeight;
       }, 100);
     }
-  }, [activeChatEndpoint, activeChatLabel, chatInput, chatLoading, chatMessages, directorChat, directorModel, directorThinking, refreshMayaContext, refreshTasks, sendChat]);
+  }, [activeChatEndpoint, activeChatLabel, chatLoading, chatMessages, directorChat, directorModel, directorThinking, guideMayaTo, mayaChat, refreshMayaContext, refreshMayaTargets, refreshTasks]);
+
+  const speech = useSpeechToText('de', (text) => {
+    void sendMayaMessage(text);
+  });
+
+  const handleMicClick = useCallback(() => {
+    if (!speech.isSupported) {
+      return;
+    }
+
+    if (!speech.hasConsent) {
+      speech.grantConsent();
+    }
+
+    if (speech.isListening) {
+      speech.stopListening();
+      return;
+    }
+
+    speech.resetTranscript();
+    speech.startListening();
+  }, [speech]);
+
+  const handleSendChat = useCallback(async () => {
+    void sendMayaMessage(chatInput);
+  }, [chatInput, sendMayaMessage]);
 
   if (!authenticated) {
     return (
@@ -1791,6 +1768,19 @@ export function BuilderStudioPage() {
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text }}>
       <div ref={builderRef} style={{ position: 'relative', maxWidth: 1680, margin: '0 auto', padding: compact ? '18px 16px 28px' : '22px 22px 32px' }}>
+        <div
+          data-maya-target="maya-idle"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: compact ? 20 : 26,
+            right: compact ? 18 : 24,
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: 'none',
+          }}
+        />
         <header
           style={{
             border: `1.5px solid ${TOKENS.b2}`,
@@ -2455,6 +2445,25 @@ export function BuilderStudioPage() {
                     disabled={chatLoading}
                   />
                   <button
+                    onClick={handleMicClick}
+                    disabled={!speech.isSupported || chatLoading}
+                    title={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
+                    aria-label={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
+                    style={{
+                      borderRadius: 12,
+                      border: `1.5px solid ${speech.isListening ? TOKENS.green : TOKENS.b1}`,
+                      background: speech.isListening ? 'rgba(16,185,129,0.16)' : 'transparent',
+                      color: speech.isListening ? TOKENS.green : TOKENS.text2,
+                      padding: '10px 14px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: !speech.isSupported || chatLoading ? 'not-allowed' : 'pointer',
+                      opacity: !speech.isSupported || chatLoading ? 0.45 : 1,
+                    }}
+                  >
+                    {speech.isListening ? 'Stop' : 'Mic'}
+                  </button>
+                  <button
                     data-maya-target="send-button"
                     onClick={() => {
                       void handleSendChat();
@@ -2475,6 +2484,17 @@ export function BuilderStudioPage() {
                     Senden
                   </button>
                 </div>
+                {speech.micBlocked || speech.isListening ? (
+                  <div
+                    style={{
+                      minHeight: 18,
+                      color: speech.micBlocked ? '#fca5a5' : TOKENS.green,
+                      fontSize: 12,
+                    }}
+                  >
+                    {speech.micBlocked ? 'Mikrofon blockiert. Bitte Browser-Freigabe pruefen.' : 'Maya hoert zu...'}
+                  </div>
+                ) : null}
                 {directorModel && directorStatusText ? (
                   <div
                     style={{

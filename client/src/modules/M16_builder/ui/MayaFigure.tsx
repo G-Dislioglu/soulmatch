@@ -151,6 +151,7 @@ export function MayaFigure(props: MayaFigureProps) {
             maxWidth: 240,
             minWidth: bubbleText ? 160 : 0,
             opacity: bubbleText ? 1 : 0,
+            pointerEvents: 'none',
             transition: 'opacity 0.3s ease',
             borderRadius: 16,
             border: `1px solid ${accentColor}55`,

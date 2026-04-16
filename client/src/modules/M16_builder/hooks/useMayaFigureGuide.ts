@@ -24,7 +24,7 @@ export interface MayaGuideAPI {
 }
 
 function getIdlePosition(targets: Record<string, MayaTargetRect>) {
-  const anchor = targets['maya-chat'] ?? targets['task-detail'] ?? targets.session ?? null;
+  const anchor = targets['maya-idle'] ?? targets['maya-chat'] ?? targets['task-detail'] ?? targets.session ?? null;
 
   if (!anchor) {
     return { x: 84, y: 84 };
