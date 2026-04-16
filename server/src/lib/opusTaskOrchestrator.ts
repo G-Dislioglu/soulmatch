@@ -20,6 +20,7 @@ import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
 import { resolveScope, fetchFileContents, isIndexedRepoFile, type ScopeMethod } from './builderScopeResolver.js';
+import { findRelatedFiles, loadBuilderFileIndex, type RelatedFile } from './builderRelatedFiles.js';
 import { decideChangeMode, getWorkerPromptForMode, type ChangeMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
 import { smartPush } from './opusSmartPush.js';
@@ -95,6 +96,7 @@ function buildWorkerPrompt(
   scopeFiles: string[],
   scopeMethod: OrchestratorScopeMethod,
   fileModes: Array<{ path: string; mode: ChangeMode }>,
+  relatedFiles: RelatedFile[],
 ): string {
   const createTargets = fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path);
   const fileSection = scopeFiles.map(f => {
@@ -103,6 +105,9 @@ function buildWorkerPrompt(
       ? `--- ${f} (${content.split('\n').length} lines) ---\n${content}\n--- END ${f} ---`
       : `--- ${f} (NEW FILE) ---`;
   }).join('\n\n');
+  const relatedSection = relatedFiles.length > 0
+    ? `\n\n## KONTEXT (nur lesen, nicht editieren)\n${relatedFiles.map((file) => `### ${file.path} (${file.source})\n${file.preview}`).join('\n\n')}`
+    : '';
 
   return `TASK: ${instruction}
 
@@ -111,6 +116,7 @@ CREATE TARGETS: ${createTargets.length > 0 ? createTargets.join(', ') : 'none'}
 
 FILES IN SCOPE:
 ${fileSection}
+${relatedSection}
 
 RESPONSE FORMAT — respond with ONLY this JSON structure, nothing else:
 {
@@ -224,6 +230,23 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     console.log(`[ChangeRouter] ${filePath}: ${changeMode}`);
     return { path: filePath, mode: changeMode };
   });
+  let relatedFiles: RelatedFile[] = [];
+  try {
+    const fileIndex = loadBuilderFileIndex();
+    const seen = new Set(scope.files);
+    for (const scopeFile of scope.files) {
+      const related = await findRelatedFiles(scopeFile, fileIndex, 5);
+      for (const candidate of related) {
+        if (seen.has(candidate.path)) continue;
+        seen.add(candidate.path);
+        relatedFiles.push(candidate);
+        if (relatedFiles.length >= 5) break;
+      }
+      if (relatedFiles.length >= 5) break;
+    }
+  } catch (err) {
+    console.error('[related-files] failed to load deterministic context:', err);
+  }
   const ambiguousTargets = fileModes.filter((entry) => entry.mode === 'ambiguous').map((entry) => entry.path);
   if (ambiguousTargets.length > 0) {
     phases.push({ phase: 'fetch', status: 'error', durationMs: Date.now() - s2,
@@ -234,11 +257,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const modePrompts = [...new Set(fileModes.map((entry) => getWorkerPromptForMode(entry.mode)))];
 
   phases.push({ phase: 'fetch', status: 'ok', durationMs: Date.now() - s2,
-    detail: { fetched: fileContents.size, total: scope.files.length, createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path) } });
+    detail: { fetched: fileContents.size, total: scope.files.length, createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path), relatedFiles: relatedFiles.map((file) => ({ path: file.path, source: file.source })) } });
 
   // Phase 3: Swarm
   const s3 = Date.now();
-  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files, scope.method, fileModes)}\n\n${modePrompts.join('\n\n')}`;
+  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files, scope.method, fileModes, relatedFiles)}\n\n${modePrompts.join('\n\n')}`;
   const results = await runWorkerSwarm(prompt, workers, maxTokens);
   const okResults = results.filter(r => r.response.length > 50 && !r.error);
   phases.push({ phase: 'swarm', status: okResults.length > 0 ? 'ok' : 'error',
