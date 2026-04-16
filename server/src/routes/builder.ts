@@ -754,7 +754,7 @@ router.post('/maya/director', async (req: Request, res: Response) => {
     }
 
     const context = await buildDirectorContext();
-    const systemPrompt = buildDirectorSystemPrompt(context);
+    const systemPrompt = buildDirectorSystemPrompt(context, thinking ? 'deep' : 'fast');
     const providerConfig = (() => {
       switch (directorModel) {
         case 'opus':

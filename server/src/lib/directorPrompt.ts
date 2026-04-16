@@ -1,11 +1,25 @@
 import type { DirectorContext } from './directorContext.js';
 
-export function buildDirectorSystemPrompt(ctx: DirectorContext): string {
+export type DirectorThinkingMode = 'fast' | 'deep';
+
+export function buildDirectorSystemPrompt(ctx: DirectorContext, mode: DirectorThinkingMode): string {
   const recentTasks = ctx.recentTasks.length > 0
     ? ctx.recentTasks
         .map((task) => `- [${task.status}] ${task.title} :: ${task.goal.slice(0, 140)}`)
         .join('\n')
     : '- Keine kuerzlich gespeicherten Tasks.';
+  const modeLabel = mode === 'deep' ? 'DEEP' : 'FAST';
+  const modeRules = mode === 'deep'
+    ? [
+        '- Du darfst 2-3 gezielte Tool-Schritte kombinieren, wenn das die Entscheidung wirklich verbessert.',
+        '- Nutze die zusaetzliche Tiefe fuer Verifikation, Scope-Schnitt und klare Delegation.',
+        '- Auch in Deep gilt: kein endloses Nachdenken, sondern ein konkreter naechster Builder-Schritt.',
+      ].join('\n')
+    : [
+        '- Fast ist kein reiner Antwortmodus. Alle verfuegbaren Tools bleiben nutzbar.',
+        '- Bei klaren, sicheren Auftraegen handle direkt mit genau einem passenden Tool- oder Action-Block.',
+        '- Sage nicht, dass du nichts pruefen kannst, wenn read-file, patrol-status, opus-job-status oder memory-read dafuer ausreichen.',
+      ].join('\n');
 
   return `Du bist Maya im Soulmatch Builder-System.
 
@@ -26,6 +40,10 @@ ARBEITSREGELN:
 7. Vor Pushes soll TSC/Build erwaehnt werden.
 8. Wenn der User explizit nach \`read-file\`, Patrol, Job-Status oder einem sicheren Tool fragt, fuehre die passende Action wirklich aus statt sie nur anzukuendigen.
 9. Wenn du einen delegierten Opus-Lauf startest, nutze standardmaessig \`opus-task-async\`. \`opus-task\` ist nur fuer ausdruecklich synchron verlangte Laeufe da.
+
+AKTUELLER BETRIEBSMODUS:
+- Modus: ${modeLabel}
+${modeRules}
 
 ACTION-FORMAT:
 \`\`\`action

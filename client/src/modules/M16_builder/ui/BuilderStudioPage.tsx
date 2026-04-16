@@ -189,6 +189,37 @@ function getDirectorLabel(model: DirectorModel, thinking: boolean) {
   return `Maya (${meta.label} ${thinking ? 'Deep' : 'Fast'})`;
 }
 
+function getDirectorModeHint(thinking: boolean) {
+  return thinking
+    ? 'Deep: mehrstufige Analyse mit aktivem Toolpfad.'
+    : 'Fast: kurzer Lauf, Tools bleiben aktiv fuer den direktesten Schritt.';
+}
+
+function getDirectorRunStatus(thinking: boolean, elapsedMs: number) {
+  const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+
+  if (thinking) {
+    if (elapsedSeconds < 4) {
+      return `Deep scannt Kontext und Scope · ${elapsedSeconds}s`;
+    }
+    if (elapsedSeconds < 10) {
+      return `Deep prueft Tasks, Memory und Toolweg · ${elapsedSeconds}s`;
+    }
+    if (elapsedSeconds < 18) {
+      return `Deep baut den naechsten Builder-Schritt · ${elapsedSeconds}s`;
+    }
+    return `Deep verdichtet Antwort und Actions · ${elapsedSeconds}s`;
+  }
+
+  if (elapsedSeconds < 3) {
+    return `Fast scannt den Auftrag · ${elapsedSeconds}s`;
+  }
+  if (elapsedSeconds < 7) {
+    return `Fast waehlt den kuerzesten Toolweg · ${elapsedSeconds}s`;
+  }
+  return `Fast finalisiert Antwort und Actions · ${elapsedSeconds}s`;
+}
+
 function extractBubbleContent(action: BuilderAction, format: DialogFormat) {
   if (format === 'text') {
     return typeof action.text === 'string' && action.text.trim().length > 0
@@ -620,6 +651,8 @@ export function BuilderStudioPage() {
   const [chatMessages, setChatMessages] = useState<StudioChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatLoadingStartedAt, setChatLoadingStartedAt] = useState<number | null>(null);
+  const [chatLoadingTick, setChatLoadingTick] = useState(() => Date.now());
   const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
   const [directorThinking, setDirectorThinking] = useState(false);
   const [commitHash, setCommitHash] = useState('');
@@ -664,6 +697,9 @@ export function BuilderStudioPage() {
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
+  const activeDirectorRunStatus = directorModel && chatLoading && chatLoadingStartedAt !== null
+    ? getDirectorRunStatus(directorThinking, chatLoadingTick - chatLoadingStartedAt)
+    : null;
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -678,6 +714,16 @@ export function BuilderStudioPage() {
     const el = chatContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatLoading, chatMessages]);
+
+  useEffect(() => {
+    if (!chatLoading) {
+      return;
+    }
+
+    setChatLoadingTick(Date.now());
+    const timer = window.setInterval(() => setChatLoadingTick(Date.now()), 800);
+    return () => window.clearInterval(timer);
+  }, [chatLoading]);
 
   useEffect(() => () => {
     if (confirmDeleteTimer.current) {
@@ -1097,6 +1143,8 @@ export function BuilderStudioPage() {
     const userMessage: StudioChatMessage = { role: 'user', content: message };
     setChatMessages((current) => [...current, userMessage]);
     setChatInput('');
+    setChatLoadingStartedAt(Date.now());
+    setChatLoadingTick(Date.now());
     setChatLoading(true);
     setPageError(null);
 
@@ -1137,6 +1185,7 @@ export function BuilderStudioPage() {
       }]);
     } finally {
       setChatLoading(false);
+      setChatLoadingStartedAt(null);
       window.setTimeout(() => {
         const el = chatContainerRef.current;
         if (el) el.scrollTop = el.scrollHeight;
@@ -1498,6 +1547,27 @@ export function BuilderStudioPage() {
                     {activeChatLabel} · {activeChatEndpoint}
                   </span>
                 </div>
+                {directorModel ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                      padding: '9px 12px',
+                      borderRadius: 14,
+                      border: `1px solid ${chatLoading ? TOKENS.greenSoft : TOKENS.b1}`,
+                      background: chatLoading ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: chatLoading ? TOKENS.green : TOKENS.text2 }}>
+                      {chatLoading && activeDirectorRunStatus ? activeDirectorRunStatus : getDirectorModeHint(directorThinking)}
+                    </span>
+                    <span style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                      Tools: read-file · opus-task-async · memory-read · memory-write
+                    </span>
+                  </div>
+                ) : null}
               </div>
               <div
                 ref={chatContainerRef}
@@ -1594,8 +1664,21 @@ export function BuilderStudioPage() {
                   );
                 })}
                 {chatLoading ? (
-                  <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
-                    {directorModel ? `${activeChatLabel} denkt nach...` : 'Maya denkt nach...'}
+                  <div
+                    style={{
+                      color: directorModel ? TOKENS.green : TOKENS.gold,
+                      fontSize: 12,
+                      fontStyle: 'italic',
+                      display: 'flex',
+                      gap: 8,
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span>{directorModel ? `${activeChatLabel} arbeitet...` : 'Maya denkt nach...'}</span>
+                    {directorModel && activeDirectorRunStatus ? (
+                      <span style={{ color: TOKENS.text2 }}>{activeDirectorRunStatus}</span>
+                    ) : null}
                   </div>
                 ) : null}
                 <div ref={chatEndRef} />

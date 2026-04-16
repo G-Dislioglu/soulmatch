@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `55dc6cb`
+- `current_repo_head`: `36a86ca`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-15`
+- `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
-- `local_drift_present`: `no`
+- `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Der bestehende Opus-Judge entscheidet jetzt nicht mehr nur zwischen Kandidaten, sondern kann sie gegen die Original-Instruktion auch ablehnen: explizite Pfade, Create-Targets und Out-of-Scope-Drift fliessen als echte Gate-Signale in die Freigabe ein`
-- `next_recommended_block`: `Die Related-Files-Briefing-Lane deterministisch aus Imports, Rueckreferenzen und Dateinaehe nachziehen statt dafuer neuen LLM-Scope zu oeffnen`
+- `last_completed_block`: `Der Builder-Maya-Director kennt Fast und Deep jetzt explizit im System-Prompt, Fast bleibt dabei toolfaehig statt nur beratend, und BuilderStudioPage zeigt fuer laufende Director-Requests einen sichtbaren Modus-/Toolstatus statt nur generischem Waiting-Text`
+- `next_recommended_block`: `Den Maya-Brain-Fast/Deep-Pfad gegen echte Provider-Laufzeit pruefen und erst danach die optionale Maya-Guide-Figure als reine UI-Shell schneiden`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
