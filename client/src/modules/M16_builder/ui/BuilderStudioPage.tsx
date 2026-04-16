@@ -436,7 +436,7 @@ function PoolBar(props: {
 
   const getChatPopupAlign = useCallback((pool: PoolChatType) => {
     const node = chatAnchorsRef.current[pool];
-    const popupWidth = Math.min(400, window.innerWidth - 32);
+    const popupWidth = Math.min(480, window.innerWidth - 32);
 
     if (!node) {
       return pool === 'scout' ? 'right' : 'left';
@@ -535,7 +535,7 @@ function PoolBar(props: {
                     chatAnchorsRef.current[chatPool] = node;
                   }
                 }}
-                style={{ position: 'relative' }}
+                style={{ position: 'relative', display: 'grid', gap: 8 }}
               >
                 <button
                   onClick={() => onTogglePool(pool)}
@@ -545,7 +545,7 @@ function PoolBar(props: {
                     borderRadius: 18,
                     border: `1.5px solid ${openPool === pool ? meta.accent : TOKENS.b2}`,
                     background: openPool === pool ? `${meta.accent}16` : TOKENS.card2,
-                    padding: supportsChat ? '12px 44px 12px 14px' : '12px 14px',
+                    padding: '12px 14px',
                     cursor: 'pointer',
                     display: 'grid',
                     gap: 6,
@@ -565,14 +565,12 @@ function PoolBar(props: {
                       onClick={() => handleTogglePoolChat(chatPool)}
                       title={`${chatConfig.title}-Chat anzeigen`}
                       style={{
-                        position: 'absolute',
-                        top: 10,
-                        right: 10,
+                        justifySelf: 'start',
                         borderRadius: 999,
                         border: `1px solid ${isChatOpen ? meta.accent : TOKENS.b1}`,
                         background: isChatOpen ? `${meta.accent}18` : 'rgba(255,255,255,0.03)',
                         color: isChatOpen ? meta.accent : TOKENS.text2,
-                        padding: '4px 8px',
+                        padding: '5px 10px',
                         fontSize: 10,
                         fontWeight: 700,
                         cursor: 'pointer',
@@ -588,7 +586,9 @@ function PoolBar(props: {
                           position: 'absolute',
                           top: 'calc(100% + 8px)',
                           ...(openPoolChat?.align === 'right' ? { right: 0 } : { left: 0 }),
-                          width: 'min(400px, calc(100vw - 32px))',
+                          width: 'min(480px, calc(100vw - 32px))',
+                          minHeight: 200,
+                          display: 'grid',
                           zIndex: 50,
                         }}
                       >
