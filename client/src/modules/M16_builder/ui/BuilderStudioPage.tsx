@@ -12,6 +12,8 @@ import {
   type PoolType,
 } from './BuilderConfigPanel';
 import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext } from '../hooks/useMayaApi';
+import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
+import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
   useBuilderApi,
   type BuilderAction,
@@ -24,6 +26,7 @@ import {
   type BuilderPatrolStatus,
   type BuilderTask,
 } from '../hooks/useBuilderApi';
+import { MayaFigure, getMayaFigureColor } from './MayaFigure';
 import { PoolChatWindow } from './PoolChatWindow';
 
 type DialogFormat = 'dsl' | 'text';
@@ -598,6 +601,7 @@ function PoolBar(props: {
             return (
               <div
                 key={pool}
+                data-maya-target={`pool.${pool}`}
                 ref={(node) => {
                   if (chatPool) {
                     chatAnchorsRef.current[chatPool] = node;
@@ -975,6 +979,24 @@ export function BuilderStudioPage() {
     risk: 'low',
     taskType: 'A',
   });
+  const builderRef = useRef<HTMLDivElement | null>(null);
+  const registryState = useMayaTargetRegistry(builderRef);
+  const targetRegistry = useMemo(() => ({
+    targets: registryState.targets,
+    getTargetRect: registryState.getTargetRect,
+    refreshTargets: registryState.refreshTargets,
+  }), [registryState.getTargetRect, registryState.refreshTargets, registryState.targets]);
+  const refreshMayaTargets = registryState.refreshTargets;
+  const {
+    figureX: mayaFigureX,
+    figureY: mayaFigureY,
+    state: mayaFigureState,
+    visible: mayaFigureVisible,
+    bubbleText: mayaBubbleText,
+    activeTargetId: mayaActiveTargetId,
+    guideTo: guideMayaTo,
+    clearGuide: clearMayaGuide,
+  } = useMayaFigureGuide(targetRegistry);
 
   const {
     listFiles: listBuilderFiles,
@@ -1043,12 +1065,73 @@ export function BuilderStudioPage() {
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const directorStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mayaTourTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const clearMayaTourTimers = useCallback(() => {
+    mayaTourTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    mayaTourTimersRef.current = [];
+  }, []);
+
+  const handleStartMayaTour = useCallback(() => {
+    clearMayaTourTimers();
+    refreshMayaTargets();
+    guideMayaTo('tasklist', 'Hier sind deine aktiven Tasks.');
+
+    mayaTourTimersRef.current = [
+      window.setTimeout(() => guideMayaTo('maya-chat', 'Gib mir hier deinen naechsten Auftrag.'), 4000),
+      window.setTimeout(() => guideMayaTo('approve-button', 'Fertige Tasks hier freigeben.'), 8000),
+      window.setTimeout(() => clearMayaGuide(), 12000),
+    ];
+  }, [clearMayaGuide, clearMayaTourTimers, guideMayaTo, refreshMayaTargets]);
 
   useEffect(() => {
     dialogFormatRef.current = dialogFormat;
   }, [dialogFormat]);
+
+  useEffect(() => {
+    return () => {
+      clearMayaTourTimers();
+    };
+  }, [clearMayaTourTimers]);
+
+  useEffect(() => {
+    refreshMayaTargets();
+  }, [compact, dialogBubbles.length, patrolOpen, refreshMayaTargets, selectedTaskId, showConfig, tasks.length]);
+
+  useEffect(() => {
+    const container = builderRef.current;
+    if (!container) {
+      return;
+    }
+
+    const highlightColor = getMayaFigureColor(mayaFigureState);
+    const targetNodes = Array.from(container.querySelectorAll<HTMLElement>('[data-maya-target]'));
+
+    targetNodes.forEach((node) => {
+      node.style.transition = node.style.transition
+        ? `${node.style.transition}, box-shadow 0.25s ease`
+        : 'box-shadow 0.25s ease';
+
+      if (node.dataset.mayaGuideHighlighted === 'true') {
+        node.style.boxShadow = '';
+        delete node.dataset.mayaGuideHighlighted;
+      }
+    });
+
+    if (!mayaActiveTargetId) {
+      return;
+    }
+
+    const activeTarget = targetNodes.find((node) => node.dataset.mayaTarget === mayaActiveTargetId);
+    if (!activeTarget) {
+      return;
+    }
+
+    activeTarget.style.boxShadow = `0 0 0 2px ${highlightColor}40, 0 0 16px ${highlightColor}15`;
+    activeTarget.dataset.mayaGuideHighlighted = 'true';
+  }, [mayaActiveTargetId, mayaFigureState]);
 
   useEffect(() => {
     const el = chatContainerRef.current;
@@ -1624,7 +1707,7 @@ export function BuilderStudioPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text }}>
-      <div style={{ maxWidth: 1680, margin: '0 auto', padding: compact ? '18px 16px 28px' : '22px 22px 32px' }}>
+      <div ref={builderRef} style={{ position: 'relative', maxWidth: 1680, margin: '0 auto', padding: compact ? '18px 16px 28px' : '22px 22px 32px' }}>
         <header
           style={{
             border: `1.5px solid ${TOKENS.b2}`,
@@ -1655,10 +1738,14 @@ export function BuilderStudioPage() {
               <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Refresh
               </button>
+              <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                🧭 Maya Tour
+              </button>
               <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 {showConfig ? 'Config ✕' : 'Config'}
               </button>
               <a
+                data-maya-target="patrol-console"
                 href="/patrol?opus_token=opus-bridge-2026-geheim"
                 style={{
                   borderRadius: 999,
@@ -1701,6 +1788,7 @@ export function BuilderStudioPage() {
         {sessionSummary ? (
           <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
             <button
+              data-maya-target="session"
               type="button"
               onClick={() => {
                 setPatrolOpen((current) => {
@@ -1867,8 +1955,9 @@ export function BuilderStudioPage() {
           }}
         >
           <div style={{ display: 'grid', gap: 18 }}>
-            <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues und Statusfarben." accent={TOKENS.cyan}>
-              <div style={{ display: 'grid', gap: 10 }}>
+            <div data-maya-target="tasklist">
+              <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues und Statusfarben." accent={TOKENS.cyan}>
+                <div style={{ display: 'grid', gap: 10 }}>
                 {tasks.map((task) => {
                   const selected = task.id === selectedTaskId;
                   const isActive = !['done', 'cancelled', 'blocked', 'deleted'].includes(task.status);
@@ -1995,9 +2084,10 @@ export function BuilderStudioPage() {
                     </div>
                   );
                 })}
-                {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}
-              </div>
-            </BuilderPanel>
+                  {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}
+                </div>
+              </BuilderPanel>
+            </div>
 
             <BuilderPanel title="File Explorer" subtitle="Repo-Dateien bis Tiefe 3, direkt aus dem Builder-Endpoint." accent={TOKENS.purple}>
               <div style={{ display: 'grid', gap: 14 }}>
@@ -2038,8 +2128,10 @@ export function BuilderStudioPage() {
             </BuilderPanel>
           </div>
 
-          <BuilderPanel title="Dialog Viewer" subtitle="BDL oder Textansicht mit Bubble-Gruppierung pro Akteur und Runde." accent={TOKENS.gold}>
-            <div
+          <div data-maya-target="dialog-viewer">
+            <BuilderPanel title="Dialog Viewer" subtitle="BDL oder Textansicht mit Bubble-Gruppierung pro Akteur und Runde." accent={TOKENS.gold}>
+              <div
+                data-maya-target="maya-chat"
               style={{
                 background: TOKENS.bg2,
                 borderRadius: 22,
@@ -2280,6 +2372,7 @@ export function BuilderStudioPage() {
                     disabled={chatLoading}
                   />
                   <button
+                    data-maya-target="send-button"
                     onClick={() => {
                       void handleSendChat();
                     }}
@@ -2315,7 +2408,7 @@ export function BuilderStudioPage() {
                   </div>
                 ) : null}
               </div>
-            </div>
+              </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div style={{ color: TOKENS.text2, fontSize: 13 }}>
                 Aktiver Task: {activeTask?.title ?? '—'}
@@ -2369,11 +2462,13 @@ export function BuilderStudioPage() {
               ))}
               {dialogBubbles.length === 0 ? <div style={{ fontSize: 14, color: TOKENS.text2 }}>Noch kein Dialog für den gewählten Task vorhanden.</div> : null}
             </div>
-          </BuilderPanel>
+            </BuilderPanel>
+          </div>
 
           <div style={{ display: 'grid', gap: 18 }}>
-            <BuilderPanel title="Task Detail" subtitle="Erstellen, starten und final markieren." accent={TOKENS.green}>
-              <div style={{ display: 'grid', gap: 14 }}>
+            <div data-maya-target="task-detail">
+              <BuilderPanel title="Task Detail" subtitle="Erstellen, starten und final markieren." accent={TOKENS.green}>
+                <div style={{ display: 'grid', gap: 14 }}>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Task-Titel" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
                   <textarea value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value }))} placeholder="Task-Ziel" rows={4} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }} />
@@ -2435,9 +2530,9 @@ export function BuilderStudioPage() {
                   </div>
                   <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash für Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
                   <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                    <button onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
-                    <button onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
-                    <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
+                    <button data-maya-target="run-button" onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
+                    <button data-maya-target="approve-button" onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
+                    <button data-maya-target="revert-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
                   </div>
                   <button
                     onClick={() => { void handleDeleteTask(); }}
@@ -2479,8 +2574,9 @@ export function BuilderStudioPage() {
                     </div>
                   ) : null}
                 </div>
-              </div>
-            </BuilderPanel>
+                </div>
+              </BuilderPanel>
+            </div>
 
             <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
               <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
@@ -2564,6 +2660,14 @@ export function BuilderStudioPage() {
             ))}
           </div>
         </footer>
+
+        <MayaFigure
+          x={mayaFigureX}
+          y={mayaFigureY}
+          state={mayaFigureState}
+          visible={mayaFigureVisible}
+          bubbleText={mayaBubbleText}
+        />
       </div>
     </div>
   );
