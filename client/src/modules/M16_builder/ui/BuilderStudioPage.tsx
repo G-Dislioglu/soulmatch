@@ -19,6 +19,9 @@ import {
   type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
   type BuilderEvidencePack,
+  type BuilderPatrolFinding,
+  type BuilderPatrolSeverity,
+  type BuilderPatrolStatus,
   type BuilderTask,
 } from '../hooks/useBuilderApi';
 import { PoolChatWindow } from './PoolChatWindow';
@@ -121,6 +124,32 @@ const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
   scout: { label: 'Scout', accent: TOKENS.green },
 };
 
+const PATROL_SEVERITY_ORDER: Record<BuilderPatrolSeverity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
+
+const PATROL_SEVERITY_CONFIG: Record<BuilderPatrolSeverity, { color: string; bg: string; icon: string; label: string }> = {
+  critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '⛔', label: 'Kritisch' },
+  high: { color: '#ff8c42', bg: '#ff8c4218', icon: '🔴', label: 'Hoch' },
+  medium: { color: '#ffd166', bg: '#ffd16618', icon: '🟡', label: 'Mittel' },
+  low: { color: '#6ec6ff', bg: '#6ec6ff18', icon: '🔵', label: 'Niedrig' },
+  info: { color: '#8b8fa3', bg: '#8b8fa318', icon: '⚪', label: 'Info' },
+};
+
+const PATROL_CATEGORY_LABELS: Record<string, string> = {
+  'security-concern': 'Sicherheit',
+  'missing-error-handli': 'Error Handling',
+  'missing-validation': 'Validierung',
+  'unused-import': 'Unused Import',
+  'dead-code': 'Dead Code',
+  'type-inconsistency': 'Type Fehler',
+  'stale-comment': 'Veralteter Kommentar',
+};
+
 const BUILDER_TOKEN_STORAGE_KEY = 'builder_token';
 const LEGACY_BUILDER_TOKEN_STORAGE_KEY = 'maya-token';
 const OPUS_TOKEN_STORAGE_KEY = 'builder_opus_token';
@@ -217,6 +246,38 @@ function maskToken(token: string) {
   }
 
   return `${token.slice(0, 3)}…${token.slice(-2)}`;
+}
+
+function normalizePatrolSeverity(value: string | null | undefined): BuilderPatrolSeverity {
+  if (value === 'critical' || value === 'high' || value === 'medium' || value === 'low' || value === 'info') {
+    return value;
+  }
+
+  return 'info';
+}
+
+function formatPatrolAffectedFiles(files: string[] | undefined) {
+  const list = Array.isArray(files) ? files.filter(Boolean) : [];
+  if (list.length === 0) {
+    return 'Keine Dateien';
+  }
+
+  const visible = list.slice(0, 3);
+  const hiddenCount = list.length - visible.length;
+  return hiddenCount > 0 ? `${visible.join(', ')} +${hiddenCount} more` : visible.join(', ');
+}
+
+function sortPatrolFindings(findings: BuilderPatrolFinding[]) {
+  return [...findings].sort((left, right) => {
+    const severityDiff = PATROL_SEVERITY_ORDER[normalizePatrolSeverity(left.severity)] - PATROL_SEVERITY_ORDER[normalizePatrolSeverity(right.severity)];
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
+
+    const rightTime = right.createdAt ? Date.parse(right.createdAt) : 0;
+    const leftTime = left.createdAt ? Date.parse(left.createdAt) : 0;
+    return rightTime - leftTime;
+  });
 }
 
 function toLines(text: string) {
@@ -925,6 +986,8 @@ export function BuilderStudioPage() {
     getDialog: getBuilderDialog,
     getEvidence: getBuilderEvidence,
     getTaskObservation,
+    getPatrolStatus,
+    getPatrolFindings,
     approveTask: approveBuilderTask,
     approvePrototype: approveBuilderPrototype,
     revisePrototype: reviseBuilderPrototype,
@@ -938,6 +1001,12 @@ export function BuilderStudioPage() {
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const [pools, setPools] = useState<PoolState>(() => loadPools());
   const [openPool, setOpenPool] = useState<PoolType | null>(null);
+  const [patrolOpen, setPatrolOpen] = useState(false);
+  const [patrolLoading, setPatrolLoading] = useState(false);
+  const [patrolError, setPatrolError] = useState<string | null>(null);
+  const [patrolStatus, setPatrolStatus] = useState<BuilderPatrolStatus | null>(null);
+  const [patrolFindings, setPatrolFindings] = useState<BuilderPatrolFinding[]>([]);
+  const [expandedPatrolFindingId, setExpandedPatrolFindingId] = useState<string | null>(null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -945,6 +1014,7 @@ export function BuilderStudioPage() {
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
+  const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -1058,6 +1128,23 @@ export function BuilderStudioPage() {
     setMayaCtx(nextContext);
   }, [getMayaContext]);
 
+  const refreshPatrolFeed = useCallback(async () => {
+    setPatrolLoading(true);
+    setPatrolError(null);
+    try {
+      const [nextStatus, nextFindings] = await Promise.all([
+        getPatrolStatus(),
+        getPatrolFindings(100),
+      ]);
+      setPatrolStatus(nextStatus);
+      setPatrolFindings(Array.isArray(nextFindings.findings) ? nextFindings.findings : []);
+    } catch (error) {
+      setPatrolError(error instanceof Error ? error.message : 'Patrol-Findings konnten nicht geladen werden');
+    } finally {
+      setPatrolLoading(false);
+    }
+  }, [getPatrolFindings, getPatrolStatus]);
+
   useEffect(() => {
     const trimmedToken = token.trim();
 
@@ -1123,6 +1210,30 @@ export function BuilderStudioPage() {
     void refreshFiles().catch(() => {});
     void refreshMayaContext().catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!authenticated || !patrolOpen) {
+      return;
+    }
+
+    void refreshPatrolFeed();
+  }, [authenticated, patrolOpen, refreshPatrolFeed]);
+
+  useEffect(() => {
+    if (!patrolOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPatrolOpen(false);
+        setExpandedPatrolFindingId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [patrolOpen]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -1541,7 +1652,7 @@ export function BuilderStudioPage() {
               <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Zur App
               </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Refresh
               </button>
               <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -1588,9 +1699,162 @@ export function BuilderStudioPage() {
         />
 
         {sessionSummary ? (
-          <div style={{ border: `1.5px solid rgba(212,175,55,0.28)`, borderRadius: 18, background: 'rgba(212,175,55,0.12)', boxShadow: TOKENS.shadow.card, padding: '10px 14px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Session</span>
-            <span style={{ fontSize: 13, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionSummary}</span>
+          <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setPatrolOpen((current) => {
+                  const next = !current;
+                  if (!next) {
+                    setExpandedPatrolFindingId(null);
+                  }
+                  return next;
+                });
+              }}
+              title="Patrol-Findings ein- oder ausklappen"
+              style={{
+                width: '100%',
+                border: `1.5px solid rgba(212,175,55,0.28)`,
+                borderRadius: 18,
+                background: 'rgba(212,175,55,0.12)',
+                boxShadow: TOKENS.shadow.card,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 12, color: TOKENS.gold, fontWeight: 700, width: 16, flexShrink: 0 }}>{patrolOpen ? '▾' : '▸'}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Session</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionSummary}</span>
+            </button>
+
+            {patrolOpen ? (
+              <div style={{ borderRadius: 20, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Patrol Findings</div>
+                    <div style={{ fontSize: 12, color: TOKENS.text2 }}>
+                      {patrolStatus
+                        ? `${patrolStatus.totalFindings ?? 0} Findings · ${patrolStatus.crossConfirmed ?? 0} cross-confirmed · ${patrolStatus.triaged ?? 0} triaged`
+                        : 'Patrol-Status wird geladen...'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {(Object.keys(PATROL_SEVERITY_CONFIG) as BuilderPatrolSeverity[]).map((severity) => {
+                      const config = PATROL_SEVERITY_CONFIG[severity];
+                      return (
+                        <span
+                          key={severity}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            borderRadius: 999,
+                            border: `1px solid ${config.color}33`,
+                            background: config.bg,
+                            color: config.color,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span>{config.icon}</span>
+                          <span>{patrolStatus?.bySeverity?.[severity] ?? 0}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: 400, overflowY: 'auto', display: 'grid', gap: 10, paddingRight: 2 }}>
+                  {patrolLoading ? (
+                    <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: '14px 12px', fontSize: 12, color: TOKENS.text2 }}>
+                      Patrol-Findings werden geladen...
+                    </div>
+                  ) : patrolError ? (
+                    <div style={{ borderRadius: 16, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '14px 12px', fontSize: 12 }}>
+                      {patrolError}
+                    </div>
+                  ) : sortedPatrolFindings.length === 0 ? (
+                    <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: '14px 12px', fontSize: 12, color: TOKENS.text2 }}>
+                      Keine Patrol-Findings vorhanden.
+                    </div>
+                  ) : (
+                    sortedPatrolFindings.map((finding) => {
+                      const severity = normalizePatrolSeverity(finding.severity);
+                      const config = PATROL_SEVERITY_CONFIG[severity];
+                      const expanded = expandedPatrolFindingId === finding.id;
+                      const categoryLabel = PATROL_CATEGORY_LABELS[finding.category] ?? finding.category;
+                      const hasDetails = Boolean(finding.problem || finding.solution);
+
+                      return (
+                        <article key={finding.id} style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: TOKENS.card2, overflow: 'hidden' }}>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedPatrolFindingId((current) => current === finding.id ? null : finding.id)}
+                            style={{
+                              width: '100%',
+                              border: 'none',
+                              background: 'transparent',
+                              color: TOKENS.text,
+                              cursor: 'pointer',
+                              padding: '12px 14px',
+                              display: 'grid',
+                              gridTemplateColumns: compact ? '1fr' : '148px minmax(0, 1fr) minmax(0, 220px)',
+                              gap: 10,
+                              alignItems: 'center',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: config.color, background: config.bg, border: `1px solid ${config.color}33`, textTransform: 'uppercase' }}>
+                                <span>{config.icon}</span>
+                                <span>{config.label}</span>
+                              </span>
+                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{expanded ? '▾' : '▸'}</span>
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finding.title}</div>
+                              <div style={{ marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ fontSize: 11, color: TOKENS.text2 }}>{categoryLabel}</span>
+                                <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(finding.createdAt ?? null)}</span>
+                              </div>
+                            </div>
+                            <div style={{ minWidth: 0, fontSize: 11, color: TOKENS.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {formatPatrolAffectedFiles(finding.affectedFiles)}
+                            </div>
+                          </button>
+                          {expanded ? (
+                            <div style={{ borderTop: `1px solid ${TOKENS.b3}`, padding: '12px 14px', display: 'grid', gap: 10, background: 'rgba(255,255,255,0.02)' }}>
+                              <div style={{ display: 'grid', gap: 4 }}>
+                                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: TOKENS.text3 }}>Problem</div>
+                                <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{finding.problem || 'Kein Problemtext vorhanden.'}</div>
+                              </div>
+                              <div style={{ display: 'grid', gap: 4 }}>
+                                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: TOKENS.text3 }}>Solution</div>
+                                <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{finding.solution || 'Noch keine Loesung dokumentiert.'}</div>
+                              </div>
+                              {Array.isArray(finding.affectedFiles) && finding.affectedFiles.length > 0 ? (
+                                <div style={{ display: 'grid', gap: 4 }}>
+                                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: TOKENS.text3 }}>Affected Files</div>
+                                  <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{finding.affectedFiles.join(', ')}</div>
+                                </div>
+                              ) : null}
+                              {!hasDetails && (!finding.affectedFiles || finding.affectedFiles.length === 0) ? (
+                                <div style={{ fontSize: 12, color: TOKENS.text3 }}>Keine weiteren Details vorhanden.</div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

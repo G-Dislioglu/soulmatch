@@ -139,6 +139,30 @@ export interface BuilderTaskObservation {
   opusLogs: BuilderObservedLog[];
 }
 
+export type BuilderPatrolSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export interface BuilderPatrolStatus {
+  totalFindings?: number;
+  lastRound?: string | null;
+  triaged?: number;
+  crossConfirmed?: number;
+  bySeverity?: Partial<Record<BuilderPatrolSeverity, number>>;
+}
+
+export interface BuilderPatrolFinding {
+  id: string;
+  title: string;
+  category: string;
+  severity: BuilderPatrolSeverity;
+  tags?: string[];
+  problem?: string | null;
+  solution?: string | null;
+  affectedFiles?: string[];
+  foundBy?: string | null;
+  createdAt?: string | null;
+  resolvedAt?: string | null;
+}
+
 function toApiPath(path: string) {
   return `/api/builder${path}`;
 }
@@ -254,6 +278,18 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     });
   }, [requestJson]);
 
+  const getPatrolStatus = useCallback(() => {
+    return requestJson<BuilderPatrolStatus>('/opus-bridge/patrol-status', undefined, {
+      preferOpusOnly: true,
+    });
+  }, [requestJson]);
+
+  const getPatrolFindings = useCallback((limit = 100) => {
+    return requestJson<{ count: number; findings: BuilderPatrolFinding[] }>(`/opus-bridge/patrol-findings?limit=${encodeURIComponent(String(limit))}`, undefined, {
+      preferOpusOnly: true,
+    });
+  }, [requestJson]);
+
   const approveTask = useCallback((taskId: string, commitHash?: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/approve`, {
       method: 'POST',
@@ -310,6 +346,8 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     getDialog,
     getEvidence,
     getTaskObservation,
+    getPatrolStatus,
+    getPatrolFindings,
     approveTask,
     approvePrototype,
     revisePrototype,
