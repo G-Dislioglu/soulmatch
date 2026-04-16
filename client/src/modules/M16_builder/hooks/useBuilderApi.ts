@@ -94,6 +94,51 @@ export interface BuilderEvidencePack {
   created_at: string;
 }
 
+export interface BuilderChatPoolEntry {
+  round: number;
+  phase: string;
+  actor: string;
+  model: string;
+  content: string;
+  tokensUsed: number | null;
+  createdAt: string;
+}
+
+export interface BuilderObservedAction {
+  lane: string;
+  kind: string;
+  actor: string;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface BuilderObservedLog {
+  action: string;
+  input: unknown;
+  output: unknown;
+  tokensUsed: number | null;
+  createdAt: string;
+}
+
+export interface BuilderTaskObservation {
+  task: {
+    id: string;
+    title: string;
+    goal: string;
+    status: string;
+    scope: string[];
+    risk: string | null;
+    commitHash: string | null;
+    tokenCount: number | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  chatPool: BuilderChatPoolEntry[];
+  actions: BuilderObservedAction[];
+  opusLogs: BuilderObservedLog[];
+}
+
 function toApiPath(path: string) {
   return `/api/builder${path}`;
 }
@@ -179,6 +224,10 @@ export function useBuilderApi(token: string | null) {
     return requestJson<BuilderEvidencePack>(`/tasks/${encodeURIComponent(taskId)}/evidence`);
   }, [requestJson]);
 
+  const getTaskObservation = useCallback((taskId: string) => {
+    return requestJson<BuilderTaskObservation>(`/opus-bridge/observe/${encodeURIComponent(taskId)}`);
+  }, [requestJson]);
+
   const approveTask = useCallback((taskId: string, commitHash?: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/approve`, {
       method: 'POST',
@@ -234,6 +283,7 @@ export function useBuilderApi(token: string | null) {
     runTask,
     getDialog,
     getEvidence,
+    getTaskObservation,
     approveTask,
     approvePrototype,
     revisePrototype,

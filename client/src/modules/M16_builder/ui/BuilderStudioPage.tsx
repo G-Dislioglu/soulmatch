@@ -16,10 +16,12 @@ import {
   useBuilderApi,
   type BuilderAction,
   type BuilderChatMessage,
+  type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
   type BuilderEvidencePack,
   type BuilderTask,
 } from '../hooks/useBuilderApi';
+import { PoolChatWindow } from './PoolChatWindow';
 
 type DialogFormat = 'dsl' | 'text';
 
@@ -726,6 +728,7 @@ export function BuilderStudioPage() {
     runTask: runBuilderTask,
     getDialog: getBuilderDialog,
     getEvidence: getBuilderEvidence,
+    getTaskObservation,
     approveTask: approveBuilderTask,
     approvePrototype: approveBuilderPrototype,
     revisePrototype: reviseBuilderPrototype,
@@ -746,6 +749,7 @@ export function BuilderStudioPage() {
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
+  const isScoutPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'scout', []);
   const previewUrl = activeTask
     ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`
     : null;
@@ -2073,6 +2077,14 @@ export function BuilderStudioPage() {
           </div>
         </footer>
       </div>
+      <PoolChatWindow
+        title="Scout"
+        taskId={selectedTaskId}
+        accent={TOKENS.green}
+        compact={compact}
+        filter={isScoutPoolEntry}
+        fetchObservation={getTaskObservation}
+      />
     </div>
   );
 }
