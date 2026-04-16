@@ -19,8 +19,8 @@ set -euo pipefail
 URL="${DEPLOY_URL:-https://soulmatch-1.onrender.com/api/health}"
 EXPECTED_COMMIT="${EXPECT_COMMIT:-}"
 RESOLVE_IP="${DEPLOY_RESOLVE_IP:-}"
-MAX_SECONDS=600   # 10 minutes
-INTERVAL=30
+MAX_SECONDS="${DEPLOY_WAIT_SECONDS:-600}"   # default: 10 minutes
+INTERVAL="${DEPLOY_POLL_INTERVAL:-30}"
 ELAPSED=0
 ATTEMPTS=0
 HOST=$(printf '%s' "$URL" | sed -E 's#https?://([^/]+).*#\1#')

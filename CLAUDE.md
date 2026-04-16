@@ -146,7 +146,7 @@ Copy `.env.example` to `.env` in the repo root before running locally.
 5. **After building a feature, trace the logic by reading the relevant code** to verify it actually works end-to-end.
 6. **Never say "done" without having run typecheck green.**
 7. **If a fix requires changes in more than 3 files, pause and summarize what you are about to change before proceeding.**
-8. **After every push to main, run `bash tools/wait-for-deploy.sh` to confirm the live Render deployment succeeded before marking a task done.** Never assume a push == a successful deploy.
+8. **After every push to main, run `bash tools/wait-for-deploy.sh` to confirm the live Render deployment succeeded before marking a task done.** The GitHub workflow now waits for Render Auto Deploy first and only triggers the deploy hook as a fallback. Never assume a push == a successful deploy.
 9. **For reuse questions, cross-system patterns, or structural decisions, inspect `aicos-registry/treegraphos/TREEGRAPHOS-SPEC-v0.3.2.md` first.** Treat it as cross-system reference, not as direct Soulmatch runtime truth.
 10. **Builder code changes go through `/opus-feature` or `/push` endpoints.** Claude Opus directs (Regie), never edits files manually.
 11. **TSC build check (`cd client && npx tsc -b`) must pass before `/git-push`.** Render enforces `noUnusedParameters` strictly.

@@ -209,10 +209,11 @@ Oberflaechen. Bewusst weiter offen bleiben semantische Figure-Zustaende,
 echtes TTS im Builder und jede Form autonomer Steuerung.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
-Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
-keine aktive `render.yaml`, aber jetzt einen eigenen GitHub-Deploypfad:
-`.github/workflows/render-deploy.yml` triggert Render ueber
-`RENDER_DEPLOY_HOOK_URL`, und `tools/wait-for-deploy.sh` wartet optional auf den
+Verlass auf Render Auto Deploy ist jetzt als Drift benannt, aber der Repo-Pfad
+ist enger gezogen. Das Repo enthaelt keine aktive `render.yaml`, sondern einen
+GitHub-Deploypfad, der zuerst kurz auf Render Auto Deploy wartet und
+`RENDER_DEPLOY_HOOK_URL` nur noch als Fallback nutzt; `tools/wait-for-deploy.sh`
+akzeptiert dafuer jetzt konfigurierbare Timeouts und wartet weiterhin auf den
 exakten Commit aus `/api/health` statt nur auf irgendein HTTP 200. Der naechste
 enge Block ist damit kein weiterer Deploy-Umbau, sondern die Live-Verifikation
 dieses Pfads plus die produktive Maya-Brain-Pruefung auf Render. Parallel dazu

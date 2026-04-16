@@ -140,8 +140,8 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-04-15`
 - `quality`: `repo_triggered_live_verification_pending`
-- `known_gap`: Render Auto Deploy alleine ist als Betriebsweg zu unzuverlaessig. Das Repo nutzt jetzt einen GitHub-Workflow, der Render ueber `RENDER_DEPLOY_HOOK_URL` triggert und den Live-Commit ueber `/api/health` verifiziert. Voll bestaetigt ist das erst nach einem echten Lauf mit gesetztem Secret im Ziel-Repo.
-- `next_recommended_step`: GitHub-Secret `RENDER_DEPLOY_HOOK_URL` setzen, einen Push auf `main` ausloesen und pruefen, ob `.github/workflows/render-deploy.yml` bis zum erwarteten Commit auf Render durchlaeuft.
+- `known_gap`: Der doppelte Deploy-Pfad ist repo-seitig jetzt enger gezogen: Der Workflow wartet zuerst kurz auf Render Auto Deploy und nutzt `RENDER_DEPLOY_HOOK_URL` nur noch als Fallback, damit derselbe Push nicht doppelt deployed wird. Voll bestaetigt ist dieser Fallback-Modus erst nach einem echten Lauf, bei dem entweder Auto Deploy rechtzeitig uebernimmt oder der Hook sauber einspringt.
+- `next_recommended_step`: Einen Push auf `main` gegen die Zielruntime fahren und pruefen, ob `.github/workflows/render-deploy.yml` entweder ohne Hook-Fallback auf den Commit laeuft oder den Hook genau einmal als Fallback nachzieht.
 - `evidence`: `.github/workflows/render-deploy.yml`, `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, `server/src/routes/health.ts`.
 
 ### Opus-Bridge orchestration

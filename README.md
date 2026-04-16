@@ -3,8 +3,9 @@
 ## Render staging deployment
 
 This repo does not currently include a checked-in `render.yaml` blueprint.
-The reliable deploy path is a GitHub Actions workflow that triggers Render via
-deploy hook and then waits until `/api/health` reports the pushed commit.
+The reliable deploy path is a GitHub Actions workflow that first waits briefly
+for Render Auto Deploy to pick up the pushed commit and only triggers the
+deploy hook as a fallback if the live commit does not advance.
 
 ### 1) Required Render environment variables
 
@@ -36,10 +37,10 @@ git push origin <your-branch>
    - Create/attach the Web Service from this repo
    - Select branch `main`
    - Create a Deploy Hook and store it as GitHub secret `RENDER_DEPLOY_HOOK_URL`
-   - Keep Render Auto Deploy enabled if you want, but do not rely on it as the only trigger
+   - Render Auto Deploy may stay enabled; the workflow now waits for it first and only falls back to the deploy hook if needed
 
 3. In GitHub:
-   - The workflow `.github/workflows/render-deploy.yml` triggers Render on every push to `main`
+   - The workflow `.github/workflows/render-deploy.yml` verifies each push to `main`, waits briefly for Render Auto Deploy, and uses the deploy hook only as fallback
    - The workflow fails if `/api/health` does not advance to the exact pushed commit
 
 ### 3) Staging smoke checks

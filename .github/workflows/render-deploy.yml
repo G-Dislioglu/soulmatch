@@ -15,7 +15,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Trigger Render deploy hook
+      - name: Wait for Render auto deploy first
+        id: auto_deploy
+        continue-on-error: true
+        env:
+          DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
+          EXPECT_COMMIT: ${{ github.sha }}
+          DEPLOY_WAIT_SECONDS: 180
+        run: bash tools/wait-for-deploy.sh
+
+      - name: Trigger Render deploy hook fallback
+        if: steps.auto_deploy.outcome != 'success'
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
@@ -26,7 +36,8 @@ jobs:
 
           curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
 
-      - name: Wait for live Render commit
+      - name: Wait for live Render commit after fallback
+        if: steps.auto_deploy.outcome != 'success'
         env:
           DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
           EXPECT_COMMIT: ${{ github.sha }}
