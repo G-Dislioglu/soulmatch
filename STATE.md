@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `6386a6b`
+- `current_repo_head`: `ad1fa42`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die Builder-Pool-Chats wurden von festen Bottom-Widgets auf die PoolBar umgezogen: Scout, Destillierer und Worker oeffnen jetzt Chat-Popups an den Status-Kacheln, die bestehende Pool-Konfiguration bleibt erhalten, und Builder-/Opus-Token werden fuer /builder plus Observe-Pfad getrennt und persistent geladen`
-- `next_recommended_block`: `Council als vierter Pool-Chat nur dann oeffnen, wenn die bestehende Moderationslogik sauber getrennt bleibt; alternativ zuerst den Maya-Brain-Fast/Deep-Pfad gegen echte Provider-Laufzeit pruefen`
+- `last_completed_block`: `Die Builder-PoolBar zeigt jetzt vier read-only Live-Feeds direkt an den Status-Kacheln: Scout, Council, Destillierer und Worker oeffnen Popups mit Actor-Labels, Runden-Badges und Maya-Moderator-Hervorhebung; die sichtbaren Trigger heissen jetzt LIVE statt Chat und die Popup-Breite wurde auf 600px angehoben`
+- `next_recommended_block`: `Patrol-Scouts als eigener Live-Feed aus builderErrorCards schneiden, ohne ihn als Chat-Format zu tarnen; alternativ zuerst den Maya-Brain-Fast/Deep-Pfad gegen echte Provider-Laufzeit pruefen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -174,13 +174,15 @@ aktive Builder-Maya-Flaeche. Deshalb sitzen Maya-Brain-Toggle,
 Opus/GPT 5.4/GLM 5.1-Auswahl, Fast/Deep-Schalter, Action-Badges und die
 GLM-5.1-Pool-Buttons fuer Maya/Council/Worker jetzt zusaetzlich in der real
 gerenderten Builder-Studio-Oberflaeche selbst. Darauf aufbauend ist die
-Builder-Pool-Ansicht jetzt in drei engen UI-Bloecken sichtbar gewachsen:
-Scout und Destillierer lesen ihren Chat ueber den bereits vorhandenen
+Builder-Pool-Ansicht jetzt in vier engen UI-Bloecken sichtbar gewachsen:
+Scout, Council, Destillierer und Worker lesen ihren Live-Feed ueber den bereits vorhandenen
 `/observe/:taskId`-Pfad, der Opus-Token wird getrennt vom Builder-Token
 persistiert, und die festen Bottom-Widgets sind wieder verschwunden. Stattdessen
-haengen Scout, Destillierer und Worker jetzt als Chat-Popups direkt an den
-jeweiligen PoolBar-Kacheln, waehrend die bestehende Pool-Konfiguration ueber
-denselben Kachelblock erhalten bleibt.
+haengen die vier Feeds jetzt als LIVE-Popups direkt an den jeweiligen
+PoolBar-Kacheln, waehrend die bestehende Pool-Konfiguration ueber denselben
+Kachelblock erhalten bleibt. Die Feed-Bubbles zeigen Actor-Labels,
+Runden-Badges und heben Maya-Moderator-Nachrichten sichtbar vor normalen
+Council- oder System-Nachrichten hervor.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
 Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
