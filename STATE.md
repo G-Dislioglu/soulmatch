@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `ad1fa42`
+- `current_repo_head`: `af85374`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die Builder-PoolBar zeigt jetzt vier read-only Live-Feeds direkt an den Status-Kacheln: Scout, Council, Destillierer und Worker oeffnen Popups mit Actor-Labels, Runden-Badges und Maya-Moderator-Hervorhebung; die sichtbaren Trigger heissen jetzt LIVE statt Chat und die Popup-Breite wurde auf 600px angehoben`
-- `next_recommended_block`: `Patrol-Scouts als eigener Live-Feed aus builderErrorCards schneiden, ohne ihn als Chat-Format zu tarnen; alternativ zuerst den Maya-Brain-Fast/Deep-Pfad gegen echte Provider-Laufzeit pruefen`
+- `last_completed_block`: `Die SESSION-Bar unter der PoolBar ist jetzt selbst klickbar und oeffnet einen Patrol-Findings-Feed aus builderErrorCards: Severity-sortiert, farbcodiert, mit klappbaren Problem-/Solution-Details und Affected-Files-Preview; die separaten Pool-LIVE-Popups bleiben davon unberuehrt`
+- `next_recommended_block`: `Als naechsten echten Runtime-Block den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad gegen reale Provider und Live-Commit pruefen; Patrol ist im Builder-UI jetzt sichtbar angebunden`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -183,6 +183,11 @@ PoolBar-Kacheln, waehrend die bestehende Pool-Konfiguration ueber denselben
 Kachelblock erhalten bleibt. Die Feed-Bubbles zeigen Actor-Labels,
 Runden-Badges und heben Maya-Moderator-Nachrichten sichtbar vor normalen
 Council- oder System-Nachrichten hervor.
+Die Patrol-Lane bleibt davon bewusst getrennt: Statt eines weiteren Pool-Buttons
+klappt die bestehende SESSION-Bar jetzt selbst einen kompakten Findings-Feed aus,
+der `patrol-status` plus `patrol-findings` ueber den Opus-Token liest und
+Severity-Badges, Detail-Accordion und Dateivorschau direkt im Builder-Studio
+zeigt, waehrend die separate Patrol Console als Vollansicht erhalten bleibt.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
 Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
