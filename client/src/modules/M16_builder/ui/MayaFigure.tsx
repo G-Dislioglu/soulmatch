@@ -16,16 +16,16 @@ export interface MayaFigureProps {
 export function getMayaFigureColor(state: MayaFigureState) {
   switch (state) {
     case 'guiding':
-      return '#22c55e';
+      return '#f0c35b';
     case 'thinking':
       return '#06b6d4';
     case 'speaking':
-      return '#d4af37';
+      return '#e7b94c';
     case 'warning':
       return '#ef4444';
     case 'idle':
     default:
-      return '#a78bfa';
+      return TOKENS.gold;
   }
 }
 

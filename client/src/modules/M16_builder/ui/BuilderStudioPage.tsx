@@ -259,6 +259,15 @@ function normalizePatrolSeverity(value: string | null | undefined): BuilderPatro
   return 'info';
 }
 
+function shortenGuideLabel(value: string, maxLength = 48) {
+  const normalized = value.trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 function formatPatrolAffectedFiles(files: string[] | undefined) {
   const list = Array.isArray(files) ? files.filter(Boolean) : [];
   if (list.length === 0) {
@@ -1066,6 +1075,9 @@ export function BuilderStudioPage() {
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const directorStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mayaTourTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const lastGuidedTaskIdRef = useRef<string | null>(null);
+  const lastGuidedTaskStatusRef = useRef<string | null>(null);
+  const lastPatrolGuideKeyRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -1137,6 +1149,77 @@ export function BuilderStudioPage() {
     const el = chatContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatLoading, chatMessages]);
+
+  useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+
+    if (!selectedTaskId || !activeTask) {
+      lastGuidedTaskIdRef.current = null;
+      return;
+    }
+
+    if (lastGuidedTaskIdRef.current === selectedTaskId) {
+      return;
+    }
+
+    lastGuidedTaskIdRef.current = selectedTaskId;
+    guideMayaTo('task-detail', `Hier liegen Status und Aktionen fuer "${shortenGuideLabel(activeTask.title)}".`);
+  }, [activeTask, authenticated, guideMayaTo, selectedTaskId]);
+
+  useEffect(() => {
+    if (!authenticated || !activeTask) {
+      lastGuidedTaskStatusRef.current = null;
+      return;
+    }
+
+    const statusKey = `${activeTask.id}:${activeTask.status}`;
+    if (lastGuidedTaskStatusRef.current === statusKey) {
+      return;
+    }
+
+    let targetId: string | null = null;
+    let guideText: string | undefined;
+
+    if (activeTask.status === 'prototype_review') {
+      targetId = 'approve-prototype-button';
+      guideText = 'Preview hier freigeben, revidieren oder verwerfen.';
+    } else if (activeTask.status === 'push_candidate' || activeTask.status === 'done') {
+      targetId = 'approve-button';
+      guideText = 'Fertige Tasks hier freigeben.';
+    } else if (activeTask.status === 'blocked') {
+      targetId = 'dialog-viewer';
+      guideText = 'Hier siehst du, warum die Task blockiert ist.';
+    }
+
+    if (!targetId) {
+      return;
+    }
+
+    lastGuidedTaskStatusRef.current = statusKey;
+    guideMayaTo(targetId, guideText);
+  }, [activeTask, authenticated, guideMayaTo]);
+
+  useEffect(() => {
+    if (!authenticated || !patrolOpen) {
+      lastPatrolGuideKeyRef.current = null;
+      return;
+    }
+
+    const guideKey = `${patrolStatus?.totalFindings ?? 0}:${sortedPatrolFindings[0]?.id ?? 'none'}`;
+    if (lastPatrolGuideKeyRef.current === guideKey) {
+      return;
+    }
+
+    lastPatrolGuideKeyRef.current = guideKey;
+    guideMayaTo(
+      'session',
+      sortedPatrolFindings.length > 0
+        ? 'Hier tauchen globale Patrol-Findings gesammelt auf.'
+        : 'Hier erscheint die Patrol-Summary, sobald Findings vorliegen.',
+    );
+  }, [authenticated, guideMayaTo, patrolOpen, patrolStatus?.totalFindings, sortedPatrolFindings]);
 
   useEffect(() => {
     if (!chatLoading) {
@@ -2567,9 +2650,9 @@ export function BuilderStudioPage() {
                         />
                       </div>
                       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                        <button onClick={() => { void handleApprovePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve Prototype</button>
-                        <button onClick={() => { void handleRevisePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revise</button>
-                        <button onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Discard</button>
+                        <button data-maya-target="approve-prototype-button" onClick={() => { void handleApprovePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve Prototype</button>
+                        <button data-maya-target="revise-prototype-button" onClick={() => { void handleRevisePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revise</button>
+                        <button data-maya-target="discard-prototype-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Discard</button>
                       </div>
                     </div>
                   ) : null}
