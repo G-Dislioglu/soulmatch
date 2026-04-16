@@ -52,6 +52,13 @@ interface ReadFilePreview {
   content: string;
 }
 
+type PoolChatType = 'scout' | 'distiller' | 'worker';
+
+interface OpenPoolChat {
+  pool: PoolChatType;
+  align: 'left' | 'right';
+}
+
 const STATUS_COLORS: Record<string, string> = {
   queued: TOKENS.text2,
   classifying: TOKENS.cyan,
@@ -420,8 +427,90 @@ function PoolBar(props: {
   openPool: PoolType | null;
   onTogglePool: (pool: PoolType) => void;
   onToggleModel: (pool: PoolType, modelId: string) => void;
+  taskId: string | null;
+  fetchObservation: (taskId: string) => Promise<import('../hooks/useBuilderApi').BuilderTaskObservation>;
 }) {
-  const { pools, openPool, onTogglePool, onToggleModel } = props;
+  const { pools, openPool, onTogglePool, onToggleModel, taskId, fetchObservation } = props;
+  const [openPoolChat, setOpenPoolChat] = useState<OpenPoolChat | null>(null);
+  const chatAnchorsRef = useRef<Partial<Record<PoolChatType, HTMLDivElement | null>>>({});
+
+  const getChatPopupAlign = useCallback((pool: PoolChatType) => {
+    const node = chatAnchorsRef.current[pool];
+    const popupWidth = Math.min(400, window.innerWidth - 32);
+
+    if (!node) {
+      return pool === 'scout' ? 'right' : 'left';
+    }
+
+    const rect = node.getBoundingClientRect();
+    return rect.left + popupWidth > window.innerWidth - 16 ? 'right' : 'left';
+  }, []);
+
+  const handleTogglePoolChat = useCallback((pool: PoolChatType) => {
+    setOpenPoolChat((current) => {
+      if (current?.pool === pool) {
+        return null;
+      }
+
+      return {
+        pool,
+        align: getChatPopupAlign(pool),
+      };
+    });
+  }, [getChatPopupAlign]);
+
+  useEffect(() => {
+    if (!openPoolChat) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const anchor = chatAnchorsRef.current[openPoolChat.pool];
+      if (anchor && anchor.contains(event.target as Node)) {
+        return;
+      }
+
+      setOpenPoolChat(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenPoolChat(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [openPoolChat]);
+
+  const poolChatConfig: Record<PoolChatType, { title: string; accent: string; description: string; emptyStateText: string; filter: (entry: BuilderChatPoolEntry) => boolean }> = useMemo(() => ({
+    scout: {
+      title: 'Scout',
+      accent: POOL_LABELS.scout.accent,
+      description: 'Scout-Findings aus dem laufenden Chat-Pool.',
+      emptyStateText: 'Noch keine Scout-Nachrichten fuer diese Task.',
+      filter: (entry) => entry.phase === 'scout',
+    },
+    distiller: {
+      title: 'Destillierer',
+      accent: POOL_LABELS.distiller.accent,
+      description: 'Destillierte Briefs und Verdichtungen aus dem Chat-Pool.',
+      emptyStateText: 'Noch keine Distiller-Nachrichten fuer diese Task.',
+      filter: (entry) => entry.phase === 'distiller',
+    },
+    worker: {
+      title: 'Worker',
+      accent: POOL_LABELS.worker.accent,
+      description: 'Worker-Debatten und Ausfuehrungsdiskussionen aus dem Chat-Pool.',
+      emptyStateText: 'Noch keine Worker-Nachrichten fuer diese Task.',
+      filter: (entry) => entry.phase === 'roundtable' && entry.actor.startsWith('worker-'),
+    },
+  }), []);
 
   return (
     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
@@ -433,29 +522,91 @@ function PoolBar(props: {
             const leadId = activeIds[0];
             const leadLabel = leadId ? POOL_MODEL_META[leadId]?.label ?? leadId : 'leer';
             const score = poolScore(activeIds);
+            const supportsChat = pool === 'scout' || pool === 'distiller' || pool === 'worker';
+            const chatPool = supportsChat ? pool : null;
+            const chatConfig = chatPool ? poolChatConfig[chatPool] : null;
+            const isChatOpen = chatPool ? openPoolChat?.pool === chatPool : false;
 
             return (
-              <button
+              <div
                 key={pool}
-                onClick={() => onTogglePool(pool)}
-                style={{
-                  textAlign: 'left',
-                  borderRadius: 18,
-                  border: `1.5px solid ${openPool === pool ? meta.accent : TOKENS.b2}`,
-                  background: openPool === pool ? `${meta.accent}16` : TOKENS.card2,
-                  padding: '12px 14px',
-                  cursor: 'pointer',
-                  display: 'grid',
-                  gap: 6,
+                ref={(node) => {
+                  if (chatPool) {
+                    chatAnchorsRef.current[chatPool] = node;
+                  }
                 }}
+                style={{ position: 'relative' }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: meta.accent, fontWeight: 700 }}>{meta.label}</span>
-                  <span style={{ fontSize: 12, color: score >= 80 ? TOKENS.green : score >= 60 ? TOKENS.gold : TOKENS.text2, fontFamily: 'monospace', fontWeight: 700 }}>{score}%</span>
-                </div>
-                <div style={{ fontSize: 13, color: TOKENS.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leadLabel}</div>
-                <div style={{ fontSize: 12, color: TOKENS.text2 }}>{activeIds.length} aktiv</div>
-              </button>
+                <button
+                  onClick={() => onTogglePool(pool)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    borderRadius: 18,
+                    border: `1.5px solid ${openPool === pool ? meta.accent : TOKENS.b2}`,
+                    background: openPool === pool ? `${meta.accent}16` : TOKENS.card2,
+                    padding: supportsChat ? '12px 44px 12px 14px' : '12px 14px',
+                    cursor: 'pointer',
+                    display: 'grid',
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: meta.accent, fontWeight: 700 }}>{meta.label}</span>
+                    <span style={{ fontSize: 12, color: score >= 80 ? TOKENS.green : score >= 60 ? TOKENS.gold : TOKENS.text2, fontFamily: 'monospace', fontWeight: 700 }}>{score}%</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: TOKENS.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leadLabel}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>{activeIds.length} aktiv</div>
+                </button>
+                {supportsChat && chatPool && chatConfig ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePoolChat(chatPool)}
+                      title={`${chatConfig.title}-Chat anzeigen`}
+                      style={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        borderRadius: 999,
+                        border: `1px solid ${isChatOpen ? meta.accent : TOKENS.b1}`,
+                        background: isChatOpen ? `${meta.accent}18` : 'rgba(255,255,255,0.03)',
+                        color: isChatOpen ? meta.accent : TOKENS.text2,
+                        padding: '4px 8px',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Chat ▾
+                    </button>
+                    {isChatOpen ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 8px)',
+                          ...(openPoolChat?.align === 'right' ? { right: 0 } : { left: 0 }),
+                          width: 'min(400px, calc(100vw - 32px))',
+                          zIndex: 50,
+                        }}
+                      >
+                        <PoolChatWindow
+                          title={chatConfig.title}
+                          taskId={taskId}
+                          accent={chatConfig.accent}
+                          description={chatConfig.description}
+                          emptyStateText={chatConfig.emptyStateText}
+                          maxHeight={500}
+                          filter={chatConfig.filter}
+                          fetchObservation={fetchObservation}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -787,8 +938,6 @@ export function BuilderStudioPage() {
   const isPrototypeReview = activeTask?.status === 'prototype_review';
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
-  const isScoutPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'scout', []);
-  const isDistillerPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'distiller', []);
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -1422,7 +1571,14 @@ export function BuilderStudioPage() {
           </div>
         ) : null}
 
-        <PoolBar pools={pools} openPool={openPool} onTogglePool={handleTogglePool} onToggleModel={handleTogglePoolModel} />
+        <PoolBar
+          pools={pools}
+          openPool={openPool}
+          onTogglePool={handleTogglePool}
+          onToggleModel={handleTogglePoolModel}
+          taskId={selectedTaskId}
+          fetchObservation={getTaskObservation}
+        />
 
         {sessionSummary ? (
           <div style={{ border: `1.5px solid rgba(212,175,55,0.28)`, borderRadius: 18, background: 'rgba(212,175,55,0.12)', boxShadow: TOKENS.shadow.card, padding: '10px 14px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2138,28 +2294,6 @@ export function BuilderStudioPage() {
           </div>
         </footer>
       </div>
-      <PoolChatWindow
-        title="Scout"
-        taskId={selectedTaskId}
-        accent={TOKENS.green}
-        compact={compact}
-        position="bottom-right"
-        description="Scout-Findings aus dem laufenden Chat-Pool."
-        emptyStateText="Noch keine Scout-Nachrichten fuer diese Task."
-        filter={isScoutPoolEntry}
-        fetchObservation={getTaskObservation}
-      />
-      <PoolChatWindow
-        title="Destillierer"
-        taskId={selectedTaskId}
-        accent={POOL_LABELS.distiller.accent}
-        compact={compact}
-        position="bottom-left"
-        description="Destillierte Briefs und Verdichtungen aus dem Chat-Pool."
-        emptyStateText="Noch keine Distiller-Nachrichten fuer diese Task."
-        filter={isDistillerPoolEntry}
-        fetchObservation={getTaskObservation}
-      />
     </div>
   );
 }

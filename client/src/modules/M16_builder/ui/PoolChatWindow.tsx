@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { TOKENS } from '../../../design/tokens';
 import type { BuilderChatPoolEntry, BuilderTaskObservation } from '../hooks/useBuilderApi';
@@ -9,10 +9,9 @@ interface PoolChatWindowProps {
   title: string;
   taskId: string | null;
   accent?: string;
-  compact?: boolean;
-  position?: 'bottom-left' | 'bottom-right';
   description?: string;
   emptyStateText?: string;
+  maxHeight?: number;
   filter: (entry: BuilderChatPoolEntry) => boolean;
   fetchObservation: (taskId: string) => Promise<BuilderTaskObservation>;
 }
@@ -34,36 +33,20 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
     title,
     taskId,
     accent = TOKENS.green,
-    compact = false,
-    position = 'bottom-right',
     description,
     emptyStateText,
+    maxHeight = 420,
     filter,
     fetchObservation,
   } = props;
-  const [collapsed, setCollapsed] = useState(true);
   const [messages, setMessages] = useState<BuilderChatPoolEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const collapsedRef = useRef(collapsed);
-  const previousCountRef = useRef(0);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    collapsedRef.current = collapsed;
-    if (!collapsed) {
-      setUnreadCount(0);
-    }
-  }, [collapsed]);
-
-  useEffect(() => {
-    setCollapsed(true);
     setMessages([]);
     setLoading(false);
     setError(null);
-    setUnreadCount(0);
-    previousCountRef.current = 0;
   }, [taskId]);
 
   useEffect(() => {
@@ -88,16 +71,6 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
         const nextMessages = Array.isArray(observation.chatPool)
           ? observation.chatPool.filter(filter)
           : [];
-        const previousCount = previousCountRef.current;
-        previousCountRef.current = nextMessages.length;
-
-        if (collapsedRef.current && nextMessages.length > previousCount) {
-          setUnreadCount((current) => current + (nextMessages.length - previousCount));
-        }
-
-        if (!collapsedRef.current) {
-          setUnreadCount(0);
-        }
 
         setMessages(nextMessages);
         setError(null);
@@ -124,140 +97,88 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
     };
   }, [fetchObservation, filter, taskId]);
 
-  useEffect(() => {
-    if (!collapsed) {
-      bottomRef.current?.scrollIntoView({ block: 'end' });
-    }
-  }, [collapsed, messages]);
-
   const disabled = !taskId;
-  const width = compact
-    ? (collapsed ? 'min(calc(50vw - 18px), 180px)' : 'min(100vw - 24px, 340px)')
-    : '360px';
   const panelDescription = description ?? `${title}-Signale aus dem laufenden Chat-Pool.`;
   const panelEmptyState = emptyStateText ?? `Noch keine ${title}-Nachrichten fuer diese Task.`;
 
   return (
     <div
       style={{
-        position: 'fixed',
-        ...(position === 'bottom-left'
-          ? { left: compact ? 12 : 18 }
-          : { right: compact ? 12 : 18 }),
-        bottom: compact ? 12 : 18,
-        width,
-        zIndex: 30,
-        pointerEvents: 'auto',
+        border: `1.5px solid ${error ? '#f87171' : accent}`,
+        borderRadius: 20,
+        background: TOKENS.card,
+        boxShadow: TOKENS.shadow.panel,
+        overflow: 'hidden',
       }}
     >
       <div
         style={{
-          border: `1.5px solid ${error ? '#f87171' : accent}`,
-          borderRadius: 22,
-          background: TOKENS.card,
-          boxShadow: TOKENS.shadow.panel,
-          overflow: 'hidden',
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          alignItems: 'center',
+          padding: '12px 14px',
+          borderBottom: `1px solid ${TOKENS.b2}`,
+          background: `linear-gradient(180deg, ${accent}22, rgba(255,255,255,0.03))`,
         }}
       >
-        <button
-          type="button"
-          onClick={() => setCollapsed((current) => !current)}
+        <div style={{ display: 'grid', gap: 3 }}>
+          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: accent, fontWeight: 700 }}>
+            {title}
+          </span>
+          <span style={{ fontSize: 12, color: disabled ? TOKENS.text3 : TOKENS.text2 }}>
+            {disabled ? 'Keine aktive Task' : `${messages.length} Nachrichten`}
+          </span>
+        </div>
+      </div>
+      <div style={{ padding: 14 }}>
+        <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10 }}>
+          {loading
+            ? `${title} laedt ...`
+            : error
+              ? error
+              : disabled
+                ? 'Waehle links eine Task, um Pool-Nachrichten zu sehen.'
+                : panelDescription}
+        </div>
+        <div
           style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            border: 'none',
-            background: `linear-gradient(180deg, ${accent}22, rgba(255,255,255,0.03))`,
-            color: TOKENS.text,
-            padding: '12px 14px',
-            cursor: 'pointer',
-            textAlign: 'left',
+            maxHeight,
+            overflowY: 'auto',
+            display: 'grid',
+            gap: 10,
+            paddingRight: 2,
           }}
         >
-          <div style={{ display: 'grid', gap: 3 }}>
-            <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: accent, fontWeight: 700 }}>
-              {title}
-            </span>
-            <span style={{ fontSize: 12, color: disabled ? TOKENS.text3 : TOKENS.text2 }}>
-              {disabled ? 'Keine aktive Task' : `${messages.length} Nachrichten`}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {unreadCount > 0 ? (
-              <span
-                style={{
-                  minWidth: 24,
-                  borderRadius: 999,
-                  border: `1px solid ${accent}`,
-                  background: `${accent}22`,
-                  color: TOKENS.text,
-                  padding: '3px 8px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textAlign: 'center',
-                }}
-              >
-                +{unreadCount}
-              </span>
-            ) : null}
-            <span style={{ fontSize: 16, color: TOKENS.text2 }}>{collapsed ? '^' : 'v'}</span>
-          </div>
-        </button>
-
-        {!collapsed ? (
-          <div style={{ borderTop: `1px solid ${TOKENS.b2}`, padding: 14 }}>
-            <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10 }}>
-              {loading
-                ? `${title} laedt ...`
-                : error
-                  ? error
-                  : disabled
-                    ? 'Waehle links eine Task, um Pool-Nachrichten zu sehen.'
-                    : panelDescription}
-            </div>
-            <div
+          {messages.map((message, index) => (
+            <article
+              key={`${message.createdAt}-${message.actor}-${index}`}
               style={{
-                maxHeight: 320,
-                overflowY: 'auto',
-                display: 'grid',
-                gap: 10,
-                paddingRight: 2,
+                borderRadius: 16,
+                border: `1px solid ${TOKENS.b2}`,
+                background: 'rgba(255,255,255,0.03)',
+                padding: '10px 12px',
               }}
             >
-              {messages.map((message, index) => (
-                <article
-                  key={`${message.createdAt}-${message.actor}-${index}`}
-                  style={{
-                    borderRadius: 16,
-                    border: `1px solid ${TOKENS.b2}`,
-                    background: 'rgba(255,255,255,0.03)',
-                    padding: '10px 12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
-                      {message.actor}
-                    </span>
-                    <span style={{ fontSize: 11, color: TOKENS.text3 }}>
-                      {formatTimestamp(message.createdAt)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.6, color: TOKENS.text, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {message.content}
-                  </div>
-                </article>
-              ))}
-              {!loading && !error && !disabled && messages.length === 0 ? (
-                <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, padding: '14px 12px', fontSize: 12, color: TOKENS.text2, background: 'rgba(255,255,255,0.02)' }}>
-                  {panelEmptyState}
-                </div>
-              ) : null}
-              <div ref={bottomRef} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
+                  {message.actor}
+                </span>
+                <span style={{ fontSize: 11, color: TOKENS.text3 }}>
+                  {formatTimestamp(message.createdAt)}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: TOKENS.text, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {message.content}
+              </div>
+            </article>
+          ))}
+          {!loading && !error && !disabled && messages.length === 0 ? (
+            <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, padding: '14px 12px', fontSize: 12, color: TOKENS.text2, background: 'rgba(255,255,255,0.02)' }}>
+              {panelEmptyState}
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );
