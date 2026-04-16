@@ -114,9 +114,18 @@ const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
   scout: { label: 'Scout', accent: TOKENS.green },
 };
 
-function getInitialToken() {
+function getInitialBuilderToken() {
   const params = new URLSearchParams(window.location.search);
   return params.get('builderToken') || params.get('token') || params.get('opus_token')
+    || (() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } })();
+}
+
+function getInitialOpusToken() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('opus_token')
+    || (() => { try { return localStorage.getItem('opus-bridge-token') || ''; } catch { return ''; } })()
+    || params.get('token')
+    || params.get('builderToken')
     || (() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } })();
 }
 
@@ -685,8 +694,9 @@ function BuilderAuthGate(props: {
 export function BuilderStudioPage() {
   const [, navigate] = useLocation();
   const viewportWidth = useViewportWidth();
-  const [token, setToken] = useState(() => getInitialToken());
-  const [tokenInput, setTokenInput] = useState(() => getInitialToken());
+  const [token, setToken] = useState(() => getInitialBuilderToken());
+  const [opusToken] = useState(() => getInitialOpusToken());
+  const [tokenInput, setTokenInput] = useState(() => getInitialBuilderToken());
   const [tokenVisible, setTokenVisible] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -736,7 +746,7 @@ export function BuilderStudioPage() {
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
     sendChat,
-  } = useBuilderApi(token || null);
+  } = useBuilderApi(token || null, opusToken || token || null);
   const { getContext: getMayaContext, createMemory, deleteMemory, directorChat } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
@@ -750,8 +760,9 @@ export function BuilderStudioPage() {
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const isScoutPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'scout', []);
+  const effectiveOpusToken = opusToken || token;
   const previewUrl = activeTask
-    ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(token)}`
+    ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(effectiveOpusToken)}`
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
@@ -883,6 +894,9 @@ export function BuilderStudioPage() {
         setSelectedFilePath(null);
         setAuthenticated(true);
         try { localStorage.setItem('maya-token', trimmedToken); } catch { /* noop */ }
+        if (effectiveOpusToken) {
+          try { localStorage.setItem('opus-bridge-token', effectiveOpusToken); } catch { /* noop */ }
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -901,7 +915,7 @@ export function BuilderStudioPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [effectiveOpusToken, token]);
 
   // Initial load: fetch tasks and files once authenticated
   useEffect(() => {
@@ -1157,11 +1171,11 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
-      const response = await fetch(`/api/builder/opus-bridge/override/${encodeURIComponent(taskId)}?opus_token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`/api/builder/opus-bridge/override/${encodeURIComponent(taskId)}?opus_token=${encodeURIComponent(effectiveOpusToken)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${effectiveOpusToken}`,
         },
         body: JSON.stringify({ action: 'cancel', reason: 'Manually cancelled via UI' }),
       });
@@ -1178,7 +1192,7 @@ export function BuilderStudioPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [refreshTaskDetail, refreshTasks, token]);
+  }, [effectiveOpusToken, refreshTaskDetail, refreshTasks]);
 
   const handleDeleteInline = useCallback(async (taskId: string) => {
     setIsBusy(true);

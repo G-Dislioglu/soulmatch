@@ -143,10 +143,23 @@ function toApiPath(path: string) {
   return `/api/builder${path}`;
 }
 
-function appendTokenQuery(path: string, token: string) {
+function appendTokenQuery(path: string, token?: string | null, opusToken?: string | null) {
+  const params: string[] = [];
+
+  if (token && token.trim().length > 0) {
+    params.push(`token=${encodeURIComponent(token)}`);
+  }
+
+  if (opusToken && opusToken.trim().length > 0) {
+    params.push(`opus_token=${encodeURIComponent(opusToken)}`);
+  }
+
+  if (params.length === 0) {
+    return path;
+  }
+
   const separator = path.includes('?') ? '&' : '?';
-  const encodedToken = encodeURIComponent(token);
-  return `${path}${separator}token=${encodedToken}&opus_token=${encodedToken}`;
+  return `${path}${separator}${params.join('&')}`;
 }
 
 function encodeFilePath(filePath: string) {
@@ -156,17 +169,25 @@ function encodeFilePath(filePath: string) {
     .join('/');
 }
 
-export function useBuilderApi(token: string | null) {
-  const requestJson = useCallback(async <T>(path: string, init?: RequestInit): Promise<T> => {
-    if (!token || token.trim().length === 0) {
+export function useBuilderApi(token: string | null, opusToken?: string | null) {
+  const requestJson = useCallback(async <T>(
+    path: string,
+    init?: RequestInit,
+    authOverride?: { token?: string | null; opusToken?: string | null; authorizationToken?: string | null },
+  ): Promise<T> => {
+    const requestToken = authOverride?.token ?? token ?? opusToken ?? null;
+    const requestOpusToken = authOverride?.opusToken ?? opusToken ?? requestToken;
+    const authorizationToken = authOverride?.authorizationToken ?? requestToken ?? requestOpusToken;
+
+    if ((!requestToken || requestToken.trim().length === 0) && (!requestOpusToken || requestOpusToken.trim().length === 0)) {
       throw new Error('Builder token missing');
     }
 
-    const response = await fetch(appendTokenQuery(toApiPath(path), token), {
+    const response = await fetch(appendTokenQuery(toApiPath(path), requestToken, requestOpusToken), {
       ...init,
       headers: {
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-        Authorization: `Bearer ${token}`,
+        ...(authorizationToken ? { Authorization: `Bearer ${authorizationToken}` } : {}),
         ...(init?.headers ?? {}),
       },
     });
@@ -182,7 +203,7 @@ export function useBuilderApi(token: string | null) {
     }
 
     return parsed as T;
-  }, [token]);
+  }, [opusToken, token]);
 
   const listFiles = useCallback((path?: string) => {
     const query = path ? `?path=${encodeURIComponent(path)}` : '';
@@ -225,8 +246,11 @@ export function useBuilderApi(token: string | null) {
   }, [requestJson]);
 
   const getTaskObservation = useCallback((taskId: string) => {
-    return requestJson<BuilderTaskObservation>(`/opus-bridge/observe/${encodeURIComponent(taskId)}`);
-  }, [requestJson]);
+    return requestJson<BuilderTaskObservation>(`/opus-bridge/observe/${encodeURIComponent(taskId)}`, undefined, {
+      opusToken: opusToken ?? token,
+      authorizationToken: opusToken ?? token,
+    });
+  }, [opusToken, requestJson, token]);
 
   const approveTask = useCallback((taskId: string, commitHash?: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/approve`, {
