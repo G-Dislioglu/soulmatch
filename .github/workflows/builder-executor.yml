@@ -132,6 +132,7 @@ jobs:
           TSC_OK: ${{ steps.check.outputs.tsc_ok }}
           BUILD_OK: ${{ steps.check.outputs.build_ok }}
           TARGET_BRANCH: ${{ github.event.client_payload.branch || 'main' }}
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           git config user.name "Builder Studio"
           git config user.email "builder@soulmatch.app"
@@ -150,6 +151,14 @@ jobs:
                 curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
                   -H "Content-Type: application/json" \
                   -d "{\"commit_hash\": \"$HASH\", \"committed\": true, \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\", \"branch\": \"$TARGET_BRANCH\"}"
+
+                if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+                  echo "Missing GitHub secret: RENDER_DEPLOY_HOOK_URL"
+                  exit 1
+                fi
+
+                curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
+                EXPECT_COMMIT="$HASH" bash tools/wait-for-deploy.sh
                 exit 0
               fi
               echo "Push conflict (attempt $i), rebasing..."

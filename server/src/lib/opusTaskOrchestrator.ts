@@ -163,7 +163,7 @@ async function runWorkerSwarm(
 
 async function pushEdits(
   envelope: EditEnvelope, instruction: string,
-): Promise<{ pushed: boolean; filesCount: number; error?: string; durationMs: number }> {
+): Promise<{ pushed: boolean; filesCount: number; asyncDispatch: boolean; error?: string; durationMs: number }> {
   const start = Date.now();
   try {
     const files = envelope.edits.map((edit) =>
@@ -172,9 +172,9 @@ async function pushEdits(
         : { file: edit.path, mode: edit.mode, content: edit.content ?? '' },
     );
     const result = await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`);
-    return { pushed: result.pushed, filesCount: files.length, error: result.error, durationMs: Date.now() - start };
+    return { pushed: result.pushed, filesCount: files.length, asyncDispatch: result.asyncDispatch, error: result.error, durationMs: Date.now() - start };
   } catch (e: unknown) {
-    return { pushed: false, filesCount: 0, error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - start };
+    return { pushed: false, filesCount: 0, asyncDispatch: false, error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - start };
   }
 }
 
@@ -307,20 +307,37 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   // Phase 6: Deploy-Wait
   if (!input.skipDeploy) {
     const s6 = Date.now();
-    const sid = process.env.RENDER_SERVICE_ID || '';
-    const key = process.env.RENDER_API_KEY || '';
-    if (sid && key) {
+    const pushPhase = phases.find((phase) => phase.phase === 'push');
+    const pushDetail = pushPhase?.detail as { asyncDispatch?: boolean } | undefined;
+    if (pushDetail?.asyncDispatch) {
+      phases.push({
+        phase: 'deploy-wait',
+        status: 'skipped',
+        durationMs: Date.now() - s6,
+        detail: { reason: 'async_push_dispatch', note: 'GitHub executor performs commit and deploy later; inline wait would be stale.' },
+      });
+    } else {
+      const sid = process.env.RENDER_SERVICE_ID || '';
+      const key = process.env.RENDER_API_KEY || '';
+      if (sid && key) {
       const dep = await waitForDeploy(sid, key);
       phases.push({ phase: 'deploy-wait', status: dep.deployed ? 'ok' : 'error', durationMs: Date.now() - s6, detail: dep });
-    } else {
-      phases.push({ phase: 'deploy-wait', status: 'skipped', durationMs: 0 });
+      } else {
+        phases.push({ phase: 'deploy-wait', status: 'skipped', durationMs: 0 });
+      }
     }
   }
 
   // Phase 7: Self-Test
   if (!input.skipDeploy) {
-    const t = await runSelfTest();
-    phases.push({ phase: 'self-test', status: t.passed ? 'ok' : 'error', durationMs: t.durationMs });
+    const pushPhase = phases.find((phase) => phase.phase === 'push');
+    const pushDetail = pushPhase?.detail as { asyncDispatch?: boolean } | undefined;
+    if (pushDetail?.asyncDispatch) {
+      phases.push({ phase: 'self-test', status: 'skipped', durationMs: 0, detail: { reason: 'async_push_dispatch' } });
+    } else {
+      const t = await runSelfTest();
+      phases.push({ phase: 'self-test', status: t.passed ? 'ok' : 'error', durationMs: t.durationMs });
+    }
   }
 
   const allOk = phases.every(p => p.status === 'ok' || p.status === 'skipped');

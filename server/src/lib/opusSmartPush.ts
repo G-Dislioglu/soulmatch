@@ -22,6 +22,7 @@ interface SmartPushResult {
   pushed: boolean;
   filesCount: number;
   modes: Record<string, 'ambiguous' | 'overwrite' | 'create' | 'patch'>;
+  asyncDispatch: boolean;
   error?: string;
   durationMs: number;
 }
@@ -36,6 +37,7 @@ export async function smartPush(
 
   const overwrites: Array<{ file: string; content: string }> = [];
   const patchJobs: Array<{ file: string; patches: PatchEdit[] }> = [];
+  let asyncDispatch = false;
 
   for (const f of files) {
     const mode = f.mode ?? (f.patches ? 'patch' : decideChangeMode(f.originalContent ?? null));
@@ -55,6 +57,7 @@ export async function smartPush(
 
   // Overwrites via internal /push endpoint (chunked, via GitHub Action)
   if (overwrites.length > 0) {
+    asyncDispatch = true;
     try {
       const res = await fetch(getAuthUrl('/push'), {
         method: 'POST',
@@ -72,6 +75,7 @@ export async function smartPush(
   const ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
   for (const job of patchJobs) {
     if (!ghToken) {
+      asyncDispatch = true;
       // Fallback: convert patches to overwrite search/replace via /push
       try {
         const pushFiles = job.patches.map(p => ({
@@ -99,6 +103,7 @@ export async function smartPush(
     pushed: errors.length === 0,
     filesCount: files.length,
     modes,
+    asyncDispatch,
     error: errors.length > 0 ? errors.join('; ') : undefined,
     durationMs: Date.now() - start,
   };
