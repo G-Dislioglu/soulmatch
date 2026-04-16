@@ -52,7 +52,7 @@ interface ReadFilePreview {
   content: string;
 }
 
-type PoolChatType = 'scout' | 'distiller' | 'worker';
+type PoolChatType = 'scout' | 'distiller' | 'worker' | 'council';
 
 interface OpenPoolChat {
   pool: PoolChatType;
@@ -436,7 +436,7 @@ function PoolBar(props: {
 
   const getChatPopupAlign = useCallback((pool: PoolChatType) => {
     const node = chatAnchorsRef.current[pool];
-    const popupWidth = Math.min(480, window.innerWidth - 32);
+    const popupWidth = Math.min(600, window.innerWidth - 32);
 
     if (!node) {
       return pool === 'scout' ? 'right' : 'left';
@@ -496,6 +496,13 @@ function PoolBar(props: {
       emptyStateText: 'Noch keine Scout-Nachrichten fuer diese Task.',
       filter: (entry) => entry.phase === 'scout',
     },
+    council: {
+      title: 'Council',
+      accent: POOL_LABELS.council.accent,
+      description: 'Council-Debatte: Architekt, Skeptiker und Pragmatiker, moderiert von Maya.',
+      emptyStateText: 'Noch keine Council-Nachrichten fuer diese Task.',
+      filter: (entry) => entry.phase === 'roundtable' && !entry.actor.startsWith('worker-'),
+    },
     distiller: {
       title: 'Destillierer',
       accent: POOL_LABELS.distiller.accent,
@@ -522,7 +529,7 @@ function PoolBar(props: {
             const leadId = activeIds[0];
             const leadLabel = leadId ? POOL_MODEL_META[leadId]?.label ?? leadId : 'leer';
             const score = poolScore(activeIds);
-            const supportsChat = pool === 'scout' || pool === 'distiller' || pool === 'worker';
+            const supportsChat = pool === 'scout' || pool === 'council' || pool === 'distiller' || pool === 'worker';
             const chatPool = supportsChat ? pool : null;
             const chatConfig = chatPool ? poolChatConfig[chatPool] : null;
             const isChatOpen = chatPool ? openPoolChat?.pool === chatPool : false;
@@ -563,7 +570,7 @@ function PoolBar(props: {
                     <button
                       type="button"
                       onClick={() => handleTogglePoolChat(chatPool)}
-                      title={`${chatConfig.title}-Chat anzeigen`}
+                      title={`${chatConfig.title}-Live-Feed anzeigen`}
                       style={{
                         justifySelf: 'start',
                         borderRadius: 999,
@@ -578,7 +585,7 @@ function PoolBar(props: {
                         textTransform: 'uppercase',
                       }}
                     >
-                      Chat ▾
+                      Live ▾
                     </button>
                     {isChatOpen ? (
                       <div
@@ -586,7 +593,7 @@ function PoolBar(props: {
                           position: 'absolute',
                           top: 'calc(100% + 8px)',
                           ...(openPoolChat?.align === 'right' ? { right: 0 } : { left: 0 }),
-                          width: 'min(480px, calc(100vw - 32px))',
+                          width: 'min(600px, calc(100vw - 32px))',
                           minHeight: 200,
                           display: 'grid',
                           zIndex: 50,

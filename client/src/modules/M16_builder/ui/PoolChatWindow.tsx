@@ -28,6 +28,57 @@ function formatTimestamp(value: string) {
   });
 }
 
+function formatActorLabel(actor: string) {
+  if (actor === 'maya-moderator') {
+    return 'MAYA';
+  }
+
+  if (actor === 'system') {
+    return 'System';
+  }
+
+  return actor;
+}
+
+function getMessageStyle(message: BuilderChatPoolEntry, accent: string) {
+  if (message.actor === 'maya-moderator') {
+    return {
+      surface: 'linear-gradient(180deg, rgba(212,175,55,0.12), rgba(167,139,250,0.10))',
+      border: 'rgba(212,175,55,0.38)',
+      labelColor: TOKENS.gold,
+      labelBackground: 'rgba(212,175,55,0.16)',
+      labelBorder: 'rgba(212,175,55,0.34)',
+      metaColor: 'rgba(255,255,255,0.7)',
+      textColor: TOKENS.text,
+      contentSize: 13,
+    };
+  }
+
+  if (message.actor === 'system') {
+    return {
+      surface: 'rgba(255,255,255,0.02)',
+      border: TOKENS.b3,
+      labelColor: TOKENS.text2,
+      labelBackground: 'rgba(255,255,255,0.03)',
+      labelBorder: TOKENS.b3,
+      metaColor: TOKENS.text3,
+      textColor: TOKENS.text2,
+      contentSize: 12,
+    };
+  }
+
+  return {
+    surface: 'rgba(255,255,255,0.03)',
+    border: TOKENS.b2,
+    labelColor: accent,
+    labelBackground: `${accent}16`,
+    labelBorder: `${accent}33`,
+    metaColor: TOKENS.text3,
+    textColor: TOKENS.text,
+    contentSize: 13,
+  };
+}
+
 export function PoolChatWindow(props: PoolChatWindowProps) {
   const {
     title,
@@ -151,27 +202,70 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
           }}
         >
           {messages.map((message, index) => (
-            <article
-              key={`${message.createdAt}-${message.actor}-${index}`}
-              style={{
-                borderRadius: 16,
-                border: `1px solid ${TOKENS.b2}`,
-                background: 'rgba(255,255,255,0.03)',
-                padding: '10px 12px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, fontWeight: 700 }}>
-                  {message.actor}
-                </span>
-                <span style={{ fontSize: 11, color: TOKENS.text3 }}>
-                  {formatTimestamp(message.createdAt)}
-                </span>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: TOKENS.text, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {message.content}
-              </div>
-            </article>
+            (() => {
+              const style = getMessageStyle(message, accent);
+
+              return (
+                <article
+                  key={`${message.createdAt}-${message.actor}-${index}`}
+                  style={{
+                    borderRadius: 16,
+                    border: `1px solid ${style.border}`,
+                    background: style.surface,
+                    padding: '10px 12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                      <span
+                        style={{
+                          borderRadius: 999,
+                          border: `1px solid ${style.labelBorder}`,
+                          background: style.labelBackground,
+                          padding: '2px 8px',
+                          fontSize: 10,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.12em',
+                          color: style.labelColor,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {formatActorLabel(message.actor)}
+                      </span>
+                      {Number.isFinite(message.round) ? (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            border: `1px solid ${TOKENS.b3}`,
+                            background: 'rgba(255,255,255,0.03)',
+                            padding: '2px 8px',
+                            fontSize: 10,
+                            color: style.metaColor,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Runde {message.round}
+                        </span>
+                      ) : null}
+                    </div>
+                    <span style={{ fontSize: 11, color: style.metaColor, whiteSpace: 'nowrap' }}>
+                      {formatTimestamp(message.createdAt)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: style.contentSize,
+                      lineHeight: 1.6,
+                      color: style.textColor,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {message.content}
+                  </div>
+                </article>
+              );
+            })()
           ))}
           {!loading && !error && !disabled && messages.length === 0 ? (
             <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, padding: '14px 12px', fontSize: 12, color: TOKENS.text2, background: 'rgba(255,255,255,0.02)' }}>
