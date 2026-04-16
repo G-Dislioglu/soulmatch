@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `af85374`
+- `current_repo_head`: `40d95ed`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die SESSION-Bar unter der PoolBar ist jetzt selbst klickbar und oeffnet einen Patrol-Findings-Feed aus builderErrorCards: Severity-sortiert, farbcodiert, mit klappbaren Problem-/Solution-Details und Affected-Files-Preview; die separaten Pool-LIVE-Popups bleiben davon unberuehrt`
-- `next_recommended_block`: `Als naechsten echten Runtime-Block den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad gegen reale Provider und Live-Commit pruefen; Patrol ist im Builder-UI jetzt sichtbar angebunden`
+- `last_completed_block`: `Im Builder Studio lebt Maya jetzt als sichtbare Presence Shell: ein kleiner leuchtender Guide mit DOM-basierter Target Registry, weicher Navigation zwischen Builder-Zielen, Highlight-Ring, Sprechblase und temporaerer Maya-Tour; Pools, Patrol und bestehende Builder-Aktionen bleiben funktional bestehen`
+- `next_recommended_block`: `Die Maya-Figure von der Demo-Tour auf echte event-basierte Trigger heben, ohne Voice/TTS oder autonome Steuerung mitzuziehen; alternativ den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad weiter gegen reale Provider pruefen`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -188,6 +188,12 @@ klappt die bestehende SESSION-Bar jetzt selbst einen kompakten Findings-Feed aus
 der `patrol-status` plus `patrol-findings` ueber den Opus-Token liest und
 Severity-Badges, Detail-Accordion und Dateivorschau direkt im Builder-Studio
 zeigt, waehrend die separate Patrol Console als Vollansicht erhalten bleibt.
+Darauf aufbauend hat Maya jetzt auch eine erste sichtbare Presence Shell direkt
+im Builder: Eine DOM-basierte Target Registry sammelt `data-maya-target`-Ziele,
+ein kleiner leuchtender Guide-Punkt schwebt per Transition zu Pool-, Session-,
+Task- und Action-Elementen, und eine temporaere Maya-Tour erklaert drei reale
+Arbeitsstationen im Builder, ohne schon autonome Trigger, Audio oder Companion-
+Praesenz zu behaupten.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
 Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
