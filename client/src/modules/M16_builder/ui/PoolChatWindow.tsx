@@ -10,6 +10,9 @@ interface PoolChatWindowProps {
   taskId: string | null;
   accent?: string;
   compact?: boolean;
+  position?: 'bottom-left' | 'bottom-right';
+  description?: string;
+  emptyStateText?: string;
   filter: (entry: BuilderChatPoolEntry) => boolean;
   fetchObservation: (taskId: string) => Promise<BuilderTaskObservation>;
 }
@@ -32,6 +35,9 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
     taskId,
     accent = TOKENS.green,
     compact = false,
+    position = 'bottom-right',
+    description,
+    emptyStateText,
     filter,
     fetchObservation,
   } = props;
@@ -97,7 +103,7 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
         setError(null);
       } catch (pollError) {
         if (!cancelled) {
-          setError(pollError instanceof Error ? pollError.message : 'Scout-Pool konnte nicht geladen werden');
+          setError(pollError instanceof Error ? pollError.message : `${title}-Pool konnte nicht geladen werden`);
         }
       } finally {
         if (!cancelled && firstLoad) {
@@ -125,13 +131,19 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
   }, [collapsed, messages]);
 
   const disabled = !taskId;
-  const width = compact ? 'min(100vw - 24px, 340px)' : '360px';
+  const width = compact
+    ? (collapsed ? 'min(calc(50vw - 18px), 180px)' : 'min(100vw - 24px, 340px)')
+    : '360px';
+  const panelDescription = description ?? `${title}-Signale aus dem laufenden Chat-Pool.`;
+  const panelEmptyState = emptyStateText ?? `Noch keine ${title}-Nachrichten fuer diese Task.`;
 
   return (
     <div
       style={{
         position: 'fixed',
-        right: compact ? 12 : 18,
+        ...(position === 'bottom-left'
+          ? { left: compact ? 12 : 18 }
+          : { right: compact ? 12 : 18 }),
         bottom: compact ? 12 : 18,
         width,
         zIndex: 30,
@@ -198,12 +210,12 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
           <div style={{ borderTop: `1px solid ${TOKENS.b2}`, padding: 14 }}>
             <div style={{ fontSize: 12, color: TOKENS.text2, marginBottom: 10 }}>
               {loading
-                ? 'Scout laedt ...'
+                ? `${title} laedt ...`
                 : error
                   ? error
                   : disabled
-                    ? 'Waehle links eine Task, um Scout-Nachrichten zu sehen.'
-                    : 'Scout-Findings aus dem laufenden Chat-Pool.'}
+                    ? 'Waehle links eine Task, um Pool-Nachrichten zu sehen.'
+                    : panelDescription}
             </div>
             <div
               style={{
@@ -239,7 +251,7 @@ export function PoolChatWindow(props: PoolChatWindowProps) {
               ))}
               {!loading && !error && !disabled && messages.length === 0 ? (
                 <div style={{ borderRadius: 16, border: `1px dashed ${TOKENS.b2}`, padding: '14px 12px', fontSize: 12, color: TOKENS.text2, background: 'rgba(255,255,255,0.02)' }}>
-                  Noch keine Scout-Nachrichten fuer diese Task.
+                  {panelEmptyState}
                 </div>
               ) : null}
               <div ref={bottomRef} />

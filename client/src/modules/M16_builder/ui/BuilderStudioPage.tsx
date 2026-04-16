@@ -114,19 +114,47 @@ const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
   scout: { label: 'Scout', accent: TOKENS.green },
 };
 
+const BUILDER_TOKEN_STORAGE_KEY = 'builder_token';
+const LEGACY_BUILDER_TOKEN_STORAGE_KEY = 'maya-token';
+const OPUS_TOKEN_STORAGE_KEY = 'builder_opus_token';
+const LEGACY_OPUS_TOKEN_STORAGE_KEY = 'opus-bridge-token';
+
+function readStoredValue(keys: string[]) {
+  try {
+    for (const key of keys) {
+      const value = localStorage.getItem(key)?.trim();
+      if (value) {
+        return value;
+      }
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
+}
+
 function getInitialBuilderToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('builderToken') || params.get('token') || params.get('opus_token')
-    || (() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } })();
+  return params.get('builderToken') || params.get('token')
+    || readStoredValue([BUILDER_TOKEN_STORAGE_KEY, LEGACY_BUILDER_TOKEN_STORAGE_KEY]);
 }
 
 function getInitialOpusToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('opus_token')
-    || (() => { try { return localStorage.getItem('opus-bridge-token') || ''; } catch { return ''; } })()
-    || params.get('token')
-    || params.get('builderToken')
-    || (() => { try { return localStorage.getItem('maya-token') || ''; } catch { return ''; } })();
+  const urlToken = params.get('opus_token');
+  if (urlToken && urlToken.trim().length > 0) {
+    return urlToken;
+  }
+
+  const storedBuilderToken = readStoredValue([BUILDER_TOKEN_STORAGE_KEY, LEGACY_BUILDER_TOKEN_STORAGE_KEY]);
+  const storedOpusToken = readStoredValue([OPUS_TOKEN_STORAGE_KEY]);
+  if (storedOpusToken) {
+    return storedOpusToken;
+  }
+
+  const legacyOpusToken = readStoredValue([LEGACY_OPUS_TOKEN_STORAGE_KEY]);
+  return legacyOpusToken && legacyOpusToken !== storedBuilderToken ? legacyOpusToken : '';
 }
 
 async function validateBuilderToken(token: string) {
@@ -760,9 +788,21 @@ export function BuilderStudioPage() {
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const isScoutPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'scout', []);
-  const effectiveOpusToken = opusToken || token;
+  const isDistillerPoolEntry = useCallback((entry: BuilderChatPoolEntry) => entry.phase === 'distiller', []);
+  const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
-    ? `/api/builder/preview/${encodeURIComponent(activeTask.id)}?t=${encodeURIComponent(activeTask.updatedAt)}&token=${encodeURIComponent(token)}&opus_token=${encodeURIComponent(effectiveOpusToken)}`
+    ? (() => {
+        const params = new URLSearchParams({
+          t: activeTask.updatedAt,
+          token,
+        });
+
+        if (effectiveOpusToken) {
+          params.set('opus_token', effectiveOpusToken);
+        }
+
+        return `/api/builder/preview/${encodeURIComponent(activeTask.id)}?${params.toString()}`;
+      })()
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
@@ -893,9 +933,12 @@ export function BuilderStudioPage() {
         setSelectedTaskId(null);
         setSelectedFilePath(null);
         setAuthenticated(true);
-        try { localStorage.setItem('maya-token', trimmedToken); } catch { /* noop */ }
+        try {
+          localStorage.setItem(BUILDER_TOKEN_STORAGE_KEY, trimmedToken);
+          localStorage.setItem(LEGACY_BUILDER_TOKEN_STORAGE_KEY, trimmedToken);
+        } catch { /* noop */ }
         if (effectiveOpusToken) {
-          try { localStorage.setItem('opus-bridge-token', effectiveOpusToken); } catch { /* noop */ }
+          try { localStorage.setItem(OPUS_TOKEN_STORAGE_KEY, effectiveOpusToken); } catch { /* noop */ }
         }
       } catch (error) {
         if (cancelled) {
@@ -1171,6 +1214,10 @@ export function BuilderStudioPage() {
     setIsBusy(true);
     setPageError(null);
     try {
+      if (!effectiveOpusToken) {
+        throw new Error('Opus token missing');
+      }
+
       const response = await fetch(`/api/builder/opus-bridge/override/${encodeURIComponent(taskId)}?opus_token=${encodeURIComponent(effectiveOpusToken)}`, {
         method: 'POST',
         headers: {
@@ -2096,7 +2143,21 @@ export function BuilderStudioPage() {
         taskId={selectedTaskId}
         accent={TOKENS.green}
         compact={compact}
+        position="bottom-right"
+        description="Scout-Findings aus dem laufenden Chat-Pool."
+        emptyStateText="Noch keine Scout-Nachrichten fuer diese Task."
         filter={isScoutPoolEntry}
+        fetchObservation={getTaskObservation}
+      />
+      <PoolChatWindow
+        title="Destillierer"
+        taskId={selectedTaskId}
+        accent={POOL_LABELS.distiller.accent}
+        compact={compact}
+        position="bottom-left"
+        description="Destillierte Briefs und Verdichtungen aus dem Chat-Pool."
+        emptyStateText="Noch keine Distiller-Nachrichten fuer diese Task."
+        filter={isDistillerPoolEntry}
         fetchObservation={getTaskObservation}
       />
     </div>

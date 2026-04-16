@@ -173,11 +173,14 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
   const requestJson = useCallback(async <T>(
     path: string,
     init?: RequestInit,
-    authOverride?: { token?: string | null; opusToken?: string | null; authorizationToken?: string | null },
+    authOverride?: { token?: string | null; opusToken?: string | null; authorizationToken?: string | null; preferOpusOnly?: boolean },
   ): Promise<T> => {
     const requestToken = authOverride?.token ?? token ?? opusToken ?? null;
-    const requestOpusToken = authOverride?.opusToken ?? opusToken ?? requestToken;
-    const authorizationToken = authOverride?.authorizationToken ?? requestToken ?? requestOpusToken;
+    const requestOpusToken = authOverride?.preferOpusOnly
+      ? (authOverride?.opusToken ?? opusToken ?? null)
+      : (authOverride?.opusToken ?? opusToken ?? requestToken);
+    const authorizationToken = authOverride?.authorizationToken
+      ?? (authOverride?.preferOpusOnly ? requestOpusToken : requestToken ?? requestOpusToken);
 
     if ((!requestToken || requestToken.trim().length === 0) && (!requestOpusToken || requestOpusToken.trim().length === 0)) {
       throw new Error('Builder token missing');
@@ -247,10 +250,9 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
 
   const getTaskObservation = useCallback((taskId: string) => {
     return requestJson<BuilderTaskObservation>(`/opus-bridge/observe/${encodeURIComponent(taskId)}`, undefined, {
-      opusToken: opusToken ?? token,
-      authorizationToken: opusToken ?? token,
+      preferOpusOnly: true,
     });
-  }, [opusToken, requestJson, token]);
+  }, [requestJson]);
 
   const approveTask = useCallback((taskId: string, commitHash?: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/approve`, {
