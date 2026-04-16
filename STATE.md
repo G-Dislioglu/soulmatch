@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `f108854`
+- `current_repo_head`: `505b2db`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-16`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Die Maya-Presence-Shell im Builder reagiert jetzt nicht mehr nur auf die Demo-Tour: Task-Auswahl, Prototype-Review, freigabebereite Tasks und der geoeffnete Patrol-Feed triggern Maya direkt an echte Builder-Ziele, und ihre Farblogik bleibt goldnah statt in die gruene LiveTalk-Sprache zu kippen`
-- `next_recommended_block`: `Die Maya-Figure als naechstes an semantische Chat-/Director-Zustaende wie Thinking, Tool-Status und Fehler koppeln, ohne Audio/TTS oder autonome Steuerung mitzuziehen; alternativ den Maya-Brain-Fast/Deep-Pfad plus Render-Deploypfad weiter gegen reale Provider pruefen`
+- `last_completed_block`: `Maya kann im Builder jetzt nicht nur auf Demo- oder Event-Trigger reagieren, sondern auch direkt aus Standard-Chat und Maya-Brain auf reale UI-Ziele zeigen: beide Chatpfade teilen dieselbe Navigation-Guidance, `[NAVIGATE:ziel]` wird clientseitig in Guide-Bewegung statt sichtbaren Rohtext uebersetzt, die Figure hat einen festen Idle-Anker, die Target-Registry ignoriert style-bedingtes Eigenrauschen, und der Builder-Chat nutzt dieselbe Speech-to-Text-Kette jetzt auch ueber einen sichtbaren Mic-Button`
+- `next_recommended_block`: `Die Maya-Figure als naechstes an semantische Chat-/Director-Zustaende wie Thinking, Tool-Status und Fehler koppeln und den neuen Maya-Chat-Navigationspfad mit echten Builder-Sessions auf Render gegenpruefen; TTS oder autonome Steuerung bleiben bewusst ausserhalb dieses Blocks`
 - `read_order_version`: `v1`
 
 ## Update-Vertrag
@@ -192,8 +192,21 @@ Darauf aufbauend hat Maya jetzt auch eine erste sichtbare Presence Shell direkt
 im Builder: Eine DOM-basierte Target Registry sammelt `data-maya-target`-Ziele,
 ein kleiner leuchtender Guide-Punkt schwebt per Transition zu Pool-, Session-,
 Task- und Action-Elementen, und eine temporaere Maya-Tour erklaert drei reale
-Arbeitsstationen im Builder, ohne schon autonome Trigger, Audio oder Companion-
-Praesenz zu behaupten.
+Arbeitsstationen im Builder. Dieser Presence-Pfad ist inzwischen enger an die
+echte Builder-Interaktion gekoppelt: Reale Ereignisse wie Task-Auswahl,
+Prototype-Review, freigabebereite Tasks und geoeffnete Patrol-Findings fuehren
+Maya direkt an die passenden Ziele; zusaetzlich duerfen jetzt sowohl der
+Standard-Builder-Chat als auch der Maya-Brain-Director am Ende ihrer sichtbaren
+Antwort genau einen `[NAVIGATE:ziel]`-Tag liefern, der clientseitig entfernt und
+stattdessen als Guide-Bewegung plus Bubble umgesetzt wird. Damit bleibt die
+sichtbare Antwort sauber, waehrend Maya trotzdem auf `pool.*`, Session-, Task-,
+Dialog- oder Action-Ziele deuten kann. Fuer ruhigere Bewegung ignoriert die
+Target-Registry jetzt style-Mutationen aus dem eigenen Highlighting, die Figure
+hat einen festen `maya-idle`-Anker im Builder-Container, die Bubble ist komplett
+pointer-event-frei, und der Builder-Maya-Chat nutzt ueber einen sichtbaren
+Mic-Button dieselbe vorhandene Speech-to-Text-Kette wie andere Soulmatch-
+Oberflaechen. Bewusst weiter offen bleiben semantische Figure-Zustaende,
+echtes TTS im Builder und jede Form autonomer Steuerung.
 
 Operativ ist der Git-Stand fuer den naechsten Chat klar: Der fruehere blinde
 Verlass auf Render Auto Deploy ist jetzt als Drift benannt. Das Repo enthaelt
