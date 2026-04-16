@@ -17,6 +17,10 @@ export interface DirectorActionResult {
   data?: unknown;
 }
 
+const READ_FILE_TRIGGER_REGEX = /\b(lies|lese|zeig|zeige|oeffne|öffne|show|read|open)\b/i;
+const DIRECTOR_REJECTION_REGEX = /\b(kann(?:\s+ich)?\s+nicht|cannot|can't|not possible|nicht moeglich|nicht möglich|error|fehler|kein zugriff|no access|unable)\b/i;
+const REPO_PATH_REGEX = /(?:^|[\s"'`(])((?:client|server|docs|tools|aicos-registry|architecture)\/[A-Za-z0-9._\-/]+\.[A-Za-z0-9]+)(?=$|[\s"'`),:;!?])/gi;
+
 function getBaseUrl(): string {
   return `http://localhost:${process.env.PORT || 3001}`;
 }
@@ -92,6 +96,42 @@ export function renderDirectorActionSummary(results: DirectorActionResult[]): st
 
 function normalizeRepoPath(filePath: string): string {
   return filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function extractRepoPaths(text: string): string[] {
+  const matches = [...text.matchAll(REPO_PATH_REGEX)]
+    .map((match) => normalizeRepoPath(match[1] ?? ''))
+    .filter(Boolean);
+
+  return [...new Set(matches)];
+}
+
+export function inferReadFileFallbackAction(
+  userMessage: string,
+  responseText: string,
+  existingActions: DirectorAction[],
+): DirectorAction | null {
+  if (existingActions.length > 0) {
+    return null;
+  }
+
+  if (!READ_FILE_TRIGGER_REGEX.test(userMessage)) {
+    return null;
+  }
+
+  if (DIRECTOR_REJECTION_REGEX.test(responseText)) {
+    return null;
+  }
+
+  const paths = extractRepoPaths(userMessage);
+  if (paths.length !== 1) {
+    return null;
+  }
+
+  return {
+    tool: 'read-file',
+    path: paths[0],
+  };
 }
 
 function buildReadRoots(repoRoot: string): string[] {

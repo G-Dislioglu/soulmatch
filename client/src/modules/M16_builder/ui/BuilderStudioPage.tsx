@@ -11,7 +11,7 @@ import {
   type PoolState,
   type PoolType,
 } from './BuilderConfigPanel';
-import { useMayaApi, type DirectorModel, type MayaContext } from '../hooks/useMayaApi';
+import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext } from '../hooks/useMayaApi';
 import {
   useBuilderApi,
   type BuilderAction,
@@ -36,7 +36,18 @@ interface BuilderBubble {
 interface StudioChatMessage extends BuilderChatMessage {
   label?: string;
   endpoint?: string;
-  actions?: Array<{ tool: string; ok: boolean; summary: string }>;
+  actions?: MayaActionResult[];
+}
+
+interface DirectorLiveStatus {
+  phase: 'thinking' | 'tool' | 'done' | 'error';
+  tool?: string;
+  message?: string;
+}
+
+interface ReadFilePreview {
+  path: string;
+  content: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -218,6 +229,48 @@ function getDirectorRunStatus(thinking: boolean, elapsedMs: number) {
     return `Fast waehlt den kuerzesten Toolweg · ${elapsedSeconds}s`;
   }
   return `Fast finalisiert Antwort und Actions · ${elapsedSeconds}s`;
+}
+
+function getDirectorStatusText(
+  thinking: boolean,
+  status: DirectorLiveStatus | null,
+  elapsedMs: number | null,
+) {
+  if (!status) {
+    return getDirectorModeHint(thinking);
+  }
+
+  if (status.phase === 'thinking') {
+    return getDirectorRunStatus(thinking, elapsedMs ?? 0);
+  }
+
+  if (status.phase === 'tool') {
+    return `ruft Tool: ${status.tool ?? 'read-file'}`;
+  }
+
+  if (status.phase === 'error') {
+    return status.message ?? 'Fehler im Maya-Brain-Lauf.';
+  }
+
+  return status.tool ? `fertig · ${status.tool}` : 'fertig';
+}
+
+function getReadFilePreview(action: MayaActionResult): ReadFilePreview | null {
+  if (action.tool !== 'read-file' || !action.data || typeof action.data !== 'object') {
+    return null;
+  }
+
+  const candidate = action.data as { path?: unknown; content?: unknown };
+  if (typeof candidate.path !== 'string' || typeof candidate.content !== 'string') {
+    return null;
+  }
+
+  return {
+    path: candidate.path,
+    content: candidate.content.length > 3200
+      ? `${candidate.content.slice(0, 3200)}\n\n...[Preview gekuerzt]`
+      : candidate.content,
+  };
 }
 
 function extractBubbleContent(action: BuilderAction, format: DialogFormat) {
@@ -653,6 +706,7 @@ export function BuilderStudioPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatLoadingStartedAt, setChatLoadingStartedAt] = useState<number | null>(null);
   const [chatLoadingTick, setChatLoadingTick] = useState(() => Date.now());
+  const [directorLiveStatus, setDirectorLiveStatus] = useState<DirectorLiveStatus | null>(null);
   const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
   const [directorThinking, setDirectorThinking] = useState(false);
   const [commitHash, setCommitHash] = useState('');
@@ -697,12 +751,17 @@ export function BuilderStudioPage() {
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/chat';
-  const activeDirectorRunStatus = directorModel && chatLoading && chatLoadingStartedAt !== null
-    ? getDirectorRunStatus(directorThinking, chatLoadingTick - chatLoadingStartedAt)
+  const directorStatusText = directorModel
+    ? getDirectorStatusText(
+        directorThinking,
+        directorLiveStatus,
+        chatLoading && chatLoadingStartedAt !== null ? chatLoadingTick - chatLoadingStartedAt : null,
+      )
     : null;
   const bootstrappedTokenRef = useRef<string | null>(null);
   const dialogFormatRef = useRef(dialogFormat);
   const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const directorStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -728,6 +787,9 @@ export function BuilderStudioPage() {
   useEffect(() => () => {
     if (confirmDeleteTimer.current) {
       clearTimeout(confirmDeleteTimer.current);
+    }
+    if (directorStatusTimerRef.current) {
+      clearTimeout(directorStatusTimerRef.current);
     }
   }, []);
 
@@ -1145,6 +1207,13 @@ export function BuilderStudioPage() {
     setChatInput('');
     setChatLoadingStartedAt(Date.now());
     setChatLoadingTick(Date.now());
+    if (directorStatusTimerRef.current) {
+      clearTimeout(directorStatusTimerRef.current);
+      directorStatusTimerRef.current = null;
+    }
+    if (directorModel) {
+      setDirectorLiveStatus({ phase: 'thinking' });
+    }
     setChatLoading(true);
     setPageError(null);
 
@@ -1159,6 +1228,16 @@ export function BuilderStudioPage() {
           actions: response.actions ?? [],
         };
         setChatMessages((current) => [...current, assistantMessage]);
+        const firstTool = response.actions?.find((action) => action.ok)?.tool ?? response.actions?.[0]?.tool;
+        if (firstTool) {
+          setDirectorLiveStatus({ phase: 'tool', tool: firstTool });
+          directorStatusTimerRef.current = window.setTimeout(() => {
+            setDirectorLiveStatus({ phase: 'done', tool: firstTool });
+            directorStatusTimerRef.current = null;
+          }, 900);
+        } else {
+          setDirectorLiveStatus({ phase: 'done' });
+        }
         await refreshMayaContext();
       } else {
         const response = await sendChat(message, history);
@@ -1177,6 +1256,9 @@ export function BuilderStudioPage() {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Fehler bei der Verbindung.';
+      if (directorModel) {
+        setDirectorLiveStatus({ phase: 'error', message: errorMessage });
+      }
       setChatMessages((current) => [...current, {
         role: 'assistant',
         content: errorMessage,
@@ -1547,27 +1629,6 @@ export function BuilderStudioPage() {
                     {activeChatLabel} · {activeChatEndpoint}
                   </span>
                 </div>
-                {directorModel ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      flexWrap: 'wrap',
-                      padding: '9px 12px',
-                      borderRadius: 14,
-                      border: `1px solid ${chatLoading ? TOKENS.greenSoft : TOKENS.b1}`,
-                      background: chatLoading ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.02)',
-                    }}
-                  >
-                    <span style={{ fontSize: 12, color: chatLoading ? TOKENS.green : TOKENS.text2 }}>
-                      {chatLoading && activeDirectorRunStatus ? activeDirectorRunStatus : getDirectorModeHint(directorThinking)}
-                    </span>
-                    <span style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                      Tools: read-file · opus-task-async · memory-read · memory-write
-                    </span>
-                  </div>
-                ) : null}
               </div>
               <div
                 ref={chatContainerRef}
@@ -1658,73 +1719,109 @@ export function BuilderStudioPage() {
                               ))}
                             </div>
                           ) : null}
+                          {message.actions
+                            ?.map((action) => getReadFilePreview(action))
+                            .filter((preview): preview is ReadFilePreview => preview !== null)
+                            .map((preview, previewIndex) => (
+                              <details
+                                key={`${preview.path}-${previewIndex}`}
+                                style={{
+                                  marginTop: 10,
+                                  borderRadius: 12,
+                                  border: `1px solid ${TOKENS.b2}`,
+                                  background: 'rgba(255,255,255,0.03)',
+                                  padding: '10px 12px',
+                                }}
+                              >
+                                <summary style={{ cursor: 'pointer', color: TOKENS.gold, fontSize: 12, fontWeight: 700 }}>
+                                  read-file · {preview.path}
+                                </summary>
+                                <pre
+                                  style={{
+                                    margin: '10px 0 0',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    fontSize: 11,
+                                    lineHeight: 1.6,
+                                    color: TOKENS.text2,
+                                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                                  }}
+                                >
+                                  {preview.content}
+                                </pre>
+                              </details>
+                            ))}
                         </>
                       )}
                     </div>
                   );
                 })}
-                {chatLoading ? (
-                  <div
-                    style={{
-                      color: directorModel ? TOKENS.green : TOKENS.gold,
-                      fontSize: 12,
-                      fontStyle: 'italic',
-                      display: 'flex',
-                      gap: 8,
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <span>{directorModel ? `${activeChatLabel} arbeitet...` : 'Maya denkt nach...'}</span>
-                    {directorModel && activeDirectorRunStatus ? (
-                      <span style={{ color: TOKENS.text2 }}>{activeDirectorRunStatus}</span>
-                    ) : null}
+                {chatLoading && !directorModel ? (
+                  <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
+                    Maya denkt nach...
                   </div>
                 ) : null}
                 <div ref={chatEndRef} />
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={chatInput}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void handleSendChat();
+                      }
+                    }}
+                    placeholder={directorModel ? "z.B. 'Pruefe den Patrol-Status und delegiere den naechsten sinnvollen Schritt'" : "z.B. 'Erstelle einen Health-Check Endpoint'"}
+                    style={{
+                      flex: 1,
+                      borderRadius: 12,
+                      border: `1.5px solid ${TOKENS.b1}`,
+                      background: TOKENS.bg,
+                      color: TOKENS.text,
+                      padding: '10px 12px',
+                      fontSize: 13,
+                      outline: 'none',
+                    }}
+                    disabled={chatLoading}
+                  />
+                  <button
+                    onClick={() => {
                       void handleSendChat();
-                    }
-                  }}
-                  placeholder={directorModel ? "z.B. 'Pruefe den Patrol-Status und delegiere den naechsten sinnvollen Schritt'" : "z.B. 'Erstelle einen Health-Check Endpoint'"}
-                  style={{
-                    flex: 1,
-                    borderRadius: 12,
-                    border: `1.5px solid ${TOKENS.b1}`,
-                    background: TOKENS.bg,
-                    color: TOKENS.text,
-                    padding: '10px 12px',
-                    fontSize: 13,
-                    outline: 'none',
-                  }}
-                  disabled={chatLoading}
-                />
-                <button
-                  onClick={() => {
-                    void handleSendChat();
-                  }}
-                  disabled={chatLoading || !chatInput.trim()}
-                  style={{
-                    borderRadius: 12,
-                    border: `1.5px solid ${TOKENS.gold}`,
-                    background: 'rgba(212,175,55,0.12)',
-                    color: TOKENS.gold,
-                    padding: '10px 16px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: chatLoading ? 'not-allowed' : 'pointer',
-                    opacity: chatLoading || !chatInput.trim() ? 0.5 : 1,
-                  }}
-                >
-                  Senden
-                </button>
+                    }}
+                    disabled={chatLoading || !chatInput.trim()}
+                    style={{
+                      borderRadius: 12,
+                      border: `1.5px solid ${TOKENS.gold}`,
+                      background: 'rgba(212,175,55,0.12)',
+                      color: TOKENS.gold,
+                      padding: '10px 16px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: chatLoading ? 'not-allowed' : 'pointer',
+                      opacity: chatLoading || !chatInput.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    Senden
+                  </button>
+                </div>
+                {directorModel && directorStatusText ? (
+                  <div
+                    style={{
+                      minHeight: 20,
+                      color: directorLiveStatus?.phase === 'error'
+                        ? '#fca5a5'
+                        : directorLiveStatus?.phase === 'tool' || chatLoading
+                          ? TOKENS.green
+                          : TOKENS.text2,
+                      fontSize: 12,
+                    }}
+                  >
+                    {directorStatusText}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>

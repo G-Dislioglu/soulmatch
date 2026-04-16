@@ -19,7 +19,14 @@ export interface MayaChatResponse {
   response: string;
   model: string;
   contextUsed: { tasksLoaded: number; hasContinuity: boolean };
-  actions?: Array<{ tool: string; ok: boolean; summary: string }>;
+  actions?: MayaActionResult[];
+}
+
+export interface MayaActionResult {
+  tool: string;
+  ok: boolean;
+  summary: string;
+  data?: unknown;
 }
 
 export interface MayaChatMessage {

@@ -38,10 +38,19 @@ function safeReadRepoFile(relativePath: string): string {
   }
 }
 
+async function withFallback<T>(label: string, loader: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await loader();
+  } catch (error) {
+    console.warn(`[directorContext] ${label} unavailable:`, error);
+    return fallback;
+  }
+}
+
 export async function buildDirectorContext(): Promise<DirectorContext> {
   const db = getDb();
   const [recentTasks, continuityRows, patrolFindings, agentSummary] = await Promise.all([
-    db
+    withFallback('recentTasks', () => db
       .select({
         id: builderTasks.id,
         title: builderTasks.title,
@@ -52,18 +61,18 @@ export async function buildDirectorContext(): Promise<DirectorContext> {
       })
       .from(builderTasks)
       .orderBy(desc(builderTasks.createdAt))
-      .limit(12),
-    db
+      .limit(12), []),
+    withFallback('continuity', () => db
       .select({ summary: builderMemory.summary })
       .from(builderMemory)
       .where(eq(builderMemory.layer, 'continuity'))
       .orderBy(desc(builderMemory.updatedAt))
-      .limit(1),
-    db
+      .limit(1), [] as Array<{ summary: string }>),
+    withFallback('patrolFindings', () => db
       .select({ severity: builderErrorCards.severity })
       .from(builderErrorCards)
       .orderBy(desc(builderErrorCards.createdAt))
-      .limit(50),
+      .limit(50), [] as Array<{ severity: string }>),
     getAllAgentSummaries(),
   ]);
 

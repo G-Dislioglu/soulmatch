@@ -20,7 +20,7 @@ import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
 import { buildDirectorContext } from '../lib/directorContext.js';
-import { executeDirectorActions, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
+import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAction, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
@@ -797,7 +797,12 @@ router.post('/maya/director', async (req: Request, res: Response) => {
     });
 
     const actions = parseDirectorActions(response);
-    const actionResults = await executeDirectorActions(actions);
+    const fallbackAction = inferReadFileFallbackAction(message, response, actions);
+    const actionResults = actions.length > 0
+      ? await executeDirectorActions(actions)
+      : fallbackAction
+        ? [await executeDirectorAction(fallbackAction)]
+        : [];
     const visibleResponse = stripDirectorActions(response);
     const finalResponse = visibleResponse.trim() || (actionResults.length > 0 ? 'Maya-Aktionen ausgefuehrt.' : 'Maya ohne sichtbare Antwort.');
 
