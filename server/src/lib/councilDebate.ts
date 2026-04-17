@@ -1,6 +1,7 @@
 import { getDb } from '../db.js';
 import { callProvider } from './providers.js';
 import { builderChatpool, builderTasks } from '../schema/builder.js';
+import { eq } from 'drizzle-orm';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -186,7 +187,7 @@ export async function runCouncilDebate({
   await db
     .update(builderTasks)
     .set({ status: 'done' })
-    .where((await import('drizzle-orm')).eq(builderTasks.id, taskId));
+    .where(eq(builderTasks.id, taskId));
 
   return {
     debateId,
