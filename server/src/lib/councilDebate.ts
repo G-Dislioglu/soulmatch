@@ -1,6 +1,6 @@
-import { getDb } from '../../db.js';
+import { getDb } from '../db.js';
 import { callProvider } from './providers.js';
-import { builderChatpool, builderTasks } from '../../schema/builder.js';
+import { builderChatpool, builderTasks } from '../schema/builder.js';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -146,8 +146,8 @@ export async function runCouncilDebate({
     let content: string;
     try {
       content = await callProvider(provider, model, {
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: actor === 'skeptiker' ? 0.8 : actor === 'maya-moderator' ? 0.3 : 0.7,
