@@ -1250,13 +1250,40 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
     }
     const { runCouncilDebate } = await import('../lib/councilDebate.js');
 
-    // Async: return taskId immediately, run debate in background
     const debateId = `debate-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    res.json({ status: 'started', debateId, message: 'Debate running in background. Check /council-debate/status/:taskId or watch the Council LIVE feed.' });
 
-    // Fire and forget — results land in chatPool
-    runCouncilDebate({ topic, context, requirements, constraints }).catch((err: unknown) => {
+    // Wait for the task row to exist (fast — just one INSERT), then return
+    // the real taskId to the caller. The rest of the debate runs in background.
+    let resolveTaskId!: (id: string) => void;
+    let rejectTaskId!: (err: unknown) => void;
+    const taskIdPromise = new Promise<string>((resolve, reject) => {
+      resolveTaskId = resolve;
+      rejectTaskId = reject;
+    });
+
+    // Fire-and-forget the debate — results land in chatPool
+    runCouncilDebate({
+      topic,
+      context,
+      requirements,
+      constraints,
+      onTaskCreated: (id) => resolveTaskId(id),
+    }).catch((err: unknown) => {
       console.error(`[council-debate] ${debateId} failed:`, err);
+      // If we never got a taskId, reject the promise so the caller gets a 500
+      rejectTaskId(err);
+    });
+
+    // Race: if runCouncilDebate fails before creating the task, the catch above
+    // rejects taskIdPromise and we return an error. Normal path: we get the id.
+    const taskId = await taskIdPromise;
+
+    res.json({
+      status: 'started',
+      debateId,
+      taskId,
+      message:
+        'Debate running in background. Poll GET /council-debate/status/{taskId} (add ?full=true for round contents) or watch the Council LIVE feed.',
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -1264,6 +1291,7 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
 });
 
 // GET /council-debate/status/:taskId — check debate progress
+// Query: ?full=true returns full `content` per round instead of a 200-char preview.
 opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res: Response) => {
   try {
     const db = (await import('../db.js')).getDb();
@@ -1275,19 +1303,25 @@ opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res:
 
     const rounds = await db.select().from(cp).where(eq(cp.taskId, req.params.taskId)).orderBy(cp.round);
 
+    const wantFull = req.query.full === 'true' || req.query.full === '1';
+
     res.json({
       taskId: req.params.taskId,
       status: task[0].status,
       title: task[0].title,
       roundsCompleted: rounds.length,
-      rounds: rounds.map(r => ({
-        round: r.round,
-        actor: r.actor,
-        model: r.model,
-        chars: r.content.length,
-        durationMs: r.durationMs,
-        preview: r.content.substring(0, 200),
-      })),
+      rounds: rounds.map(r => {
+        const base = {
+          round: r.round,
+          actor: r.actor,
+          model: r.model,
+          chars: r.content.length,
+          durationMs: r.durationMs,
+        };
+        return wantFull
+          ? { ...base, content: r.content }
+          : { ...base, preview: r.content.substring(0, 200) };
+      }),
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
