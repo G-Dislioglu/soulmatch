@@ -2,6 +2,7 @@ import { getDb } from '../db.js';
 import { callProvider } from './providers.js';
 import { builderChatpool, builderTasks } from '../schema/builder.js';
 import { eq } from 'drizzle-orm';
+import { runScoutPhase } from './councilScout.js';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -134,6 +135,38 @@ export async function runCouncilDebate({
 
   const taskId = task.id;
 
+  // ─── Scout Phase: Repo + Web + AICOS + Crush ──────────────────────
+  const scoutFindings = await runScoutPhase(topic, context || '');
+
+  // Store scout findings in chatPool
+  await db.insert(builderChatpool).values({
+    taskId,
+    round: 0,
+    phase: 'scout',
+    actor: 'scout',
+    model: 'multi',
+    content: [
+      '## Repo-Scout\n' + scoutFindings.repoContext,
+      '## Web-Scout (Gemini + Google Search)\n' + scoutFindings.webInsights,
+      '## AICOS-Karten\n' + scoutFindings.aicosCards,
+      '## Crush-Zerlegung\n' + scoutFindings.crushStructure,
+    ].join('\n\n---\n\n'),
+    commands: [],
+    executionResults: {},
+    tokensUsed: 0,
+    durationMs: scoutFindings.durationMs,
+  });
+
+  // Enrich context with scout findings for all roles
+  const enrichedContext = [
+    context || '',
+    '\n\n--- SCOUT-ERKENNTNISSE ---',
+    '\n### Repo-Analyse\n' + scoutFindings.repoContext,
+    '\n### Web Best Practices\n' + scoutFindings.webInsights,
+    '\n### Relevante AICOS-Karten\n' + scoutFindings.aicosCards,
+    '\n### Crush-Zerlegung\n' + scoutFindings.crushStructure,
+  ].join('\n');
+
   const actors: Array<{ actor: string; label: string }> = [
     { actor: 'architekt',        label: 'Architekt' },
     { actor: 'skeptiker',        label: 'Skeptiker' },
@@ -146,7 +179,7 @@ export async function runCouncilDebate({
     const { actor } = actors[i];
     const { provider, model } = ROLE_MODELS[actor];
     const systemPrompt = SYSTEM_PROMPTS[actor];
-    const userPrompt = buildPrompt(actor, topic, context, requirements, constraints, rounds);
+    const userPrompt = buildPrompt(actor, topic, enrichedContext, requirements, constraints, rounds);
 
     const roundStart = Date.now();
 
