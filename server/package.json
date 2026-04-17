@@ -31,7 +31,8 @@
     "drizzle-orm": "^0.45.1",
     "express": "^4.21.0",
     "sweph": "2.10.3-b-1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "undici": "^6.25.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
