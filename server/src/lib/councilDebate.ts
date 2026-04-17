@@ -45,7 +45,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
   architekt:        { provider: 'anthropic',  model: 'claude-opus-4-6' },
   skeptiker:        { provider: 'openai',     model: 'gpt-5.4' },
-  pragmatiker:      { provider: 'deepseek',   model: 'deepseek-chat' },
+  pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5.1' },
   'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-6' },
 };
 
