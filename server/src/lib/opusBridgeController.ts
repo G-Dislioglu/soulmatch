@@ -847,6 +847,36 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         // Replace patches with decomposer output
         patches = decomposerResult.patches;
         reflectionCandidates = decomposerResult.workerResults;
+      } else if (patches.length > 0) {
+        // S30: Roundtable-TSC-Fallback — kleine Patches triggern keinen Auto-Decomposer,
+        // aber wenn TSC-Check spaeter failt, brauchen wir trotzdem einen Retry-Context.
+        // Synthetisiere WorkerAssignments aus den Roundtable-Patches selbst, damit der
+        // existierende Retry-Loop (Zeile ~920) den Decomposer-Worker mit TSC-Feedback
+        // aufrufen kann. Label 'roundtable-tsc-fallback'.
+        const fileContents: Record<string, string> = {};
+        for (const p of patches) {
+          if (!fileContents[p.file]) {
+            for (const base of [process.cwd(), path.resolve(process.cwd(), '..')]) {
+              try {
+                fileContents[p.file] = fs.readFileSync(path.resolve(base, p.file), 'utf-8');
+                break;
+              } catch { /* not found */ }
+            }
+          }
+        }
+
+        const fallbackWriter = pickFromPool('worker')?.id ?? 'glm-5-turbo';
+        const fallbackAssignments: WorkerAssignment[] = patches.map((p) => ({
+          file: p.file,
+          writer: fallbackWriter,
+          reason: `Roundtable-Spezifikation fuer ${p.file}:\n\n${p.body}\n\nWende den Patch korrekt an und produziere den kompletten, TypeScript-kompilierenden Inhalt der Datei.`,
+        }));
+
+        tscRetryContext = {
+          workerAssignments: fallbackAssignments,
+          fileContents,
+          label: 'roundtable-tsc-fallback',
+        };
       }
     }
 
