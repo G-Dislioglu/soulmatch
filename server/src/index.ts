@@ -5,6 +5,13 @@ import path from 'path';
 // Load environment variables before anything else
 dotenv.config();
 
+// DNS hardening against v8 cache overflow after long uptime (S30 finding)
+import dns from 'node:dns';
+import { Agent, setGlobalDispatcher } from 'undici';
+dns.setDefaultResultOrder('ipv4first');
+setGlobalDispatcher(new Agent({ connections: 128, pipelining: 1 }));
+
+
 import { fileURLToPath } from 'url';
 import { startKeepAlive } from './lib/keepAlive.js';
 import { arcanaRouter } from './routes/arcana.js';
