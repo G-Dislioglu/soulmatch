@@ -11,6 +11,12 @@ interface CouncilDebateInput {
   context?: string;
   requirements?: string[];
   constraints?: string[];
+  /**
+   * Optional callback invoked as soon as the builder_tasks row has been created.
+   * The route handler uses this to return the taskId to the caller before the
+   * (long-running) debate completes, so clients can poll status immediately.
+   */
+  onTaskCreated?: (taskId: string) => void;
 }
 
 interface DebateRound {
@@ -112,6 +118,7 @@ export async function runCouncilDebate({
   context,
   requirements,
   constraints,
+  onTaskCreated,
 }: CouncilDebateInput): Promise<CouncilDebateResult> {
   const debateId = `debate-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   const overallStart = Date.now();
@@ -134,6 +141,15 @@ export async function runCouncilDebate({
     .returning({ id: builderTasks.id });
 
   const taskId = task.id;
+
+  // Signal to caller that the task row exists and can be polled (P1 fix).
+  // We invoke this synchronously after the insert so the POST route can
+  // return the taskId to the client before the long-running debate starts.
+  try {
+    onTaskCreated?.(taskId);
+  } catch (cbErr) {
+    console.warn('[council-debate] onTaskCreated callback threw:', cbErr);
+  }
 
   // ─── Scout Phase: Repo + Web + AICOS + Crush ──────────────────────
   const scoutFindings = await runScoutPhase(topic, context || '');
