@@ -1,4 +1,5 @@
 import { MAX_FILE_LINES_FOR_OVERWRITE } from './opusBridgeConfig.js';
+import { outboundFetch } from './outboundHttp.js';
 
 export type PatchEdit = { search: string; replace: string };
 
@@ -36,7 +37,7 @@ export async function applyPatch(
 
   try {
     // 1. Fetch current file content
-    const getResponse = await fetch(url, { headers });
+    const getResponse = await outboundFetch(url, { headers });
     if (!getResponse.ok) {
       return { success: false, error: `Failed to fetch file: ${getResponse.statusText}` };
     }
@@ -64,7 +65,7 @@ export async function applyPatch(
       sha,
     };
 
-    const putResponse = await fetch(url, {
+    const putResponse = await outboundFetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(putBody),

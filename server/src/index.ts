@@ -1,18 +1,15 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { installOutboundHttpDefaults } from './lib/outboundHttp.js';
 
 // Load environment variables before anything else
 dotenv.config();
 
-// DNS hardening against v8 cache overflow after long uptime (S30 finding)
-import dns from 'node:dns';
-import { Agent, setGlobalDispatcher } from 'undici';
-dns.setDefaultResultOrder('ipv4first');
-setGlobalDispatcher(new Agent({ connections: 128, pipelining: 1 }));
+// DNS hardening against long-lived outbound GitHub/Render request churn.
+installOutboundHttpDefaults();
 
-
-import { fileURLToPath } from 'url';
 import { startKeepAlive } from './lib/keepAlive.js';
 import { arcanaRouter } from './routes/arcana.js';
 import { studioRouter } from './routes/studio.js';

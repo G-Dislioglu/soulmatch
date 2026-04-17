@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `58887c7`
+- `current_repo_head`: `pending-next-commit`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-17`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S30: Block 5d V3 Maya-Guide-Hardening live verifiziert (Score 95/100, alle vier GR-Szenarien grün gegen Render getestet) plus Doppel-Deploy-Bug im /git-push entfernt (Commit 58887c7 — triggerRedeploy() raus, GitHub Action render-deploy.yml jetzt alleinverantwortlich). Kritischer Roadmap-Audit gegen 2026-04-12-Plan abgeschlossen: 5 von 7 Schritten voll umgesetzt, Schritt 6 (TSC-Auto-Retry) zu 80% mit identifizierter Lücke im Roundtable-only-Pfad, Schritt 1 (Docs) durch diesen Sync abgeschlossen.`
-- `next_recommended_block`: `TSC-Auto-Retry Roundtable-Pfad schließen: im Roundtable-only-Pfad in opusBridgeController.ts einen tscRetryContext aus den Roundtable-Patches synthetisieren und an den Decomposer-Retry-Mechanismus delegieren. Schließt Schritt 6 auf 100%, ~30 Min. Alternative valide Blöcke: Block 5d PR #2 Context-Split, Maya-Core nächsten Produktblock schneiden (wartet seit 2026-04-05), DNS-cache-overflow-Hardening als Side-Finding aus S30 LIVE-PROBE.`
+- `last_completed_block`: `S30b: DNS/Outbound-Hardening fuer Builder-GitHub-/Render-Hotpaths repo-sichtbar geschnitten. Neue gemeinsame undici-basierte outboundFetch-Schicht forciert IPv4 und wird jetzt in /git-push, /delete, GitHub-dispatch, Render-Bridge/-Polling sowie dem Repo-Index-GitHub-Fetch verwendet, statt dort still auf den ambienten globalen fetch zu vertrauen. Server-Build gruen gegen diesen Stand.`
+- `next_recommended_block`: `Live-Verifikation der Builder-Bridge unter echten Secrets: /git-push oder Dispatch-Ende-zu-Ende auf Render/GitHub einmal bewusst gegen den gehaerteten outboundFetch-Pfad fahren und pruefen, ob der bisherige DNS-Overflow wirklich ausbleibt. Danach wieder zur offenen TSC-Auto-Retry-Luecke im Roundtable-only-Pfad oder zum S31-Observability-Block zurueckkehren.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

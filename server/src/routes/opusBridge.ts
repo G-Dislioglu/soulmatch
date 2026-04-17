@@ -27,6 +27,7 @@ import { getTaskStats, getRecentCompletedTasks } from '../lib/builderMetrics.js'
 import { findPattern, readFile } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
+import { outboundFetch } from '../lib/outboundHttp.js';
 import repoFileRouter from './repoFile.js';
 import {
   builderActions,
@@ -819,7 +820,7 @@ opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
 
       try {
         let sha: string | undefined;
-        const getResp = await fetch(apiUrl, {
+        const getResp = await outboundFetch(apiUrl, {
           headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
         });
         if (getResp.ok) {
@@ -832,7 +833,7 @@ opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
           continue;
         }
 
-        const delResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+        const delResp = await outboundFetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
@@ -1629,7 +1630,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       try {
         // Get current file SHA (needed for update/delete)
         let sha: string | undefined;
-        const getResp = await fetch(apiUrl, {
+        const getResp = await outboundFetch(apiUrl, {
           headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
         });
         if (getResp.ok) {
@@ -1642,7 +1643,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
             results.push({ file: f.file, action: 'delete', ok: false, error: 'file not found' });
             continue;
           }
-          const delResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+          const delResp = await outboundFetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
@@ -1650,7 +1651,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           results.push({ file: f.file, action: 'delete', ok: delResp.ok, error: delResp.ok ? undefined : `${delResp.status}` });
         } else {
           const contentB64 = Buffer.from(f.content || '').toString('base64');
-          const putResp = await fetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
+          const putResp = await outboundFetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: commitMessage, content: contentB64, sha, branch: targetBranch }),

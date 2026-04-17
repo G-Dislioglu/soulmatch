@@ -10,6 +10,7 @@
  */
 
 import { invalidateIndexCache } from './builderScopeResolver.js';
+import { outboundFetch } from './outboundHttp.js';
 
 const GITHUB_API_BASE = 'https://api.github.com/repos/G-Dislioglu/soulmatch';
 const GITHUB_TREE_URL = `${GITHUB_API_BASE}/git/trees/main?recursive=1`;
@@ -96,7 +97,7 @@ async function fetchFileContent(path: string): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FILE_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
+    const res = await outboundFetch(url, {
       signal: controller.signal,
       headers: buildGitHubHeaders(),
     });
@@ -218,7 +219,7 @@ export async function regenerateRepoIndex(): Promise<{
   // 1. Fetch full GitHub tree
   let treeResponse: GitHubTreeResponse;
   try {
-    const res = await fetch(GITHUB_TREE_URL, {
+    const res = await outboundFetch(GITHUB_TREE_URL, {
       headers: buildGitHubHeaders(),
     });
     if (!res.ok) {

@@ -7,6 +7,7 @@
 
 import { callProvider } from './providers.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS } from './opusWorkerRegistry.js';
+import { outboundFetch } from './outboundHttp.js';
 
 // ─── Deploy-Wait: Pollt Render bis Deploy live ───
 export async function waitForDeploy(
@@ -21,7 +22,7 @@ export async function waitForDeploy(
 
   while (Date.now() - start < maxWaitMs) {
     try {
-      const res = await fetch(
+      const res = await outboundFetch(
         `https://api.render.com/v1/services/${renderServiceId}/deploys?limit=1`,
         { headers: { Authorization: `Bearer ${renderApiKey}` } }
       );

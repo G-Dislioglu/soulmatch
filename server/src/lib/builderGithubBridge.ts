@@ -1,5 +1,6 @@
 import { parsePatchBody } from './builderPatchExecutor.js';
 import type { BdlCommand } from './builderBdlParser.js';
+import { outboundFetch } from './outboundHttp.js';
 
 export interface PatchPayload {
   file: string;
@@ -38,7 +39,7 @@ export async function triggerGithubAction(
     process.env.RENDER_EXTERNAL_URL || 'https://soulmatch-1.onrender.com';
 
   try {
-    const response = await fetch(
+    const response = await outboundFetch(
       `https://api.github.com/repos/${repo}/dispatches`,
       {
         method: 'POST',
