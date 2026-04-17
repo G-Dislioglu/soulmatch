@@ -1233,6 +1233,29 @@ opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
   });
 });
 
+
+// ==================== COUNCIL DEBATE ENDPOINT ====================
+// POST /council-debate — run an architecture debate with 4 AI perspectives
+opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => {
+  try {
+    const { topic, context, requirements, constraints } = req.body as {
+      topic?: string;
+      context?: string;
+      requirements?: string[];
+      constraints?: string[];
+    };
+    if (!topic) {
+      res.status(400).json({ error: 'topic is required' });
+      return;
+    }
+    const { runCouncilDebate } = await import('../lib/councilDebate.js');
+    const result = await runCouncilDebate({ topic, context, requirements, constraints });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ==================== PATROL ENDPOINTS ====================
 // GET /patrol-status — aggregated patrol statistics
 opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
