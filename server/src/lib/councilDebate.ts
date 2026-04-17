@@ -45,7 +45,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
   architekt:        { provider: 'anthropic',  model: 'claude-opus-4-6' },
   skeptiker:        { provider: 'openai',     model: 'gpt-5.4' },
-  pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5.1' },
+  pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
   'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-6' },
 };
 
@@ -152,7 +152,7 @@ export async function runCouncilDebate({
           { role: 'user', content: userPrompt },
         ],
         temperature: actor === 'skeptiker' ? 0.8 : actor === 'maya-moderator' ? 0.3 : 0.7,
-        maxTokens: 2000,
+        maxTokens: 4000,
         forceJsonObject: false,
       });
     } catch (err) {
