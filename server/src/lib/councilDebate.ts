@@ -153,6 +153,7 @@ export async function runCouncilDebate({
         ],
         temperature: actor === 'skeptiker' ? 0.8 : actor === 'maya-moderator' ? 0.3 : 0.7,
         maxTokens: 2000,
+        forceJsonObject: false,
       });
     } catch (err) {
       content = `[Fehler bei ${actor}: ${String(err).substring(0, 200)}]`;
