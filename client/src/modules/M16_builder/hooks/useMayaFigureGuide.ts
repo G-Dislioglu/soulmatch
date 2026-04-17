@@ -30,9 +30,19 @@ function getIdlePosition(targets: Record<string, MayaTargetRect>) {
     return { x: 84, y: 84 };
   }
 
+  const idleX = anchor.x + anchor.width - 40;
+  const idleY = anchor.y + 14;
+
+  if (typeof window === 'undefined') {
+    return {
+      x: idleX,
+      y: idleY,
+    };
+  }
+
   return {
-    x: anchor.x + Math.min(anchor.width - 24, Math.max(28, anchor.width - 34)),
-    y: anchor.y + Math.min(anchor.height, 28),
+    x: Math.max(40, Math.min(idleX, window.innerWidth - 60)),
+    y: Math.max(40, Math.min(idleY, window.innerHeight - 60)),
   };
 }
 

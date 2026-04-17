@@ -693,7 +693,7 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
         summary: builderMemory.summary,
         updatedAt: builderMemory.updatedAt,
       }).from(builderMemory)
-        .where(eq(builderMemory.layer, 'episodic'))
+        .where(eq(builderMemory.layer, 'episode'))
         .orderBy(desc(builderMemory.updatedAt))
         .limit(5),
 
