@@ -1249,8 +1249,46 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
       return;
     }
     const { runCouncilDebate } = await import('../lib/councilDebate.js');
-    const result = await runCouncilDebate({ topic, context, requirements, constraints });
-    res.json(result);
+
+    // Async: return taskId immediately, run debate in background
+    const debateId = `debate-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    res.json({ status: 'started', debateId, message: 'Debate running in background. Check /council-debate/status/:taskId or watch the Council LIVE feed.' });
+
+    // Fire and forget — results land in chatPool
+    runCouncilDebate({ topic, context, requirements, constraints }).catch((err: unknown) => {
+      console.error(`[council-debate] ${debateId} failed:`, err);
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /council-debate/status/:taskId — check debate progress
+opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res: Response) => {
+  try {
+    const db = (await import('../db.js')).getDb();
+    const { builderChatpool: cp, builderTasks: bt } = await import('../schema/builder.js');
+    const { eq } = await import('drizzle-orm');
+
+    const task = await db.select().from(bt).where(eq(bt.id, req.params.taskId)).limit(1);
+    if (!task.length) { res.status(404).json({ error: 'not found' }); return; }
+
+    const rounds = await db.select().from(cp).where(eq(cp.taskId, req.params.taskId)).orderBy(cp.round);
+
+    res.json({
+      taskId: req.params.taskId,
+      status: task[0].status,
+      title: task[0].title,
+      roundsCompleted: rounds.length,
+      rounds: rounds.map(r => ({
+        round: r.round,
+        actor: r.actor,
+        model: r.model,
+        chars: r.content.length,
+        durationMs: r.durationMs,
+        preview: r.content.substring(0, 200),
+      })),
+    });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
