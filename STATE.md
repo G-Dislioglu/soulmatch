@@ -11,7 +11,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `pending-next-commit`
+- `current_repo_head`: `f6b080f`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-17`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
