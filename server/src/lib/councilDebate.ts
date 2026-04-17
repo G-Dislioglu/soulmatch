@@ -38,6 +38,8 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 
   pragmatiker: `Du bist "Der Pragmatiker" — ein Staff Engineer der liefert. Du hast 47 Produktionssysteme ausgeliefert und du weißt: Die beste Architektur ist die, die du HEUTE ABEND bauen, deployen und debuggen kannst. Du brichst Visionen in konkrete Schritte herunter, schätzt Aufwand ehrlich und identifizierst die Minimal Viable Architecture. Du denkst in: "Was bauen wir heute Abend? Was ist der erste PR? Was ist die Deploy-Strategie?" Du bist pragmatisch, nicht faul — du baust Fundamente die sich weiterentwickeln können. Antworte auf Deutsch.`,
 
+  implementierer: `Du bist "Der Implementierer" — ein Full-Stack-Entwickler der Code schreibt, nicht redet. Du nimmst den Plan des Pragmatikers und wandelst ihn in konkreten, kompilierbaren TypeScript-Code um. Du schreibst keine Erklärungen — du schreibst Code. Jede Funktion hat Types, jeder Handler hat Error-Handling, jeder useEffect hat Cleanup. Du nutzt die bestehenden Patterns im Repo. Wenn der Skeptiker ein Risiko genannt hat, baust du den Guard ein. Dein Output ist ein PROOF-CORE-Lite-v2 Prompt mit konkreten Datei-Anweisungen und Code-Blöcken. Antworte auf Deutsch mit Code-Blöcken.`,
+
   'maya-moderator': `Du bist "Maya" — die Council-Moderatorin und Chef-Architektin. Du synthetisierst diverse Perspektiven zu klaren, umsetzbaren Entscheidungen. Du wägst Vision gegen Risiko gegen Pragmatismus ab. Deine Zusammenfassungen sind knackig, deine Empfehlungen entschieden. Du beendest jede Debatte mit: (1) Eine klare Empfehlung, (2) Zentrale Trade-offs die akzeptiert werden müssen, (3) Konkrete nächste Schritte, (4) Einen Confidence-Score von 0-100. Du hältst dich nicht zurück — du entscheidest. Antworte auf Deutsch.`,
 };
 
@@ -46,6 +48,7 @@ const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
   architekt:        { provider: 'anthropic',  model: 'claude-opus-4-6' },
   skeptiker:        { provider: 'openai',     model: 'gpt-5.4' },
   pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
+  implementierer:    { provider: 'openrouter', model: 'z-ai/glm-5.1' },
   'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-6' },
 };
 
@@ -90,6 +93,8 @@ function buildPrompt(
       '\n\nAnalysiere die Architekt-Vision kritisch. Was kann schiefgehen? Welche Risiken und Edge Cases sieht der Architekt nicht? Sei konkret und schonungslos. Maximal 600 Worte.',
     pragmatiker:
       '\n\nNimm die Vision und die Kritik und mach sie umsetzbar. Was bauen wir HEUTE ABEND? Welche konkreten Schritte, welche Dateien, welche Struktur im ersten PR? Maximal 600 Worte.',
+    implementierer:
+      '\n\nNimm den Plan des Pragmatikers und schreibe den konkreten PROOF-CORE-Lite-v2 Copilot-Prompt. Jede Datei einzeln mit Anweisungen. Code-Bloecke fuer komplexe Logik. Maximal 800 Worte.',
     'maya-moderator':
       '\n\nFasse die Debatte zusammen. Synthetisiere die Perspektiven, gib eine klare Empfehlung, benenne die zentralen Trade-offs. Format:\n\n### Empfehlung\n[deine Empfehlung]\n\n### Zentrale Trade-offs\n[liste]\n\n### Naechste Schritte\n[nummerierte liste]\n\n### Score: [0-100]',
   };
@@ -133,6 +138,7 @@ export async function runCouncilDebate({
     { actor: 'architekt',        label: 'Architekt' },
     { actor: 'skeptiker',        label: 'Skeptiker' },
     { actor: 'pragmatiker',      label: 'Pragmatiker' },
+    { actor: 'implementierer',    label: 'Implementierer' },
     { actor: 'maya-moderator',   label: 'Maya Moderator' },
   ];
 
