@@ -1,0 +1,31 @@
+.maya-highlight {
+  outline: 2px solid rgba(240, 195, 91, 0.92);
+  outline-offset: 4px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(240, 195, 91, 0.2);
+  animation: maya-highlight-pulse 1.6s ease-in-out infinite;
+  transition: outline-color 200ms ease, box-shadow 200ms ease;
+}
+
+@keyframes maya-highlight-pulse {
+  0%,
+  100% {
+    outline-color: rgba(240, 195, 91, 0.92);
+    box-shadow: 0 0 0 1px rgba(240, 195, 91, 0.2);
+  }
+
+  50% {
+    outline-color: rgba(240, 195, 91, 0.38);
+    box-shadow: 0 0 0 1px rgba(240, 195, 91, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maya-highlight {
+    animation: none;
+  }
+}
+
+.maya-figure-absolute-fallback {
+  position: absolute !important;
+}

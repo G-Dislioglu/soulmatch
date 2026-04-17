@@ -13,12 +13,12 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 - `current_repo_head`: `505b2db`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-16`
+- `last_verified_against_code`: `2026-04-17`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts`
-- `last_completed_block`: `Maya kann im Builder jetzt nicht nur auf Demo- oder Event-Trigger reagieren, sondern auch direkt aus Standard-Chat und Maya-Brain auf reale UI-Ziele zeigen: beide Chatpfade teilen dieselbe Navigation-Guidance, `[NAVIGATE:ziel]` wird clientseitig in Guide-Bewegung statt sichtbaren Rohtext uebersetzt, die Figure hat einen festen Idle-Anker, die Target-Registry ignoriert style-bedingtes Eigenrauschen, und der Builder-Chat nutzt dieselbe Speech-to-Text-Kette jetzt auch ueber einen sichtbaren Mic-Button`
+- `last_completed_block`: `Die Builder-Maya-Figure ist jetzt als gehaertete Presence-Shell nachgezogen: `useMayaFigureGuide` arbeitet mit Portal-Overlay, fixed/absolute-Fallback, Generation+AbortController-Settlern, reduced-motion-Sofortpfad, rAF-Stabilisierung gegen bewegliche Ziele und Drag ohne React-Koordinaten-State; Highlight und Bubble bleiben dabei in der Maya-Schicht statt als Inline-Effekt in `BuilderStudioPage``
 - `next_recommended_block`: `Die Maya-Figure als naechstes an semantische Chat-/Director-Zustaende wie Thinking, Tool-Status und Fehler koppeln und den neuen Maya-Chat-Navigationspfad mit echten Builder-Sessions auf Render gegenpruefen; TTS oder autonome Steuerung bleiben bewusst ausserhalb dieses Blocks`
 - `read_order_version`: `v1`
 

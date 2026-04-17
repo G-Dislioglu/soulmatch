@@ -4,6 +4,7 @@ import { useLocation } from 'wouter';
 import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 import { TOKENS } from '../../../design/tokens';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
+import './maya-highlight.css';
 import {
   BuilderConfigPanel,
   loadPools,
@@ -27,7 +28,7 @@ import {
   type BuilderPatrolStatus,
   type BuilderTask,
 } from '../hooks/useBuilderApi';
-import { MayaFigure, getMayaFigureColor } from './MayaFigure';
+import { MayaFigure } from './MayaFigure';
 import { PoolChatWindow } from './PoolChatWindow';
 
 type DialogFormat = 'dsl' | 'text';
@@ -1010,14 +1011,15 @@ export function BuilderStudioPage() {
   }), [registryState.getTargetRect, registryState.refreshTargets, registryState.targets]);
   const refreshMayaTargets = registryState.refreshTargets;
   const {
-    figureX: mayaFigureX,
-    figureY: mayaFigureY,
-    state: mayaFigureState,
-    visible: mayaFigureVisible,
+    phase: mayaFigurePhase,
+    figureRef: mayaFigureRef,
     bubbleText: mayaBubbleText,
-    activeTargetId: mayaActiveTargetId,
     guideTo: guideMayaTo,
     clearGuide: clearMayaGuide,
+    onPointerDown: handleMayaPointerDown,
+    onPointerMove: handleMayaPointerMove,
+    onPointerUp: handleMayaPointerUp,
+    isFixedSupported: mayaFixedSupported,
   } = useMayaFigureGuide(targetRegistry);
 
   const {
@@ -1120,39 +1122,6 @@ export function BuilderStudioPage() {
   useEffect(() => {
     refreshMayaTargets();
   }, [compact, dialogBubbles.length, patrolOpen, refreshMayaTargets, selectedTaskId, showConfig, tasks.length]);
-
-  useEffect(() => {
-    const container = builderRef.current;
-    if (!container) {
-      return;
-    }
-
-    const highlightColor = getMayaFigureColor(mayaFigureState);
-    const targetNodes = Array.from(container.querySelectorAll<HTMLElement>('[data-maya-target]'));
-
-    targetNodes.forEach((node) => {
-      node.style.transition = node.style.transition
-        ? `${node.style.transition}, box-shadow 0.25s ease`
-        : 'box-shadow 0.25s ease';
-
-      if (node.dataset.mayaGuideHighlighted === 'true') {
-        node.style.boxShadow = '';
-        delete node.dataset.mayaGuideHighlighted;
-      }
-    });
-
-    if (!mayaActiveTargetId) {
-      return;
-    }
-
-    const activeTarget = targetNodes.find((node) => node.dataset.mayaTarget === mayaActiveTargetId);
-    if (!activeTarget) {
-      return;
-    }
-
-    activeTarget.style.boxShadow = `0 0 0 2px ${highlightColor}40, 0 0 16px ${highlightColor}15`;
-    activeTarget.dataset.mayaGuideHighlighted = 'true';
-  }, [mayaActiveTargetId, mayaFigureState]);
 
   useEffect(() => {
     const el = chatContainerRef.current;
@@ -2765,11 +2734,13 @@ export function BuilderStudioPage() {
         </footer>
 
         <MayaFigure
-          x={mayaFigureX}
-          y={mayaFigureY}
-          state={mayaFigureState}
-          visible={mayaFigureVisible}
+          phase={mayaFigurePhase}
+          figureRef={mayaFigureRef}
           bubbleText={mayaBubbleText}
+          isFixedSupported={mayaFixedSupported}
+          onPointerDown={handleMayaPointerDown}
+          onPointerMove={handleMayaPointerMove}
+          onPointerUp={handleMayaPointerUp}
         />
       </div>
     </div>

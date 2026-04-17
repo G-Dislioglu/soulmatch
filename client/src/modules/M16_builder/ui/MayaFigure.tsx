@@ -1,77 +1,94 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import { TOKENS } from '../../../design/tokens';
+import {
+  MAYA_LAYOUT,
+  MAYA_TIMING,
+  MAYA_Z_INDEX,
+  type MayaPhase,
+} from '../lib/mayaTransitions';
 
-export type MayaFigureState = 'idle' | 'guiding' | 'thinking' | 'speaking' | 'warning';
+export type MayaFigureState = MayaPhase;
 
 export interface MayaFigureProps {
-  x: number;
-  y: number;
-  state: MayaFigureState;
-  visible: boolean;
+  phase: MayaPhase;
+  figureRef: RefObject<HTMLDivElement>;
   bubbleText?: string;
-  bubblePosition?: 'above' | 'below' | 'left' | 'right';
+  isFixedSupported: boolean;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }
 
-export function getMayaFigureColor(state: MayaFigureState) {
-  switch (state) {
-    case 'guiding':
+export function getMayaFigureColor(phase: MayaPhase) {
+  switch (phase) {
+    case 'dragging':
+      return '#f7d67f';
+    case 'navigating':
+    case 'atTarget':
+    case 'returning':
       return '#f0c35b';
-    case 'thinking':
-      return '#06b6d4';
-    case 'speaking':
-      return '#e7b94c';
-    case 'warning':
-      return '#ef4444';
     case 'idle':
     default:
       return TOKENS.gold;
   }
 }
 
-function getPulseDuration(state: MayaFigureState) {
-  switch (state) {
-    case 'guiding':
-      return '1.2s';
-    case 'thinking':
-      return '1.5s';
-    case 'speaking':
-      return '1s';
-    case 'warning':
-      return '0.72s';
+function getPulseDuration(phase: MayaPhase) {
+  switch (phase) {
+    case 'dragging':
+      return '1.05s';
+    case 'navigating':
+      return '1.25s';
+    case 'atTarget':
+      return '1.1s';
+    case 'returning':
+      return '1.35s';
     case 'idle':
     default:
       return '2.4s';
   }
 }
 
+type BubblePosition = 'above' | 'below' | 'left' | 'right';
+
 export function MayaFigure(props: MayaFigureProps) {
-  const { x, y, state, visible, bubbleText, bubblePosition } = props;
-  const accentColor = getMayaFigureColor(state);
-  const pulseDuration = getPulseDuration(state);
+  const {
+    phase,
+    figureRef,
+    bubbleText,
+    isFixedSupported,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+  } = props;
+  const accentColor = getMayaFigureColor(phase);
+  const pulseDuration = getPulseDuration(phase);
+  const [bubblePosition, setBubblePosition] = useState<BubblePosition>('above');
 
-  const resolvedBubblePosition = useMemo(() => {
-    if (bubblePosition) {
-      return bubblePosition;
+  useEffect(() => {
+    if (!bubbleText || !figureRef.current || typeof window === 'undefined') {
+      return;
     }
 
-    if (typeof window === 'undefined') {
-      return 'right';
+    const rect = figureRef.current.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 320) {
+      setBubblePosition('left');
+      return;
     }
 
-    if (x > window.innerWidth - 320) {
-      return 'left';
+    if (rect.top < 140) {
+      setBubblePosition('below');
+      return;
     }
 
-    if (y < 140) {
-      return 'below';
-    }
-
-    return 'above';
-  }, [bubblePosition, x, y]);
+    setBubblePosition('above');
+  }, [bubbleText, figureRef, phase]);
 
   const bubbleStyle = useMemo(() => {
-    switch (resolvedBubblePosition) {
+    switch (bubblePosition) {
       case 'below':
         return { top: 34, left: '50%', transform: 'translateX(-50%)' };
       case 'left':
@@ -82,24 +99,46 @@ export function MayaFigure(props: MayaFigureProps) {
       default:
         return { bottom: 34, left: '50%', transform: 'translateX(-50%)' };
     }
-  }, [resolvedBubblePosition]);
+  }, [bubblePosition]);
 
-  return (
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const transitionDuration = prefersReducedMotion
+    ? 0
+    : phase === 'returning'
+      ? MAYA_TIMING.returnMs
+      : MAYA_TIMING.navigateMs;
+  const isTransitioning = phase === 'navigating' || phase === 'returning';
+
+  return createPortal(
     <div
+      ref={figureRef}
       aria-hidden="true"
+      data-maya-phase={phase}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onLostPointerCapture={onPointerUp}
+      className={isFixedSupported ? undefined : 'maya-figure-absolute-fallback'}
       style={{
-        position: 'absolute',
-        left: x,
-        top: y,
-        transform: 'translate(-50%, -50%)',
-        opacity: visible ? 1 : 0,
-        pointerEvents: 'none',
-        transition: [
-          'left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          'top 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          'opacity 0.3s ease',
-        ].join(', '),
-        zIndex: 80,
+        position: isFixedSupported ? 'fixed' : 'absolute',
+        top: 0,
+        left: 0,
+        width: MAYA_LAYOUT.figureSizePx,
+        height: MAYA_LAYOUT.figureSizePx,
+        transform: `translate(${MAYA_LAYOUT.idleFallbackX}px, ${MAYA_LAYOUT.idleFallbackY}px)`,
+        transition: isTransitioning ? `transform ${transitionDuration}ms cubic-bezier(0.34, 1.56, 0.64, 1)` : 'none',
+        touchAction: 'none',
+        pointerEvents: 'auto',
+        cursor: phase === 'dragging' ? 'grabbing' : 'grab',
+        willChange: isTransitioning ? 'transform' : 'auto',
+        zIndex: MAYA_Z_INDEX,
+        userSelect: 'none',
       }}
     >
       <style>
@@ -109,12 +148,12 @@ export function MayaFigure(props: MayaFigureProps) {
             100% { transform: scale(1.34); opacity: 0.16; }
           }
           @keyframes mayaFigureFlicker {
-            0%, 100% { opacity: 0.72; }
+            0%, 100% { opacity: 0.76; }
             50% { opacity: 1; }
           }`}
       </style>
 
-      <div style={{ position: 'relative', width: 24, height: 24 }}>
+      <div style={{ position: 'relative', width: MAYA_LAYOUT.figureSizePx, height: MAYA_LAYOUT.figureSizePx }}>
         <span
           style={{
             position: 'absolute',
@@ -132,7 +171,7 @@ export function MayaFigure(props: MayaFigureProps) {
             borderRadius: '50%',
             background: `radial-gradient(circle at 35% 35%, rgba(255,255,255,0.98), #f6dfa1 32%, ${accentColor} 100%)`,
             boxShadow: `0 0 20px ${accentColor}55, 0 0 8px rgba(212,175,55,0.42) inset`,
-            animation: state === 'thinking' ? 'mayaFigureFlicker 1.4s ease-in-out infinite' : undefined,
+            animation: phase === 'navigating' ? 'mayaFigureFlicker 1.35s ease-in-out infinite' : undefined,
           }}
         />
         <span
@@ -152,7 +191,7 @@ export function MayaFigure(props: MayaFigureProps) {
             minWidth: bubbleText ? 160 : 0,
             opacity: bubbleText ? 1 : 0,
             pointerEvents: 'none',
-            transition: 'opacity 0.3s ease',
+            transition: 'opacity 0.22s ease',
             borderRadius: 16,
             border: `1px solid ${accentColor}55`,
             background: TOKENS.card,
@@ -174,6 +213,7 @@ export function MayaFigure(props: MayaFigureProps) {
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
