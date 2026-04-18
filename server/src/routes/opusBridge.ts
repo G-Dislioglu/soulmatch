@@ -91,6 +91,124 @@ function toPatrolFinding(card: typeof builderErrorCards.$inferSelect) {
   };
 }
 
+type DirectGitPushFile = {
+  file: string;
+  content?: string;
+  delete?: boolean;
+};
+
+type DirectGitPushAction = 'create' | 'update' | 'delete';
+
+type DirectGitPushResult = {
+  file: string;
+  action: DirectGitPushAction;
+  ok: boolean;
+  error?: string;
+  commitSha?: string;
+};
+
+type GitHubRefResponse = {
+  object?: {
+    sha?: string;
+  };
+};
+
+type GitHubCommitResponse = {
+  sha?: string;
+  tree?: {
+    sha?: string;
+  };
+};
+
+type GitHubTreeEntry = {
+  path?: string;
+  type?: string;
+  sha?: string | null;
+};
+
+type GitHubTreeResponse = {
+  sha?: string;
+  tree?: GitHubTreeEntry[];
+  truncated?: boolean;
+};
+
+type GitHubBlobResponse = {
+  sha?: string;
+};
+
+function normalizeDirectGitPushFiles(files: DirectGitPushFile[]): DirectGitPushFile[] {
+  return files.map((file) => ({
+    ...file,
+    file: file.file.replace(/\\/g, '/'),
+  }));
+}
+
+function findDuplicateGitPushPath(files: DirectGitPushFile[]): string | null {
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (seen.has(file.file)) {
+      return file.file;
+    }
+
+    seen.add(file.file);
+  }
+
+  return null;
+}
+
+function buildGitPushActions(
+  files: DirectGitPushFile[],
+  existingPaths?: Set<string>,
+): DirectGitPushResult[] {
+  return files.map((file) => ({
+    file: file.file,
+    action: file.delete ? 'delete' : existingPaths?.has(file.file) ? 'update' : 'create',
+    ok: false,
+  }));
+}
+
+function buildGitPushFailureResults(
+  planned: DirectGitPushResult[],
+  error: string,
+): DirectGitPushResult[] {
+  return planned.map((result) => ({
+    ...result,
+    ok: false,
+    error,
+    commitSha: undefined,
+  }));
+}
+
+async function githubGitRequest<T>(
+  url: string,
+  pat: string,
+  stage: string,
+  init: { method?: 'GET' | 'POST' | 'PATCH'; body?: string } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${pat}`,
+    Accept: 'application/vnd.github.v3+json',
+  };
+
+  if (init.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await outboundFetch(url, {
+    method: init.method,
+    headers,
+    body: init.body,
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText || 'unknown error');
+    throw new Error(`${stage}: GitHub API ${response.status} ${detail.slice(0, 200)}`);
+  }
+
+  return await response.json() as T;
+}
+
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
     const result = await executeTask(req.body);
@@ -1598,21 +1716,33 @@ opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) =>
 
 // ==================== Direct GitHub Push (no GH Action needed) ====================
 
-// POST /git-push — push files directly via GitHub Contents API
+// POST /git-push — push files directly via GitHub Git Data API as one atomic commit.
 // Bypasses the GH Action pipeline. Use for config files, workflow changes, cleanup.
 opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
+  const { files, message, branch } = req.body as {
+    files?: DirectGitPushFile[];
+    message?: string;
+    branch?: string;
+  };
+
+  const targetBranch = branch || 'main';
+  const commitMessage = message || 'direct push via /git-push';
+
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    res.status(400).json({ error: 'files[] with {file, content} or {file, delete:true} required' });
+    return;
+  }
+
+  const normalizedFiles = normalizeDirectGitPushFiles(files);
+  const duplicatePath = findDuplicateGitPushPath(normalizedFiles);
+  if (duplicatePath) {
+    res.status(400).json({ error: `duplicate file path in payload: ${duplicatePath}` });
+    return;
+  }
+
+  let plannedResults = buildGitPushActions(normalizedFiles);
+
   try {
-    const { files, message, branch } = req.body as {
-      files?: Array<{ file: string; content?: string; delete?: boolean }>;
-      message?: string;
-      branch?: string;
-    };
-
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      res.status(400).json({ error: 'files[] with {file, content} or {file, delete:true} required' });
-      return;
-    }
-
     const pat = process.env.GITHUB_PAT;
     if (!pat) {
       res.status(500).json({ error: 'GITHUB_PAT not configured' });
@@ -1620,50 +1750,155 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     }
 
     const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
-    const targetBranch = branch || 'main';
-    const commitMessage = message || 'direct push via /git-push';
-    const results: Array<{ file: string; action: string; ok: boolean; error?: string }> = [];
-
-    for (const f of files) {
-      const apiUrl = `https://api.github.com/repos/${repo}/contents/${f.file}?ref=${targetBranch}`;
-
-      try {
-        // Get current file SHA (needed for update/delete)
-        let sha: string | undefined;
-        const getResp = await outboundFetch(apiUrl, {
-          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' },
-        });
-        if (getResp.ok) {
-          const getData = await getResp.json() as Record<string, unknown>;
-          sha = getData.sha as string;
-        }
-
-        if (f.delete) {
-          if (!sha) {
-            results.push({ file: f.file, action: 'delete', ok: false, error: 'file not found' });
-            continue;
-          }
-          const delResp = await outboundFetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: commitMessage, sha, branch: targetBranch }),
-          });
-          results.push({ file: f.file, action: 'delete', ok: delResp.ok, error: delResp.ok ? undefined : `${delResp.status}` });
-        } else {
-          const contentB64 = Buffer.from(f.content || '').toString('base64');
-          const putResp = await outboundFetch(`https://api.github.com/repos/${repo}/contents/${f.file}`, {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: commitMessage, content: contentB64, sha, branch: targetBranch }),
-          });
-          results.push({ file: f.file, action: sha ? 'update' : 'create', ok: putResp.ok, error: putResp.ok ? undefined : `${putResp.status}` });
-        }
-      } catch (err) {
-        results.push({ file: f.file, action: 'error', ok: false, error: String(err) });
-      }
+    const branchRef = encodeURIComponent(targetBranch);
+    const ref = await githubGitRequest<GitHubRefResponse>(
+      `https://api.github.com/repos/${repo}/git/ref/heads/${branchRef}`,
+      pat,
+      'ref lookup failed',
+    );
+    const parentCommitSha = ref.object?.sha;
+    if (!parentCommitSha) {
+      throw new Error('ref lookup failed: missing parent commit sha');
     }
 
-    res.json({ results, branch: targetBranch, message: commitMessage });
+    const parentCommit = await githubGitRequest<GitHubCommitResponse>(
+      `https://api.github.com/repos/${repo}/git/commits/${parentCommitSha}`,
+      pat,
+      'parent commit lookup failed',
+    );
+    const baseTreeSha = parentCommit.tree?.sha;
+    if (!baseTreeSha) {
+      throw new Error('parent commit lookup failed: missing base tree sha');
+    }
+
+    const baseTree = await githubGitRequest<GitHubTreeResponse>(
+      `https://api.github.com/repos/${repo}/git/trees/${baseTreeSha}?recursive=1`,
+      pat,
+      'base tree lookup failed',
+    );
+    const existingPaths = new Set(
+      (baseTree.tree ?? [])
+        .filter((entry) => entry.type === 'blob' && typeof entry.path === 'string')
+        .map((entry) => entry.path as string),
+    );
+    plannedResults = buildGitPushActions(normalizedFiles, existingPaths);
+
+    const missingDelete = normalizedFiles.find((file) => file.delete && !existingPaths.has(file.file));
+    if (missingDelete) {
+      res.json({
+        results: buildGitPushFailureResults(plannedResults, `delete target not found: ${missingDelete.file}`),
+        branch: targetBranch,
+        message: commitMessage,
+      });
+      return;
+    }
+
+    const blobShas = new Map<string, string>();
+    for (const file of normalizedFiles) {
+      if (file.delete) {
+        continue;
+      }
+
+      const blob = await githubGitRequest<GitHubBlobResponse>(
+        `https://api.github.com/repos/${repo}/git/blobs`,
+        pat,
+        `blob creation failed for ${file.file}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            content: Buffer.from(file.content ?? '', 'utf8').toString('base64'),
+            encoding: 'base64',
+          }),
+        },
+      );
+
+      if (!blob.sha) {
+        throw new Error(`blob creation failed for ${file.file}: missing blob sha`);
+      }
+
+      blobShas.set(file.file, blob.sha);
+    }
+
+    const tree = await githubGitRequest<GitHubTreeResponse>(
+      `https://api.github.com/repos/${repo}/git/trees`,
+      pat,
+      'tree creation failed',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          base_tree: baseTreeSha,
+          tree: normalizedFiles.map((file) => {
+            if (file.delete) {
+              return {
+                path: file.file,
+                mode: '100644',
+                type: 'blob',
+                sha: null,
+              };
+            }
+
+            return {
+              path: file.file,
+              mode: '100644',
+              type: 'blob',
+              sha: blobShas.get(file.file),
+            };
+          }),
+        }),
+      },
+    );
+
+    if (!tree.sha) {
+      throw new Error('tree creation failed: missing tree sha');
+    }
+
+    if (tree.sha === baseTreeSha) {
+      res.json({
+        results: buildGitPushFailureResults(plannedResults, 'no changes to commit'),
+        branch: targetBranch,
+        message: commitMessage,
+      });
+      return;
+    }
+
+    const commit = await githubGitRequest<GitHubCommitResponse>(
+      `https://api.github.com/repos/${repo}/git/commits`,
+      pat,
+      'commit creation failed',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          message: commitMessage,
+          tree: tree.sha,
+          parents: [parentCommitSha],
+        }),
+      },
+    );
+
+    if (!commit.sha) {
+      throw new Error('commit creation failed: missing commit sha');
+    }
+
+    await githubGitRequest<Record<string, unknown>>(
+      `https://api.github.com/repos/${repo}/git/refs/heads/${branchRef}`,
+      pat,
+      'ref update failed',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ sha: commit.sha, force: false }),
+      },
+    );
+
+    res.json({
+      results: plannedResults.map((result) => ({
+        ...result,
+        ok: true,
+        error: undefined,
+        commitSha: commit.sha,
+      })),
+      branch: targetBranch,
+      message: commitMessage,
+    });
 
     // Deploy-Trigger wird ausschließlich von .github/workflows/render-deploy.yml übernommen:
     // Contents-API-Commits lösen push-Events aus → die Action wartet auf Render-Auto-Deploy
@@ -1671,6 +1906,11 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     // hier führte zu parallelen Deploys (Doppel-/Triple-Deploy-Bug, S29-Befund).
     // Für explizit erzwungene Redeploys existiert POST /render/redeploy.
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    const error = err instanceof Error ? err.message : String(err);
+    res.json({
+      results: buildGitPushFailureResults(plannedResults, error),
+      branch: targetBranch,
+      message: commitMessage,
+    });
   }
 });
