@@ -1,7 +1,7 @@
 // Render API Bridge — Allows the Builder to monitor and control the Render deployment
 // Requires: RENDER_API_KEY and RENDER_SERVICE_ID env vars on Render
 
-import { outboundFetch } from './outboundHttp.js';
+import { outboundFetch, type OutboundFetchInit, type OutboundFetchResponse } from './outboundHttp.js';
 
 const RENDER_API = 'https://api.render.com/v1';
 
@@ -11,7 +11,7 @@ function getConfig() {
   return { apiKey, serviceId };
 }
 
-async function renderFetch(path: string, options: RequestInit = {}): Promise<Response> {
+async function renderFetch(path: string, options: OutboundFetchInit = {}): Promise<OutboundFetchResponse> {
   const { apiKey } = getConfig();
   if (!apiKey) {
     throw new Error('RENDER_API_KEY not set');

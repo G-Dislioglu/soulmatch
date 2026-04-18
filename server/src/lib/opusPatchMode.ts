@@ -3,6 +3,18 @@ import { outboundFetch } from './outboundHttp.js';
 
 export type PatchEdit = { search: string; replace: string };
 
+type GitHubContentsResponse = {
+  content: string;
+  sha: string;
+};
+
+type GitHubUpdateResponse = {
+  commit?: {
+    sha?: string;
+  };
+  message?: string;
+};
+
 export function applyPatches(source: string, patches: PatchEdit[]): string {
   let result = source;
   for (const p of patches) {
@@ -41,7 +53,7 @@ export async function applyPatch(
     if (!getResponse.ok) {
       return { success: false, error: `Failed to fetch file: ${getResponse.statusText}` };
     }
-    const fileData = await getResponse.json();
+    const fileData = await getResponse.json() as GitHubContentsResponse;
     const currentContent = Buffer.from(fileData.content, 'base64').toString('utf-8');
     const sha = fileData.sha;
 
@@ -72,12 +84,13 @@ export async function applyPatch(
     });
 
     if (!putResponse.ok) {
-      const errorData = await putResponse.json().catch(() => ({}));
-      return { success: false, error: `Failed to update file: ${putResponse.statusText}`, ...errorData };
+      const errorData = await putResponse.json().catch(() => null) as GitHubUpdateResponse | null;
+      const detail = errorData?.message ? ` (${errorData.message})` : '';
+      return { success: false, error: `Failed to update file: ${putResponse.statusText}${detail}` };
     }
 
-    const result = await putResponse.json();
-    return { success: true, commitSha: result.commit.sha };
+    const result = await putResponse.json() as GitHubUpdateResponse;
+    return { success: true, commitSha: result.commit?.sha };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

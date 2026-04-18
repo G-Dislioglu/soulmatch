@@ -1,13 +1,15 @@
 import dns from 'node:dns';
 import * as net from 'node:net';
-import { Agent, fetch as undiciFetch, setGlobalDispatcher, type Dispatcher } from 'undici';
+import {
+  Agent,
+  fetch as undiciFetch,
+  setGlobalDispatcher,
+  type Dispatcher,
+} from 'undici';
 
 const OUTBOUND_DISPATCHER = new Agent({
   connections: 128,
   pipelining: 1,
-  connect: {
-    family: 4,
-  },
 });
 
 let outboundDefaultsInstalled = false;
@@ -27,14 +29,15 @@ export function installOutboundHttpDefaults(): void {
 }
 
 type OutboundFetchInput = Parameters<typeof undiciFetch>[0];
-type OutboundFetchInit = NonNullable<Parameters<typeof undiciFetch>[1]> & {
+export type OutboundFetchInit = Exclude<Parameters<typeof undiciFetch>[1], undefined> & {
   dispatcher?: Dispatcher;
 };
+export type OutboundFetchResponse = Awaited<ReturnType<typeof undiciFetch>>;
 
 export async function outboundFetch(
   input: OutboundFetchInput,
   init: OutboundFetchInit = {},
-): Promise<Response> {
+): Promise<OutboundFetchResponse> {
   installOutboundHttpDefaults();
   return undiciFetch(input, {
     ...init,
