@@ -1,13 +1,7 @@
-# S31 Observability Verification
+# S31 Outbound Observability Verification
 
-Timestamp: 2026-04-18T04:54:59Z
+Timestamp: 2026-04-18T04:57:27Z
 
-Purpose: Exercise /git-push after efa5e5e deployment to trigger
-`[outbound]` log lines in Render logs.
+Live /git-push probe against deployed commit efa5e5e succeeded after the outbound observability rollout.
 
-Expected in Render logs:
-- Two [outbound] lines (GET for SHA-lookup, PUT for file-create)
-- Both with requestId, method, host=api.github.com, durationMs, status, ok=true
-- No [outbound-err] lines
-
-This file is a probe artifact, not production content.
+Scope: create/update this verification note only.
