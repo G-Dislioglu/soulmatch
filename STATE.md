@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `7a4b550`
+- `current_repo_head`: `ad8abd0`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-18`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S31 Task 4a: Outbound-HTTP-Observability in server/src/lib/outboundHttp.ts repo-sichtbar umgesetzt. outboundFetch loggt jetzt host-only Success-/Error-Metadaten mit requestId, Methode, Dauer, Status/Error-Signatur und respektiert OUTBOUND_HTTP_QUIET=1 ohne Verhaltensaenderung. Harte Pre-Push-TSC-Checks wurden vor dem Feature-Push gefahren; Commit efa5e5e wurde auf Render live verifiziert. Ein echter /git-push-Probe gegen die deployte Bridge schrieb docs/S31-OBSERVABILITY-VERIFIED.md und landete als 7a4b550 auf main. Render-Console-Log-Tail selbst war aus diesem Tool-Kontext nicht direkt lesbar.`
-- `next_recommended_block`: `S31 nachziehen: entweder 1) Observability-Proof vervollstaendigen, sobald echter Render-Log-Zugriff verfuegbar ist, oder 2) den verbleibenden False-Positive-Pfad in opusSmartPush / builder-executor haerten. Das engere Runtime-Risiko liegt jetzt eher in Commit-/Dispatch-Semantik als im bisher akuten outbound DNS-Pfad.`
+- `last_completed_block`: `S31 Task 4b: /git-push in server/src/routes/opusBridge.ts nutzt fuer Mehrdatei-Payloads jetzt die GitHub Git Data API statt der Contents-API-Schleife. Der Pfad liest Ref, Parent-Commit und Base-Tree, erstellt Blobs nur fuer Nicht-Deletes, baut genau einen Tree, genau einen Commit und bewegt danach genau einen Ref; Duplicate-Paths und fehlende Delete-Ziele scheitern atomar vor jedem Write. Harte Pre-Push-TSC-Checks liefen gruen; Feature-Commit 363d416 wurde auf Render live verifiziert. Ein echter Live-Probe gegen die deployte Bridge erzeugte docs/S31-MULTIFILE-PROBE-a.md, -b.md und -c.md in genau einem Remote-Commit ad8abd0 mit identischem commitSha in allen drei Results.`
+- `next_recommended_block`: `S31 nachziehen: den breiteren Opus-Bridge-End-to-End-Pfad auf Render weiter verifizieren, jetzt mit Fokus auf @READ-Injection, BDL-Disziplin, Distiller-/Judge-Treue und Related-Files-Briefing. Die direkte Commit-/Dispatch-Semantik von /git-push ist nach dem Mehrdatei-Probe nicht mehr der engste Risikopunkt.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -126,9 +126,14 @@ sind auf eigene Befehlszeilen zugeschnitten. Der akute Patch-Collector-Bruch
 ist jetzt an der Parser-Naht gefixt: `@PATCH` mit folgendem
 `<<<SEARCH ... ===REPLACE ... >>>`-Block wird wieder als echter Patch-Body
 erkannt und vor dem GitHub-Dispatch in `replace`-/`append`-Payloads
-normalisiert statt still als leerer Patch zu verschwinden. Offen ist damit
-nicht mehr der lokale Collector, sondern die Live-Verifikation des gesamten
-Pfads auf Render inklusive `@READ`-Injection und GitHub-Commit.
+normalisiert statt still als leerer Patch zu verschwinden. Der direkte
+GitHub-Push-Pfad ist seitdem ebenfalls enger gehaertet: `/git-push` schreibt
+Mehrdatei-Payloads jetzt atomar ueber GitHub-Ref-, Commit-, Tree- und Blob-
+Calls statt ueber eine per-Datei-Contents-Schleife und wurde live mit drei
+Dateien, identischem `commitSha` pro Result und genau einem Remote-Commit
+`ad8abd0` verifiziert. Offen bleibt damit weniger die Commit-Semantik selbst
+als der breitere Opus-Bridge-Pfad auf Render inklusive `@READ`-Injection,
+Roundtable-BDL und Distiller-/Judge-Treue.
 
 Parallel dazu blockt die Builder-Runtime haengende Tasks jetzt auch autonom:
 ein eigener Server-Interval prueft alle 5 Minuten auf veraltete Tasks in

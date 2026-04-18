@@ -148,11 +148,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-15`
-- `quality`: `pipeline_live_local_verification_done_runtime_checks_pending`
-- `known_gap`: Scout, Distiller, Roundtable und Worker nutzen fuer GLM jetzt OpenRouter statt Direkt-Zhipu, der Opus-Task-Pfad traegt neue Dateien explizit als `create` durch Scope, Prompt und Push, und der bestehende Judge kann Kandidaten jetzt gegen die Original-Instruktion auch komplett ablehnen. Der End-to-End-Nachweis auf Render fuer Datei-Injektion, echte BDL-Ausgabe auf eigener Zeile, automatischen GitHub-Commit, Distiller-Treue bei `getWorstPerformers`, deterministisches Related-Files-Briefing und stabile GLM-Laufzeit unter OpenRouter steht aber noch aus.
+- `last_checked`: `2026-04-18`
+- `quality`: `git_push_atomic_live_broader_runtime_checks_pending`
+- `known_gap`: Scout, Distiller, Roundtable und Worker nutzen fuer GLM jetzt OpenRouter statt Direkt-Zhipu, der Opus-Task-Pfad traegt neue Dateien explizit als `create` durch Scope, Prompt und Push, und der bestehende Judge kann Kandidaten jetzt gegen die Original-Instruktion auch komplett ablehnen. Die direkte `/git-push`-Commit-Semantik ist inzwischen live verifiziert, inklusive atomarem Mehrdatei-Commit ueber GitHubs Git Data API. Offen bleibt der breitere End-to-End-Nachweis auf Render fuer Datei-Injektion via `@READ`, echte BDL-Ausgabe auf eigener Zeile, Distiller-Treue bei `getWorstPerformers`, deterministisches Related-Files-Briefing und stabile GLM-Laufzeit unter OpenRouter.
 - `next_recommended_step`: Einen echten Builder-/Opus-Task gegen die Zielruntime fahren und dabei pruefen, ob `getWorstPerformers` im Titel und Brief erhalten bleibt, ob `@READ` als `[system]`-Dateiinhalt ankommt, ob neue Dateien als `create` statt als implizites Overwrite geloggt werden, ob der Judge ueberscopte Kandidaten wirklich verwirft und ob `GITHUB_PAT` den Dispatch/Commit wirklich erlaubt.
-- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/poolState.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusWorkerSwarm.ts`, `server/src/lib/opusWorkerRegistry.ts`, `server/src/routes/opusBridge.ts`.
+- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/poolState.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusWorkerSwarm.ts`, `server/src/lib/opusWorkerRegistry.ts`, `server/src/routes/opusBridge.ts`; Live-Probe `ad8abd0a2ac6e2cf6419f8598c0d524efbe7d127` erzeugte `docs/S31-MULTIFILE-PROBE-a.md`, `docs/S31-MULTIFILE-PROBE-b.md` und `docs/S31-MULTIFILE-PROBE-c.md` in genau einem Remote-Commit.
 
 ### Schema fuer persona_memories und voice_profiles
 

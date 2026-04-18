@@ -240,10 +240,10 @@ Ein guter Soulmatch-Kandidat:
 - `next_gate`: `implementation`
 - `why_not_now`: `none`
 - `non_scope`: neuer Scout-Mix, Kostenpolitik fuer Default-Writer, Heavy-Crush-Ausbau
-- `risk`: mittel; der lokale Collector ist jetzt repariert, aber Render kann weiter an `@READ`-Pfaden, BDL-Disziplin oder fehlendem `GITHUB_PAT` scheitern.
+- `risk`: mittel; die direkte `/git-push`-Commit-Semantik ist jetzt live belegt, aber Render kann im breiteren Opus-Pfad weiter an `@READ`-Pfaden, BDL-Disziplin oder Judge-/Distiller-Drift scheitern.
 - `betroffene_bereiche`: `server/src/lib/providers.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/builderBdlParser.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/routes/opusBridge.ts`, Ziel-Runtime auf Render
-- `kurzurteil`: Nach Provider-, `@READ`- und Patch-Collector-Hardening ist der naechste enge Block keine weitere Architektur, sondern der Live-Nachweis der kompletten Opus-Bridge von Roundtable-BDL bis GitHub-Commit.
-- `evidence`: Der Provider-Layer kennt `zhipu` und `openrouter`; der aktive GLM-Pfad fuer Scout, Distiller, Roundtable und Worker ist auf OpenRouter-Modelle umgestellt; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; Controller und Route normalisieren diese Bodies vor GitHub-Dispatch.
+- `kurzurteil`: Der direkte GitHub-Commit-Pfad ist nach dem atomaren Mehrdatei-Probe nicht mehr die offene Hauptnaht; der naechste enge Block ist der Live-Nachweis der kompletten Opus-Bridge von Roundtable-BDL und `@READ` bis Distiller-/Judge-Treue unter Render.
+- `evidence`: Der Provider-Layer kennt `zhipu` und `openrouter`; der aktive GLM-Pfad fuer Scout, Distiller, Roundtable und Worker ist auf OpenRouter-Modelle umgestellt; `builderBdlParser.ts` erkennt SEARCH/REPLACE-`@PATCH` jetzt wieder als Patch-Body; `server/src/routes/opusBridge.ts` schreibt Mehrdatei-Payloads atomar ueber die Git Data API; der Live-Probe-Commit `ad8abd0` erzeugte drei Dateien mit identischem `commitSha` in allen `/git-push`-Results.
 
 ### Kandidat F4 - Builder S17 Live Verification
 
