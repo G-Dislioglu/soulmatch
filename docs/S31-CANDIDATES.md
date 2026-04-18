@@ -1,7 +1,14 @@
 # S31 Candidates
 
-- Status: inspection-only, no code changes yet, awaiting S31 session
+- Status: partially adopted; S31 Task 4a implemented and live-probed, false-positive pipeline path still open
 - Source: external Claude handoff from 2026-04-17, validated against current repo before adoption
+
+## Current State
+
+- S31 Task 4a is now repo-visible: `server/src/lib/outboundHttp.ts` wraps `undici.fetch` with host-only success/error observability, request IDs, durations and `OUTBOUND_HTTP_QUIET` opt-out (`efa5e5e`).
+- Hard pre-push checks were executed before the feature push: `cd client && npx tsc -b` and `cd server && npx tsc --noEmit` both green.
+- Live builder-path probe is repo-visible: a deployed `/git-push` call wrote `docs/S31-OBSERVABILITY-VERIFIED.md` and landed as `7a4b550` on `main`.
+- Still open: Render-console proof for the emitted `[outbound]` / `[outbound-err]` lines was not directly readable from this tool context, and the broader S31 false-positive pipeline path documented below remains unfixed.
 
 ## Inspection Report
 

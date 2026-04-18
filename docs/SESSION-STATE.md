@@ -2,7 +2,7 @@
 
 **Letzte Session:** S31 (2026-04-18)
 **Handoff:** `docs/HANDOFF-S30.md`
-**Repo-Head:** `20bc008`
+**Repo-Head:** `7a4b550`
 
 ## Aktive Entscheidungen
 
@@ -28,7 +28,7 @@
 2. **Block 5d PR #2 — Context-Split** — Maya-Guide via React Context statt Prop-Drilling. ~45 Min. `lostpointercapture` + Click-Debounce sind schon in PR #1 enthalten.
 3. **Maya-Core nächsten Block schneiden** — maya-core STATE.md `next_recommended_block` ist explizit "Noch nicht öffentlich neu geschnitten" seit 2026-04-05. Produktentscheidung nötig.
 4. **[DONE 2026-04-18] DNS-cache-overflow Hardening** — `undici`-Dispatcher + `dns.setDefaultResultOrder('ipv4first')` + `setDefaultAutoSelectFamily(false)` in `server/src/lib/outboundHttp.ts`. 7 Hotpath-Files auf `outboundFetch` umgestellt (`f6b080f`+`5300975`). Live auf `20bc008`. Verifiziert via zwei `/git-push` Probes (`70156d1`, `20bc008`), beide HTTP 200 in ~1.5s, keine DNS-overflow mehr. Probe-Artefakte in `docs/S31-PROBE-20260418.md` und `docs/S31-PROBE-20260418-2.md`.
-4a. **[OPEN S31] Outbound-HTTP Observability** — In `outboundFetch` + `/git-push`-Handler fehlen Request-ID, Zielhost-Logging, Error-Signatur, Dauer. Wenn der Bug wiederkommt, ist Diagnose so blind wie gestern. Plan: `requestId` generieren, `{requestId, method, host, durationMs, status}` loggen, bei Fehler zusätzlich `{errName, errCode, errCause}`. Nur lesend, keine Verhaltensänderung. ~20 Min.
+4a. **[DONE 2026-04-18] Outbound-HTTP Observability** — `server/src/lib/outboundHttp.ts` loggt jetzt host-only Success-/Error-Metadaten in `outboundFetch()` mit `requestId`, `method`, `host`, `durationMs`, `status`, `ok` bzw. `errName`, `errCode`, `errCause`; `OUTBOUND_HTTP_QUIET=1` unterdrueckt die Logs, Semantik bleibt unveraendert (`efa5e5e`). Harte Pre-Push-Checks: `cd client && npx tsc -b` = `CLIENT_TSC_OK`, `cd server && npx tsc --noEmit` = `SERVER_TSC_OK`. Lokaler Laufzeitbeleg: `[outbound] {"requestId":"h3g0zzte","method":"GET","host":"api.github.com","durationMs":717,"status":200,"ok":true}` und `[outbound-err] {"requestId":"k07998or","method":"GET","host":"nonexistent-s31-probe.invalid","durationMs":230,"errName":"TypeError","errCause":"ENOTFOUND"}`. Live-Beleg: echter `/git-push`-Probe gegen die deployte Bridge erzeugte `docs/S31-OBSERVABILITY-VERIFIED.md` auf `main` (`7a4b550`). Render-Console-Log-Tail war aus diesem Tool-Kontext nicht direkt lesbar; nach dem Probe-Commit war die Live-Health-URL lokal zuletzt nicht mehr aufloesbar und blieb damit fuer diesen Session-Block unbestaetigt.
 4b. **[PROCESS S31] Agent-Lapsus dokumentieren** — `f6b080f` wurde gepusht ohne dass der vorgeschriebene `cd server && npx tsc --noEmit` Pre-Push-Check lief, obwohl diese Regel explizit in SESSION-STATE.md steht. Resultat: Render-Build failed, `b99b663` docs-Sync erbte den kaputten Build, erst `5300975` nachzog. Tooling-Frage: sollte der Pre-Push-Check in den Agent-Workflow eingebaut sein statt als Disziplin-Regel?
 5. **Async Job-Pattern für /opus-task** (aus S24, noch offen) — löst Render 60s Timeout bei großen Tasks.
 6. **Patrol Finding Auto-Fix** (aus S24, noch offen) — Pipeline automatisch Fixes für Patrol-Findings generieren.

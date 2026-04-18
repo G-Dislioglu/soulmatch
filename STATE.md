@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `20bc008`
+- `current_repo_head`: `7a4b550`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-18`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S30b: DNS/Outbound-Hardening fuer Builder-GitHub-/Render-Hotpaths repo-sichtbar geschnitten. Neue gemeinsame undici-basierte outboundFetch-Schicht forciert IPv4 und wird jetzt in /git-push, /delete, GitHub-dispatch, Render-Bridge/-Polling sowie dem Repo-Index-GitHub-Fetch verwendet, statt dort still auf den ambienten globalen fetch zu vertrauen. Server-Build gruen gegen diesen Stand.`
-- `next_recommended_block`: `Live-Verifikation der Builder-Bridge unter echten Secrets: /git-push oder Dispatch-Ende-zu-Ende auf Render/GitHub einmal bewusst gegen den gehaerteten outboundFetch-Pfad fahren und pruefen, ob der bisherige DNS-Overflow wirklich ausbleibt. Danach wieder zur offenen TSC-Auto-Retry-Luecke im Roundtable-only-Pfad oder zum S31-Observability-Block zurueckkehren.`
+- `last_completed_block`: `S31 Task 4a: Outbound-HTTP-Observability in server/src/lib/outboundHttp.ts repo-sichtbar umgesetzt. outboundFetch loggt jetzt host-only Success-/Error-Metadaten mit requestId, Methode, Dauer, Status/Error-Signatur und respektiert OUTBOUND_HTTP_QUIET=1 ohne Verhaltensaenderung. Harte Pre-Push-TSC-Checks wurden vor dem Feature-Push gefahren; Commit efa5e5e wurde auf Render live verifiziert. Ein echter /git-push-Probe gegen die deployte Bridge schrieb docs/S31-OBSERVABILITY-VERIFIED.md und landete als 7a4b550 auf main. Render-Console-Log-Tail selbst war aus diesem Tool-Kontext nicht direkt lesbar.`
+- `next_recommended_block`: `S31 nachziehen: entweder 1) Observability-Proof vervollstaendigen, sobald echter Render-Log-Zugriff verfuegbar ist, oder 2) den verbleibenden False-Positive-Pfad in opusSmartPush / builder-executor haerten. Das engere Runtime-Risiko liegt jetzt eher in Commit-/Dispatch-Semantik als im bisher akuten outbound DNS-Pfad.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
