@@ -1926,10 +1926,11 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
 // Example: { "instruction": "...", "scope": ["..."], "solverPool": "gemini-flash-lite" }
 // ===========================================================================
 opusBridgeRouter.post('/solo-task', async (req: Request, res: Response) => {
-  const { instruction, scope, solverPool } = req.body as {
+  const { instruction, scope, solverPool, skipScouts } = req.body as {
     instruction?: string;
     scope?: string[];
     solverPool?: string;
+    skipScouts?: boolean;
   };
 
   if (!instruction || typeof instruction !== 'string') {
@@ -1966,15 +1967,17 @@ opusBridgeRouter.post('/solo-task', async (req: Request, res: Response) => {
   const taskId = inserted.id;
 
   try {
-    // Phase 1: Scouts
-    const scoutResult = await runScoutPhase({
-      id: taskId,
-      goal: instruction,
-      scope,
-    });
-
-    // Phase 2: Distiller
-    const distillerResult = await runDistiller(taskId, instruction, scoutResult);
+    // Phase 1 + 2: Scouts + Distiller (optional, skipped when skipScouts=true)
+    let scoutResult: Awaited<ReturnType<typeof runScoutPhase>> | null = null;
+    let distillerResult: Awaited<ReturnType<typeof runDistiller>> | null = null;
+    if (!skipScouts) {
+      scoutResult = await runScoutPhase({
+        id: taskId,
+        goal: instruction,
+        scope,
+      });
+      distillerResult = await runDistiller(taskId, instruction, scoutResult);
+    }
 
     // Phase 3: Solver
     const solverSystem = `Du bist ein erfahrener Senior-Entwickler. Du bekommst:
@@ -1989,19 +1992,22 @@ Deine Aufgabe: Liefere eine konkrete, umsetzbare Loesung. Struktur:
 
 Wende bei der Konzeption die Crush-Operatoren an: ZL (Zerlegung), IL (Invarianten-Lokalisierung), AN (Annahmen pruefen), SE (Sicherheitsdenken), OB (Domaenen-Wissen). Nicht explizit auflisten — sie muessen in der Qualitaet der Loesung spuerbar sein.`;
 
-    const solverUserMessage = `AUFGABE:
-${instruction}
-
-SCOPE: ${scope?.join(', ') || '(kein spezifischer Scope)'}
-
----
+    const briefSection = distillerResult
+      ? `---
 
 DESTILLIERTER BRIEF aus Scout-Recherchen:
 ${distillerResult.brief}
 
 ---
 
-Liefere jetzt die Loesung.`;
+`
+      : '';
+    const solverUserMessage = `AUFGABE:
+${instruction}
+
+SCOPE: ${scope?.join(', ') || '(kein spezifischer Scope)'}
+
+${briefSection}Liefere jetzt die Loesung.`;
 
     const solverResponse = await callProvider(entry.provider, entry.model, {
       system: solverSystem,
@@ -2021,16 +2027,17 @@ Liefere jetzt die Loesung.`;
       solverModel: entry.model,
       solverProvider: entry.provider,
       durationMs,
-      scouts: scoutResult.rawOutputs.map((s) => ({
+      scouts: scoutResult?.rawOutputs.map((s) => ({
         actor: s.actor,
         model: s.model,
         focus: s.focus,
         contentLength: s.content.length,
         contentPreview: s.content.slice(0, 500),
-      })),
-      graphBriefing: scoutResult.graphBriefing,
-      distillerBrief: distillerResult.brief,
-      distillerDurationMs: distillerResult.durationMs,
+      })) ?? [],
+      graphBriefing: scoutResult?.graphBriefing ?? null,
+      distillerBrief: distillerResult?.brief ?? null,
+      distillerDurationMs: distillerResult?.durationMs ?? null,
+      skippedScouts: !!skipScouts,
       solverOutput: solverResponse,
       solverOutputLength: solverResponse.length,
     });
