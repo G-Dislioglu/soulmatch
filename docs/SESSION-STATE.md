@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S32 (2026-04-19)
-**Handoff:** `docs/HANDOFF-S32.md`
-**Repo-Head:** nach diesem Commit (wird im nächsten Code-Commit im STATE.md-Header nachgezogen; letzter bekannter Code-Head war `ad8abd0` aus S31)
+**Letzte Session:** S33 (2026-04-19)
+**Handoff:** `docs/HANDOFF-S33.md`
+**Repo-Head:** Code-Commit `a33ad78` (Zhipu-Pool-Konsolidierung). STATE.md-Header in diesem Commit nachgezogen. Session-Close-Commit folgt danach.
 
 ## Aktive Entscheidungen
 
@@ -25,7 +25,7 @@
 ## Offene Tasks
 
 0. **[S32-NEU] `/session-log`-Endpoint bauen** — Spec in `docs/BUILDER-TASK-session-log.md`. Via `/opus-feature` an den Builder geben. Bei jedem erfolgreichen `/git-push` wird ein strukturierter Eintrag an `docs/SESSION-LOG.md` angehängt, im selben Commit. Macht Anti-Drift-System Schicht 3 scharf. Sollte Priorität haben vor anderen Builder-Tasks, damit spätere Commits automatisch protokolliert werden.
-0a. **[S32-NEU] STATE.md-Header nachziehen** — `current_repo_head`, `last_verified_against_code`, `last_completed_block`, `next_recommended_block` stehen seit S31 still. Im nächsten Code-Commit mitnehmen, damit der Render-Deploy nicht nur für Header-Update läuft.
+0a. **[S33-DONE 2026-04-19] STATE.md-Header nachziehen** — `current_repo_head`, `last_verified_against_code`, `last_completed_block`, `next_recommended_block` stehen seit S31 still. Im nächsten Code-Commit mitnehmen, damit der Render-Deploy nicht nur für Header-Update läuft.
 0b. **[S32-NEU] RADAR-Kandidat F6 eintragen** — `Pipeline-Scouts mit echtem File-Zugriff`. Aus S32 Flash-Lite-Qualitätsprobe: Scouts (code/pattern/risk) arbeiten ohne Repo-Zugriff, Distiller prüft nicht gegen Scope. Strukturell größer Hebel als S31-Fix. Details in `docs/HANDOFF-S32.md` Abschnitt 2b.
 0c. **[S32-NEU] Kaya-Code-Rename** — `orion` → `kaya` in `server/src/lib/personaRouter.ts`, `server/src/studioPrompt.ts`, `client/src/modules/M07_reports/ui/HallOfSouls.tsx`. Bewusst zurückgestellt bis Maya-Core-Migration.
 1. **TSC-Retry Roundtable-Pfad schließen** — Im Roundtable-only-Pfad `tscRetryContext` aus Roundtable-Patches synthetisieren und an Decomposer delegieren. Schließt Schritt 6 auf 100%. ~30 Min.

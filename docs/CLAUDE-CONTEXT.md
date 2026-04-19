@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-19
-last_session: S32
+last_session: S33
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -32,6 +32,16 @@ active_threads:
     priority: primary_focus_next
     description: Pipeline reports success without verifying commits landed on main
     entry_point: docs/S31-CANDIDATES.md
+  - id: session_log_endpoint
+    status: spec_ready_not_built
+    priority: build_before_other_pipeline_work
+    description: Automatic session log via /git-push hook
+    entry_point: docs/BUILDER-TASK-session-log.md
+  - id: pool_config_persistence
+    status: active
+    priority: medium
+    description: updatePools() is in-memory only; UI selections lost on every Render restart. Temp fix via code-default landed in S33, proper fix (DB table or pool-state.json) pending.
+    entry_point: server/src/lib/poolState.ts
   - id: soulmatch_development
     status: paused_by_user_choice
     priority: resumes_after_builder_stable
@@ -68,6 +78,18 @@ drift_watchlist:
     wrong: only_document_is_renamed
     right: code_still_has_orion_in_personaRouter_studioPrompt_hallOfSouls
     severity: low_but_tracked
+  - id: flash_vs_flashx_collision
+    wrong: assume_glm-4.7-flash_equals_flashx
+    right: flash_without_x_is_free_tier_with_data_collection_flashx_is_paid_tier
+    severity: high_until_poolState_fix_landed_S33
+  - id: repo_privacy_misdiagnosis
+    wrong: interpret_web_fetch_permissions_error_as_private_repo
+    right: repos_are_public_use_curl_via_bash_tool_for_raw_urls
+    severity: medium_recurring_across_sessions
+  - id: pool_config_flightness
+    wrong: assume_ui_pool_selections_persist_across_restarts
+    right: updatePools_is_in_memory_only_code_default_is_only_durable_state
+    severity: high_until_persistence_layer_added
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -124,7 +146,7 @@ Gürcan arbeitet auf Laptop und Smartphone. Chat-Handoffs haben historisch Konte
 
 ---
 
-## Aktive Arbeits-Threads (Stand: Session S32, 2026-04-19)
+## Aktive Arbeits-Threads (Stand: Session S33, 2026-04-19)
 
 **Primär — Builder-App fertigstellen.** Gürcan pausiert Soulmatch-Entwicklung bewusst, um Builder zu stabilisieren. Damit Soulmatch später "aus dem Inneren heraus" mit Builder-Unterstützung weitergebaut werden kann. Relevante Ausgangsdokumente: `docs/S31-CANDIDATES.md`, `docs/HANDOFF-S31.md`, `docs/SESSION-STATE.md`.
 
@@ -153,6 +175,17 @@ Versuchung: Luna, Stella, Kael, Lian als v1.2-Dokumente durchschreiben. Korrekt:
 
 **Drift 4 — Orion umbenannt zu Kaya, aber nur im Dokument.**
 Der neue Name "Kaya" existiert in `docs/beings/kaya.md`, aber Code referenziert weiterhin "orion" in mehreren Dateien: `server/src/lib/personaRouter.ts`, `server/src/studioPrompt.ts` (mehrere Stellen), `client/src/modules/M07_reports/ui/HallOfSouls.tsx`. Ein sauberer Code-Refactor ist ein eigener Task, der mit der Maya-Core-Migration zusammen gemacht werden sollte, nicht einzeln.
+
+---
+
+**Drift 5 — Flash vs FlashX Kollision (entdeckt und gefixt in S33).**
+`GLM-4.7-Flash` (ohne X) ist der Z.ai Free-Tier mit Data-Collection. `GLM-4.7-FlashX` ist die bezahlte Variante. Beide sind syntaktisch sehr ähnlich, und der Code in `poolState.ts`, `scoutPatrol.ts` und die Label im UI haben teilweise das eine, teilweise das andere verwendet — mit dem Ergebnis, dass der Destillierer monatelang auf dem Free-Tier lief, während die UI "FlashX" anzeigte. In S33 komplett auf FlashX konsolidiert. Lehre: bei Modellnamen genau auf das letzte Zeichen achten, nicht auf das Label.
+
+**Drift 6 — Repo-Privacy-Fehldiagnose (wiederkehrend).**
+Claude interpretiert den `web_fetch` Permissions-Error systematisch als "Repo ist privat", dabei bedeutet er nur "URL war nicht in vorheriger Konversation oder Suche". Alle Gürcans Repos sind public. Zuverlässiger Weg: `curl` via bash_tool auf `raw.githubusercontent.com/G-Dislioglu/<repo>/main/<pfad>`.
+
+**Drift 7 — Pool-Config-Flüchtigkeit (entdeckt in S33, Temp-Fix gelandet).**
+`updatePools()` in `server/src/lib/poolState.ts:47` speichert nur in einer In-Memory-Variable. Bei jedem Render-Restart (Deploy, Idle-Timeout, Health-Check-Fail) springt die Config auf den Code-Default zurück. In S33 als Provisorium der Code-Default auf die gewünschte Produktiv-Config gehoben; der richtige Fix ist eine Persistenz-Schicht (DB-Tabelle oder File).
 
 ---
 
