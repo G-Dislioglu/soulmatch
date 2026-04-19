@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S31 (2026-04-18)
-**Handoff:** `docs/HANDOFF-S30.md`
-**Repo-Head:** `ad8abd0`
+**Letzte Session:** S32 (2026-04-19)
+**Handoff:** `docs/HANDOFF-S32.md`
+**Repo-Head:** nach diesem Commit (wird im nächsten Code-Commit im STATE.md-Header nachgezogen; letzter bekannter Code-Head war `ad8abd0` aus S31)
 
 ## Aktive Entscheidungen
 
@@ -24,6 +24,10 @@
 
 ## Offene Tasks
 
+0. **[S32-NEU] `/session-log`-Endpoint bauen** — Spec in `docs/BUILDER-TASK-session-log.md`. Via `/opus-feature` an den Builder geben. Bei jedem erfolgreichen `/git-push` wird ein strukturierter Eintrag an `docs/SESSION-LOG.md` angehängt, im selben Commit. Macht Anti-Drift-System Schicht 3 scharf. Sollte Priorität haben vor anderen Builder-Tasks, damit spätere Commits automatisch protokolliert werden.
+0a. **[S32-NEU] STATE.md-Header nachziehen** — `current_repo_head`, `last_verified_against_code`, `last_completed_block`, `next_recommended_block` stehen seit S31 still. Im nächsten Code-Commit mitnehmen, damit der Render-Deploy nicht nur für Header-Update läuft.
+0b. **[S32-NEU] RADAR-Kandidat F6 eintragen** — `Pipeline-Scouts mit echtem File-Zugriff`. Aus S32 Flash-Lite-Qualitätsprobe: Scouts (code/pattern/risk) arbeiten ohne Repo-Zugriff, Distiller prüft nicht gegen Scope. Strukturell größer Hebel als S31-Fix. Details in `docs/HANDOFF-S32.md` Abschnitt 2b.
+0c. **[S32-NEU] Kaya-Code-Rename** — `orion` → `kaya` in `server/src/lib/personaRouter.ts`, `server/src/studioPrompt.ts`, `client/src/modules/M07_reports/ui/HallOfSouls.tsx`. Bewusst zurückgestellt bis Maya-Core-Migration.
 1. **TSC-Retry Roundtable-Pfad schließen** — Im Roundtable-only-Pfad `tscRetryContext` aus Roundtable-Patches synthetisieren und an Decomposer delegieren. Schließt Schritt 6 auf 100%. ~30 Min.
 2. **Block 5d PR #2 — Context-Split** — Maya-Guide via React Context statt Prop-Drilling. ~45 Min. `lostpointercapture` + Click-Debounce sind schon in PR #1 enthalten.
 3. **Maya-Core nächsten Block schneiden** — maya-core STATE.md `next_recommended_block` ist explizit "Noch nicht öffentlich neu geschnitten" seit 2026-04-05. Produktentscheidung nötig.
@@ -34,6 +38,7 @@
 5. **Async Job-Pattern für /opus-task** (aus S24, noch offen) — löst Render 60s Timeout bei großen Tasks.
 6. **Patrol Finding Auto-Fix** (aus S24, noch offen) — Pipeline automatisch Fixes für Patrol-Findings generieren.
 7. **Docs-Consolidation Rest:** `opus-bridge-v4-spec.md` Status-Abgleich, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md` + `MAYA-BUILDER-CONTRACT.md` Aktualität prüfen.
+8. **[S31-Kern noch offen] False-Positive-Pipeline-Path-Fix** — Spec in `docs/S31-CANDIDATES.md`. Schritt A: SHA-Verify in `opusSmartPush.ts` (pre/post-Sha Vergleich nach `/push`-Dispatch). Schritt C: `builder-executor.yml` bricht bei leerem Diff ab (kein stilles `exit 0` mehr). Schritt D: Orchestrator-Status-Treue. Ist der inhaltliche Haupt-Thread nach `/session-log`. S31 hat nur Task 4a (Observability) und atomare Mehrdatei-Commits geliefert, Kern-Fix bleibt offen.
 
 ## Reuse-First Regel (aus S24)
 
@@ -43,4 +48,4 @@
 
 ## Session-Historie-Lücke
 
-S22, S23, S26, S27, S28, S29 haben keine Handoff-Files im Repo. Kontext-Rekonstruktion nur via Memory-Einträge + Code-Befunde. Für neue Chats: `STATE.md` + `docs/HANDOFF-S30.md` zuerst, dann bei Bedarf `HANDOFF-S25.md` und `HANDOFF-2026-04-12-PIPELINE-COMPLETE.md` für Pipeline-Geschichte.
+S22, S23, S26, S27, S28, S29 haben keine Handoff-Files im Repo. Kontext-Rekonstruktion nur via Memory-Einträge + Code-Befunde. Für neue Chats: `docs/CLAUDE-CONTEXT.md` + `STATE.md` + `docs/HANDOFF-S32.md` zuerst, dann bei Bedarf `HANDOFF-S31.md`, `HANDOFF-S30.md`, und für Pipeline-Geschichte `HANDOFF-S25.md` und `HANDOFF-2026-04-12-PIPELINE-COMPLETE.md`.
