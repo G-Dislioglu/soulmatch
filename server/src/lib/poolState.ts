@@ -12,12 +12,12 @@ export const POOL_MODEL_MAP: Record<string, { provider: string; model: string }>
   'gpt-5.4': { provider: 'openai', model: 'gpt-5.4' },
   grok: { provider: 'xai', model: 'grok-4-1-fast' },
   deepseek: { provider: 'deepseek', model: 'deepseek-chat' },
-  'glm-turbo': { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
-  glm51: { provider: 'openrouter', model: 'z-ai/glm-5.1' },
+  'glm-turbo': { provider: 'zhipu', model: 'glm-5-turbo' },
+  glm51: { provider: 'zhipu', model: 'glm-5.1' },
   minimax: { provider: 'openrouter', model: 'minimax/minimax-m2.7' },
   kimi: { provider: 'openrouter', model: 'moonshotai/kimi-k2.5' },
   qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
-  'glm-flash': { provider: 'openrouter', model: 'z-ai/glm-4.7-flash' },
+  'glm-flash': { provider: 'zhipu', model: 'glm-4.7-flashx' },
   'gemini-flash': { provider: 'gemini', model: 'gemini-3-flash-preview' },
   'gemini-flash-lite': { provider: 'gemini', model: 'gemini-3.1-flash-lite-preview' },  // Added 19.04.2026 for Scout-gestützter Maya-Vergleichstest
   'deepseek-scout': { provider: 'deepseek', model: 'deepseek-chat' },
@@ -33,11 +33,14 @@ export interface PoolConfig {
 }
 
 const activePools: PoolConfig = {
-  maya: ['opus'],
+  // S33 2026-04-19: Default entspricht jetzt Gürcans UI-Konfiguration.
+  // Begründung: /maya/pools updatet nur In-Memory, Render-Restart setzt zurück.
+  // Persistenz (DB oder File) ist als RADAR-Kandidat gelistet.
+  maya: ['glm51'],
   council: ['opus', 'sonnet', 'gpt-5.4'],
-  worker: ['glm-turbo', 'minimax', 'kimi', 'qwen', 'deepseek'],
+  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],
   scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
-  distiller: ['glm-flash', 'deepseek-scout'],
+  distiller: ['glm-flash'],
 };
 
 export function getActivePools(): PoolConfig {

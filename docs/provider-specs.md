@@ -4,7 +4,7 @@
 > diese Datei prüfen. Wenn `Geprüft` älter als 2 Wochen → neu recherchieren.
 
 Letzte Gesamtprüfung: **09. April 2026**
-Letzte Teilprüfung (Gemini 3.1 Flash-Lite): **19. April 2026**
+Letzte Teilprüfung (Gemini 3.1 Flash-Lite, GLM-FlashX-Korrektur, GLM-5.1-Preis): **19. April 2026**
 
 ## Unsere Worker
 
@@ -16,7 +16,7 @@ Letzte Teilprüfung (Gemini 3.1 Flash-Lite): **19. April 2026**
 | Kimi K2.5 | openrouter | `moonshotai/kimi-k2.5` | 256K | ? | $0.60 / $3.00 | 09.04.2026 (Kimi-Eigenrecherche) |
 | Qwen 3.6 Plus | openrouter | `qwen/qwen3.6-plus` | 128K+ | ? | ~$0.40 / $1.20 | 09.04.2026 (openrouter.ai) |
 | GLM-5-Turbo | zhipu | `glm-5-turbo` | 203K | 131K | $1.20 / $4.00 | 09.04.2026 (openrouter.ai, z.ai) |
-| GLM-4.7-Flash | zhipu | `glm-4.7-flash` | 203K | ? | $0.06 / $0.40 | 09.04.2026 (Kimi-Recherche, BEZAHLT über Zhipu-Guthaben) |
+| GLM-4.7-FlashX | zhipu | `glm-4.7-flashx` | 203K | ? | $0.07 / $0.40 | 19.04.2026 (z.ai/pricing, BEZAHLT über Zhipu-Guthaben) |
 | Grok-4-1-fast | xai | `grok-4-1-fast` | 128K | ? | $0.20 / $0.50 | 09.04.2026 (Handoff S7) |
 
 ## Judge
@@ -39,7 +39,7 @@ Letzte Teilprüfung (Gemini 3.1 Flash-Lite): **19. April 2026**
 
 | Modell | Provider | Model-ID | Kontext | Preis In/Out ($/1M) | Geprüft |
 |--------|----------|----------|---------|---------------------|---------|
-| GLM-4.7-Flash | zhipu | `glm-4.7-flash` | 203K | $0.06 / $0.40 | 09.04.2026 |
+| GLM-4.7-FlashX | zhipu | `glm-4.7-flashx` | 203K | $0.07 / $0.40 | 19.04.2026 |
 | Gemini 3 Flash | gemini | `gemini-3-flash-preview` | 1M | $0.50 / $3.00 | 09.04.2026 |
 | Grok-4-1-fast | xai | `grok-4-1-fast` | 128K | $0.20 / $0.50 | 09.04.2026 |
 
@@ -54,7 +54,7 @@ Letzte Teilprüfung (Gemini 3.1 Flash-Lite): **19. April 2026**
 ## Entscheidungen
 
 - **Keine Free-Tier Modelle** — Free-Versionen sammeln Prompt-Daten (Data Collection). Wir nutzen ausschließlich bezahlte APIs.
-- **GLM-4.7-Flash ist BEZAHLT** — läuft über Zhipu API mit Gürcan's $5 Guthaben, nicht über OpenRouter Free.
+- **GLM-4.7-FlashX ist BEZAHLT** — läuft über Zhipu API mit Gürcan's Zhipu-Guthaben. Der ähnlich klingende **GLM-4.7-Flash** (ohne X) ist Free-Tier mit Data-Collection und wird bewusst NICHT genutzt.
 - **MiniMax M2.7 statt M2.5** — Gürcan hat explizit auf M2.7 upgraden lassen (M2.5 hatte besseren SWE-Bench, M2.7 ist neuer und für Agent-Workflows optimiert).
 - **DeepSeek Reasoner als Meister geplant** — gleicher Preis wie Chat ($0.28/$0.42), aber Chain-of-Thought Thinking. Für Worker zu langsam, für Meister ideal.
 - **Gemini 3 Flash als Judge** — 1M Kontext, kein Truncation nötig, volle Worker-Outputs.

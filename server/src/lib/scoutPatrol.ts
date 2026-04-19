@@ -55,12 +55,12 @@ export interface PatrolEvent {
 
 // ── Model Registry ──
 export const ROUTINE_MODELS: PatrolModel[] = [
-	{ id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flash', label: 'GLM 4.7 Flash', tier: 'routine', priceIn: 0.06, priceOut: 0.40 },
+	{ id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', label: 'GLM 4.7 FlashX', tier: 'routine', priceIn: 0.07, priceOut: 0.40 },
 	{ id: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', label: 'DeepSeek Chat', tier: 'routine', priceIn: 0.28, priceOut: 0.42 },
 ];
 
 export const DEEP_MODELS: PatrolModel[] = [
-	{ id: 'glm-5.1', provider: 'zhipu', model: 'glm-5.1', label: 'GLM 5.1', tier: 'deep', priceIn: 1.00, priceOut: 3.20 },
+	{ id: 'glm-5.1', provider: 'zhipu', model: 'glm-5.1', label: 'GLM 5.1', tier: 'deep', priceIn: 1.40, priceOut: 4.40 },
 	{ id: 'glm-5-turbo', provider: 'zhipu', model: 'glm-5-turbo', label: 'GLM 5 Turbo', tier: 'deep', priceIn: 1.20, priceOut: 4.00 },
 	{ id: 'gpt-5.4', provider: 'openai', model: 'gpt-5.4', label: 'GPT 5.4', tier: 'deep', priceIn: 2.50, priceOut: 15.00 },
 	{ id: 'sonnet-4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tier: 'deep', priceIn: 3.00, priceOut: 15.00 },
