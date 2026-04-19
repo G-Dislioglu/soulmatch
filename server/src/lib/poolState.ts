@@ -33,9 +33,6 @@ export interface PoolConfig {
 }
 
 const activePools: PoolConfig = {
-  // S33 2026-04-19: Default entspricht jetzt Gürcans UI-Konfiguration.
-  // Begründung: /maya/pools updatet nur In-Memory, Render-Restart setzt zurück.
-  // Persistenz (DB oder File) ist als RADAR-Kandidat gelistet.
   maya: ['glm51'],
   council: ['opus', 'sonnet', 'gpt-5.4'],
   worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],

@@ -9,7 +9,7 @@
 - **Pipeline-Executor-Pfade:** `/opus-feature` (kanonisch, volle Pipeline inkl. Denker-Triade), `/opus-task` (Quick-Modus, deterministischer Scope), `/build` (legacy Wrapper um `executeTask`)
 - **Maya-Routing:** `determineBuildMode()` in `builderFusionChat.ts`:233 entscheidet autonom zwischen Quick und Pipeline. Triggers für Pipeline: taskType S (Architektur), risk=high, "deep mode"/"pipeline" keywords, multi-file signals, 3+ distinkte File-Pfade, taskType D+medium, taskType C (Frontend+Backend kombiniert). Sonst Quick.
 - **Council-Rollen:** Architekt/Skeptiker/Pragmatiker round-robin auf Council-Pool-Models via `COUNCIL_ROLES` + `buildCouncilParticipants()`, Maya moderiert, hard ceiling 5 Runden
-- **Worker-Pool (Code-Default nach S33):** GLM 5 Turbo + GLM 5.1 + MiniMax M2.7 + Kimi K2.5 + Qwen 3.6+. Provider durchgehend Zhipu-direkt für GLM-Modelle. Code-Default in poolState.ts:35-41 spiegelt Gürcans UI-Konfiguration wider, überlebt damit Render-Restarts. (Vorher: Default war 'opus' für Maya + kleinere Worker-Liste ohne GLM 5.1, UI-Änderungen via /maya/pools wurden bei jedem Restart überschrieben. Persistenz-Schicht als RADAR-Kandidat offen.)
+- **Worker-Pool:** GLM 5 Turbo, GLM 5.1, MiniMax M2.7, Kimi K2.5, Qwen 3.6+ (Zhipu-direkt via `poolState.ts`, keine Free-Tier-Modelle; Destillierer und Scouts nutzen GLM 4.7 FlashX statt Flash wegen Data-Collection)
 - **Patrol:** 6 Deep-Modelle (GLM-5.1, GLM-5-Turbo, GPT-5.4, Sonnet 4.6, DeepSeek-R, Kimi), 3 Routine-Scouts
 - **Agent Habitat:** `builder_agent_profiles` DB-Tabelle aktiv, Post-Task-Loop läuft via `updateAgentProfiles()`, `buildAgentBrief()` wird in Worker-Prompts injiziert (`opusWorkerSwarm.ts`:594), `reflectOnTask()` nach jedem Task mit GLM-5-Turbo
 - **TSC-Auto-Retry:** 3 Versuche max in `runTscCompileCheck`-Loop (`opusBridgeController.ts`:920–980); funktioniert in `decomposer-direct` und `auto-decomposer` Pfaden; Roundtable-only-Pfad noch ohne Retry (Lücke, siehe Offene Tasks)
@@ -39,6 +39,8 @@
 6. **Patrol Finding Auto-Fix** (aus S24, noch offen) — Pipeline automatisch Fixes für Patrol-Findings generieren.
 7. **Docs-Consolidation Rest:** `opus-bridge-v4-spec.md` Status-Abgleich, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md` + `MAYA-BUILDER-CONTRACT.md` Aktualität prüfen.
 8. **[S31-Kern noch offen] False-Positive-Pipeline-Path-Fix** — Spec in `docs/S31-CANDIDATES.md`. Schritt A: SHA-Verify in `opusSmartPush.ts` (pre/post-Sha Vergleich nach `/push`-Dispatch). Schritt C: `builder-executor.yml` bricht bei leerem Diff ab (kein stilles `exit 0` mehr). Schritt D: Orchestrator-Status-Treue. Ist der inhaltliche Haupt-Thread nach `/session-log`. S31 hat nur Task 4a (Observability) und atomare Mehrdatei-Commits geliefert, Kern-Fix bleibt offen.
+
+9. **[S33-NEU] Pool-Config-Persistenz fehlt** — `updatePools()` in `server/src/lib/poolState.ts:47` schreibt nur In-Memory, keine DB/File-Persistenz. Folge: UI-Auswahl in Builder Studio geht bei jedem Render-Restart verloren (Deploy, Idle-Timeout, Health-Check-Fail). Temporärer Fix in S33-Commit: Code-Default auf tatsächliche Produktiv-Config gesetzt. Richtiger Fix: DB-Tabelle `pool_state` oder `docs/pool-state.json` mit Read-on-startup und Write-on-update. RADAR-Kandidat F7.
 
 ## Reuse-First Regel (aus S24)
 
