@@ -4,7 +4,7 @@ import * as path from 'path';
 import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
-import { convertBdlPatchesToPayload, triggerGithubAction, triggerGithubActionChunked } from '../lib/builderGithubBridge.js';
+import { convertBdlPatchesToPayload, triggerGithubAction, triggerGithubActionChunked, formatSessionLogEntry, buildSessionLogBlob } from '../lib/builderGithubBridge.js';
 import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
@@ -1719,11 +1719,15 @@ opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) =>
 // POST /git-push — push files directly via GitHub Git Data API as one atomic commit.
 // Bypasses the GH Action pipeline. Use for config files, workflow changes, cleanup.
 opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
-  const { files, message, branch } = req.body as {
+  const { files, message, branch, sessionLog } = req.body as {
     files?: DirectGitPushFile[];
     message?: string;
     branch?: string;
+    sessionLog?: { taskId?: string; skip?: boolean };
   };
+
+  const sessionLogSkip: boolean = sessionLog?.skip === true;
+  const sessionLogTaskId: string | undefined = sessionLog?.taskId;
 
   const targetBranch = branch || 'main';
   const commitMessage = message || 'direct push via /git-push';
@@ -1819,6 +1823,90 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       blobShas.set(file.file, blob.sha);
     }
 
+    // Tree-Items für die User-Files vorab bauen, damit wir ggf. Session-Log-Einträge injizieren können.
+    const treeItems: Array<{ path: string; mode: string; type: string; sha?: string | null; content?: string }> = normalizedFiles.map((file) => {
+      if (file.delete) {
+        return { path: file.file, mode: '100644', type: 'blob', sha: null };
+      }
+      return { path: file.file, mode: '100644', type: 'blob', sha: blobShas.get(file.file) };
+    });
+
+    // Session-Log-Injection: fault-tolerant, nutzt bestehende githubGitRequest-Infrastruktur.
+    // Kein Rekursions-Problem: docs/SESSION-LOG.md und docs/SESSION-LOG-archive-*.md werden
+    // aus der Files-Liste des Log-Eintrags gefiltert.
+    if (!sessionLogSkip) {
+      try {
+        // Aktuellen Inhalt von docs/SESSION-LOG.md holen (404-tolerant).
+        let currentLogContent = '';
+        try {
+          const existing = await githubGitRequest<{ content?: string }>(
+            `https://api.github.com/repos/${repo}/contents/docs/SESSION-LOG.md?ref=${branchRef}`,
+            pat,
+            'session-log read',
+          );
+          if (existing.content) {
+            currentLogContent = Buffer.from(existing.content, 'base64').toString('utf-8');
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!msg.includes('404')) {
+            console.warn('[session-log] unexpected read error:', msg);
+          }
+        }
+
+        // Files-Liste für den Log-Eintrag: die Log-Datei selbst und Archiv-Dateien ausschließen.
+        const filesForLog = normalizedFiles
+          .map((f) => f.file)
+          .filter((p) => p !== 'docs/SESSION-LOG.md' && !p.startsWith('docs/SESSION-LOG-archive-'));
+
+        const newEntry = formatSessionLogEntry({
+          commitShaShort: 'pending',
+          commitMessage,
+          filesChanged: filesForLog,
+          timestamp: new Date().toISOString(),
+          taskId: sessionLogTaskId,
+          pushedBy: 'opus-bridge',
+        });
+
+        const { updatedContent, archiveContent, archiveFileName } = buildSessionLogBlob(
+          currentLogContent,
+          newEntry,
+        );
+
+        // Bei Rotation: ggf. existierendes Archiv holen und neuen Archiv-Content anhängen.
+        let finalArchiveContent = archiveContent;
+        if (archiveContent && archiveFileName) {
+          try {
+            const existingArchive = await githubGitRequest<{ content?: string }>(
+              `https://api.github.com/repos/${repo}/contents/${archiveFileName}?ref=${branchRef}`,
+              pat,
+              'archive read',
+            );
+            if (existingArchive.content) {
+              const prior = Buffer.from(existingArchive.content, 'base64').toString('utf-8');
+              finalArchiveContent = prior + '\n' + archiveContent;
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!msg.includes('404')) {
+              console.warn('[session-log] archive read error:', msg);
+            }
+          }
+        }
+
+        treeItems.push({ path: 'docs/SESSION-LOG.md', mode: '100644', type: 'blob', content: updatedContent });
+        if (finalArchiveContent && archiveFileName) {
+          treeItems.push({ path: archiveFileName, mode: '100644', type: 'blob', content: finalArchiveContent });
+        }
+
+        console.log('[session-log] injected session log entry into commit tree');
+      } catch (err) {
+        // Fault-tolerant: Log-Fehler blockiert nicht den Haupt-Push.
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[session-log] injection failed, proceeding without log:', msg);
+      }
+    }
+
     const tree = await githubGitRequest<GitHubTreeResponse>(
       `https://api.github.com/repos/${repo}/git/trees`,
       pat,
@@ -1827,23 +1915,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
         method: 'POST',
         body: JSON.stringify({
           base_tree: baseTreeSha,
-          tree: normalizedFiles.map((file) => {
-            if (file.delete) {
-              return {
-                path: file.file,
-                mode: '100644',
-                type: 'blob',
-                sha: null,
-              };
-            }
-
-            return {
-              path: file.file,
-              mode: '100644',
-              type: 'blob',
-              sha: blobShas.get(file.file),
-            };
-          }),
+          tree: treeItems,
         }),
       },
     );
