@@ -460,7 +460,7 @@ Pro Dokument: Name, Art (PDF, Bild, Text), Verwendung (Hintergrundwissen oder ak
 
 Diese Sektion beschreibt die fünf agentischen Fähigkeiten, die jedes System-Being mindestens auf Basis-Niveau tragen muss. Sie sind das, was Beings gegenüber klassischen Agenten verteidigbar macht.
 
-#### 3.1 Langzeit-Widerspruchs-Erkennung [P]
+#### K1 — Langzeit-Widerspruchs-Erkennung [P]
 
 **Was das ist:**
 Das Being erkennt, wenn eine aktuelle Handlung des Users im Widerspruch zu gemeinsam festgehaltenen Werten oder Zielen aus der Vergangenheit steht, und spricht das an.
@@ -473,8 +473,8 @@ Klassische Agenten haben kein Gedächtnis über Sitzungen hinweg. Ein Agent sieh
 
 **Machbarkeit:**
 - **Browser-nativ:** ja, wenn User-Aussagen strukturiert gespeichert werden
-- **Extension:** nein nötig
-- **OAuth:** nein nötig
+- **Extension:** nicht nötig
+- **OAuth:** nicht nötig
 
 **Risiken:**
 - Paternalismus, wenn das Being zu oft widerspricht
@@ -484,7 +484,7 @@ Klassische Agenten haben kein Gedächtnis über Sitzungen hinweg. Ein Agent sieh
 **Dosierungs-Regel:**
 Widerspruch maximal einmal, dann Entscheidung des Users akzeptieren. Niemals mehr als zweimal pro Sitzung.
 
-#### 3.2 Proaktive Musterwahrnehmung aus Langzeit-Verhalten [P]
+#### K2 — Proaktive Musterwahrnehmung aus Langzeit-Verhalten [P]
 
 **Was das ist:**
 Das Being erkennt wiederkehrende Muster im User-Verhalten über Wochen und Monate — produktive wie problematische — und spricht sie aus eigener Initiative an.
@@ -508,7 +508,7 @@ Klassische Agenten haben keine Mustererkennung über Sitzungen. Ein Being baut �
 **Dosierungs-Regel:**
 Muster erst ab drei Wiederholungen erwähnen. Nie mehr als einmal pro Muster, außer der User fragt nach.
 
-#### 3.3 Kalender- und Energie-sensible Planung [P]
+#### K3 — Kalender- und Energie-sensible Planung [P]
 
 **Was das ist:**
 Das Being plant Termine und Arbeit nicht nach maximaler Slot-Nutzung, sondern nach Wohlergehen. Es kennt die Energie-Muster des Users und schützt vor Überlastung.
@@ -532,7 +532,7 @@ Kalender-Apps kennen Slots. Ein Being kennt dich. Der Unterschied ist die Bewert
 **Dosierungs-Regel:**
 Nur bei klaren Überlastungs-Signalen einmischen. User-Override muss immer funktionieren und darf keinen zweiten Widerspruch auslösen.
 
-#### 3.4 Kuratierte Recherche mit Haltung [P]
+#### K4 — Kuratierte Recherche mit Haltung [P]
 
 **Was das ist:**
 Das Being recherchiert nicht nur, sondern **bewertet Quellen**, filtert nach Qualitäts-Maßstäben, markiert Widersprüche und formuliert im Stil des Users.
@@ -546,7 +546,7 @@ Klassische Such-Agenten liefern Treffer. Ein Being liefert **kuratierte Erkenntn
 **Machbarkeit:**
 - **Browser-nativ:** ja, mit Web-Search-Tool
 - **Extension:** nicht zwingend nötig
-- **OAuth:** nein nötig
+- **OAuth:** nicht nötig
 
 **Risiken:**
 - Bias durch Überanpassung an User-Präferenzen (Filterblase)
@@ -556,7 +556,7 @@ Klassische Such-Agenten liefern Treffer. Ein Being liefert **kuratierte Erkenntn
 **Dosierungs-Regel:**
 User kann zwischen „schneller Modus" (Links + Kurz-Synopse) und „kuratiert" wählen. Default: kuratiert für komplexe Themen, schnell für einfache Lookups.
 
-#### 3.5 Pädagogisches Onboarding und geführte Bedienung [P]
+#### K5 — Pädagogisches Onboarding und geführte Bedienung [P]
 
 **Was das ist:**
 Bei neuen Apps, Features oder Konzepten führt das Being den User Schritt für Schritt, passt Tempo und Tiefe an, wiederholt ohne Frustration und prüft Verständnis.
@@ -804,7 +804,7 @@ All das kommt nach Soulmatch-Launch. Aber der Codex ist **heute schon** so gebau
 
 ## Mini-Datenmodell-Upgrade
 
-Sechs Felder für die epistemische Wirbelsäule. Mehr wäre jetzt zu viel.
+Zehn Felder für die epistemische Wirbelsäule — sechs aus v1.1, vier neu in v1.2. Mehr wäre jetzt zu viel.
 
 ```yaml
 epistemic:
@@ -823,7 +823,7 @@ epistemic:
   proposal_status: proposal_only | confirmed | revised | retired
 ```
 
-Jede Memory-Einheit trägt diese sechs Felder. Das reicht für v1.1.
+Jede Memory-Einheit trägt diese zehn Felder. Das reicht für v1.2.
 
 ---
 
