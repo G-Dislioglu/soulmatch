@@ -112,6 +112,144 @@ export function convertBdlPatchesToPayload(
 
   return payloads;
 }
+export function formatSessionLogEntry(params: {
+  commitShaShort: string;
+  commitMessage: string;
+  filesChanged: string[];
+  timestamp: string;
+  taskId?: string;
+  pushedBy?: string;
+}): string {
+  const firstLine = params.commitMessage.split('\n')[0];
+  const filesStr = params.filesChanged.join(', ');
+  const taskId = params.taskId || 'n/a';
+  const pushedBy = params.pushedBy || 'opus-bridge';
+
+  return [
+    `## ${params.timestamp}`,
+    `- **Commit:** \`${params.commitShaShort}\` — ${firstLine}`,
+    `- **Files:** ${filesStr}`,
+    `- **Task:** ${taskId}`,
+    `- **Pushed by:** ${pushedBy}`,
+    '---',
+    '',
+  ].join('\n');
+}
+
+export function buildSessionLogBlob(
+  currentContent: string,
+  newEntry: string,
+  nowUtc?: Date,
+): {
+  updatedContent: string;
+  archiveContent: string | null;
+  archiveFileName: string | null;
+  needsRotation: boolean;
+} {
+  const now = nowUtc ?? new Date();
+  let base: string;
+
+  if (!currentContent || currentContent.trim() === '') {
+    base = '# SESSION LOG\n\n' + newEntry;
+  } else {
+    const lines = currentContent.split('\n');
+    const headerEndIdx = lines.findIndex((l, i) => i > 0 && l.trim() !== '');
+    if (headerEndIdx === -1) {
+      base = currentContent + '\n' + newEntry;
+    } else {
+      const before = lines.slice(0, headerEndIdx);
+      const after = lines.slice(headerEndIdx);
+      base = before.concat(newEntry, ...after).join('\n');
+    }
+  }
+
+  const allLines = base.split('\n');
+  if (allLines.length <= 1000) {
+    return {
+      updatedContent: base,
+      archiveContent: null,
+      archiveFileName: null,
+      needsRotation: false,
+    };
+  }
+
+  const archiveLines = allLines.slice(-500);
+  const mainLines = allLines.slice(0, -500);
+  const updatedContent = mainLines.join('\n');
+  const archiveContent = archiveLines.join('\n');
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const archiveFileName = `docs/SESSION-LOG-archive-${year}-${month}.md`;
+
+  return {
+    updatedContent,
+    archiveContent,
+    archiveFileName,
+    needsRotation: true,
+  };
+}
+
+export async function ensureSessionLogFile(
+  octokit: any,
+  owner: string,
+  repo: string,
+  ref: string,
+): Promise<{ exists: boolean; currentContent: string; currentBlobSha: string | null }> {
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: 'docs/SESSION-LOG.md',
+      ref,
+    });
+    const content = Buffer.from((data as any).content, 'base64').toString('utf-8');
+    return { exists: true, currentContent: content, currentBlobSha: (data as any).sha };
+  } catch (err: any) {
+    if (err?.status === 404) {
+      return { exists: false, currentContent: '', currentBlobSha: null };
+    }
+    throw err;
+  }
+}
+
+export async function ensureArchiveFile(
+  octokit: any,
+  owner: string,
+  repo: string,
+  ref: string,
+  archivePath: string,
+): Promise<{ exists: boolean; currentContent: string }> {
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: archivePath,
+      ref,
+    });
+    const content = Buffer.from((data as any).content, 'base64').toString('utf-8');
+    return { exists: true, currentContent: content };
+  } catch (err: any) {
+    if (err?.status === 404) {
+      return { exists: false, currentContent: '' };
+    }
+    throw err;
+  }
+}
+
+export function injectSessionLogIntoTree(
+  treeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }>,
+  logContent: string,
+  archiveContent?: string | null,
+  archiveFileName?: string | null,
+): Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> {
+  const result = [...treeItems];
+  result.push({ path: 'docs/SESSION-LOG.md', mode: '100644', type: 'blob', content: logContent });
+  if (archiveContent && archiveFileName) {
+    result.push({ path: archiveFileName, mode: '100644', type: 'blob', content: archiveContent });
+  }
+  return result;
+}
+
 export async function triggerGithubActionChunked(
   taskId: string,
   patches: PatchPayload[],
