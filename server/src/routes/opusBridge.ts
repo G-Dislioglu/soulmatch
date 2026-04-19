@@ -10,6 +10,10 @@ import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { executeTask } from '../lib/opusBridgeController.js';
 import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
+import { runScoutPhase } from '../lib/opusScoutRunner.js';
+import { runDistiller } from '../lib/opusDistiller.js';
+import { POOL_MODEL_MAP as POOL_MODEL_MAP_LOOKUP } from '../lib/poolState.js';
+
 import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
@@ -1911,6 +1915,110 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       results: buildGitPushFailureResults(plannedResults, error),
       branch: targetBranch,
       message: commitMessage,
+    });
+  }
+});
+
+// ===========================================================================
+// POST /solo-task — Scout + Distiller + single Solver (no council, no worker-swarm)
+// For model comparison tests. Example payload:
+//   { "instruction": "...", "scope": ["..."], "solverPool": "gemini-flash-lite" }
+// Returns: { taskId, scouts, distillerBrief, solverOutput, tokens }
+// ===========================================================================
+opusBridgeRouter.post('/solo-task', async (req: Request, res: Response) => {
+  const { instruction, scope, solverPool } = req.body as {
+    instruction?: string;
+    scope?: string[];
+    solverPool?: string;
+  };
+
+  if (!instruction || typeof instruction !== 'string') {
+    res.status(400).json({ error: 'instruction (string) required' });
+    return;
+  }
+
+  const poolId = solverPool || 'gemini-flash-lite';
+  const entry = POOL_MODEL_MAP_LOOKUP[poolId];
+  if (!entry) {
+    res.status(400).json({ error: `unknown solverPool '${poolId}'. Available: ${Object.keys(POOL_MODEL_MAP_LOOKUP).join(', ')}` });
+    return;
+  }
+
+  const taskId = `solo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const startedAt = Date.now();
+
+  try {
+    // Phase 1: Scouts
+    const scoutResult = await runScoutPhase({
+      id: taskId,
+      goal: instruction,
+      scope: scope,
+    });
+
+    // Phase 2: Distiller
+    const distillerResult = await runDistiller(taskId, instruction, scoutResult);
+
+    // Phase 3: Solver — call the configured model with distilled brief
+    const solverSystem = `Du bist ein erfahrener Senior-Entwickler. Du bekommst:
+1) Eine konkrete Entwickler-Aufgabe
+2) Einen destillierten Brief aus mehreren Scout-Recherchen (Codebase, Patterns, Risiken, Web)
+
+Deine Aufgabe: Liefere eine konkrete, umsetzbare Loesung. Struktur:
+- KURZANALYSE (3-5 Saetze): Was muss gebaut werden, welche Patterns gelten
+- ARCHITEKTUR-ENTSCHEIDUNG: Welche Datei(en), welche Funktionen, welche Signaturen
+- CODE: Vollstaendiger lauffaehiger TypeScript/Express-Code
+- EDGE-CASES: Welche Fehlerfaelle werden behandelt
+
+Wende bei der Konzeption die Crush-Operatoren an: ZL (Zerlegung), IL (Invarianten-Lokalisierung), AN (Annahmen pruefen), SE (Sicherheitsdenken), OB (Domaenen-Wissen). Aber nicht explizit auflisten — sie muessen in der Qualitaet der Loesung spuerbar sein.`;
+
+    const solverUserMessage = `AUFGABE:
+${instruction}
+
+SCOPE: ${scope?.join(', ') || '(kein spezifischer Scope)'}
+
+---
+
+DESTILLIERTER BRIEF aus Scout-Recherchen:
+${distillerResult.brief}
+
+---
+
+Liefere jetzt die Loesung.`;
+
+    const solverResponse = await callProvider(entry.provider, entry.model, {
+      system: solverSystem,
+      messages: [{ role: 'user' as const, content: solverUserMessage }],
+      maxTokens: 4000,
+      temperature: 0.3,
+    });
+
+    const durationMs = Date.now() - startedAt;
+
+    res.json({
+      taskId,
+      solverPool: poolId,
+      solverModel: entry.model,
+      solverProvider: entry.provider,
+      durationMs,
+      scouts: scoutResult.rawOutputs.map((s) => ({
+        actor: s.actor,
+        model: s.model,
+        focus: s.focus,
+        contentLength: s.content.length,
+        contentPreview: s.content.slice(0, 500),
+      })),
+      graphBriefing: scoutResult.graphBriefing,
+      distillerBrief: distillerResult.brief,
+      distillerDurationMs: distillerResult.durationMs,
+      solverOutput: solverResponse,
+      solverOutputLength: solverResponse.length,
+    });
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    res.status(500).json({
+      error,
+      taskId,
+      durationMs: Date.now() - startedAt,
     });
   }
 });
