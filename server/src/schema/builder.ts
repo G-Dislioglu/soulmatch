@@ -195,3 +195,9 @@ export const builderAgentProfiles = pgTable('builder_agent_profiles', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const poolState = pgTable('pool_state', {
+  id: integer('id').primaryKey(),
+  poolsJson: text('pools_json').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

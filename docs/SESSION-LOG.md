@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-19T20:45:02.604Z
+- **Commit:** `pending` — S33/F7: Pool-Config-Persistenz via DB-Tabelle
+- **Files:** server/src/schema/builder.ts, server/src/lib/poolState.ts, server/src/index.ts
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-19T20:32:08.508Z
 - **Commit:** `pending` — S33 Session-Close: Anker-Dateien, Handoff, STATE-Header nachgezogen
 - **Files:** STATE.md, docs/CLAUDE-CONTEXT.md, docs/SESSION-STATE.md, docs/HANDOFF-S33.md

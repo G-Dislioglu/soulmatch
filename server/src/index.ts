@@ -26,6 +26,7 @@ import { metaRouter } from './routes/meta.js';
 import { journeyRouter } from './routes/journey.js';
 import { zimageRouter } from './routes/zimage.js';
 import { builderRouter } from './routes/builder.js';
+import { initializePoolState } from './lib/poolState.js';
 import { opusBridgeRouter } from './routes/opusBridge.js';
 import { devLogger } from './devLogger.js';
 import { startStaleDetector } from './lib/builderStaleDetector.js';
@@ -86,4 +87,6 @@ app.listen(PORT, () => {
   startKeepAlive();
   startStaleDetector();
   startPatrol();
+  // F7: load persisted pool state (fire-and-forget; code defaults apply until loaded)
+  void initializePoolState();
 });
