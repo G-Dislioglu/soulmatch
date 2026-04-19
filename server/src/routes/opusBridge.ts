@@ -1921,9 +1921,9 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
 
 // ===========================================================================
 // POST /solo-task — Scout + Distiller + single Solver (no council, no worker-swarm)
-// For model comparison tests. Example payload:
-//   { "instruction": "...", "scope": ["..."], "solverPool": "gemini-flash-lite" }
-// Returns: { taskId, scouts, distillerBrief, solverOutput, tokens }
+// For model comparison tests. Creates a real builder_tasks row (so FKs work),
+// runs the pipeline, and deletes the row afterwards. Returns all artifacts.
+// Example: { "instruction": "...", "scope": ["..."], "solverPool": "gemini-flash-lite" }
 // ===========================================================================
 opusBridgeRouter.post('/solo-task', async (req: Request, res: Response) => {
   const { instruction, scope, solverPool } = req.body as {
@@ -1944,21 +1944,39 @@ opusBridgeRouter.post('/solo-task', async (req: Request, res: Response) => {
     return;
   }
 
-  const taskId = `solo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const startedAt = Date.now();
+  const db = getDb();
+  const title = instruction.slice(0, 100);
+
+  // Create a real task row so chatpool FK is satisfied
+  const [inserted] = await db.insert(builderTasks).values({
+    title,
+    goal: instruction,
+    risk: 'low',
+    scope: scope ?? [],
+    status: 'running',
+    tokenBudget: 10000,
+  }).returning({ id: builderTasks.id });
+
+  if (!inserted) {
+    res.status(500).json({ error: 'failed to create solo-task row' });
+    return;
+  }
+
+  const taskId = inserted.id;
 
   try {
     // Phase 1: Scouts
     const scoutResult = await runScoutPhase({
       id: taskId,
       goal: instruction,
-      scope: scope,
+      scope,
     });
 
     // Phase 2: Distiller
     const distillerResult = await runDistiller(taskId, instruction, scoutResult);
 
-    // Phase 3: Solver — call the configured model with distilled brief
+    // Phase 3: Solver
     const solverSystem = `Du bist ein erfahrener Senior-Entwickler. Du bekommst:
 1) Eine konkrete Entwickler-Aufgabe
 2) Einen destillierten Brief aus mehreren Scout-Recherchen (Codebase, Patterns, Risiken, Web)
@@ -1969,7 +1987,7 @@ Deine Aufgabe: Liefere eine konkrete, umsetzbare Loesung. Struktur:
 - CODE: Vollstaendiger lauffaehiger TypeScript/Express-Code
 - EDGE-CASES: Welche Fehlerfaelle werden behandelt
 
-Wende bei der Konzeption die Crush-Operatoren an: ZL (Zerlegung), IL (Invarianten-Lokalisierung), AN (Annahmen pruefen), SE (Sicherheitsdenken), OB (Domaenen-Wissen). Aber nicht explizit auflisten — sie muessen in der Qualitaet der Loesung spuerbar sein.`;
+Wende bei der Konzeption die Crush-Operatoren an: ZL (Zerlegung), IL (Invarianten-Lokalisierung), AN (Annahmen pruefen), SE (Sicherheitsdenken), OB (Domaenen-Wissen). Nicht explizit auflisten — sie muessen in der Qualitaet der Loesung spuerbar sein.`;
 
     const solverUserMessage = `AUFGABE:
 ${instruction}
@@ -1991,6 +2009,9 @@ Liefere jetzt die Loesung.`;
       maxTokens: 4000,
       temperature: 0.3,
     });
+
+    // Mark task done (don't delete — leaves trail for debugging)
+    await db.update(builderTasks).set({ status: 'completed' }).where(eq(builderTasks.id, taskId));
 
     const durationMs = Date.now() - startedAt;
 
@@ -2015,6 +2036,9 @@ Liefere jetzt die Loesung.`;
     });
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
+    try {
+      await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, taskId));
+    } catch { /* ignore */ }
     res.status(500).json({
       error,
       taskId,
