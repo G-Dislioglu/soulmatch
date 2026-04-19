@@ -4,6 +4,7 @@
 > diese Datei prüfen. Wenn `Geprüft` älter als 2 Wochen → neu recherchieren.
 
 Letzte Gesamtprüfung: **09. April 2026**
+Letzte Teilprüfung (Gemini 3.1 Flash-Lite): **19. April 2026**
 
 ## Unsere Worker
 
@@ -42,6 +43,14 @@ Letzte Gesamtprüfung: **09. April 2026**
 | Gemini 3 Flash | gemini | `gemini-3-flash-preview` | 1M | $0.50 / $3.00 | 09.04.2026 |
 | Grok-4-1-fast | xai | `grok-4-1-fast` | 128K | $0.20 / $0.50 | 09.04.2026 |
 
+## Maya-Kandidaten (Chat-Entscheider im Builder)
+
+| Modell | Provider | Model-ID | Kontext | Max Output | Preis In/Out ($/1M) | Geprüft |
+|--------|----------|----------|---------|------------|---------------------|---------|
+| Claude Opus 4.6 | anthropic | `claude-opus-4-6` | 200K | — | $5.00 / $25.00 | 09.04.2026 (aktueller Maya-Motor) |
+| Gemini 3 Flash | gemini | `gemini-3-flash-preview` | 1M | 66K | $0.50 / $3.00 | 09.04.2026 |
+| Gemini 3.1 Flash-Lite | gemini | `gemini-3.1-flash-lite-preview` | 1M | 65K | $0.25 / $1.50 | **19.04.2026** (ai.google.dev/gemini-api/docs/gemini-3, Vertex AI Docs, Google AI Blog) |
+
 ## Entscheidungen
 
 - **Keine Free-Tier Modelle** — Free-Versionen sammeln Prompt-Daten (Data Collection). Wir nutzen ausschließlich bezahlte APIs.
@@ -49,6 +58,7 @@ Letzte Gesamtprüfung: **09. April 2026**
 - **MiniMax M2.7 statt M2.5** — Gürcan hat explizit auf M2.7 upgraden lassen (M2.5 hatte besseren SWE-Bench, M2.7 ist neuer und für Agent-Workflows optimiert).
 - **DeepSeek Reasoner als Meister geplant** — gleicher Preis wie Chat ($0.28/$0.42), aber Chain-of-Thought Thinking. Für Worker zu langsam, für Meister ideal.
 - **Gemini 3 Flash als Judge** — 1M Kontext, kein Truncation nötig, volle Worker-Outputs.
+- **Gemini 3.1 Flash-Lite als Maya-Kandidat (19.04.2026)** — Qualität laut Google "matches 2.5 Flash", Preis $0.25/$1.50 (Faktor ~16 günstiger als Opus). Thinking-Level steuerbar (minimal/low/medium/high). Test geplant: Flash-Lite als Maya-Stimme mit Scout-Unterstützung vs. Opus-Baseline auf identischem Task.
 
 ## Quellen
 
@@ -56,5 +66,6 @@ Letzte Gesamtprüfung: **09. April 2026**
 - MiniMax: openrouter.ai/minimax/minimax-m2.7
 - Kimi: Kimi-Eigenrecherche (256K bestätigt)
 - GLM: openrouter.ai/z-ai/glm-5-turbo, z.ai docs
-- Gemini: ai.google.dev/gemini-api/docs/pricing
+- Gemini: ai.google.dev/gemini-api/docs/pricing, ai.google.dev/gemini-api/docs/gemini-3
 - Grok/Qwen: openrouter.ai
+- Gemini 3.1 Flash-Lite (19.04.2026): Google AI Blog, Vertex AI Docs, OpenRouter

@@ -19,6 +19,7 @@ export const POOL_MODEL_MAP: Record<string, { provider: string; model: string }>
   qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
   'glm-flash': { provider: 'openrouter', model: 'z-ai/glm-4.7-flash' },
   'gemini-flash': { provider: 'gemini', model: 'gemini-3-flash-preview' },
+  'gemini-flash-lite': { provider: 'gemini', model: 'gemini-3.1-flash-lite-preview' },  // Added 19.04.2026 for Scout-gestützter Maya-Vergleichstest
   'deepseek-scout': { provider: 'deepseek', model: 'deepseek-chat' },
   'qwen-scout': { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
 };
