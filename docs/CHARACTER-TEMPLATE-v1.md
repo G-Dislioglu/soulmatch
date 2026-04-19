@@ -2,8 +2,8 @@
 
 This file has been renamed and replaced by:
 
-→ [`docs/BEING-CODEX-v1.md`](./BEING-CODEX-v1.md)
+→ [`docs/BEING-CODEX-v1.1.md`](./BEING-CODEX-v1.1.md)
 
 **Why:** We decided to rename our system from "Character Template" to "Being Codex" — "Being" better expresses that we build presence and relationship, not masks or characters to perform. See the new document for full details.
 
-**Date:** 2026-04-18
+**Date:** 2026-04-19
