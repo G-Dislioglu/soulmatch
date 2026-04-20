@@ -164,3 +164,36 @@ Einstiegs-Reihenfolge unverändert:
 **Wichtige Erinnerung für F9-Folge-Arbeit:** Bevor Code in `.github/workflows/*` geändert wird, gilt Drift 12 — Bridge-Token kann nicht committen. Änderungen an Workflow-Files müssen manuell laufen.
 
 Session-Historie-Lücke unverändert: S22, S23, S26, S27, S28, S29.
+
+---
+
+## 6. Session-Close-Nachtrag — Akzeptanztest und finale Anker-Sync (nachmittags)
+
+Nachdem Copilot den Workflow-Commit `bf22892` (Schritt C) durchgezogen hatte, lief der Live-Akzeptanztest:
+
+**Probe:** `/api/builder/opus-bridge/push` mit einem search/replace-Payload, in dem `search` den nicht-existenten Anchor `UNIQUE_MARKER_THAT_DOES_NOT_EXIST_F9_ACCEPTANCE_TEST` enthielt. Ziel-Datei: `server/src/index.ts`. Erwartet: Der Workflow schreibt die Datei mit unverändertem Inhalt (kein Match), `git add -A` zeigt keine staged changes, der neue empty-diff-Branch feuert den Callback mit `reason:"empty_staged_diff"` und beendet mit `exit 1`.
+
+**Task-ID:** `f5d6ac23-aac2-48bc-89ac-5e69d86ff445`
+
+**Ergebnis nach ~2 Minuten:**
+- Task-Status: `review_needed`
+- `task.commitHash`: `None`
+- Zweiter `GITHUB_ACTION_RESULT`-Action-Eintrag zeigt im payload: `reason:"empty_staged_diff"`, `committed:false`; im result: `reason:"empty_staged_diff"`, `tsc_ok:false`, `build_ok:false`, `committed:false`, `commit_hash:null`
+- Keine Probe-Datei-Änderung auf `main` (`server/src/index.ts` unverändert)
+
+**Bedeutung:** Die komplette Kette aus Schritt A (Workflow sendet Callback → builder.ts schreibt reason in DB → signalPushResult terminal → opusSmartPush Promise.all resolved mit landed:false) + Schritt C (empty-diff-Callback aus dem Workflow) + Schritt D (Orchestrator-Status auf partial/failed durch push.pushed) funktioniert End-to-End wie spezifiziert. False-Positive-Success ist strukturell ausgeschlossen.
+
+**F9 Status:** adopted in RADAR, DONE in SESSION-STATE Task 8, done in CLAUDE-CONTEXT active_threads, last_completed_block in STATE.md.
+
+**Commit-Uebersicht dieser Session (chronologisch):**
+- `ee966f5` — docs: STATE body sync + SESSION-STATE task 0b DONE
+- `1065cd3` — Code: F9 Schritt A+D (pushResultWaiter.ts neu, opusSmartPush.ts Callback-Wait, builder.ts signal-Integration)
+- `5e8131b` — docs: CLAUDE-CONTEXT Drift 12 + SESSION-STATE Task 8 mostly-done
+- `5432fea` — docs: HANDOFF-S35-F9, STATE Last/Next Block, RADAR F9 mostly_adopted
+- `a1e666a` — docs: S31-CANDIDATES Session-Tracking S35-F9
+- `0ffd896` — docs: BUILDER-STUDIO-SPEC Umsetzungs-Stand F9
+- `0a8aa88` — docs: SESSION-CLOSE-TEMPLATE v2 mit 3 Phasen + Anti-Vergessen-Mechanik
+- `bf22892` — Workflow: F9 Schritt C (via Copilot, workflows-Scope)
+- **Dieser Close-Commit** — docs: F9 komplett (RADAR adopted, Handoff-Close, STATE next = F6)
+
+**Dogfood-Feedback zum neuen SESSION-CLOSE-TEMPLATE:** Das Template wurde in dieser Session zum ersten Mal angewandt. Phase 1 (Kontext-Check mit Selbst-Check) hatte am Morgen die beiden kleinen Drifts gefunden (STATE-body-Head, SESSION-STATE task 0b). Phase 2 (Pre-Push-TSC) hat lokal bestaetigt dass der F9-Code vor dem Bridge-Push sauber compiliert. Phase 3 (Live-Verify + Anker-Sync) ist jetzt gerade durch. Der grosse Mehrwert gegenueber Version 1 des Templates: der Live-Verify-Schritt ist explizit, nicht optional. Ohne diesen Schritt haette ich F9 als "deployed" markiert ohne die Gewissheit dass der Code im Container tatsaechlich ausgefuehrt wird.
