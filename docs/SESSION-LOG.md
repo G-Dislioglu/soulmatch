@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T14:30:07.595Z
-- **Commit:** `pending` — docs(wait-for-deploy): add drift 13 context comment explaining ancestor check (also serves as live-verify probe for 859d980 fix)
+- **Commit:** `3596012` — docs(wait-for-deploy): add drift 13 context comment explaining ancestor check (also serves as live-verify probe for 859d980 fix)
 - **Files:** tools/wait-for-deploy.sh
 - **Task:** n/a
 - **Pushed by:** opus-bridge
