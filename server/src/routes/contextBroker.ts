@@ -3,6 +3,7 @@ import path from 'path';
 import { Router, type Request, type Response } from 'express';
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
+import { buildArchitectureDigest } from '../lib/architectureDigest.js';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
 import { outboundFetch } from '../lib/outboundHttp.js';
 import {
@@ -401,6 +402,16 @@ contextBrokerRouter.post('/files/read', async (req: Request, res: Response) => {
   });
 
   res.json({ files, notFound });
+});
+
+contextBrokerRouter.post('/architecture-digest', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as { sections?: string[] } | null;
+    const digest = await buildArchitectureDigest(body?.sections);
+    res.json(digest);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
 });
 
 contextBrokerRouter.post('/ops/query', async (req: Request, res: Response) => {

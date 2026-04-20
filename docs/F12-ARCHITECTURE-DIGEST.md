@@ -1,6 +1,6 @@
 # F12 — Architecture-Digest
 
-- **Status:** `proposed` (Spec fertig, Umsetzung offen)
+- **Status:** `adopted`
 - **Vorgänger:** F11 (Context-Broker)
 - **Zweck:** strukturiertes Architektur-Wissen über das Repo, als erweiterter Endpoint im bestehenden Context-Broker
 - **Scope:** ein neuer read-only Endpoint `POST /api/context/architecture-digest`, der dem Broker beibringt wie der Repo-Aufbau gedacht ist — nicht nur was in welchen Dateien steht
@@ -224,8 +224,21 @@ Drei Live-Proben:
 
 - **S35-F11 (2026-04-20 abends):** F12-Spec geschrieben, Umsetzung verschoben.
 
-## Offen für die Umsetzungs-Session
+## Entscheidungen der Umsetzung
 
-- Entscheidung: `MODULE.md`-Dateien pro Modul (manuell gepflegt) oder reine Kommentar-Extraktion?
-- Entscheidung: `sections`-Filter ja/nein? (Default-Empfehlung: ja, spart Tokens bei gezielten Nachfragen)
-- Entscheidung: `conventions`-Block als Teil dieses Endpoints oder eigenes Ding? (Default-Empfehlung: zusammen, weil sie inhaltlich zur Architektur-Orientierung gehören)
+- **Module purpose:** Kommentar-Extraktion aus `client/src/modules/M*/index.ts` via `/** PURPOSE: ... */`, mit Fallback `no purpose documented — add /** PURPOSE: ... */ in index.ts`.
+- **sections-Filter:** aktiv. Unbekannte Section-Namen werden mit Warn-Log ignoriert, `generatedAt` und `repoHead` bleiben immer in der Response.
+- **conventions-Block:** bleibt Teil desselben Endpoints, damit Architekturorientierung in einem Call ankommt.
+
+## Umsetzungsnotiz
+
+- Modul-Abhängigkeiten werden nicht nur aus `index.ts`, sondern aus allen `.ts`/`.tsx`-Dateien pro Modul abgeleitet, weil die echten Cross-Module-Imports in Soulmatch dort leben.
+- Route-Basen folgen den realen `app.use(...)`-Mounts in `server/src/index.ts`; Beispielpfade in dieser Spec sind keine Runtime-Wahrheit.
+- Datei- und Tree-Zugriffe laufen lokal-first mit GitHub-fallback, damit der Digest sowohl in Dev als auch im Runtime-Container funktioniert.
+
+## Implementierungsstand
+
+- Neuer Helper in `server/src/lib/architectureDigest.ts`
+- Neuer Endpoint `POST /api/context/architecture-digest` im bestehenden Context-Broker
+- 5-Min-In-Memory-Cache je Section-Satz
+- Lokal-first mit GitHub-fallback fuer Dateien und Repo-Tree, damit Dev und Runtime-Container denselben Digest liefern koennen

@@ -100,17 +100,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat F12 - Architecture-Digest
 
-- `status`: `proposed`
-- `truth_class`: `spec_only`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `user_request`
-- `next_gate`: `implementation`
-- `absorbed_into`: `docs/F12-ARCHITECTURE-DIGEST.md` (Spec), noch kein Code
-- `why_not_now`: `Spec fertig am 2026-04-20 spaet abends (S35-F11 Nachlauf), Umsetzung auf naechste Session verschoben. Nicht dringend, aber sinnvolle Fortsetzung von F11.`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/architectureDigest.ts`, `server/src/routes/contextBroker.ts`, `docs/F12-ARCHITECTURE-DIGEST.md`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
 - `non_scope`: MCP-Protokoll-Export, Write-Operationen, Versioning, Cross-Repo-Introspektion, LLM-basierte Code-Zusammenfassung
-- `risk`: niedrig; deterministisch-statisch, read-only, caching 5-Min-TTL. Nutzen kippt wenn der Digest zu ambitioniert wird (z.B. LLM-Bewertungen einbaut) oder wenn Module-Purpose-Pflege vernachlaessigt wird.
-- `betroffene_bereiche`: `server/src/lib/architectureDigest.ts` (neu), `server/src/routes/contextBroker.ts` (neuer Handler), ggf. `client/src/modules/M*/MODULE.md` (neue kleine Dateien)
-- `kurzurteil`: Ein neuer read-only Endpoint `POST /api/context/architecture-digest` liefert strukturiertes Aufbau-Wissen: Module mit purpose+exports+depends_on, Routes mit Subroutern, DB-Tabellen-Gruppierung, Cross-Repo-Links, Konventions-Hinweise. Deterministisch aus existierenden Quellen abgeleitet (nicht LLM-gestuetzt). Erweitert F11 inhaltlich ohne Redesign.
-- `evidence`: Spec `docs/F12-ARCHITECTURE-DIGEST.md` mit vollem Response-Schema, Ableitungslogik pro Section, Akzeptanzkriterien (drei Live-Proben), Nutzen-Matrix fuer Claude/Maya-Director/Worker/Produkt-Personas. Drei offene Entscheidungen sind im Spec-Dokument markiert (MODULE.md pro Modul ja/nein, sections-Filter ja/nein, conventions-Block Position).
+- `risk`: niedrig bis mittel; deterministisch-statisch und read-only, aber Nutzen kippt sofort wenn Beispielpfade als Runtime-Wahrheit behandelt oder Modul-Abhaengigkeiten nur aus index.ts erraten werden.
+- `betroffene_bereiche`: `server/src/lib/architectureDigest.ts`, `server/src/routes/contextBroker.ts`, `docs/F12-ARCHITECTURE-DIGEST.md`
+- `kurzurteil`: F12 erweitert den Context-Broker um einen strukturierten Repo-Aufbau statt nur Dateiinhalt. Der Digest bleibt deterministisch, cached 5 Minuten und respektiert die Container-Realitaet ueber lokal-first/GitHub-fallback.
+- `evidence`: Neue Lib `architectureDigest.ts` mit Module-/Route-/DB-Parsern und statischen `cross_repos`/`conventions`, neuer Endpoint `/api/context/architecture-digest`, Spec auf `adopted` aktualisiert.
 
 ### Kandidat A - UI Redesign Design System Foundation
 
