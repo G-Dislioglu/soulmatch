@@ -1728,6 +1728,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
 
   const sessionLogSkip: boolean = sessionLog?.skip === true;
   const sessionLogTaskId: string | undefined = sessionLog?.taskId;
+  let sessionLogTimestamp: string | null = null;
 
   const targetBranch = branch || 'main';
   const commitMessage = message || 'direct push via /git-push';
@@ -1859,11 +1860,12 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           .map((f) => f.file)
           .filter((p) => p !== 'docs/SESSION-LOG.md' && !p.startsWith('docs/SESSION-LOG-archive-'));
 
+        sessionLogTimestamp = new Date().toISOString();
         const newEntry = formatSessionLogEntry({
           commitShaShort: 'pending',
           commitMessage,
           filesChanged: filesForLog,
-          timestamp: new Date().toISOString(),
+          timestamp: sessionLogTimestamp,
           taskId: sessionLogTaskId,
           pushedBy: 'opus-bridge',
         });
@@ -1971,6 +1973,58 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       branch: targetBranch,
       message: commitMessage,
     });
+
+    // Session-Log-SHA-Nachzug: nach erfolgreichem Hauptcommit den `pending`-Marker
+    // durch den echten Commit-SHA ersetzen. Fault-tolerant — Fehler hier blockieren
+    // nichts, der User hat schon seine Response. docs/** liegt im paths-ignore der
+    // render-deploy.yml, dieser Zweitcommit löst also keinen Render-Deploy aus.
+    if (!sessionLogSkip && sessionLogTimestamp && commit.sha) {
+      void (async () => {
+        try {
+          const shortSha = commit.sha!.slice(0, 7);
+          const logUrl = `https://api.github.com/repos/${repo}/contents/docs/SESSION-LOG.md?ref=${branchRef}`;
+          const fresh = await githubGitRequest<{ content?: string; sha?: string }>(
+            logUrl,
+            pat,
+            'session-log sha-backfill read',
+          );
+          if (!fresh.content || !fresh.sha) {
+            console.warn('[session-log] sha-backfill: empty log content or missing blob sha, skipping');
+            return;
+          }
+          const currentText = Buffer.from(fresh.content, 'base64').toString('utf-8');
+
+          // Finde den Eintrag über den eindeutigen Timestamp und ersetze 'pending'.
+          // Der Eintrag hat die Form:  ## <timestamp>\n- **Commit:** `pending` — ...
+          const pendingMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`pending\` —`;
+          const realMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`${shortSha}\` —`;
+          if (!currentText.includes(pendingMarker)) {
+            console.warn('[session-log] sha-backfill: pending marker not found, skipping');
+            return;
+          }
+          const updatedText = currentText.replace(pendingMarker, realMarker);
+
+          await githubGitRequest<Record<string, unknown>>(
+            `https://api.github.com/repos/${repo}/contents/docs/SESSION-LOG.md`,
+            pat,
+            'session-log sha-backfill write',
+            {
+              method: 'PUT',
+              body: JSON.stringify({
+                message: `session-log: backfill sha ${shortSha}`,
+                content: Buffer.from(updatedText, 'utf-8').toString('base64'),
+                branch: targetBranch,
+                sha: fresh.sha,
+              }),
+            },
+          );
+          console.log(`[session-log] sha-backfill: ${shortSha} written`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn('[session-log] sha-backfill failed:', msg);
+        }
+      })();
+    }
 
     // Deploy-Trigger wird ausschließlich von .github/workflows/render-deploy.yml übernommen:
     // Contents-API-Commits lösen push-Events aus → die Action wartet auf Render-Auto-Deploy
