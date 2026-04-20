@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T12:29:41.366Z
+- **Commit:** `pending` — chore: regen repo index (455 files)
+- **Files:** server/data/builder-repo-index.json
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T08:03:55.583Z
 - **Commit:** `0a8aa88` — session-close: 3-phase protocol (kontext-check + kern-arbeit + close) with self-check + proactive-trigger mechanik
 - **Files:** docs/SESSION-CLOSE-TEMPLATE.md, docs/CLAUDE-CONTEXT.md
