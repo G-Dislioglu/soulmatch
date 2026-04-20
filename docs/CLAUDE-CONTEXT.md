@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-20
-last_session: S35_F10_complete
+last_session: S35_F11_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -42,6 +42,11 @@ active_threads:
     priority: closed_S35_F10
     description: F10 komplett geschlossen am 2026-04-20 abends. async_jobs-DB-Tabelle via Copilot-Commit 851f7ba (gestern abend parallel). Cache-first-Pattern mit DB-Fallback im GET-Handler, persistAsyncJobAsync fire-and-forget UPSERT, initializeAsyncJobsCache() laedt letzte 100 Jobs beim Startup, graceful degradation. Live-Verify nach Container-Restart bestaetigt Persistenz (job-mo7g1xba ueberlebt, job-mo7gj1ha nach Restart voller Lifecycle). Followup-Fix fuer updateAsyncJob-Race bei Cache-Miss als letzter Commit der Session. Parallel-Arbeit: Drift 13 doppelt abgesichert (8f10249 fetch-vor-ancestor), Double-Deploy-Bug gefixt (b7d3eb3 DEPLOY_WAIT_SECONDS 180→600), Drift 14 aufgeraeumt (de90e6a+3ad613e+18922c4).
     entry_point: docs/HANDOFF-S35-F10.md
+  - id: builder_F11_context_broker
+    status: done
+    priority: closed_S35_F11
+    description: F11 komplett geschlossen am 2026-04-20 abends. Context-Broker als read-only Kontext-Schicht vor MCP, drei Endpoints unter /api/context/* — session-start (verdichtetes Repo-Setup-Paket mit Anchors, recentCommits, activeDrifts, runtimeSeams), files/read (Multi-File-Read mit full/outline/slice-Modi), ops/query (whitelist-basierte DB-Abfragen gegen builder_agent_profiles/async_jobs/pool_state/builder_tasks). Initial-Commit fe9b90a baut den Router, Followup 0a71429 fixt Produktionsdrift (Dockerfile kopiert nur server/) via lokal-first mit GitHub-Fallback. Live-Verify bestaetigt alle drei Endpoints HTTP 200 mit korrekten Payloads. Session-Start-Paket laedt jetzt mit EINEM Tool-Call 137 KB Kontext statt 8-12 curl-Roundtrips.
+    entry_point: docs/HANDOFF-S35-F11.md
   - id: session_log_endpoint
     status: done
     priority: closed_S34

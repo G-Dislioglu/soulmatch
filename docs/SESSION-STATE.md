@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S35-F10 (2026-04-20 abends, komplett — async-jobs persistence live, drift 13 doppelt abgesichert, drift 14 aufgeräumt, double-deploy-bug gefixt)
-**Handoff:** `docs/HANDOFF-S35-F10.md`
-**Repo-Head:** Code `851f7ba` (F10), `8f10249` (Drift 13 fetch-before-ancestor), `b7d3eb3` (Double-Deploy-Fix DEPLOY_WAIT_SECONDS 180→600), plus F10-Followup durch Copilot als letzter Commit dieser Session. Drift 14 via `de90e6a` + `3ad613e` + `18922c4` abgeschlossen. Live-Commit auf Render: aktueller main-HEAD.
+**Letzte Session:** S35-F11 (2026-04-20 abends, komplett — Context-Broker live und live-verifiziert)
+**Handoff:** `docs/HANDOFF-S35-F11.md`
+**Repo-Head:** Code `fe9b90a` (F11 Initial: contextBroker.ts + mount + Spec), `0a71429` (F11 Followup: lokal-first + GitHub-Fallback). Live-Commit auf Render: `0a71429`. Session-Start-Paket kann ab jetzt mit einem Tool-Call abgerufen werden: `POST /api/context/session-start?opus_token=...`.
 
 ## Aktive Entscheidungen
 
