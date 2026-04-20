@@ -98,6 +98,20 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Der enge Vorbau fuer spaeteres MCP ist repo-sichtbar umgesetzt; der Followup trennt jetzt sauber zwischen lokalem Runtime-Dateisystem und Repo-Wahrheit auf GitHub main.
 - `evidence`: Neuer `/api/context`-Mount im Server, read-only Router mit drei Endpoints und expliziter Tabellen-Whitelist; Followup in `contextBroker.ts` liest fehlende Root-/docs-Dateien via GitHub raw/API und nutzt `SESSION-STATE.md` als kanonischen Handoff-Anker. Live-Verify 2026-04-20 abends nach Commit `0a71429`: Probe 1 `POST /api/context/session-start` liefert HTTP 200, 137 KB Response mit allen vier Ankern (claudeContext 27K, state 46K, radar 34K, sessionState 12K), latestHandoff automatisch auf docs/HANDOFF-S35-F10.md ermittelt, 15 recentCommits, 14 activeDrifts, 6 runtimeSeams. Probe 2 `/files/read` mit 4 gemischten Pfaden (2× server/, 2× docs/) liefert alle vier Dateien im outline-mode, notFound leer — lokal-first + GitHub-Fallback funktionieren. Probe 3 `/ops/query` gegen pool_state + builder_agent_profiles liefert korrekte Rows, unbekannte Tabelle wird mit 400 + allowed-Liste rejected (Whitelist greift).
 
+### Kandidat F12 - Architecture-Digest
+
+- `status`: `proposed`
+- `truth_class`: `spec_only`
+- `source_type`: `user_request`
+- `next_gate`: `implementation`
+- `absorbed_into`: `docs/F12-ARCHITECTURE-DIGEST.md` (Spec), noch kein Code
+- `why_not_now`: `Spec fertig am 2026-04-20 spaet abends (S35-F11 Nachlauf), Umsetzung auf naechste Session verschoben. Nicht dringend, aber sinnvolle Fortsetzung von F11.`
+- `non_scope`: MCP-Protokoll-Export, Write-Operationen, Versioning, Cross-Repo-Introspektion, LLM-basierte Code-Zusammenfassung
+- `risk`: niedrig; deterministisch-statisch, read-only, caching 5-Min-TTL. Nutzen kippt wenn der Digest zu ambitioniert wird (z.B. LLM-Bewertungen einbaut) oder wenn Module-Purpose-Pflege vernachlaessigt wird.
+- `betroffene_bereiche`: `server/src/lib/architectureDigest.ts` (neu), `server/src/routes/contextBroker.ts` (neuer Handler), ggf. `client/src/modules/M*/MODULE.md` (neue kleine Dateien)
+- `kurzurteil`: Ein neuer read-only Endpoint `POST /api/context/architecture-digest` liefert strukturiertes Aufbau-Wissen: Module mit purpose+exports+depends_on, Routes mit Subroutern, DB-Tabellen-Gruppierung, Cross-Repo-Links, Konventions-Hinweise. Deterministisch aus existierenden Quellen abgeleitet (nicht LLM-gestuetzt). Erweitert F11 inhaltlich ohne Redesign.
+- `evidence`: Spec `docs/F12-ARCHITECTURE-DIGEST.md` mit vollem Response-Schema, Ableitungslogik pro Section, Akzeptanzkriterien (drei Live-Proben), Nutzen-Matrix fuer Claude/Maya-Director/Worker/Produkt-Personas. Drei offene Entscheidungen sind im Spec-Dokument markiert (MODULE.md pro Modul ja/nein, sections-Filter ja/nein, conventions-Block Position).
+
 ### Kandidat A - UI Redesign Design System Foundation
 
 - `status`: `adopted`

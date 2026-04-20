@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T19:02:43.846Z
+- **Commit:** `pending` — F12 spec: architecture-digest endpoint (strukturiertes repo-aufbau-wissen, deterministisch, als erweiterung von F11). RADAR kandidat F12 proposed.
+- **Files:** docs/F12-ARCHITECTURE-DIGEST.md, RADAR.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T18:55:05.397Z
 - **Commit:** `5df1838` — F11 close 2/2: STATE last-completed F11 + next (session-start-konvention, F12-mcp), HANDOFF-S35-F11 full
 - **Files:** STATE.md, docs/HANDOFF-S35-F11.md
