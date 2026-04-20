@@ -94,11 +94,28 @@ function persistAsyncJobAsync(job: AsyncOpusJob): void {
   }
 }
 
-function updateAsyncJob(
+async function updateAsyncJob(
   id: string,
   patch: Partial<Pick<AsyncOpusJob, 'status' | 'result' | 'error'>>,
-): void {
-  const current = asyncOpusJobs.get(id);
+): Promise<void> {
+  let current = asyncOpusJobs.get(id);
+  if (!current) {
+    try {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(asyncJobsTable)
+        .where(eq(asyncJobsTable.id, id))
+        .limit(1);
+      const persisted = rows[0];
+      if (persisted) {
+        current = hydrateAsyncJob(persisted);
+      }
+    } catch (error) {
+      console.warn('[async-jobs] update cache-miss DB lookup failed:', error);
+    }
+  }
+
   if (!current) {
     return;
   }
@@ -246,10 +263,10 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
       targetFile,
     }))
     .then((result) => {
-      updateAsyncJob(id, { status: 'done', result, error: undefined });
+      void updateAsyncJob(id, { status: 'done', result, error: undefined });
     })
     .catch((error) => {
-      updateAsyncJob(id, {
+      void updateAsyncJob(id, {
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
       });
