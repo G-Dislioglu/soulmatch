@@ -358,17 +358,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat F9 - S31 False-Positive Pipeline Path
 
-- `status`: `mostly_adopted`
+- `status`: `adopted`
 - `truth_class`: `repo_visible`
 - `source_type`: `repo_review`
-- `next_gate`: `schritt_c_manual_commit_then_acceptance_test`
-- `absorbed_into`: `server/src/lib/pushResultWaiter.ts` (neu), `server/src/lib/opusSmartPush.ts`, `server/src/routes/builder.ts`, `STATE.md`, `SESSION-STATE.md`, `CLAUDE-CONTEXT.md`
-- `why_not_now`: `Schritt A+D live (Commit 1065cd3), Schritt C (workflow-File) geblockt durch Bridge-Token ohne workflows-Scope (siehe Drift 12). Manueller Workflow-Commit via Web-UI oder persoenlichem PAT noetig.`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/pushResultWaiter.ts` (neu), `server/src/lib/opusSmartPush.ts`, `server/src/routes/builder.ts`, `.github/workflows/builder-executor.yml`, `STATE.md`, `SESSION-STATE.md`, `CLAUDE-CONTEXT.md`, `docs/HANDOFF-S35-F9.md`
+- `why_not_now`: `none`
 - `non_scope`: neuer Executor-Pfad, Renderer-Umbau, breiter Workflow-Umbau
-- `risk`: niedrig nach Schritt A+D; Schritt C erhoeht nur die Erkennungsgeschwindigkeit bei empty-diff-Faellen von 3-Min-Timeout auf sofortiges Signal.
-- `betroffene_bereiche`: `server/src/lib/pushResultWaiter.ts` (neu), `server/src/lib/opusSmartPush.ts`, `server/src/routes/builder.ts`, `.github/workflows/builder-executor.yml` (offen)
-- `kurzurteil`: Callback-basierter Wait statt SHA-Polling (Entscheidung vom 2026-04-20): smartPush wartet via in-memory Waiter-Queue auf execution-result-Callbacks, `pushed: true` nur bei verifizierter Landung. Probe-Test bestaetigt Live-Wirkung.
-- `evidence`: S30-Befund (2026-04-17) mit Task feat-mo38m9f0-jyy1 dokumentiert in docs/S31-CANDIDATES.md. F9-Session-Protokoll in docs/HANDOFF-S35-F9.md. Live-Probe mit taskId d6fbfb91-0bde-4ea3-8d61-4ecd393bfd1c zeigt `reason:"checks_failed"` im neuen Handler-Schema (altes Schema hat das Feld nicht).
+- `risk`: geschlossen — die Pipeline kann false-positive success nicht mehr melden; bei empty-diff, REPLACE_FAILED oder Build-Fehlern kommt der execution-result-Callback mit `reason` zurueck und smartPush meldet `pushed: false`.
+- `betroffene_bereiche`: `server/src/lib/pushResultWaiter.ts` (neu), `server/src/lib/opusSmartPush.ts`, `server/src/routes/builder.ts`, `.github/workflows/builder-executor.yml`
+- `kurzurteil`: Callback-basierter Wait statt SHA-Polling. Drei Hebel live: Schritt A (smartPush wartet via in-memory Waiter-Queue auf execution-result-Callbacks), Schritt C (Workflow-empty-diff sendet Callback + `exit 1` statt stillem `exit 0`), Schritt D (Orchestrator-Status-Treue automatisch durch `push.pushed` in `opusTaskOrchestrator.ts:323`).
+- `evidence`: S30-Befund (2026-04-17) mit Task feat-mo38m9f0-jyy1 dokumentiert in docs/S31-CANDIDATES.md. F9-Session-Protokoll in docs/HANDOFF-S35-F9.md. Live-Akzeptanztest 2026-04-20 nachmittags mit taskId `f5d6ac23-aac2-48bc-89ac-5e69d86ff445`: search/replace mit nicht-existentem Anchor `UNIQUE_MARKER_THAT_DOES_NOT_EXIST_F9_ACCEPTANCE_TEST` fuehrte zu Workflow-Callback `reason:"empty_staged_diff"`, Task-Status `review_needed`, kein Commit auf main. Kommit-Kette: `1065cd3` (Code Schritt A+D, Bridge-Push), `bf22892` (Workflow Schritt C, Copilot-Push wegen workflows-Scope).
 
 ### Kandidat G - Provider Truth Sync
 

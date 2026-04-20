@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-20
-last_session: S35_F9_partial
+last_session: S35_F9_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -28,10 +28,10 @@ ecosystem_repos:
 
 active_threads:
   - id: builder_S31_observability
-    status: mostly_done
-    priority: schritt_c_manual_commit_open
-    description: F9 Schritt A+D live in Commit 1065cd3 (pushResultWaiter.ts neu, opusSmartPush.ts wartet auf execution-result-Callback, builder.ts signalisiert landed:true/false). Probe-Test 2026-04-20 bestätigt neuen Handler (reason-Feld in payload+result). Schritt C (workflow empty-diff-Callback) geblockt durch fehlenden workflows-Scope im Bridge-Token, braucht manuellen Commit via Web-UI oder persönlichem PAT. Ohne Schritt C fällt smartPush bei empty-diff auf 3-Min-Timeout statt sofortigem Signal.
-    entry_point: docs/S31-CANDIDATES.md
+    status: done
+    priority: closed_S35_F9
+    description: F9 komplett geschlossen am 2026-04-20. Schritt A+D via Commit 1065cd3 (pushResultWaiter.ts neu, opusSmartPush.ts wartet via Promise.all auf execution-result-Callbacks, builder.ts signalisiert landed:true/false). Schritt C via Copilot-Commit bf22892 (workflow empty-diff sendet Callback + exit 1 statt stillem exit 0, Copilot weil Bridge-Token ohne workflows-Scope siehe Drift 12). Live-Akzeptanztest mit taskId f5d6ac23-aac2-48bc-89ac-5e69d86ff445 bestätigt: search/replace mit nicht-existentem Anchor löst reason:"empty_staged_diff"-Callback aus, task-Status review_needed, keine False-Positive-Success.
+    entry_point: docs/HANDOFF-S35-F9.md
   - id: session_log_endpoint
     status: done
     priority: closed_S34
