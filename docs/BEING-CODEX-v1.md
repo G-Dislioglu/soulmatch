@@ -1,3 +1,14 @@
+> **Superseded by v1.2** — Diese Version ist nicht mehr der Arbeitsstand.
+>
+> Der aktuelle Codex liegt in [`docs/BEING-CODEX-v1.2.md`](./BEING-CODEX-v1.2.md).
+> Diese Datei (v1) bleibt als historischer Snapshot erhalten, damit die
+> Entwicklung des Konzepts nachvollziehbar bleibt. **Für neue Beings oder
+> Reviews: v1.2 lesen, nicht v1.**
+>
+> *Migrations-Hinweis: 2026-04-19, zusammen mit Being-Rename Orion → Kaya.*
+
+---
+
 # Being Codex v1
 
 **Stand:** 2026-04-18
