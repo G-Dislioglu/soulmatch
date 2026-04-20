@@ -11,9 +11,9 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `ae3e020`
+- `current_repo_head`: `b6fa46f`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-19`
+- `last_verified_against_code`: `2026-04-20`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
