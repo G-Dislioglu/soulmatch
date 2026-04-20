@@ -100,6 +100,9 @@ while [ "$ELAPSED" -lt "$MAX_SECONDS" ]; do
     # Accept backfill-on-top case: the live commit may be a descendant of the
     # expected code commit because the session-log hook pushed a docs-only
     # backfill immediately afterwards.
+    # Refresh refs here because LIVE_COMMIT may have been pushed after the
+    # runner's initial checkout.
+    git fetch --quiet origin main 2>/dev/null || true
     if [ -n "$LIVE_COMMIT" ] && git merge-base --is-ancestor "$EXPECTED_COMMIT" "$LIVE_COMMIT" 2>/dev/null; then
       echo "  ✅ [$TIMESTAMP] Deploy live — commit ${LIVE_COMMIT} is descendant of expected ${EXPECTED_COMMIT} (session-log backfill detected, accepting)"
       echo ""
