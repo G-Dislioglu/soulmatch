@@ -57,7 +57,7 @@ Nach Restart zeigte `GET /api/health/opus-job-status`:
 - `job-mo7gj1ha` lief neuen Lifecycle komplett durch (Schreibweg bestätigt)
 - Jobs aus der Zeit **vor** der Migration (`job-mo7fzn8y`, `job-mo7g17v4`) waren weg — erwartet, weil sie noch ohne DB-Backing angelegt wurden
 
-Ein Befund fiel auf: `job-mo7g1xba` hing nach dem Restart auf `status: 'running'` statt `done`. Ursache: die Status-Update-Callback-Kette (`.then(...)`) aus dem alten Container schrieb in die in-memory Map, die beim Restart verloren ging, und `persistAsyncJobAsync` wurde in dem Race-Fenster nicht mehr ausgeführt. Das führte zum Followup-Fix.
+Ein Befund fiel auf: `job-mo7g1xba` hing nach dem Restart auf `status: 'running'` statt `done`. Echte Ursache (präzisiert nach Copilot-Feedback, mein erstes Restart-Narrativ war schief): eine Promise aus dem alten Container läuft im neuen Container NICHT weiter. Stattdessen: der Update-Callback aus dem alten Container war bis zum Restart nie fertig geworden (oder seine DB-Schreibung hatte den Restart nicht mehr erreicht), und beim neuen Container-Start hat `initializeAsyncJobsCache()` den Job im Zustand `running` aus DB geladen. Separat existiert ein robusterer Bug: wenn ein Job zwar in DB ist aber nicht im Cache (weil 100+ neuere Jobs ihn rausdrängen ODER weil er vor dem Startup-Load nicht in den Top-100 war), schluckt `updateAsyncJob` jede Status-Änderung still — weil er mit Cache-Miss sofort returned. Das ist die wirkliche strukturelle Schwäche, unabhängig vom konkreten Restart-Szenario. Das führte zum Followup-Fix in Commit `7af6554`.
 
 ### 1d. Drift 13 Nachfix
 
