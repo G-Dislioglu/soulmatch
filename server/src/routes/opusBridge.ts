@@ -184,7 +184,7 @@ async function githubGitRequest<T>(
   url: string,
   pat: string,
   stage: string,
-  init: { method?: 'GET' | 'POST' | 'PATCH'; body?: string } = {},
+  init: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT'; body?: string } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${pat}`,
