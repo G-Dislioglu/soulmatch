@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T19:02:43.846Z
-- **Commit:** `pending` — F12 spec: architecture-digest endpoint (strukturiertes repo-aufbau-wissen, deterministisch, als erweiterung von F11). RADAR kandidat F12 proposed.
+- **Commit:** `977ded9` — F12 spec: architecture-digest endpoint (strukturiertes repo-aufbau-wissen, deterministisch, als erweiterung von F11). RADAR kandidat F12 proposed.
 - **Files:** docs/F12-ARCHITECTURE-DIGEST.md, RADAR.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
