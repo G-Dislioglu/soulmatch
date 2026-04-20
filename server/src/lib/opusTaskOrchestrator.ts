@@ -69,18 +69,51 @@ function internalUrl(path: string): string {
 }
 
 type OrchestratorScopeMethod = ScopeMethod | 'manual';
+const CREATE_SIGNAL_RE = /erstell|create|neue|hinzufueg|new file/i;
+
+interface ScopePhaseResult {
+  files: string[];
+  reasoning: string[];
+  method: OrchestratorScopeMethod;
+  rejectedPaths?: string[];
+}
 
 // ─── Phase 1: Deterministic Scope ───
 
-function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): { files: string[]; reasoning: string[]; method: OrchestratorScopeMethod } {
+function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): ScopePhaseResult {
   if (manualScope && manualScope.length > 0) {
-    return { files: manualScope, reasoning: ['manual override'], method: 'manual' };
+    const uniqueManualScope = [...new Set(manualScope)];
+    const indexed = uniqueManualScope.filter((path) => isIndexedRepoFile(path));
+    const unindexed = uniqueManualScope.filter((path) => !isIndexedRepoFile(path));
+
+    if (unindexed.length > 0 && !CREATE_SIGNAL_RE.test(instruction)) {
+      return {
+        files: [],
+        reasoning: unindexed.map((path) => `manual scope path not in repo index and no create signal in instruction: ${path}`),
+        method: 'deterministic',
+        rejectedPaths: unindexed,
+      };
+    }
+
+    const reasoning = ['manual override'];
+    if (indexed.length > 0) {
+      reasoning.push(`manual scope indexed: ${indexed.join(', ')}`);
+    }
+    if (unindexed.length > 0) {
+      reasoning.push(...unindexed.map((path) => `${path} (CREATE): manual scope path not in repo index, create signal present`));
+    }
+
+    return {
+      files: [...indexed, ...unindexed],
+      reasoning,
+      method: unindexed.length > 0 ? 'create' : 'manual',
+    };
   }
   const result = resolveScope(instruction);
   if (targetFile && !result.files.includes(targetFile)) {
     result.files.unshift(targetFile);
     result.reasoning.unshift(`${targetFile} (forced): targetFile parameter`);
-    if (!isIndexedRepoFile(targetFile) && /erstell|create|neue|hinzufueg|new file/i.test(instruction)) {
+    if (!isIndexedRepoFile(targetFile) && CREATE_SIGNAL_RE.test(instruction)) {
       result.method = 'create';
       result.reasoning.unshift(`${targetFile} (CREATE): targetFile is not in repo index`);
     }
@@ -209,14 +242,32 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   // Phase 1: Deterministic Scope
   const s1 = Date.now();
   const scope = runScopePhase(input.instruction, input.scope, input.targetFile);
+  const indexedFiles = scope.files.filter((path) => isIndexedRepoFile(path));
+  const createTargets = scope.method === 'create'
+    ? scope.files.filter((path) => !isIndexedRepoFile(path))
+    : [];
   phases.push({
     phase: 'scope', status: scope.files.length > 0 ? 'ok' : 'error',
     durationMs: Date.now() - s1,
-    detail: { files: scope.files, method: scope.method, reasoning: scope.reasoning.slice(0, 5) },
+    detail: {
+      files: scope.files,
+      method: scope.method,
+      reasoning: scope.reasoning.slice(0, 5),
+      indexedFiles,
+      createTargets,
+      rejectedPaths: scope.rejectedPaths ?? [],
+    },
   });
   if (scope.files.length === 0) {
-    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: 'Scope resolver found 0 files. Include exact paths in instruction.' };
+    return {
+      status: 'failed',
+      runId,
+      phases,
+      totalDurationMs: Date.now() - totalStart,
+      summary: scope.rejectedPaths && scope.rejectedPaths.length > 0
+        ? `Scope rejected ${scope.rejectedPaths.length} hallucinated path(s): ${scope.rejectedPaths.join(', ')}. Include exact paths in instruction or provide explicit create signal.`
+        : 'Scope resolver found 0 files. Include exact paths in instruction.',
+    };
   }
 
   // Phase 2: Fetch

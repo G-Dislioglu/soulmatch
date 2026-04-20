@@ -23,15 +23,33 @@ interface RepoIndex {
   files: RepoFileEntry[];
 }
 
+const CREATE_SIGNAL_RE = /erstell|create|neue|hinzufueg|new file/i;
+
 export type ScopeMethod = 'deterministic' | 'hybrid' | 'create';
 
 export interface ScopeResult {
   files: string[];
   reasoning: string[];
   method: ScopeMethod;
+  rejectedPaths?: string[];
 }
 
 let cachedIndex: RepoIndex | null = null;
+
+function hasPlausiblePrefix(path: string, index: RepoIndex): boolean {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return false;
+  }
+
+  const requiredDepth = segments.length >= 3 ? 3 : 1;
+  const requiredPrefix = segments.slice(0, requiredDepth).join('/');
+
+  return index.files.some((file) => {
+    const filePrefix = file.path.split('/').filter(Boolean).slice(0, requiredDepth).join('/');
+    return filePrefix === requiredPrefix;
+  });
+}
 
 function loadIndex(): RepoIndex {
   if (cachedIndex) return cachedIndex;
@@ -72,11 +90,12 @@ export function isIndexedRepoFile(path: string): boolean {
 export function resolveScope(instruction: string): ScopeResult {
   const index = loadIndex();
   const reasoning: string[] = [];
+  const rejectedPaths: string[] = [];
   const scored = new Map<string, number>();
   let method: ScopeMethod = 'deterministic';
 
   const instrLower = instruction.toLowerCase();
-  const hasCreateSignal = /(?:erstell|create|neue datei|new file|hinzufueg)/i.test(instruction);
+  const hasCreateSignal = CREATE_SIGNAL_RE.test(instruction);
   const instrWords = new Set(instrLower.split(/[\s,;:()\[\]{}`'"`]+/).filter(w => w.length > 2));
 
 
@@ -136,18 +155,28 @@ export function resolveScope(instruction: string): ScopeResult {
   if (files.length === 0) {
     const pm = instruction.match(/(?:server|client)\/src\/[\w/. -]+\.tsx?/i);
     if (pm && hasCreateSignal) {
-      files.push(pm[0]);
-      reasoning.push(pm[0] + " (CREATE): path not in index, instruction requests creation");
-      method = 'create';
+      if (hasPlausiblePrefix(pm[0], index)) {
+        files.push(pm[0]);
+        reasoning.push(pm[0] + " (CREATE): path not in index, instruction requests creation");
+        method = 'create';
+      } else if (!rejectedPaths.includes(pm[0])) {
+        reasoning.push(`${pm[0]} REJECTED: no indexed file shares the first 3 path segments, likely hallucination`);
+        rejectedPaths.push(pm[0]);
+      }
     }
   }
 
   if (files.length === 0) {
     const pm = instruction.match(/(?:server|client)\/src\/[\w/.-]+\.tsx?/i);
     if (pm && hasCreateSignal) {
-      files.push(pm[0]);
-      reasoning.push(pm[0] + " (CREATE)");
-      method = 'create';
+      if (hasPlausiblePrefix(pm[0], index)) {
+        files.push(pm[0]);
+        reasoning.push(pm[0] + " (CREATE)");
+        method = 'create';
+      } else if (!rejectedPaths.includes(pm[0])) {
+        reasoning.push(`${pm[0]} REJECTED: no indexed file shares the first 3 path segments, likely hallucination`);
+        rejectedPaths.push(pm[0]);
+      }
     }
   }
 
@@ -155,6 +184,7 @@ export function resolveScope(instruction: string): ScopeResult {
     files,
     reasoning,
     method,
+    ...(rejectedPaths.length > 0 ? { rejectedPaths } : {}),
   };
 }
 
