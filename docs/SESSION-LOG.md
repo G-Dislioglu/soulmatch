@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T17:24:48.317Z
-- **Commit:** `pending` — F10 handoff: präzisiere Ursachen-Narrativ nach Copilot-Feedback (Promise überlebt Restart nicht — echter Bug ist Cache-Miss-No-op in updateAsyncJob, gefixt in 7af6554)
+- **Commit:** `cfe5774` — F10 handoff: präzisiere Ursachen-Narrativ nach Copilot-Feedback (Promise überlebt Restart nicht — echter Bug ist Cache-Miss-No-op in updateAsyncJob, gefixt in 7af6554)
 - **Files:** docs/HANDOFF-S35-F10.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
