@@ -1,3 +1,5 @@
+/** PURPOSE: Generierte Persoenlichkeits- und Lebens-Reports als LLM-gestuetzte Zusammenfassungen */
+
 // Public API for module M07. No deep imports allowed outside this module.
 export { Section } from './ui/Section';
 export { ReportLayout } from './ui/ReportLayout';

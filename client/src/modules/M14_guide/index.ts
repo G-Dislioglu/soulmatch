@@ -1,3 +1,5 @@
+/** PURPOSE: Maya als Navigations-Guide: Kontext-bewusste Hinweise, Erklaerungen, Tour-Pfade */
+
 // Public API for module M14_guide (V2)
 
 // Types

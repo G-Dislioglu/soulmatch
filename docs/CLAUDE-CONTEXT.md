@@ -159,6 +159,8 @@ Bevor Claude inhaltlich antwortet, liest er in dieser Reihenfolge (das ist **Pha
 4. **`docs/SESSION-STATE.md`** — kurze Entscheidungs-Zusammenfassung und offene Tasks
 5. **Neuester Handoff** unter `docs/HANDOFF-S*.md` (höchste Session-Nummer)
 
+- **Claude Session-Start Konvention ab S35:** `POST /api/context/session-start` liefert alle vier Anker, 15 recent Commits, Drifts und Seams in einem Tool-Call (ca. 137 KB). Optional folgt `POST /api/context/architecture-digest` fuer 19 Module mit depends_on/used_by, 16 Routes mit Subroutern, 18 DB-Tabellen in Gruppen, Cross-Repos und Conventions (ca. 16 KB oder ca. 5 KB mit `sections`-Filter). Das ersetzt die frühere 8-12-Roundtrip-Kaskade. Beide Endpoints sind read-only mit `requireOpusToken`.
+
 **Während des Lesens läuft der Selbst-Check der drei Invarianten** (siehe Phase 1.2 in `docs/SESSION-CLOSE-TEMPLATE.md`): Handoff-File für letzte Session vorhanden? STATE.md-Head passt zum letzten Code-Commit? active_threads konsistent? Wenn nein → Drift an Gürcan melden, vorherige Session nachträglich schließen, dann erst neu anfangen.
 
 Für das volle Close-Protokoll (Phase 2 Kern-Arbeit, Phase 3 Session-Close): `docs/SESSION-CLOSE-TEMPLATE.md`.

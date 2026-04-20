@@ -1,3 +1,5 @@
+/** PURPOSE: Globale App-Huelle: Disclaimer-Modal, LiveTalk-Button, Maya-Kontext-Leiste, Fehler-Boundary */
+
 // Public API for module M01. No deep imports allowed outside this module.
 export { DisclaimerModal } from './DisclaimerModal';
 export {

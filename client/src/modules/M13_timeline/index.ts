@@ -1,3 +1,5 @@
+/** PURPOSE: Zeitstrahl-Komponenten fuer Verlauf, Sessions, Reports */
+
 /* ═══════════════════════════════════════════
    M13_timeline — public API
    ═══════════════════════════════════════════ */

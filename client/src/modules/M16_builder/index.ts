@@ -1,3 +1,5 @@
+/** PURPOSE: Builder-Studio-UI: Maya-Dashboard, Pool-Monitoring, Task-Historie, Agent-Profiles */
+
 export { BuilderStudioPage } from './ui/BuilderStudioPage';
 export { PatrolConsole } from './ui/PatrolConsole';
 export { useBuilderApi } from './hooks/useBuilderApi';

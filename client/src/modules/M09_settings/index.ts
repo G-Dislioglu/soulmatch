@@ -1,3 +1,5 @@
+/** PURPOSE: Globale App-Einstellungen: Sprache, TTS-Stimmen, Privacy-Toggles, Disclaimer-Reset */
+
 // Public API for module M09. No deep imports allowed outside this module.
 export {
   loadSettings,

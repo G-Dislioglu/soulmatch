@@ -1,0 +1,1 @@
+/** PURPOSE: Gespraech mit einer Persona (Maya, Stella, Kael, Lian, Sibyl, Amara, Luna, Orion, Lilith) inkl. TTS und STT */

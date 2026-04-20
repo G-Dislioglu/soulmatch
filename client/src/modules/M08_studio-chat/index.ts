@@ -1,3 +1,5 @@
+/** PURPOSE: Arcana-Studio: Persona-Creator-UI mit Maya als Guide, Persona-Tuning-Panels, Audio-Loop */
+
 // Public API for module M08. No deep imports allowed outside this module.
 export type { StudioEngine } from './lib/studioEngine';
 export { StubStudioEngine } from './lib/stubStudio';

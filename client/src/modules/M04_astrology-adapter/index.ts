@@ -1,3 +1,5 @@
+/** PURPOSE: Astrologie-Engine-Wrapper: westliche tropische Astrologie, Aspekte, Chart-Visualisierung via sweph */
+
 // Public API for module M04. No deep imports allowed outside this module.
 export type { AstrologyEngine } from './lib/astrologyEngine';
 export { buildAstrologyRequestFromProfile } from './lib/astrologyEngine';

@@ -1,3 +1,5 @@
+/** PURPOSE: Design-System-Primitives: Buttons, Cards, Modals, Aura-Avatars, Button-Varianten, Layout-Hilfen */
+
 // Public API for module M02. No deep imports allowed outside this module.
 export { Button } from './Button';
 export { Input } from './Input';
