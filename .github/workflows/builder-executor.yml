@@ -139,8 +139,11 @@ jobs:
           git add -A
           CHANGES=$(git diff --cached --name-only | wc -l)
           if [ "$CHANGES" -eq "0" ]; then
-            echo "No changes to commit"
-            exit 0
+            echo "No changes to commit — signaling empty_staged_diff"
+            curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"committed\": false, \"reason\": \"empty_staged_diff\", \"tsc\": \"$TSC_OK\", \"build\": \"$BUILD_OK\"}"
+            exit 1
           fi
           if [ "$TSC_OK" = "true" ] && [ "$BUILD_OK" = "true" ]; then
             git commit -m "feat(builder): task $TASK_ID — auto-applied patches"
