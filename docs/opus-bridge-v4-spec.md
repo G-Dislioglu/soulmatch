@@ -27,15 +27,22 @@ Scout (Pool) → Destillierer (Pool) → Council (Pool, Maya-moderiert)
 | Mitdenker | Destillierer-Pool (Extractor+Reasoner) | `opusDistiller.ts` |
 | Worker-Swarm | Worker-Pool (Memory-aware) | `opusWorkerSwarm.ts` |
 | Meister-Review | TSC Verify + Council-Review | `opusBridgeController.ts` |
-| Nachdenker | — (noch nicht implementiert) | geplant: `agentHabitat.ts` |
+| Nachdenker | `reflectOnTask()` nach jedem Task | `agentHabitat.ts:184` (seit S16) |
 
-### Was noch fehlt (nächste Schritte)
+### Was noch fehlt (nächste Schritte) — aktualisierter Stand S34 (2026-04-20)
 
-- **Maya-Routing:** Intent-Classifier (Schnell vs. Pipeline) — fehlt
-- **Council-Rollen:** Architekt/Skeptiker/Pragmatiker Differenzierung — fehlt
-- **Agent Profiles:** Post-Task-Loop + DB-Tabelle — fehlt
-- **Auto-Retry:** TSC-Fehler → automatische Nachbesserung — fehlt
-- **Nachdenker:** Qualitäts-Score + Learnings nach Deploy — fehlt
+Alle fünf ursprünglich offenen Punkte sind inzwischen implementiert:
+
+- **Maya-Routing:** `determineBuildMode()` in `builderFusionChat.ts:233` entscheidet autonom zwischen Quick-Modus und voller Pipeline (seit S16/S24) — **DONE**
+- **Council-Rollen:** Round-Robin Architekt/Skeptiker/Pragmatiker via `COUNCIL_ROLES` + `buildCouncilParticipants()`, Maya moderiert, Hard-Ceiling 5 Runden — **DONE**
+- **Agent Profiles:** DB-Tabelle `builder_agent_profiles` aktiv, Post-Task-Loop via `updateAgentProfiles()`, `buildAgentBrief()` wird in Worker-Prompts injiziert (`opusWorkerSwarm.ts:594`) — **DONE** (seit S16)
+- **Auto-Retry:** 3 Versuche max in `runTscCompileCheck`-Loop (`opusBridgeController.ts:920-980`), funktioniert in decomposer-direct und auto-decomposer Pfaden — **DONE** (Roundtable-only-Pfad: Restarbeit offen, siehe SESSION-STATE Task 1)
+- **Nachdenker:** `reflectOnTask()` in `agentHabitat.ts:184` mit GLM-5-Turbo nach jedem Task — **DONE**
+
+Zusätzlich seit dieser Spec gelandet: Denker-Triade komplett (Vordenker + Meister-Plan + Worker-Swarm + Nachdenker), atomare Mehrdatei-Commits via GitHub Git Data API (S31), Pool-Config-Persistenz (F7, S33), Session-Log-Endpoint (S34).
+
+**Noch offene Restposten aus S30 und aus dieser Spec:** Mitdenker async auf jedem User-Turn (v4.1 Idee, nicht umgesetzt), Structured Shorthand Protocol (aus Maya Core Spec v2.3, noch nicht integriert).
+
 
 ### Zwei Executor-Pfade
 

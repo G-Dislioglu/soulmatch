@@ -7,6 +7,8 @@
 **Status:** Eingefroren — bereit für Phase B1
 **Modul:** M10_builder
 
+> **Umsetzungs-Stand (Stichtag S34, 2026-04-20):** Weitgehend produktiv auf `main`. Live: Reuse-First-Prinzip (R1/R2/R3), Builder-UI unter `/builder`, Pool-System (Maya/Council/Worker/Scout/Destillierer), Agent-Habitat mit `builder_agent_profiles`-Tabelle, Canary-Stage-System, atomare Mehrdatei-Commits via Git Data API, Session-Log-Endpoint mit SHA-Backfill (S34), Pool-Config-Persistenz (F7). Offen: S31-False-Positive-Pipeline-Path-Fix (SHA-Verify in `opusSmartPush.ts`, Workflow-Härtung, Orchestrator-Status-Treue). Diese Spec bleibt als Vision-Dokument stehen; der tatsächliche Code-Stand liegt in `STATE.md` und den Handoffs S24–S34.
+
 **v3.3 Changelog:**
 - NEU: Architektur-Regel REUSE-FIRST (R1, R2, R3)
 - NEU: `@FIND_PATTERN` als Pflichtschritt in Code Lane
