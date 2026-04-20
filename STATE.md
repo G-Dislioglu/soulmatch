@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `4dcfefb`
+- `current_repo_head`: `fe9b90a (live) + F11-followup im lokalen Working Tree`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-20`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S35-F11 im Working Tree: read-only Context-Broker gebaut. Neuer Router server/src/routes/contextBroker.ts liefert POST /api/context/session-start (CLAUDE-CONTEXT, STATE, RADAR, SESSION-STATE, neuester Handoff, letzte 15 Commits, activeDrifts, runtimeSeams), POST /api/context/files/read (full/outline/slice fuer bis zu 20 Repo-Pfade, Path-Traversal-Guard, full truncation >500KB) und POST /api/context/ops/query (Whitelists fuer builder_agent_profiles, async_jobs, pool_state, builder_tasks; nur id/status-Filter). Auth nutzt denselben requireOpusToken-Guard wie die Opus-Bridge; Mount in server/src/index.ts unter /api/context. Spec in docs/F11-CONTEXT-BROKER.md. Kritische Prompt-Korrekturen vor dem Bau: Handoff-Auswahl nicht ueber fragile Namensheuristik allein, bestehende Auth wiederverwenden, ops/query strikt read-only statt generisch. Server-TSC lief lokal gruen.`
-- `next_recommended_block`: `F11 lokal oder live verifizieren: (1) POST /api/context/session-start gegen laufenden Server mit Opus-Token pruefen, (2) files/read mit Mischsatz aus existierenden und fehlenden Dateien testen, (3) ops/query fuer erlaubte und verbotene Tabellen pruefen, (4) danach entscheiden, ob Claude-Session-Start und spaeter Director/MCP auf diesen Broker umgestellt werden sollen. Sekundaer bleiben F10-Live-Verify nach Restart und der separate /opus-feature-F6-Hard-Reject-Pfad.`
+- `last_completed_block`: `S35-F11 live plus Followup im Working Tree: initialer Context-Broker ist als fe9b90a auf main und Render live, aber Probe 1 zeigte Produktionsdrift zwischen Container-Dateisystem und Repo-Root. Ursache: Dockerfile kopiert im Runtime-Stage nur /app/server und client/dist; root-Dateien wie STATE.md, RADAR.md und docs/* liegen dort nicht. F11-Followup schneidet deshalb keinen Dockerfile-Hotfix, sondern eine lokal-first/GitHub-fallback-Quelle in server/src/routes/contextBroker.ts: lokale Dateien werden weiter direkt gelesen, fehlende Repo-Root- und docs-Dateien via raw/API von GitHub main bezogen; recentCommits/repoHead kommen aus der GitHub Commits API statt lokalem git, latestHandoff wird aus docs/SESSION-STATE.md abgeleitet statt ueber freie Docs-Discovery. ops/query blieb gruen und unveraendert.`
+- `next_recommended_block`: `F11-Followup pushen und live pruefen: (1) POST /api/context/session-start muss ohne Container-Repo-Root funktionieren, (2) files/read fuer docs/, Root und server/ gemischt pruefen, (3) ops/query kurz regressionspruefen, (4) wenn gruen, entscheiden ob Claude-Session-Start darauf standardisiert wird. Sekundaer bleibt der separate /opus-feature-F6-Hard-Reject-Pfad.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

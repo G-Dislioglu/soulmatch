@@ -1,10 +1,10 @@
-import { execSync } from 'child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { Router, type Request, type Response } from 'express';
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { requireOpusToken } from '../lib/opusBridgeAuth.js';
+import { outboundFetch } from '../lib/outboundHttp.js';
 import {
   asyncJobs,
   builderAgentProfiles,
@@ -18,6 +18,10 @@ contextBrokerRouter.use(requireOpusToken);
 
 type FileReadMode = 'full' | 'outline' | 'slice';
 type AllowedOpsTable = 'builder_agent_profiles' | 'async_jobs' | 'pool_state' | 'builder_tasks';
+type RecentCommit = { sha: string; message: string; date: string };
+
+const DEFAULT_REPO = 'G-Dislioglu/soulmatch';
+const GITHUB_ACCEPT = 'application/vnd.github+json';
 
 function getRepoRoot(): string {
   const candidates = [
@@ -39,6 +43,23 @@ function normalizeRepoPath(filePath: string): string {
   return filePath.replace(/\\/g, '/');
 }
 
+function getGithubRepo(): string {
+  return process.env.GITHUB_REPO || DEFAULT_REPO;
+}
+
+function getGithubAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: GITHUB_ACCEPT,
+    'User-Agent': 'soulmatch-context-broker',
+  };
+
+  if (process.env.GITHUB_PAT) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_PAT}`;
+  }
+
+  return headers;
+}
+
 function resolveRepoPath(repoRoot: string, relativePath: string): string | null {
   if (!relativePath || path.isAbsolute(relativePath)) {
     return null;
@@ -55,13 +76,87 @@ function resolveRepoPath(repoRoot: string, relativePath: string): string | null 
   return resolved;
 }
 
-function readRepoText(repoRoot: string, relativePath: string): string {
+function readLocalRepoText(repoRoot: string, relativePath: string): string | null {
   const resolved = resolveRepoPath(repoRoot, relativePath);
   if (!resolved || !existsSync(resolved)) {
-    throw new Error(`File not found: ${relativePath}`);
+    return null;
   }
 
   return readFileSync(resolved, 'utf8');
+}
+
+function buildRawGithubUrl(repoRelativePath: string): string {
+  const normalizedPath = normalizeRepoPath(repoRelativePath)
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  return `https://raw.githubusercontent.com/${getGithubRepo()}/main/${normalizedPath}`;
+}
+
+function buildGithubApiUrl(apiPath: string): string {
+  return `https://api.github.com/repos/${getGithubRepo()}${apiPath}`;
+}
+
+async function fetchTextOrNull(url: string): Promise<string | null> {
+  try {
+    const response = await outboundFetch(url, {
+      headers: getGithubAuthHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return await response.text();
+  } catch (error) {
+    console.warn('[context-broker] text fetch failed:', url, error);
+    return null;
+  }
+}
+
+async function fetchJsonOrNull<T>(url: string): Promise<T | null> {
+  try {
+    const response = await outboundFetch(url, {
+      headers: getGithubAuthHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return await response.json() as T;
+  } catch (error) {
+    console.warn('[context-broker] json fetch failed:', url, error);
+    return null;
+  }
+}
+
+async function readRepoFile(repoRoot: string, repoRelativePath: string): Promise<string | null> {
+  const normalizedPath = normalizeRepoPath(repoRelativePath);
+  const localContent = readLocalRepoText(repoRoot, normalizedPath);
+  if (localContent !== null) {
+    return localContent;
+  }
+
+  return fetchTextOrNull(buildRawGithubUrl(normalizedPath));
+}
+
+function requireRepoFile(content: string | null, repoRelativePath: string): string {
+  if (content === null) {
+    throw new Error(`File not found locally or on GitHub main: ${repoRelativePath}`);
+  }
+
+  return content;
 }
 
 function extractRuntimeSeams(stateContent: string): string[] {
@@ -115,84 +210,52 @@ function parseActiveDrifts(claudeContextContent: string): Array<{ id: string; se
   return drifts;
 }
 
-function getLatestHandoff(repoRoot: string): { path: string; content: string } | null {
-  const docsDir = path.join(repoRoot, 'docs');
-  const handoffFiles = readdirSync(docsDir)
-    .filter((entry) => /^HANDOFF-.*\.md$/i.test(entry))
-    .map((entry) => {
-      const sessionMatch = entry.match(/^HANDOFF-S(\d+)/i);
-      return {
-        fileName: entry,
-        sessionNumber: sessionMatch ? Number.parseInt(sessionMatch[1] ?? '-1', 10) : -1,
-        modifiedTimeMs: statSync(path.join(docsDir, entry)).mtimeMs,
-      };
-    })
-    .sort((left, right) => {
-      if (right.sessionNumber !== left.sessionNumber) {
-        return right.sessionNumber - left.sessionNumber;
-      }
+function extractHandoffPath(sessionStateContent: string): string | null {
+  const match = sessionStateContent.match(/^\*\*Handoff:\*\*\s+`([^`]+)`/m);
+  return match?.[1] ? normalizeRepoPath(match[1]) : null;
+}
 
-      return right.modifiedTimeMs - left.modifiedTimeMs;
-    });
-
-  const latest = handoffFiles[0];
-  if (!latest) {
+async function getLatestHandoff(repoRoot: string, sessionStateContent: string): Promise<{ path: string; content: string } | null> {
+  const handoffPath = extractHandoffPath(sessionStateContent);
+  if (!handoffPath) {
     return null;
   }
 
-  const relativePath = normalizeRepoPath(path.posix.join('docs', latest.fileName));
+  const content = await readRepoFile(repoRoot, handoffPath);
+  if (content === null) {
+    return null;
+  }
+
   return {
-    path: relativePath,
-    content: readRepoText(repoRoot, relativePath),
+    path: handoffPath,
+    content,
   };
 }
 
-function readRecentCommits(repoRoot: string): Array<{ sha: string; message: string; date: string }> {
-  try {
-    const output = execSync('git log --format=%H%x7C%s%x7C%cI -n 15 origin/main', {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+async function readRecentCommits(): Promise<RecentCommit[]> {
+  type GithubCommitResponse = Array<{
+    sha?: string;
+    commit?: {
+      message?: string;
+      committer?: { date?: string };
+    };
+  }>;
 
-    return output
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [sha, message, date] = line.split('|');
-        return {
-          sha: sha ?? '',
-          message: message ?? '',
-          date: date ?? '',
-        };
-      });
-  } catch (error) {
-    console.warn('[context-broker] recent commit lookup failed:', error);
+  const data = await fetchJsonOrNull<GithubCommitResponse>(buildGithubApiUrl('/commits?per_page=15'));
+  if (!data) {
     return [];
   }
+
+  return data.map((entry) => ({
+    sha: entry.sha ?? '',
+    message: entry.commit?.message ?? '',
+    date: entry.commit?.committer?.date ?? '',
+  }));
 }
 
-function readRepoHead(repoRoot: string): string {
-  try {
-    return execSync('git rev-parse origin/main', {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch (error) {
-    console.warn('[context-broker] repo head lookup failed:', error);
-    try {
-      return execSync('git rev-parse HEAD', {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim();
-    } catch (fallbackError) {
-      console.warn('[context-broker] local head lookup failed:', fallbackError);
-      return '';
-    }
-  }
+async function readRepoHead(): Promise<string> {
+  const commits = await readRecentCommits();
+  return commits[0]?.sha ?? '';
 }
 
 function buildOutline(content: string): string {
@@ -231,18 +294,27 @@ function buildFullContent(content: string): { content: string; truncated: boolea
   return { content: buffer.subarray(0, maxBytes).toString('utf8'), truncated: true };
 }
 
-contextBrokerRouter.post('/session-start', (_req: Request, res: Response) => {
+contextBrokerRouter.post('/session-start', async (_req: Request, res: Response) => {
   try {
     const repoRoot = getRepoRoot();
-    const claudeContext = readRepoText(repoRoot, 'docs/CLAUDE-CONTEXT.md');
-    const state = readRepoText(repoRoot, 'STATE.md');
-    const radar = readRepoText(repoRoot, 'RADAR.md');
-    const sessionState = readRepoText(repoRoot, 'docs/SESSION-STATE.md');
-    const latestHandoff = getLatestHandoff(repoRoot);
+    const [claudeContextRaw, stateRaw, radarRaw, sessionStateRaw, recentCommits, repoHead] = await Promise.all([
+      readRepoFile(repoRoot, 'docs/CLAUDE-CONTEXT.md'),
+      readRepoFile(repoRoot, 'STATE.md'),
+      readRepoFile(repoRoot, 'RADAR.md'),
+      readRepoFile(repoRoot, 'docs/SESSION-STATE.md'),
+      readRecentCommits(),
+      readRepoHead(),
+    ]);
+
+    const claudeContext = requireRepoFile(claudeContextRaw, 'docs/CLAUDE-CONTEXT.md');
+    const state = requireRepoFile(stateRaw, 'STATE.md');
+    const radar = requireRepoFile(radarRaw, 'RADAR.md');
+    const sessionState = requireRepoFile(sessionStateRaw, 'docs/SESSION-STATE.md');
+    const latestHandoff = await getLatestHandoff(repoRoot, sessionState);
 
     res.json({
       generatedAt: new Date().toISOString(),
-      repoHead: readRepoHead(repoRoot),
+      repoHead,
       anchors: {
         claudeContext,
         state,
@@ -250,7 +322,7 @@ contextBrokerRouter.post('/session-start', (_req: Request, res: Response) => {
         sessionState,
         latestHandoff,
       },
-      recentCommits: readRecentCommits(repoRoot),
+      recentCommits,
       activeDrifts: parseActiveDrifts(claudeContext),
       runtimeSeams: extractRuntimeSeams(state),
     });
@@ -259,7 +331,7 @@ contextBrokerRouter.post('/session-start', (_req: Request, res: Response) => {
   }
 });
 
-contextBrokerRouter.post('/files/read', (req: Request, res: Response) => {
+contextBrokerRouter.post('/files/read', async (req: Request, res: Response) => {
   const body = req.body as {
     paths?: string[];
     mode?: FileReadMode;
@@ -293,15 +365,16 @@ contextBrokerRouter.post('/files/read', (req: Request, res: Response) => {
   }
 
   const repoRoot = getRepoRoot();
+  const uniquePaths = paths.map((requestedPath) => normalizeRepoPath(requestedPath));
+  const rawFiles = await Promise.all(uniquePaths.map((requestedPath) => readRepoFile(repoRoot, requestedPath)));
   const notFound: string[] = [];
-  const files = paths.flatMap((requestedPath) => {
-    const resolved = resolveRepoPath(repoRoot, requestedPath);
-    if (!resolved || !existsSync(resolved)) {
+  const files = uniquePaths.flatMap((requestedPath, index) => {
+    const raw = rawFiles[index];
+    if (raw === null) {
       notFound.push(requestedPath);
       return [];
     }
 
-    const raw = readFileSync(resolved, 'utf8');
     const lines = raw.split(/\r?\n/);
     let content = raw;
     let truncated = false;

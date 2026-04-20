@@ -93,10 +93,10 @@ Ein guter Soulmatch-Kandidat:
 - `absorbed_into`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`, `STATE.md`, `FEATURES.md`
 - `why_not_now`: `none`
 - `non_scope`: MCP-Protokoll, Write-Endpoints, freie SQL-Queries, Deploy-Trigger, neue Persistenz
-- `risk`: niedrig bis mittel; Nutzen kippt sofort, wenn der Block in generische Tooling-Plattform statt enger read-only Kontextschicht ausfranst
+- `risk`: niedrig bis mittel; Nutzen kippt sofort, wenn der Block in generische Tooling-Plattform statt enger read-only Kontextschicht ausfranst oder wenn Repo-Root-Wahrheit still an den Runtime-Container gebunden bleibt
 - `betroffene_bereiche`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`
-- `kurzurteil`: Der enge Vorbau fuer spaeteres MCP ist repo-sichtbar umgesetzt und zieht Session-Start, Multi-File-Read und wenige operative Read-Queries unter eine gemeinsame, token-geschuetzte Schicht.
-- `evidence`: Neuer `/api/context`-Mount im Server, read-only Router mit drei Endpoints und expliziter Tabellen-Whitelist, begleitende F11-Spec im Repo.
+- `kurzurteil`: Der enge Vorbau fuer spaeteres MCP ist repo-sichtbar umgesetzt; der Followup trennt jetzt sauber zwischen lokalem Runtime-Dateisystem und Repo-Wahrheit auf GitHub main.
+- `evidence`: Neuer `/api/context`-Mount im Server, read-only Router mit drei Endpoints und expliziter Tabellen-Whitelist; Followup in `contextBroker.ts` liest fehlende Root-/docs-Dateien via GitHub raw/API und nutzt `SESSION-STATE.md` als kanonischen Handoff-Anker.
 
 ### Kandidat A - UI Redesign Design System Foundation
 

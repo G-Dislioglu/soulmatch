@@ -1,6 +1,7 @@
 # F11 — Context-Broker
 
 - **Status:** in_implementation
+- **Followup:** root- und `docs/`-Dateien werden lokal gelesen wenn vorhanden, sonst via GitHub raw/API von `main`, weil der Runtime-Container nur `server/` + `client/dist` enthaelt
 - **Zweck:** schmale read-only Kontext-Schicht fuer Claude vor einem spaeteren MCP-Block
 - **Scope:** Session-Start-Paket, Multi-File-Read, whitelist-basierte Ops-Queries
 
@@ -25,6 +26,13 @@ Liefert ein kompaktes Session-Start-Paket mit:
 - `activeDrifts`: aus der Front-Matter von `docs/CLAUDE-CONTEXT.md`
 - `runtimeSeams`: aus `STATE.md`
 
+Quellenlogik:
+
+- lokale Datei, wenn sie im aktuellen Runtime-Dateisystem vorhanden ist
+- sonst GitHub `main` via raw/API
+- `latestHandoff` wird aus `docs/SESSION-STATE.md` abgeleitet, nicht per freier Docs-Verzeichnis-Discovery
+- `recentCommits` und `repoHead` kommen aus der GitHub Commits API statt aus lokalem `git`
+
 ### POST /api/context/files/read
 
 Multi-File-Read fuer bis zu 20 Repo-Pfade in einem Call.
@@ -34,6 +42,8 @@ Modes:
 - `full`: voller Inhalt, bei >500KB truncation
 - `outline`: Import-Block plus `export`-Zeilen
 - `slice`: Zeilenbereich, 1-indexed inclusive
+
+Auch hier gilt: lokal-first, GitHub-fallback. Damit funktionieren in Production sowohl `server/...`-Dateien aus dem Container als auch Root-/`docs/`-Dateien aus dem echten `main`-Stand.
 
 ### POST /api/context/ops/query
 

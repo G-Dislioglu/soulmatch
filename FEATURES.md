@@ -129,10 +129,10 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `status`: `active`
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-04-20`
-- `quality`: `narrow_read_only_v1`
-- `known_gap`: Der Broker liefert jetzt Session-Start-Anker, Multi-File-Reads und eine kleine Ops-Whitelist in einem engeren API-Pfad, ist aber noch nicht gegen eine laufende lokale oder deployte Runtime end-to-end verifiziert und noch nicht als MCP oder Director-Default verdrahtet.
-- `next_recommended_step`: Die drei Endpoints gegen eine echte Runtime mit Opus-Token pruefen und erst danach entscheiden, ob Claude-Session-Start oder Director-Tools auf diesen Pfad umgestellt werden sollen.
-- `evidence`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`.
+- `quality`: `narrow_read_only_v1_with_runtime_fallback`
+- `known_gap`: Der Broker liefert Session-Start-Anker, Multi-File-Reads und eine kleine Ops-Whitelist in einem engeren API-Pfad. Nach der ersten Live-Probe ist klar, dass Root- und `docs/`-Dateien in Production nicht im Container liegen; der Followup schiebt diese Pfade auf GitHub main nach. Danach fehlt noch die erneute Live-Verifikation fuer Session-Start und gemischte File-Reads.
+- `next_recommended_step`: Session-Start und gemischte `files/read`-Pfade gegen die deployte Runtime erneut pruefen und erst danach entscheiden, ob Claude-Session-Start oder Director-Tools auf diesen Pfad umgestellt werden sollen.
+- `evidence`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`, Dockerfile-Runtime-Stage kopiert nur `/app/server` und `client/dist`.
 
 ### Builder orchestration und Maya 3-layer memory
 
