@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-20
-last_session: S35_F9_complete
+last_session: S35_F6_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -32,6 +32,11 @@ active_threads:
     priority: closed_S35_F9
     description: F9 komplett geschlossen am 2026-04-20. Schritt A+D via Commit 1065cd3 (pushResultWaiter.ts neu, opusSmartPush.ts wartet via Promise.all auf execution-result-Callbacks, builder.ts signalisiert landed:true/false). Schritt C via Copilot-Commit bf22892 (workflow empty-diff sendet Callback + exit 1 statt stillem exit 0, Copilot weil Bridge-Token ohne workflows-Scope siehe Drift 12). Live-Akzeptanztest mit taskId f5d6ac23-aac2-48bc-89ac-5e69d86ff445 bestätigt: search/replace mit nicht-existentem Anchor löst reason:"empty_staged_diff"-Callback aus, task-Status review_needed, keine False-Positive-Success.
     entry_point: docs/HANDOFF-S35-F9.md
+  - id: builder_F6_scope_halluzination
+    status: done
+    priority: closed_S35_F6
+    description: F6 komplett geschlossen am 2026-04-20 abends. Drei Hebel hard-reject via Copilot-Commit 8a4317d (builderScopeResolver.ts + opusTaskOrchestrator.ts) plus opus-task-async-Erweiterung 401b3a7 fuer HTTP-Live-Verify-Pfad. Hebel alpha (manualScope gegen Repo-Index), Hebel beta (Regex-Prefix-Sanity via hasPlausiblePrefix), Hebel gamma (Phase-Report um indexedFiles/createTargets/rejectedPaths erweitert). Live-Akzeptanztests job-mo79mizv (2ms early-reject) und job-mo79q986 (7ms early-reject) beide erfolgreich. F6 ist Root-Cause-Fix, F9 bleibt Sicherheitsnetz darunter.
+    entry_point: docs/HANDOFF-S35-F6.md
   - id: session_log_endpoint
     status: done
     priority: closed_S34
@@ -110,6 +115,10 @@ drift_watchlist:
     wrong: assume_git-push_can_commit_any_file_incl_github_workflows
     right: bridge_token_lacks_workflows_scope_so_tree_create_404s_when_workflow_files_are_in_the_tree_use_webui_or_personal_pat
     severity: medium_tooling_limit
+  - id: session_log_race_vs_deploy_verify
+    wrong: trust_ci_red_x_as_real_failure_for_code_commits
+    right: session_log_hook_pushes_docs_backfill_on_top_of_code_commit_so_wait_for_deploy_sees_backfill_sha_not_code_sha_and_times_out_after_10min_even_though_code_is_live
+    severity: medium_ci_trust
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -227,6 +236,9 @@ Während des Dokumentations-Audits in S34 fanden sich mehrere Spec-Dateien, die 
 
 **Drift 12 — Bridge-GitHub-Token hat keinen `workflows`-Scope (entdeckt bei F9-Umsetzung).**
 Der `/git-push`-Endpoint der Opus-Bridge nutzt die GitHub Git Data API (atomare Tree+Commit+Ref-Writes) und der verwendete Token kann Content-Files committen, aber sobald eine Datei unter `.github/workflows/*` im Tree landet, antwortet GitHub mit `404 Not Found` auf `POST /repos/.../git/trees`. Das rejected den GESAMTEN atomaren Commit — auch die unschuldigen Sibling-Dateien. Erklärung: GitHub verlangt für Writes an Workflow-Files das zusätzliche `workflows`-Scope (bei fine-grained PATs) bzw. `workflow`-Scope (bei classic PATs), und der Bridge-Token hat das nicht. Das erklärt auch rückwirkend, warum historisch Workflow-Änderungen (`builder-executor.yml`, `render-deploy.yml`) immer über manuelle Commits via GitHub-Web-UI oder persönliche PATs gemacht wurden. Bei F9 Schritt C (empty-diff-Callback) wurde das sichtbar: Der Code-Teil (`pushResultWaiter.ts`, `opusSmartPush.ts`, `builder.ts`) landete als `1065cd3` per Bridge, die `builder-executor.yml`-Änderung musste manuell committet werden. Konsequenz: Wenn ein Block Workflow-Files ändert, müssen diese separat und nicht via Bridge gepusht werden. Langfristig: Bridge-Token upgraden oder dedizierte Workflow-Push-Route mit eigenem PAT-Secret.
+
+**Drift 13 — Session-Log-Hook racet Render-Deploy-Verify (entdeckt bei F6-Live-Verify).**
+Nach einem Code-Commit auf main startet der `render-deploy.yml`-Workflow und `tools/wait-for-deploy.sh` pollt `/api/health` bis der Live-Commit dem `github.sha` entspricht. Parallel dazu feuert der Session-Log-Hook aus S34 und pusht einen docs-only Backfill-Commit auf main. Render macht Auto-Deploy auf den NEUESTEN main-HEAD (den Backfill), nicht auf den ursprünglichen Code-Commit. `/api/health.commit` zeigt dann die Backfill-SHA. `wait-for-deploy.sh` erwartet aber die Code-Commit-SHA und timed nach 10 Minuten mit Exit 1 aus — der Workflow wird als FAILED markiert, obwohl der Code tatsächlich live läuft. Betroffene Commits in S35: `1065cd3` (F9 Code), `01e35e2` (workerProfiles), `8a4317d` (F6), `52b7e28` (regen-index) — alle zeigen ~13-Minuten-rot-Läufe, aber Live-Probes bestätigen dass der Code greift. Copilots Direkt-Commits (`bf22892`, `6064636`, `401b3a7`) sind GRÜN weil kein Session-Log-Race dazwischenkam. Das ist keine kosmetische Laune: CI-Status wird unzuverlässig, rotes X heißt nicht mehr „etwas ist kaputt". Fix: `tools/wait-for-deploy.sh` akzeptiert auch den Fall dass `EXPECTED_COMMIT` ein Vorfahre von `LIVE_COMMIT` ist (via `git merge-base --is-ancestor`), plus `fetch-depth: 0` im checkout-Step damit merge-base die History hat. In S35-F6 an Copilot übergeben, wird nach Landung sofort wirksam.
 
 ---
 

@@ -325,16 +325,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat F6 - File-Scout gegen Scope-Halluzination
 
-- `status`: `active`
-- `truth_class`: `derived_from_review`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `repo_review`
-- `next_gate`: `proposal`
-- `why_not_now`: `Aktuell hoehere Prioritaet auf S31-False-Positive-Pipeline-Path-Fix (Kandidat F8 sub-thread). F6 wird erst nach S31-Fix sauber umsetzbar.`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderScopeResolver.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/health.ts`, `docs/F6-SCOPE-HALLUCINATION-FIX.md`, `STATE.md`, `SESSION-STATE.md`, `CLAUDE-CONTEXT.md`
+- `why_not_now`: `none`
 - `non_scope`: neuer LLM-Scout, breiter Resolver-Umbau, LSP-basierte Symbol-Aufloesung
-- `risk`: mittel; ohne diesen Block formuliert der Builder weiter Dateipfade die es so nicht gibt, was zu silent-REPLACE_FAILED und False-Positive-Pipeline-Meldungen beitraegt.
-- `betroffene_bereiche`: `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/builderScopeResolver.ts`, `server/src/lib/builder-repo-index.json`
-- `kurzurteil`: Deterministische Verifikation jedes angefragten Dateipfads gegen den Repo-Index vor dem Workerlauf. Kein Scope-Pfad darf in den Worker-Kontext, ohne dass die Datei wirklich im Index gefunden wurde.
-- `evidence`: Mehrfach beobachtet in S30 und S31: Worker bekommen Scope-Pfade wie `client/src/...` die aber in der Datei-Wahrheit des Repos nicht existieren, der Workflow meldet spaeter `No changes to commit` und beendet gruen.
+- `risk`: geschlossen — halluzinierte Scope-Pfade werden bei der Scope-Phase abgefangen bevor der Worker-Swarm startet, keine verschwendeten Tokens oder GitHub-Action-Runs.
+- `betroffene_bereiche`: `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/builderScopeResolver.ts`, `server/src/routes/health.ts`
+- `kurzurteil`: Drei Hebel in einem atomaren Commit (Copilot `8a4317d`): Hebel α prueft manualScope gegen Repo-Index und rejected ohne Create-Signal; Hebel β prueft Regex-Fallback-Pfade auf plausiblen 3-Segment-Prefix im Index; Hebel γ erweitert Phase-Report um indexedFiles/createTargets/rejectedPaths. opus-task-async wurde in separatem Commit (`401b3a7`) erweitert um scope/skipDeploy/targetFile fuer HTTP-Live-Verify-Pfad.
+- `evidence`: Live-Akzeptanztests 2026-04-20 abends. Probe 1 (`job-mo79mizv`): manualScope mit falschem client/-Prefix → scope.status `error`, rejectedPaths enthaelt den Pfad, summary "Scope rejected 1 hallucinated path(s)". Probe 2b (`job-mo79q986`): `erstelle server/src/xyz1234unique/sondermodul.ts` → scope.status `error`, reasoning "no indexed file shares the first 3 path segments, likely hallucination". Beide Proben: 2-7ms Laufzeit (Early-Reject, keine Worker-Swarm-Phase, keine LLM-Tokens verbrannt). F6-Spec-Dokument in `docs/F6-SCOPE-HALLUCINATION-FIX.md`.
 
 ### Kandidat F7 - Pool-Config-Persistenz ueber DB
 

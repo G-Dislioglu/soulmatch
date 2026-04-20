@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S35-F9 (2026-04-20, komplett — alle drei Hebel live, Akzeptanztest grün)
-**Handoff:** `docs/HANDOFF-S35-F9.md` (+ Close-Abschnitt mit Akzeptanztest-Beleg)
-**Repo-Head:** Code `1065cd3` (Schritt A+D via Bridge), Workflow `bf22892` (Schritt C via Copilot wegen workflows-Scope), Docs-Kette via paths-ignore bis ~`0a8aa88` (Session-Close-Template). Live-Commit auf Render: `ec1247c` (Backfill-Chain, Code-Content = 1065cd3).
+**Letzte Session:** S35-F6 (2026-04-20 abends, komplett — alle drei Hebel live-verifiziert)
+**Handoff:** `docs/HANDOFF-S35-F6.md`
+**Repo-Head:** Code `8a4317d` (F6 drei Hebel via Copilot), `6064636` (F9 followup regen-index), `401b3a7` (opus-task-async scope-pass-through via Copilot), Docs-Kette (ba0406f + d786372 + 272a2d9) plus Session-Log-Backfills. Live-Commit auf Render: `401b3a7`.
 
 ## Aktive Entscheidungen
 
