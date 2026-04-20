@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T16:26:17.630Z
-- **Commit:** `pending` — legacy: reconstructed handoff for S22+S23+S26-S29 from git history (closes session-historie-lücke, dokumentiert undefined-file-bug als künftiger Drift 14)
+- **Commit:** `5faf292` — legacy: reconstructed handoff for S22+S23+S26-S29 from git history (closes session-historie-lücke, dokumentiert undefined-file-bug als künftiger Drift 14)
 - **Files:** docs/HANDOFF-S22-S29-RECONSTRUCTED.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
