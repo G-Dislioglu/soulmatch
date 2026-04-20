@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T16:26:17.630Z
+- **Commit:** `pending` — legacy: reconstructed handoff for S22+S23+S26-S29 from git history (closes session-historie-lücke, dokumentiert undefined-file-bug als künftiger Drift 14)
+- **Files:** docs/HANDOFF-S22-S29-RECONSTRUCTED.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T16:20:29.458Z
 - **Commit:** `c4641d3` — F10 spec: async-jobs DB persistence (analog F7 pool_state) — inspection + umsetzungs-plan + akzeptanzkriterium
 - **Files:** docs/F10-ASYNC-JOBS-PERSISTENCE.md
