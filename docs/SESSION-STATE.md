@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S35-F11 (2026-04-20 abends, komplett — Context-Broker live und live-verifiziert)
-**Handoff:** `docs/HANDOFF-S35-F11.md`
-**Repo-Head:** Code `fe9b90a` (F11 Initial: contextBroker.ts + mount + Spec), `0a71429` (F11 Followup: lokal-first + GitHub-Fallback). Live-Commit auf Render: `0a71429`. Session-Start-Paket kann ab jetzt mit einem Tool-Call abgerufen werden: `POST /api/context/session-start?opus_token=...`.
+**Letzte Session:** S35-F12 (2026-04-20 spätabends, komplett — Architecture-Digest live und live-verifiziert)
+**Handoff:** `docs/HANDOFF-S35-F12.md`
+**Repo-Head:** Code `f3cbc57` (F12 Architecture-Digest). Live-Commit auf Render: `f3cbc57`. Ab jetzt stehen alle KIs (Claude, Maya-Builder, Worker) vier Context-Broker-Endpoints zur Verfügung: `/api/context/session-start`, `/api/context/files/read`, `/api/context/ops/query`, `/api/context/architecture-digest`.
 
 ## Aktive Entscheidungen
 

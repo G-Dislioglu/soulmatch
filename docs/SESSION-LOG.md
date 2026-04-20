@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T19:46:56.793Z
+- **Commit:** `pending` — F12 close 1/2: RADAR evidence live-verify, SESSION-STATE header F12, CLAUDE-CONTEXT last_session+thread
+- **Files:** RADAR.md, docs/SESSION-STATE.md, docs/CLAUDE-CONTEXT.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T19:02:43.846Z
 - **Commit:** `977ded9` — F12 spec: architecture-digest endpoint (strukturiertes repo-aufbau-wissen, deterministisch, als erweiterung von F11). RADAR kandidat F12 proposed.
 - **Files:** docs/F12-ARCHITECTURE-DIGEST.md, RADAR.md

@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-20
-last_session: S35_F11_complete
+last_session: S35_F12_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -47,6 +47,11 @@ active_threads:
     priority: closed_S35_F11
     description: F11 komplett geschlossen am 2026-04-20 abends. Context-Broker als read-only Kontext-Schicht vor MCP, drei Endpoints unter /api/context/* — session-start (verdichtetes Repo-Setup-Paket mit Anchors, recentCommits, activeDrifts, runtimeSeams), files/read (Multi-File-Read mit full/outline/slice-Modi), ops/query (whitelist-basierte DB-Abfragen gegen builder_agent_profiles/async_jobs/pool_state/builder_tasks). Initial-Commit fe9b90a baut den Router, Followup 0a71429 fixt Produktionsdrift (Dockerfile kopiert nur server/) via lokal-first mit GitHub-Fallback. Live-Verify bestaetigt alle drei Endpoints HTTP 200 mit korrekten Payloads. Session-Start-Paket laedt jetzt mit EINEM Tool-Call 137 KB Kontext statt 8-12 curl-Roundtrips.
     entry_point: docs/HANDOFF-S35-F11.md
+  - id: builder_F12_architecture_digest
+    status: done
+    priority: closed_S35_F12
+    description: F12 komplett geschlossen am 2026-04-20 spaetabends. Vierter Endpoint unter /api/context/architecture-digest — deterministischer strukturierter Repo-Aufbau. Neue Lib server/src/lib/architectureDigest.ts mit Module-/Route-/DB-Parsern und statischen cross_repos/conventions-Blocks. 5-Min-In-Memory-Cache, optionaler sections-Filter. Copilot hat drei Korrekturen gegen den urspruenglichen Prompt eingezogen (alle berechtigt): Modul-dependencies aus allen .ts/.tsx-Dateien pro Modul statt nur index.ts, Routes aus realen app.use-Mounts statt Spec-Beispielen, DB-Tabellen auch aus db.ts und arcana.ts. Live-Verify: 19 Module mit echten depends_on/used_by, 16 Routes mit Subrouter-Erkennung, 18 DB-Tabellen in 3 Gruppen. sections-Filter spart 70% Tokens. Cache greift. Ab jetzt haben alle KIs (Claude, Maya-Builder, Worker) strukturiertes Architektur-Wissen in einem Tool-Call.
+    entry_point: docs/HANDOFF-S35-F12.md
   - id: session_log_endpoint
     status: done
     priority: closed_S34
