@@ -403,8 +403,9 @@ Runtime-Wahrheit fuer Soulmatch.
   `profiles` allein.
 - `server/src/routes/dev.ts` akzeptiert weiter ein eingebautes Fallback-Passwort,
   falls `DEV_TOKEN` nicht gesetzt ist.
-- Der Git-Stand ist auf `main` bei `2f87a39`; der Working Tree ist dirty,
-  aktuell vor allem durch `client/test-results`.
+- Der Git-Stand ist auf `main` bei `9cf39f8` (Stand nach S34); die Working-Tree-
+  Lage kann auf dem lokalen Klon weiter dirty sein durch Testartefakte — das ist
+  kein Produktsignal.
 
 ## Current Working Assumptions
 
