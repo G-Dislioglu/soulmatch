@@ -84,6 +84,20 @@ Ein guter Soulmatch-Kandidat:
 
 ## Aktuell relevante Radar-Eintraege
 
+### Kandidat F11 - Context-Broker fuer Claude
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
+- `non_scope`: MCP-Protokoll, Write-Endpoints, freie SQL-Queries, Deploy-Trigger, neue Persistenz
+- `risk`: niedrig bis mittel; Nutzen kippt sofort, wenn der Block in generische Tooling-Plattform statt enger read-only Kontextschicht ausfranst
+- `betroffene_bereiche`: `server/src/routes/contextBroker.ts`, `server/src/index.ts`, `docs/F11-CONTEXT-BROKER.md`
+- `kurzurteil`: Der enge Vorbau fuer spaeteres MCP ist repo-sichtbar umgesetzt und zieht Session-Start, Multi-File-Read und wenige operative Read-Queries unter eine gemeinsame, token-geschuetzte Schicht.
+- `evidence`: Neuer `/api/context`-Mount im Server, read-only Router mit drei Endpoints und expliziter Tabellen-Whitelist, begleitende F11-Spec im Repo.
+
 ### Kandidat A - UI Redesign Design System Foundation
 
 - `status`: `adopted`
