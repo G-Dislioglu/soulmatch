@@ -3,8 +3,8 @@ file_type: claude_context_anchor
 repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
-last_updated: 2026-04-19
-last_session: S33
+last_updated: 2026-04-20
+last_session: S34
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -33,10 +33,10 @@ active_threads:
     description: Pipeline reports success without verifying commits landed on main
     entry_point: docs/S31-CANDIDATES.md
   - id: session_log_endpoint
-    status: spec_ready_not_built
-    priority: build_before_other_pipeline_work
-    description: Automatic session log via /git-push hook
-    entry_point: docs/BUILDER-TASK-session-log.md
+    status: done
+    priority: closed_S34
+    description: Automatic session log via /git-push hook. Live in Commit 9c72a6f. Includes SHA-Backfill via follow-up commit. Copilot wrote the implementation overnight, fixed TS-build-bug via PUT-type extension in b6fa46f.
+    entry_point: docs/SESSION-LOG.md
   - id: pool_config_persistence
     status: done
     priority: closed_S33_F7
@@ -90,6 +90,14 @@ drift_watchlist:
     wrong: assume_ui_pool_selections_persist_across_restarts
     right: db_persistence_landed_in_ae3e020_but_code_default_still_applies_if_db_unreachable
     severity: low_closed_by_F7
+  - id: copilot_parallel_work
+    wrong: assume_only_claude_makes_commits_between_sessions
+    right: copilot_can_build_and_push_overnight_check_main_head_first
+    severity: medium_process
+  - id: render_build_vs_infra_misdiagnosis
+    wrong: attribute_every_build_failure_to_infra_flakiness
+    right: read_the_actual_error_line_first_tscompile_errors_look_like_infra_at_first_glance
+    severity: medium_recurring
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -146,7 +154,7 @@ Gürcan arbeitet auf Laptop und Smartphone. Chat-Handoffs haben historisch Konte
 
 ---
 
-## Aktive Arbeits-Threads (Stand: Session S33, 2026-04-19)
+## Aktive Arbeits-Threads (Stand: Session S34, 2026-04-20 morgens)
 
 **Primär — Builder-App fertigstellen.** Gürcan pausiert Soulmatch-Entwicklung bewusst, um Builder zu stabilisieren. Damit Soulmatch später "aus dem Inneren heraus" mit Builder-Unterstützung weitergebaut werden kann. Relevante Ausgangsdokumente: `docs/S31-CANDIDATES.md`, `docs/HANDOFF-S31.md`, `docs/SESSION-STATE.md`.
 
@@ -186,6 +194,14 @@ Claude interpretiert den `web_fetch` Permissions-Error systematisch als "Repo is
 
 **Drift 7 — Pool-Config-Flüchtigkeit (entdeckt in S33, komplett gefixt in S33/F7).**
 `updatePools()` speicherte ursprünglich nur in einer In-Memory-Variable. Bei jedem Render-Restart (Deploy, Idle-Timeout, Health-Check-Fail) sprang die Config auf den Code-Default zurück. Als Zwischenschritt wurde in S33 der Code-Default auf die gewünschte Produktiv-Config gehoben. Der richtige Fix kam in Commit `ae3e020`: eine `pool_state`-Tabelle in Neon PostgreSQL mit Single-Row-Design, `initializePoolState()` beim Serverstart, fire-and-forget UPSERT bei jedem `updatePools()`. Live verifiziert — Test-Änderung überlebt erzwungenen Redeploy. Code-Default bleibt als Sicherheits-Fallback, falls DB unreachable.
+
+---
+
+**Drift 8 — Copilot-Parallelarbeit (entdeckt in S34).**
+Copilot hat überNacht am S34-Endpoint gearbeitet und autonom einen Commit gepusht, ohne explizite Rücksprache. Das war in diesem Fall sehr nützlich — er hat die bessere technische Lösung gebaut als ich in der nächsten Session ursprünglich vorschlagen wollte. Aber es bedeutet auch: beim Start jeder Claude-Session muss der GitHub-main-HEAD gegen den `last_verified_against_code`-Stand in STATE.md verglichen werden. Wenn sie auseinanderlaufen, hat vermutlich Copilot gearbeitet. Der `/api/health`-Endpoint zeigt auch welcher Commit gerade live ist — das ist eine schnellere zweite Wahrheitsquelle.
+
+**Drift 9 — Build-Fehler nicht sofort als Infra abtun (entdeckt in S34).**
+Der S34-Deploy scheiterte dreimal in Folge mit `Exited with status 1`. Mein erster Reflex war: Infrastruktur-Problem, pnpm-Netzwerk, Cache-Flakiness. Das stimmte für den `short read EOF`-Fehler gestern Abend, aber heute morgen war es ein TypeScript-Compile-Fehler (`PUT not assignable to GET|POST|PATCH`). Die Konsequenz: bei jedem Build-Fail **zuerst die tatsächliche Fehlerzeile lesen**, nicht reflexhaft auf Infra tippen. Ein `error TS...` ist immer ein Code-Fehler, egal was drumherum steht.
 
 ---
 

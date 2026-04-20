@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `b6fa46f`
+- `current_repo_head`: `9c72a6f`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-20`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S33/F7 Pool-Config-Persistenz in DB gelandet (Commit ae3e020): server/src/schema/builder.ts enthaelt jetzt die poolState-Tabelle (id INTEGER PK, pools_json TEXT, updated_at TIMESTAMPTZ, single-row design id=1). server/src/lib/poolState.ts bietet initializePoolState() async, das idempotent CREATE TABLE IF NOT EXISTS ausfuehrt und die persistierte Config beim Serverstart in activePools laedt. updatePools() bleibt sync und fire-and-forget persistPoolsAsync() macht UPSERT via ON CONFLICT. server/src/index.ts ruft initializePoolState() im app.listen-Callback. Code-Default bleibt Sicherheits-Fallback. Live verifiziert: nach F7-Deploy Maya auf opus gesetzt, Container via /render/redeploy neu gestartet, nach 5-Minuten-Uptime-Beleg zeigt /maya/pools weiterhin maya=[opus] - Persistenz bestaetigt. Cleanup Maya zurueck auf glm51 erfolgt. Der S33 gelandete Temp-Fix (Code-Default spiegelt Produktiv-Config) bleibt als Safety-Net.`
-- `next_recommended_block`: `/session-log-Endpoint aus docs/BUILDER-TASK-session-log.md (macht Anti-Drift-System Schicht 3 scharf), dann S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md (Schritte A, C, D). Parallel RADAR-Kandidat F6 (file-scout gegen Scope-Halluzination) und workerProfiles.ts-Drift (veraltete Model-IDs) als kleine Aufraeumer.`
+- `last_completed_block`: `S34 Session-Log-Endpoint live (Commit b6fa46f + Follow-up 9c72a6f): /git-push schreibt bei jedem erfolgreichen Push einen Eintrag in docs/SESSION-LOG.md im selben Commit, und laeuft dann einen Fire-and-forget Follow-up-Commit der den pending-SHA-Marker durch den echten 7-stelligen Commit-SHA ersetzt. Der Follow-up ist docs-only und loest dank paths-ignore in render-deploy.yml keinen Render-Deploy aus. Live verifiziert mit Test-Push c342ddd: Haupt-Commit landete mit pending, 2 Sekunden spaeter Follow-up 9c72a6f mit echtem SHA. Hintergrund: S34-Code kam von Copilot ueber Nacht, scheiterte aber in drei Deploy-Versuchen an einem TS-Build-Fehler (PUT-Methode nicht in githubGitRequest-Signatur). Fix via Ein-Zeilen-Typ-Erweiterung in b6fa46f. F7-Persistenz ueberlebt den Deploy ebenfalls unberuehrt.`
+- `next_recommended_block`: `S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md (Schritte A, C, D) als Hauptthread. Parallel RADAR.md-Nachzug (F6 file-scout eintragen, F7+S34 closed markieren), workerProfiles.ts-Drift-Fix (veraltete Model-IDs), und optional Kaya-Rename im Code.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

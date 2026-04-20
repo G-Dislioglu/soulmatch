@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S33 (2026-04-19)
-**Handoff:** `docs/HANDOFF-S33.md`
-**Repo-Head:** Code-Commit `ae3e020` (F7 Pool-Config-Persistenz). Session-Close-Commit folgt danach.
+**Letzte Session:** S34 (2026-04-20)
+**Handoff:** `docs/HANDOFF-S34.md`
+**Repo-Head:** Code-Commit `b6fa46f` (S34 PUT-Fix) + Follow-up `9c72a6f` (auto SHA-Backfill). F7 Pool-Persistenz und S34 Session-Log beide live verifiziert.
 
 ## Aktive Entscheidungen
 
@@ -24,7 +24,7 @@
 
 ## Offene Tasks
 
-0. **[S32-NEU] `/session-log`-Endpoint bauen** — Spec in `docs/BUILDER-TASK-session-log.md`. Via `/opus-feature` an den Builder geben. Bei jedem erfolgreichen `/git-push` wird ein strukturierter Eintrag an `docs/SESSION-LOG.md` angehängt, im selben Commit. Macht Anti-Drift-System Schicht 3 scharf. Sollte Priorität haben vor anderen Builder-Tasks, damit spätere Commits automatisch protokolliert werden.
+0. **[DONE 2026-04-20 via S34, Commits df85a18 + b6fa46f + 9c72a6f] `/session-log`-Endpoint** — Copilot baute den Endpoint über Nacht, hatte einen TS-Build-Fehler (PUT nicht in githubGitRequest-Signatur). Fix via Ein-Zeilen-Typ-Erweiterung. Live verifiziert: Test-Push c342ddd generierte Log-Eintrag mit `pending`, 2s später Follow-up 9c72a6f mit echtem SHA `c342ddd`.
 0a. **[S33-DONE 2026-04-19] STATE.md-Header nachziehen** — `current_repo_head`, `last_verified_against_code`, `last_completed_block`, `next_recommended_block` stehen seit S31 still. Im nächsten Code-Commit mitnehmen, damit der Render-Deploy nicht nur für Header-Update läuft.
 0b. **[S32-NEU] RADAR-Kandidat F6 eintragen** — `Pipeline-Scouts mit echtem File-Zugriff`. Aus S32 Flash-Lite-Qualitätsprobe: Scouts (code/pattern/risk) arbeiten ohne Repo-Zugriff, Distiller prüft nicht gegen Scope. Strukturell größer Hebel als S31-Fix. Details in `docs/HANDOFF-S32.md` Abschnitt 2b.
 0c. **[S32-NEU] Kaya-Code-Rename** — `orion` → `kaya` in `server/src/lib/personaRouter.ts`, `server/src/studioPrompt.ts`, `client/src/modules/M07_reports/ui/HallOfSouls.tsx`. Bewusst zurückgestellt bis Maya-Core-Migration.
