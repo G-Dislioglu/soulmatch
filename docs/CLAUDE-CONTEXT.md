@@ -38,9 +38,9 @@ active_threads:
     description: Automatic session log via /git-push hook
     entry_point: docs/BUILDER-TASK-session-log.md
   - id: pool_config_persistence
-    status: active
-    priority: medium
-    description: updatePools() is in-memory only; UI selections lost on every Render restart. Temp fix via code-default landed in S33, proper fix (DB table or pool-state.json) pending.
+    status: done
+    priority: closed_S33_F7
+    description: DB-backed persistence landed in commit ae3e020. pool_state table stores config as single row, updatePools() writes async UPSERT, initializePoolState() loads on server start. Code-Default remains as safety fallback.
     entry_point: server/src/lib/poolState.ts
   - id: soulmatch_development
     status: paused_by_user_choice
@@ -88,8 +88,8 @@ drift_watchlist:
     severity: medium_recurring_across_sessions
   - id: pool_config_flightness
     wrong: assume_ui_pool_selections_persist_across_restarts
-    right: updatePools_is_in_memory_only_code_default_is_only_durable_state
-    severity: high_until_persistence_layer_added
+    right: db_persistence_landed_in_ae3e020_but_code_default_still_applies_if_db_unreachable
+    severity: low_closed_by_F7
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -184,8 +184,8 @@ Der neue Name "Kaya" existiert in `docs/beings/kaya.md`, aber Code referenziert 
 **Drift 6 — Repo-Privacy-Fehldiagnose (wiederkehrend).**
 Claude interpretiert den `web_fetch` Permissions-Error systematisch als "Repo ist privat", dabei bedeutet er nur "URL war nicht in vorheriger Konversation oder Suche". Alle Gürcans Repos sind public. Zuverlässiger Weg: `curl` via bash_tool auf `raw.githubusercontent.com/G-Dislioglu/<repo>/main/<pfad>`.
 
-**Drift 7 — Pool-Config-Flüchtigkeit (entdeckt in S33, Temp-Fix gelandet).**
-`updatePools()` in `server/src/lib/poolState.ts:47` speichert nur in einer In-Memory-Variable. Bei jedem Render-Restart (Deploy, Idle-Timeout, Health-Check-Fail) springt die Config auf den Code-Default zurück. In S33 als Provisorium der Code-Default auf die gewünschte Produktiv-Config gehoben; der richtige Fix ist eine Persistenz-Schicht (DB-Tabelle oder File).
+**Drift 7 — Pool-Config-Flüchtigkeit (entdeckt in S33, komplett gefixt in S33/F7).**
+`updatePools()` speicherte ursprünglich nur in einer In-Memory-Variable. Bei jedem Render-Restart (Deploy, Idle-Timeout, Health-Check-Fail) sprang die Config auf den Code-Default zurück. Als Zwischenschritt wurde in S33 der Code-Default auf die gewünschte Produktiv-Config gehoben. Der richtige Fix kam in Commit `ae3e020`: eine `pool_state`-Tabelle in Neon PostgreSQL mit Single-Row-Design, `initializePoolState()` beim Serverstart, fire-and-forget UPSERT bei jedem `updatePools()`. Live verifiziert — Test-Änderung überlebt erzwungenen Redeploy. Code-Default bleibt als Sicherheits-Fallback, falls DB unreachable.
 
 ---
 

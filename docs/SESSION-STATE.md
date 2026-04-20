@@ -2,7 +2,7 @@
 
 **Letzte Session:** S33 (2026-04-19)
 **Handoff:** `docs/HANDOFF-S33.md`
-**Repo-Head:** Code-Commit `a33ad78` (Zhipu-Pool-Konsolidierung). STATE.md-Header in diesem Commit nachgezogen. Session-Close-Commit folgt danach.
+**Repo-Head:** Code-Commit `ae3e020` (F7 Pool-Config-Persistenz). Session-Close-Commit folgt danach.
 
 ## Aktive Entscheidungen
 
@@ -40,7 +40,7 @@
 7. **Docs-Consolidation Rest:** `opus-bridge-v4-spec.md` Status-Abgleich, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md` + `MAYA-BUILDER-CONTRACT.md` Aktualität prüfen.
 8. **[S31-Kern noch offen] False-Positive-Pipeline-Path-Fix** — Spec in `docs/S31-CANDIDATES.md`. Schritt A: SHA-Verify in `opusSmartPush.ts` (pre/post-Sha Vergleich nach `/push`-Dispatch). Schritt C: `builder-executor.yml` bricht bei leerem Diff ab (kein stilles `exit 0` mehr). Schritt D: Orchestrator-Status-Treue. Ist der inhaltliche Haupt-Thread nach `/session-log`. S31 hat nur Task 4a (Observability) und atomare Mehrdatei-Commits geliefert, Kern-Fix bleibt offen.
 
-9. **[S33-NEU] Pool-Config-Persistenz fehlt** — `updatePools()` in `server/src/lib/poolState.ts:47` schreibt nur In-Memory, keine DB/File-Persistenz. Folge: UI-Auswahl in Builder Studio geht bei jedem Render-Restart verloren (Deploy, Idle-Timeout, Health-Check-Fail). Temporärer Fix in S33-Commit: Code-Default auf tatsächliche Produktiv-Config gesetzt. Richtiger Fix: DB-Tabelle `pool_state` oder `docs/pool-state.json` mit Read-on-startup und Write-on-update. RADAR-Kandidat F7.
+9. **[DONE 2026-04-19 via F7, Commit ae3e020] Pool-Config-Persistenz** — `pool_state`-Tabelle in Neon PostgreSQL, Single-Row-Design (id=1). `initializePoolState()` laedt persistierte Config beim Serverstart, `updatePools()` schreibt fire-and-forget UPSERT. Live-Test: Maya auf `['opus']` gesetzt, Container via `/render/redeploy` neu gestartet, Config ueberlebt Restart. Code-Default bleibt Sicherheits-Fallback.
 
 ## Reuse-First Regel (aus S24)
 

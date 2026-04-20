@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `a33ad78`
+- `current_repo_head`: `ae3e020`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-19`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S33 Zhipu-Pool-Konsolidierung und Free-Tier-Leck geschlossen: server/src/lib/poolState.ts stellt glm-turbo, glm51 und glm-flash auf provider=zhipu um; glm-flash mappt jetzt auf glm-4.7-flashx statt auf den Free-Tier glm-4.7-flash. Der activePools-Default wurde auf die tatsaechliche Builder-UI-Produktivkonfiguration gehoben (maya=[glm51], worker=[glm-turbo,glm51,minimax,kimi,qwen], distiller=[glm-flash]), damit die Pool-Auswahl einen Render-Restart ueberlebt. server/src/lib/scoutPatrol.ts nutzt fuer den Routine-Scout ebenfalls glm-4.7-flashx mit Preis 0.07/0.40; GLM-5.1 Preis auf 1.40/4.40 korrigiert. docs/provider-specs.md und docs/SESSION-STATE.md auf neuen Stand. Live verifiziert nach Render-Deploy: /api/health zeigt commit a33ad78, POST /api/builder/maya/pools gibt exakt die gewuenschte Default-Config zurueck.`
-- `next_recommended_block`: `S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md (Schritte A, C, D) und der /session-log-Endpoint aus docs/BUILDER-TASK-session-log.md. Parallel RADAR-Kandidat F7 (Pool-Config-Persistenz) und F6 (file-scout gegen Scope-Halluzination) priorisieren.`
+- `last_completed_block`: `S33/F7 Pool-Config-Persistenz in DB gelandet (Commit ae3e020): server/src/schema/builder.ts enthaelt jetzt die poolState-Tabelle (id INTEGER PK, pools_json TEXT, updated_at TIMESTAMPTZ, single-row design id=1). server/src/lib/poolState.ts bietet initializePoolState() async, das idempotent CREATE TABLE IF NOT EXISTS ausfuehrt und die persistierte Config beim Serverstart in activePools laedt. updatePools() bleibt sync und fire-and-forget persistPoolsAsync() macht UPSERT via ON CONFLICT. server/src/index.ts ruft initializePoolState() im app.listen-Callback. Code-Default bleibt Sicherheits-Fallback. Live verifiziert: nach F7-Deploy Maya auf opus gesetzt, Container via /render/redeploy neu gestartet, nach 5-Minuten-Uptime-Beleg zeigt /maya/pools weiterhin maya=[opus] - Persistenz bestaetigt. Cleanup Maya zurueck auf glm51 erfolgt. Der S33 gelandete Temp-Fix (Code-Default spiegelt Produktiv-Config) bleibt als Safety-Net.`
+- `next_recommended_block`: `/session-log-Endpoint aus docs/BUILDER-TASK-session-log.md (macht Anti-Drift-System Schicht 3 scharf), dann S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md (Schritte A, C, D). Parallel RADAR-Kandidat F6 (file-scout gegen Scope-Halluzination) und workerProfiles.ts-Drift (veraltete Model-IDs) als kleine Aufraeumer.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
