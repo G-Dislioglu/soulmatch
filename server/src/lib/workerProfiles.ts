@@ -1,5 +1,9 @@
 // Worker Profiles — Agent Habitat Identity+Capability Layer (slim v1)
 // Maya uses these to pick the right worker for each task.
+//
+// DRIFT-WARNUNG: Die Model-IDs hier MUESSEN konsistent zu POOL_MODEL_MAP in
+// server/src/lib/poolState.ts sein. Wenn du dort ein Modell updatest, update
+// auch hier. Letzter Sync: 2026-04-20 (S34).
 
 export interface WorkerProfile {
   id: string;
@@ -33,8 +37,8 @@ export const WORKER_PROFILES: WorkerProfile[] = [
   },
   {
     id: 'minimax',
-    provider: 'minimax',
-    model: 'MiniMax-M1-80k',
+    provider: 'openrouter',
+    model: 'minimax/minimax-m2.7',
     role: 'code-worker',
     strengths: ['large context window', 'good at following instructions', 'decent TypeScript'],
     weaknesses: ['slower', 'occasionally verbose patches', 'can hallucinate imports'],
@@ -47,8 +51,8 @@ export const WORKER_PROFILES: WorkerProfile[] = [
   },
   {
     id: 'kimi',
-    provider: 'moonshot',
-    model: 'kimi-k2',
+    provider: 'openrouter',
+    model: 'moonshotai/kimi-k2.5',
     role: 'code-worker',
     strengths: ['strong reasoning', 'good at complex logic', 'handles edge cases'],
     weaknesses: ['slower', 'sometimes over-engineers', 'occasional syntax issues'],
@@ -62,7 +66,7 @@ export const WORKER_PROFILES: WorkerProfile[] = [
   {
     id: 'qwen',
     provider: 'openrouter',
-    model: 'qwen/qwen3-coder',
+    model: 'qwen/qwen3.6-plus',
     role: 'code-worker',
     strengths: ['specialized for code', 'good TypeScript', 'follows patterns well'],
     weaknesses: ['weaker on architecture', 'can be rigid'],
@@ -96,7 +100,7 @@ export const WORKER_PROFILES: WorkerProfile[] = [
     weaknesses: ['code patches sometimes need adjustment', 'not always precise on TS types'],
     bestFor: ['code review', 'scouting', 'analysis', 'planning'],
     avoidFor: ['direct code execution on strict TS'],
-    costTier: 'free',
+    costTier: 'cheap',
     speedTier: 'fast',
     codeQuality: 65,
     reliability: 78,
