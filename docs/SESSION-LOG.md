@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T16:20:29.458Z
+- **Commit:** `pending` — F10 spec: async-jobs DB persistence (analog F7 pool_state) — inspection + umsetzungs-plan + akzeptanzkriterium
+- **Files:** docs/F10-ASYNC-JOBS-PERSISTENCE.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T14:51:10.903Z
 - **Commit:** `b6f7db9` — drift 13 live-verified: Render Deploy #103 for 3596012 = 7m17s GREEN (vs alle F-Commits davor 13min rot). CI vertrauenswürdig.
 - **Files:** docs/SESSION-STATE.md, docs/HANDOFF-S35-F6.md
