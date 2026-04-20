@@ -83,6 +83,15 @@ while [ "$ELAPSED" -lt "$MAX_SECONDS" ]; do
       exit 0
     fi
 
+    # Accept backfill-on-top case: the live commit may be a descendant of the
+    # expected code commit because the session-log hook pushed a docs-only
+    # backfill immediately afterwards.
+    if [ -n "$LIVE_COMMIT" ] && git merge-base --is-ancestor "$EXPECTED_COMMIT" "$LIVE_COMMIT" 2>/dev/null; then
+      echo "  ✅ [$TIMESTAMP] Deploy live — commit ${LIVE_COMMIT} is descendant of expected ${EXPECTED_COMMIT} (session-log backfill detected, accepting)"
+      echo ""
+      exit 0
+    fi
+
     echo "  ⏳ [$TIMESTAMP] HTTP 200 but still on commit ${LIVE_COMMIT:-unknown} — waiting for $EXPECTED_COMMIT"
   else
     echo "  ⏳ [$TIMESTAMP] HTTP $STATUS — next check in ${INTERVAL}s (${ELAPSED}s elapsed)"
