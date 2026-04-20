@@ -148,3 +148,22 @@ Einstiegs-Reihenfolge unverändert:
 - Session-Close-Template v2 (drei Phasen) ist Pflicht, nicht optional — `docs/SESSION-CLOSE-TEMPLATE.md`.
 
 Session-Historie-Lücke unverändert: S22, S23, S26, S27, S28, S29.
+
+---
+
+## 6. Session-Close-Nachtrag — Drift 13 Live-Verifikation
+
+**Datum:** 2026-04-20 abends, nach Copilots `859d980`
+
+Copilots Fix-Commit `859d980` konnte seinen eigenen Fix nicht testen — GitHub Actions checkt den Workflow-Code aus dem Commit aus, der getestet wird, nicht aus einem späteren. Der Workflow-Lauf für `859d980` endete deshalb erwartungsgemäß rot mit 13m 20s (alte Script-Version, alter Timeout).
+
+**Verifikations-Probe:** `3596012` — harmloser Kommentar-Header in `tools/wait-for-deploy.sh` selbst, der den Drift-13-Kontext für spätere Leser erklärt. Die Datei liegt unter `tools/`, daher kein workflows-Scope nötig, Bridge-Push möglich.
+
+**Ergebnis:** Workflow-Lauf `Render Deploy #103` für `3596012`: **7m 17s, Conclusion: success**. Der merge-base-ancestor-Check hat den Backfill-Commit akzeptiert, statt auf exakten SHA-Match zu warten.
+
+**Beweis:** Vergleich der letzten drei CI-Läufe:
+- `859d980` (Fix-Commit selbst): 13m 20s, **rot** — testet mit altem Script
+- `3596012` (erster Commit nach Fix): 7m 17s, **grün** — testet mit neuem Script
+- Alle F-Commits davor (F9 `1065cd3`, workerProfiles `01e35e2`, F6 `8a4317d`, regen-index `52b7e28`): ~13 Min rot — alle false-positive
+
+**Konsequenz:** CI-Status ist wieder verlässlich. Drift 13 ist geschlossen. RADAR benötigt keinen eigenen Eintrag mehr; der Fix ist Bestandteil der Render-Deploy-Kette und die Drift-Erklärung steht in `docs/CLAUDE-CONTEXT.md` drift_watchlist + Prosa-Block.

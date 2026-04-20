@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S35-F6 (2026-04-20 abends, komplett — alle drei Hebel live-verifiziert)
+**Letzte Session:** S35-F6 (2026-04-20 abends, komplett — F6 alle drei Hebel live, Drift 13 Fix live-verifiziert)
 **Handoff:** `docs/HANDOFF-S35-F6.md`
-**Repo-Head:** Code `8a4317d` (F6 drei Hebel via Copilot), `6064636` (F9 followup regen-index), `401b3a7` (opus-task-async scope-pass-through via Copilot), Docs-Kette (ba0406f + d786372 + 272a2d9) plus Session-Log-Backfills. Live-Commit auf Render: `401b3a7`.
+**Repo-Head:** Code `8a4317d` (F6 drei Hebel), `6064636` (F9 followup), `401b3a7` (opus-task-async pass-through), `859d980` (Drift 13 Fix: wait-for-deploy ancestor-check), `3596012` (Drift 13 Live-Verify-Probe: 7m17s grün statt 13min rot, CI-Vertrauen wiederhergestellt). Live-Commit auf Render: aktueller main-HEAD via Auto-Deploy.
 
 ## Aktive Entscheidungen
 
