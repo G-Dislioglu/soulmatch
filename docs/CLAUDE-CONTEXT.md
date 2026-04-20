@@ -123,13 +123,17 @@ Diese Datei gehört Claude. Sie ist der erste Anker beim Start jeder neuen Chat-
 
 ## Lese-Reihenfolge für jeden neuen Chat zu Soulmatch
 
-Bevor Claude inhaltlich antwortet, liest er in dieser Reihenfolge:
+Bevor Claude inhaltlich antwortet, liest er in dieser Reihenfolge (das ist **Phase 1 — Kontext-Check** aus `docs/SESSION-CLOSE-TEMPLATE.md`):
 
 1. **Diese Datei** — Denk-Kontext, Drift-Warnungen, aktive Threads
 2. **`STATE.md`** (Repo-Root) — operative Ist-Wahrheit, Git-Head, letzter abgeschlossener Block
 3. **`RADAR.md`** (Repo-Root) — offene Kandidaten, parkierte Ideen, Risiken
 4. **`docs/SESSION-STATE.md`** — kurze Entscheidungs-Zusammenfassung und offene Tasks
 5. **Neuester Handoff** unter `docs/HANDOFF-S*.md` (höchste Session-Nummer)
+
+**Während des Lesens läuft der Selbst-Check der drei Invarianten** (siehe Phase 1.2 in `docs/SESSION-CLOSE-TEMPLATE.md`): Handoff-File für letzte Session vorhanden? STATE.md-Head passt zum letzten Code-Commit? active_threads konsistent? Wenn nein → Drift an Gürcan melden, vorherige Session nachträglich schließen, dann erst neu anfangen.
+
+Für das volle Close-Protokoll (Phase 2 Kern-Arbeit, Phase 3 Session-Close): `docs/SESSION-CLOSE-TEMPLATE.md`.
 
 Ausnahme: Bei offensichtlich kontextfreien Fragen ("wie spät ist es in Berlin?") ist das Lesen nicht nötig. Für alle Arbeits-Fragen schon.
 
@@ -259,18 +263,21 @@ Der `/git-push`-Endpoint der Opus-Bridge nutzt die GitHub Git Data API (atomare 
 
 ---
 
-## Was Claude am Ende jeder Session aktualisiert
+## Session-Close — Pflicht-Ablauf am Ende jeder Session
 
-Am Ende jeder Soulmatch-Arbeits-Session läuft Claude diesen Mini-Workflow:
+Die detaillierte Checkliste liegt in `docs/SESSION-CLOSE-TEMPLATE.md`. Drei Phasen, verbindlich:
 
-1. **Front-Matter aktualisieren**: `last_updated`, `last_session`, `active_threads` anpassen.
-2. **Drift-Warnungen**: Falls in der Session ein neuer Drift-Typ aufgetreten ist, als Eintrag unter "Drift-Warnungen" hinzufügen.
-3. **Aktive Threads**: Falls ein Thread den Status geändert hat (begonnen, pausiert, abgeschlossen), nachziehen.
-4. **Neue Fakten zum User**: Falls Gürcan Präferenzen geklärt hat, die über das bisher Dokumentierte hinausgehen — unter "Wer ist der User" nachtragen.
+- **Phase 1 — Kontext-Check** (vor der Arbeit): Anker-Docs lesen, automatischer Konsistenz-Check der vorherigen Session (siehe Mechanik-Ebene 1 unten), Unstimmigkeiten notieren, Zusammenfassung an Gürcan in 5-7 Sätzen bevor Code angefasst wird.
+- **Phase 2 — Kern-Arbeit**: Im Scope bleiben. Pre-Push-TSC-Pflicht (client + server). Workflow-Dateien nicht über Bridge pushen (Drift 12).
+- **Phase 3 — Session-Close** (nach der Arbeit): Live-Verify, Anker-Docs-Sync (CLAUDE-CONTEXT + STATE + RADAR + SESSION-STATE), Satelliten-Docs-Audit, neuer Handoff unter `docs/HANDOFF-S*.md`, Nebenbefund-Dokumentation, User-Touchpoint-Cheatsheet falls manuelle Schritte nötig.
 
-Patch wird als Markdown ausgeliefert, Gürcan gibt ihn Copilot oder Builder zum Commit, oder Claude pusht direkt wenn Tool-Zugang vorhanden.
+### Mechanik — Warum das nicht vergessen wird
 
-Die Datei darf wachsen, aber nicht ausufern. Sobald sie über ~600 Zeilen wächst, ältere Drift-Einträge nach `docs/CLAUDE-CONTEXT-archive.md` auslagern.
+**Ebene 1 — Self-Check beim Chat-Start (Teil von Phase 1).** Claude prüft bei jedem neuen Soulmatch-Chat automatisch drei Invarianten: (a) existiert ein `docs/HANDOFF-S{last_session}.md` für die Session-Nummer aus dem Front-Matter? (b) passt `STATE.md.current_repo_head` zum letzten Non-Docs-Commit auf main? (c) sind die `active_threads` plausibel zum Code-Stand? Wenn eine Invariante verletzt ist, markiert Claude das als Drift und schlägt vor, die vorherige Session nachträglich zu schließen, **bevor** neue Arbeit beginnt.
+
+**Ebene 2 — Proaktives Angebot vor Chat-Ende.** Wenn in der laufenden Session ein Code-Commit passiert ist (erkennbar an `/git-push` mit Code-Dateien) und User-Signale den Chat-Abschluss andeuten (*"bis später"*, *"fertig"*, *"ciao"*, *"bin weg"*, längere Ruhephase), bietet Claude Phase 3 proaktiv an. Nicht fragen ob, sondern direkt sagen: *"Session-Close läuft jetzt — Schritte 3.1 bis 3.6."*
+
+**Ebene 3 — Grundregel (siehe unten).** Session-Close ist nicht optional, gleicher Status wie das CLAUDE-CONTEXT-Lesen.
 
 ---
 
@@ -278,4 +285,6 @@ Die Datei darf wachsen, aber nicht ausufern. Sobald sie über ~600 Zeilen wächs
 
 Wenn Claude in einem neuen Chat merkt, dass dieser Kontext-Anker (CLAUDE-CONTEXT.md) **nicht** gelesen wurde und trotzdem inhaltlich gearbeitet wird: sofort innehalten, Datei lesen, dann erst weitermachen. Nicht so tun, als wüsste man, was läuft.
 
-Wenn Gürcan bemerkt, dass Claude gedriftet ist, ist das nicht Gürcans Fehler. Dann ist der erste Satz von Claude: "Du hast Recht, ich habe nicht CLAUDE-CONTEXT.md gelesen. Ich hole das nach." Keine Ausrede.
+Wenn Claude in einer Session einen Code-Commit macht und die Session ohne **Phase 3 (Session-Close)** enden würde: innehalten, Phase 3 ausführen. Das gilt auch wenn Gürcan es nicht explizit anfordert — die drei Phasen sind verbindlich, nicht Bitte.
+
+Wenn Gürcan bemerkt, dass Claude gedriftet ist oder eine Phase ausgelassen hat, ist das nicht Gürcans Fehler. Dann ist der erste Satz von Claude: *"Du hast Recht, ich habe [CLAUDE-CONTEXT.md nicht gelesen / Phase 3 übersprungen / ...]. Ich hole das nach."* Keine Ausrede, keine Verteidigung.
