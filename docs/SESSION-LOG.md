@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T06:54:21.167Z
-- **Commit:** `pending` — F9: push-result callback waiter + signal in execution-result handler (Schritte A+D). Workflow-Fix (Schritt C) folgt manuell wegen fehlendem workflows-Scope.
+- **Commit:** `1065cd3` — F9: push-result callback waiter + signal in execution-result handler (Schritte A+D). Workflow-Fix (Schritt C) folgt manuell wegen fehlendem workflows-Scope.
 - **Files:** server/src/lib/pushResultWaiter.ts, server/src/lib/opusSmartPush.ts, server/src/routes/builder.ts
 - **Task:** n/a
 - **Pushed by:** opus-bridge
