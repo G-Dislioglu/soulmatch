@@ -371,6 +371,20 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Callback-basierter Wait statt SHA-Polling. Drei Hebel live: Schritt A (smartPush wartet via in-memory Waiter-Queue auf execution-result-Callbacks), Schritt C (Workflow-empty-diff sendet Callback + `exit 1` statt stillem `exit 0`), Schritt D (Orchestrator-Status-Treue automatisch durch `push.pushed` in `opusTaskOrchestrator.ts:323`).
 - `evidence`: S30-Befund (2026-04-17) mit Task feat-mo38m9f0-jyy1 dokumentiert in docs/S31-CANDIDATES.md. F9-Session-Protokoll in docs/HANDOFF-S35-F9.md. Live-Akzeptanztest 2026-04-20 nachmittags mit taskId `f5d6ac23-aac2-48bc-89ac-5e69d86ff445`: search/replace mit nicht-existentem Anchor `UNIQUE_MARKER_THAT_DOES_NOT_EXIST_F9_ACCEPTANCE_TEST` fuehrte zu Workflow-Callback `reason:"empty_staged_diff"`, Task-Status `review_needed`, kein Commit auf main. Kommit-Kette: `1065cd3` (Code Schritt A+D, Bridge-Push), `bf22892` (Workflow Schritt C, Copilot-Push wegen workflows-Scope).
 
+### Kandidat F10 - Async-Jobs-Persistenz
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/schema/builder.ts` (neue async_jobs Tabelle), `server/src/routes/health.ts`, `server/src/index.ts` (startup-Aufruf), `docs/F10-ASYNC-JOBS-PERSISTENCE.md`, `docs/HANDOFF-S35-F10.md`
+- `why_not_now`: `none`
+- `non_scope`: Cleanup-Job fuer alte Jobs, Queue-Logik, Parallelisierungs-Gate
+- `risk`: geschlossen fuer Haupt-Anwendung — lange Decomposer-Runs ueberleben Container-Restart. Restart-Race beim Update-Pfad als F10-Followup geschlossen.
+- `betroffene_bereiche`: `server/src/schema/builder.ts`, `server/src/routes/health.ts`, `server/src/index.ts`
+- `kurzurteil`: F7-Pool-State-Pattern auf asyncOpusJobs uebertragen. DB ist Single Source of Truth, in-memory Map ist Read-Cache, fire-and-forget UPSERT auf Status-Wechsel, initializeAsyncJobsCache() laedt letzte 100 Jobs bei Startup, graceful degradation bei DB-Fehler. GET-Handler cache-first mit DB-Fallback. Commit `851f7ba` (Copilot, gestern Abend parallel zur F6-Arbeit), F10-Followup-Fix fuer Update-Pfad-Race nach Restart separat.
+- `evidence`: Live-Verify 2026-04-20 abends. Migrate via `POST /api/builder/opus-bridge/migrate` legte Tabelle in Neon an ("Changes applied"). Deploy-Force via `5e63e2d` (health.ts docblock-trigger) loeste Container-Restart aus. Nach Restart: Job `job-mo7g1xba` ueberlebt im opus-job-status (war vor-Restart angelegt), Job `job-mo7gj1ha` nach-Restart-Lifecycle komplett (status: done, result: failed mit F6-reject-reason). Liste aller Jobs zeigt 2 Eintraege sortiert nach createdAt DESC — DB-Fallback-Pfad funktioniert, Cache-Load beim Startup funktioniert.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`
