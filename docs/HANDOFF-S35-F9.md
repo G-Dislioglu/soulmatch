@@ -163,7 +163,7 @@ Einstiegs-Reihenfolge unverändert:
 
 **Wichtige Erinnerung für F9-Folge-Arbeit:** Bevor Code in `.github/workflows/*` geändert wird, gilt Drift 12 — Bridge-Token kann nicht committen. Änderungen an Workflow-Files müssen manuell laufen.
 
-Session-Historie-Lücke unverändert: S22, S23, S26, S27, S28, S29.
+Session-Historie-Lücke: geschlossen am 2026-04-20. HANDOFF-S22-S29-RECONSTRUCTED.md deckt S22+S23+S26-S29 ab; HANDOFF-S23.md wurde zusätzlich aus der fehlbenannten `/undefined`-Datei rekonstruiert (siehe Drift 14 in CLAUDE-CONTEXT.md).
 
 ---
 

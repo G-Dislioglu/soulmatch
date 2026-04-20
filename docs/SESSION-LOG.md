@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T16:42:13.785Z
+- **Commit:** `pending` — sync: session-historie-lücke hinweis in beiden S35-handoffs auf aktuellen stand (reconstructed + S23 live)
+- **Files:** docs/HANDOFF-S35-F9.md, docs/HANDOFF-S35-F6.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T16:37:35.869Z
 - **Commit:** `3ad613e` — drift 14 documented: bridge-push-undefined-filename bug (historical S23 handoff in /undefined, restored to correct path in de90e6a)
 - **Files:** docs/CLAUDE-CONTEXT.md
