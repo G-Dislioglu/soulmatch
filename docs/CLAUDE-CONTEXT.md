@@ -4,7 +4,7 @@ repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
 last_updated: 2026-04-20
-last_session: S34
+last_session: S35_F9_partial
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -28,9 +28,9 @@ ecosystem_repos:
 
 active_threads:
   - id: builder_S31_observability
-    status: active
-    priority: primary_focus_next
-    description: Pipeline reports success without verifying commits landed on main
+    status: mostly_done
+    priority: schritt_c_manual_commit_open
+    description: F9 Schritt A+D live in Commit 1065cd3 (pushResultWaiter.ts neu, opusSmartPush.ts wartet auf execution-result-Callback, builder.ts signalisiert landed:true/false). Probe-Test 2026-04-20 bestätigt neuen Handler (reason-Feld in payload+result). Schritt C (workflow empty-diff-Callback) geblockt durch fehlenden workflows-Scope im Bridge-Token, braucht manuellen Commit via Web-UI oder persönlichem PAT. Ohne Schritt C fällt smartPush bei empty-diff auf 3-Min-Timeout statt sofortigem Signal.
     entry_point: docs/S31-CANDIDATES.md
   - id: session_log_endpoint
     status: done
@@ -106,6 +106,10 @@ drift_watchlist:
     wrong: treat_workerProfiles_as_internal_logging_only
     right: workerProfiles_is_rendered_into_maya_system_prompt_drift_propagates_to_maya_understanding
     severity: medium_info_leak
+  - id: bridge_token_no_workflows_scope
+    wrong: assume_git-push_can_commit_any_file_incl_github_workflows
+    right: bridge_token_lacks_workflows_scope_so_tree_create_404s_when_workflow_files_are_in_the_tree_use_webui_or_personal_pat
+    severity: medium_tooling_limit
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -216,6 +220,9 @@ Während des Dokumentations-Audits in S34 fanden sich mehrere Spec-Dateien, die 
 
 **Drift 11 — workerProfiles.ts als Maya-Prompt-Source (entdeckt in S34-Audit).**
 `server/src/lib/workerProfiles.ts` wurde lange als reines Agent-Habitat-Metadatum behandelt — Logging, Briefing, vielleicht UI-Anzeige. Tatsächlich wird das Array `WORKER_PROFILES` in `server/src/routes/builder.ts:919` **direkt in Mayas System-Prompt gerendert**. Das heisst: wenn in workerProfiles das Modell `kimi-k2` steht, obwohl live `kimi-k2.5` läuft, dann erzählt Maya dem User und sich selbst die falsche Wahrheit. Der Drift war nicht kosmetisch. In S34 wurden 4 veraltete Model-IDs + 1 falscher costTier (`deepseek: free` statt `cheap`) gefixt. Neuer Header-Kommentar in der Datei weist auf die Konsistenz-Pflicht zu `POOL_MODEL_MAP` in `poolState.ts` hin — dort ist die Single Source of Truth.
+
+**Drift 12 — Bridge-GitHub-Token hat keinen `workflows`-Scope (entdeckt bei F9-Umsetzung).**
+Der `/git-push`-Endpoint der Opus-Bridge nutzt die GitHub Git Data API (atomare Tree+Commit+Ref-Writes) und der verwendete Token kann Content-Files committen, aber sobald eine Datei unter `.github/workflows/*` im Tree landet, antwortet GitHub mit `404 Not Found` auf `POST /repos/.../git/trees`. Das rejected den GESAMTEN atomaren Commit — auch die unschuldigen Sibling-Dateien. Erklärung: GitHub verlangt für Writes an Workflow-Files das zusätzliche `workflows`-Scope (bei fine-grained PATs) bzw. `workflow`-Scope (bei classic PATs), und der Bridge-Token hat das nicht. Das erklärt auch rückwirkend, warum historisch Workflow-Änderungen (`builder-executor.yml`, `render-deploy.yml`) immer über manuelle Commits via GitHub-Web-UI oder persönliche PATs gemacht wurden. Bei F9 Schritt C (empty-diff-Callback) wurde das sichtbar: Der Code-Teil (`pushResultWaiter.ts`, `opusSmartPush.ts`, `builder.ts`) landete als `1065cd3` per Bridge, die `builder-executor.yml`-Änderung musste manuell committet werden. Konsequenz: Wenn ein Block Workflow-Files ändert, müssen diese separat und nicht via Bridge gepusht werden. Langfristig: Bridge-Token upgraden oder dedizierte Workflow-Push-Route mit eigenem PAT-Secret.
 
 ---
 

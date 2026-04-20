@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S34 (2026-04-20, erweitert um Docs-Audit + workerProfiles-Fix)
-**Handoff:** `docs/HANDOFF-S34b.md`
-**Repo-Head:** Code-Commits `b6fa46f` (S34 PUT-Fix), `01e35e2` (workerProfiles Model-IDs), Follow-up-Backfills `9c72a6f` und `9cf39f8`, Docs-Audit-Commits `aecf53d` + `6ca04e9` + `92bcb61`. Live: `9cf39f8`.
+**Letzte Session:** S35-F9 (2026-04-20, partial — Schritt A+D live, Schritt C manual commit pending)
+**Handoff:** `docs/HANDOFF-S34b.md` (vorherige Session), F9-Fortschritt in diesem File dokumentiert
+**Repo-Head:** Code-Commit `1065cd3` (F9 Schritt A+D), Docs-Commit `ee966f5` (STATE.md body sync + task 0b DONE), plus Auto-Backfills. Live-Commit auf Render: `e019029` (Build enthält 1065cd3-Content via Backfill-Chain).
 
 ## Aktive Entscheidungen
 
@@ -38,7 +38,7 @@
 5. **Async Job-Pattern für /opus-task** (aus S24, noch offen) — löst Render 60s Timeout bei großen Tasks.
 6. **Patrol Finding Auto-Fix** (aus S24, noch offen) — Pipeline automatisch Fixes für Patrol-Findings generieren.
 7. **Docs-Consolidation Rest:** `opus-bridge-v4-spec.md` Status-Abgleich, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md` + `MAYA-BUILDER-CONTRACT.md` Aktualität prüfen.
-8. **[S31-Kern noch offen] False-Positive-Pipeline-Path-Fix** — Spec in `docs/S31-CANDIDATES.md`. Schritt A: SHA-Verify in `opusSmartPush.ts` (pre/post-Sha Vergleich nach `/push`-Dispatch). Schritt C: `builder-executor.yml` bricht bei leerem Diff ab (kein stilles `exit 0` mehr). Schritt D: Orchestrator-Status-Treue. Ist der inhaltliche Haupt-Thread nach `/session-log`. S31 hat nur Task 4a (Observability) und atomare Mehrdatei-Commits geliefert, Kern-Fix bleibt offen.
+8. **[MOSTLY DONE 2026-04-20 via F9, Commit 1065cd3] S31 False-Positive-Pipeline-Path-Fix** — Schritt A+D live: neues Modul `server/src/lib/pushResultWaiter.ts` hält in-memory Waiter-Queue mit 3-Min-Timeout. `server/src/lib/opusSmartPush.ts` liest taskId aus jeder `/push`-Response, wartet via `Promise.all` auf execution-result-Callbacks, setzt `pushed: true` nur bei verifizierter Landung. `server/src/routes/builder.ts` execution-result-Handler kennt jetzt `committed === false`-Branch (empty_staged_diff, checks_failed, push_conflict) und ruft `signalPushResult(taskId, {landed, reason})` terminal. Probe-Test bestätigt: Workflow-Callback mit `reason:"checks_failed"` wird vom neuen Handler in `builderActions.result.reason` geschrieben — eindeutiger Live-Beweis. **OFFEN — Schritt C:** `builder-executor.yml` Zeile 141-144 muss beim empty-diff-Fall einen Callback senden statt `exit 0`. Bridge-GitHub-Token hat kein `workflows`-Scope, deshalb rejected GitHub den Tree-Create (404) bei `.github/workflows/*`-Writes — **manueller Commit via Web-UI oder persönlichem PAT nötig**. Diff ist minimal (2 Zeilen raus, 5 rein), fertige Datei unter `/home/claude/f9/builder-executor.yml` im Chat-Container. Ohne Schritt C fällt smartPush bei empty-diff auf 3-Min-Timeout zurück — funktional korrekt (pushed:false), nur langsamer.
 
 9. **[DONE 2026-04-19 via F7, Commit ae3e020] Pool-Config-Persistenz** — `pool_state`-Tabelle in Neon PostgreSQL, Single-Row-Design (id=1). `initializePoolState()` laedt persistierte Config beim Serverstart, `updatePools()` schreibt fire-and-forget UPSERT. Live-Test: Maya auf `['opus']` gesetzt, Container via `/render/redeploy` neu gestartet, Config ueberlebt Restart. Code-Default bleibt Sicherheits-Fallback.
 

@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T07:38:50.325Z
+- **Commit:** `pending` — F9 docs close: drift 12 (bridge token no workflows scope), task 8 mostly-done with schritt C pending
+- **Files:** docs/CLAUDE-CONTEXT.md, docs/SESSION-STATE.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T07:11:17.459Z
 - **Commit:** `52b7e28` — chore: regen repo index (455 files)
 - **Files:** server/data/builder-repo-index.json
