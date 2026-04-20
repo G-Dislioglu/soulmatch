@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T07:50:55.819Z
+- **Commit:** `pending` — docs: S31-CANDIDATES session-tracking S35-F9 entry + status header update
+- **Files:** docs/S31-CANDIDATES.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T07:49:51.879Z
 - **Commit:** `5432fea` — F9 session close: handoff doc, STATE.md last/next block sync, RADAR F9 mostly_adopted
 - **Files:** docs/HANDOFF-S35-F9.md, STATE.md, RADAR.md

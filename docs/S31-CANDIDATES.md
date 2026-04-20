@@ -1,6 +1,6 @@
 # S31 Candidates
 
-- Status: partially adopted; S31 Task 4a implemented and live-probed, false-positive pipeline path (Schritte A, C, D) still open as of S34 (2026-04-20)
+- Status: mostly adopted; S31 Task 4a live (observability), F9 Schritt A+D live in `1065cd3` (2026-04-20), Schritt C pending manueller Commit wegen fehlendem workflows-Scope im Bridge-Token (siehe Drift 12 in CLAUDE-CONTEXT.md)
 - Source: external Claude handoff from 2026-04-17, validated against current repo before adoption
 
 ## Session-Tracking
@@ -9,8 +9,9 @@
 - **S32 (2026-04-19):** Kein direkter Fortschritt am S31-Fix. Parallelarbeit an Beings, Render-Deploy-Optimierung (paths-ignore), Anti-Drift-System Phase 1 (CLAUDE-CONTEXT.md + Session-Close-Template + dieser Spec-Block).
 - **S33 (2026-04-19):** Zhipu-Pool-Konsolidierung + F7 Pool-Config-Persistenz. Kein direkter S31-Fortschritt.
 - **S34 (2026-04-20 morgens):** Session-Log-Endpoint live inkl. SHA-Backfill. Kein direkter S31-Fortschritt.
+- **S35-F9 (2026-04-20 vormittags):** Schritte A und D live via Commit `1065cd3`. Callback-Pattern statt SHA-Polling (Design-Entscheidung): neues Modul `server/src/lib/pushResultWaiter.ts` hält in-memory Waiter-Queue mit 3-Min-Timeout. `opusSmartPush.ts` liest taskId aus `/push`-Response, wartet via `Promise.all` auf execution-result-Callbacks, `pushed: true` nur bei verifizierter Landung. `builder.ts` execution-result-Handler kennt jetzt `committed === false`-Branch (empty_staged_diff, checks_failed, push_conflict) und ruft `signalPushResult` terminal. Schritt D funktioniert automatisch, weil `opusTaskOrchestrator.ts:323` auf `push.pushed` sitzt. Schritt C (Workflow-Härtung) ist wegen Drift 12 pending (Bridge-Token hat keinen `workflows`-Scope, GitHub rejected Tree-Create mit 404 bei `.github/workflows/*`-Writes). Fertige Datei wurde an Gürcan übergeben, manueller Commit via Web-UI steht aus. Live-Probe mit taskId `d6fbfb91-0bde-4ea3-8d61-4ecd393bfd1c` bestätigt Handler-Upgrade: `reason:"checks_failed"`-Feld im `builderActions.result` (altes Schema hatte das Feld nicht). F9-Session-Protokoll in `docs/HANDOFF-S35-F9.md`.
 
-**Weiterhin offen:** Schritte A (SHA-Verify in `opusSmartPush.ts`), C (Workflow-Härtung in `builder-executor.yml`, Abort bei leerem Diff), D (Orchestrator-Status-Treue). Das ist der explizit empfohlene nächste Block nach S34.
+**Noch offen:** Schritt C (Workflow-Härtung in `builder-executor.yml`, empty-diff sendet Callback + `exit 1`). Danach F9-Akzeptanztest mit `/opus-feature` + nicht-existentem Anchor — erwartet `status: partial` oder `failed` in Sekunden statt 3-Min-Timeout.
 
 ## Current State
 
