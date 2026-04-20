@@ -547,69 +547,78 @@ Runtime-Wahrheit fuer Soulmatch.
 
 ### Name
 
-TTS Crush Audit und LiveTalk Hardening
+F9 — False-Positive Pipeline Path Fix (Schritt A+D live, Schritt C pending)
 
 ### Ergebnis
 
-Der enge Crush-Audit auf den bestehenden TTS-Bestand hat zwei `kippt`-Punkte
-belegt und minimal behoben: Erstens blockierte der normale LiveTalk-Request in
-M06 die sichtbare Persona-Antwort noch bis zum fertigen TTS-Bundle; deshalb
-nutzt `DiscussionChat.tsx` fuer Audio jetzt den SSE-Pfad von `/api/discuss`.
-Zweitens koppelte der Route-/Service-Pfad Audio faktisch an gleichzeitig
-vorhandene Gemini- und OpenAI-Keys; `server/src/routes/studio.ts` und
-`server/src/lib/ttsService.ts` ueberspringen jetzt fehlende Engines sauber,
-statt den ganzen TTS-Pfad vorab zu verlieren. Weitere doppelte Playback-Pfade
-im Repo wurden als `relocate` markiert, aber bewusst nicht in diesem Block
-umgebaut.
+Der Hauptrisk S31 (Pipeline meldet `success` ohne reale Commit-Landung) ist
+strukturell geschlossen. Schritt A und D sind live via Commit `1065cd3`:
+`server/src/lib/pushResultWaiter.ts` (neues Modul, in-memory Waiter-Queue),
+`server/src/lib/opusSmartPush.ts` (liest taskId aus `/push`-Response, wartet
+via Promise.all auf execution-result-Callbacks mit 3-Min-Timeout, `pushed: true`
+nur bei verifizierter Landung), `server/src/routes/builder.ts`
+(execution-result-Handler mit neuem `committed === false`-Branch, signalisiert
+`landed:true/false` terminal). Schritt D funktioniert automatisch, weil
+`opusTaskOrchestrator.ts:323` seit jeher `status: push.pushed ? 'ok' : 'error'`
+macht — sobald `push.pushed` ehrlich ist, ist der Orchestrator-Status ehrlich.
+Probe-Test am 2026-04-20 bestaetigt Live-Wirkung: `checks_failed`-Callback wird
+vom neuen Handler mit `reason`-Feld in `builderActions` geschrieben, Task-Status
+`review_needed`.
+
+Schritt C (Workflow-Haertung in `.github/workflows/builder-executor.yml`) ist
+durch eine Token-Limitation blockiert: Der Bridge-GitHub-Token hat keinen
+`workflows`-Scope, GitHub rejected Tree-Creates die Workflow-Files enthalten
+mit 404. Fertige Datei wurde manuell uebergeben; Commit steht aus (Via GitHub
+Web-UI oder persoenlichem PAT).
+
+Drift 12 in `docs/CLAUDE-CONTEXT.md` dokumentiert die Token-Limitation.
 
 ### Nicht Teil dieses Blocks
 
-- kein neuer Audio-Stack und keine neue TTS-Route
-- kein Umbau der parallelen Audio-Player in M02 oder M08
-- keine Real-Key-Ende-zu-Ende-Verifikation gegen produktive Provider
-- keine Bereinigung des bestehenden Dirty Trees
-- keine Aenderung an Scoring, Match oder globaler App-Architektur
+- kein SHA-Polling-Pfad (Callback-Pattern wurde bewusst als saubere Alternative gewaehlt)
+- kein Umbau von `opusTaskOrchestrator.ts` (Schritt D fixt sich automatisch)
+- kein Anruehren des fire-and-forget `regenerateRepoIndex()` in `/push` (als Nebenbefund dokumentiert)
+- keine Kaya-Code-Rename-Arbeit (wartet weiter auf Maya-Core-Migration)
 
 ## Next Recommended Block
 
 ### Name
 
-Real-Provider-Verifikation fuer LiveTalk TTS
+F9 Schritt C Commit + Akzeptanztest
 
 ### Ziel
 
-Die jetzt korrigierte LiveTalk-TTS-Kette mit echten Provider-Keys und realen
-Fehlerfaellen pruefen: Voice-Auswahl, Fallback von Gemini zu OpenAI,
-sichtbare Degradation ohne Audio und reproduzierbare Fehlersignale bei
-Provider- oder Autoplay-Problemen.
+Den Workflow-Haertungs-Commit manuell landen (builder-executor.yml empty-diff
+sendet Callback + `exit 1` statt stillem `exit 0`) und den F9-Akzeptanztest
+fahren: `/opus-feature` mit absichtlich nicht-existentem Anchor muss
+`status: partial` oder `failed` liefern, nicht `success`. Nach Schritt C in
+Sekunden, ohne Schritt C via 3-Min-Timeout (funktional korrekt, nur langsamer).
 
 ### Warum dieser Block jetzt sinnvoll ist
 
-- Der Crush-Audit hat die zwei akuten Laufzeitbrueche geschlossen, aber noch
-  keine echte Provider-Verifikation unter Realbedingungen geliefert.
-- Audio ist jetzt produktnaeher verdrahtet als zuvor; damit steigen die Kosten
-  von stillen Fallback- oder Fehlerpfad-Irrtuemern.
-- Erst nach belastbarer TTS-Realverifikation lohnt sich ein weiterer Voice-
-  oder UX-Ausbau.
+- Schritt A+D sind live, aber Schritt C schliesst die F9-Loop so, dass der
+  Fehlerfall sofort statt per Timeout sichtbar wird.
+- Ein gruener Akzeptanztest nach Schritt C ist die eindeutige Bestaetigung,
+  dass die False-Positive-Pipeline-Meldung strukturell behoben ist.
+- Erst danach lohnt sich die Arbeit an F6 (File-Scout) oder anderen aufgestauten
+  Builder-Themen.
 
 ### Scope
 
-- `server/scripts/discuss-audio-probe-check.mjs`
-- `server/src/routes/studio.ts`
-- gezielte Ausfuehrung gegen lokale oder deployte Runtime mit echten Keys
+- `.github/workflows/builder-executor.yml` (manueller Commit via Web-UI, 2 Zeilen raus + 5 rein)
+- `/opus-feature`-Aufruf mit UNIQUE_MARKER_THAT_DOES_NOT_EXIST-Intent
+- Beobachtung von `status`, `phases.push`, `builderActions.result.reason`
 
 ### Nicht-Scope
 
-- neue Design-Bloecke ausserhalb von M06
-- Umbau der gesamten Audio-Architektur im Repo
-- Scoring-, Match-, Routing- oder Persistenz-Neudesign
-- broad cleanup aller historischen Voice-Pfade in einem Rutsch
+- neue Executor-Pfade oder Worker-Swarm-Umbau
+- Render-Deploy-Pipeline-Aenderungen
+- Bridge-Token-Scope-Erweiterung (eigener Block fuer spaeter)
 
 ### Fortschritt
 
-- Repo-seitig existiert jetzt ein gezieltes Probe-Skript fuer den Block; die
-  eigentliche Real-Key-Ausfuehrung bleibt bewusst ein operativer Schritt gegen
-  eine laufende Runtime statt nur statischer Code-Aenderung.
+- Fertige `builder-executor.yml` wurde in der F9-Session an Gürcan uebergeben;
+  Commit steht ausstehend bis zum naechsten Laptop-Fenster.
 
 ## Alternative Valid Next Blocks
 
