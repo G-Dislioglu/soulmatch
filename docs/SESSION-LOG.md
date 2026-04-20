@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T16:20:29.458Z
-- **Commit:** `pending` — F10 spec: async-jobs DB persistence (analog F7 pool_state) — inspection + umsetzungs-plan + akzeptanzkriterium
+- **Commit:** `c4641d3` — F10 spec: async-jobs DB persistence (analog F7 pool_state) — inspection + umsetzungs-plan + akzeptanzkriterium
 - **Files:** docs/F10-ASYNC-JOBS-PERSISTENCE.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
