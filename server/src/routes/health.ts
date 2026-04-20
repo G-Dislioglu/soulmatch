@@ -1,5 +1,8 @@
 import { Router, type Request, type Response } from 'express';
+import { desc, eq } from 'drizzle-orm';
 import { swissEphemerisProbe } from '../lib/swissEphemerisProbe.js';
+import { getDb } from '../db.js';
+import { asyncJobs as asyncJobsTable } from '../schema/builder.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -11,9 +14,126 @@ interface AsyncOpusJob {
   instruction: string;
   result?: unknown;
   error?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
+type AsyncOpusJobResponse = {
+  id: string;
+  status: 'running' | 'done' | 'failed';
+  instruction: string;
+  result?: unknown;
+  error?: string;
+};
+
 const asyncOpusJobs = new Map<string, AsyncOpusJob>();
+
+function normalizeJobDate(value: Date | string | null | undefined): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const parsed = value ? new Date(value) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function toAsyncOpusJobResponse(job: AsyncOpusJob): AsyncOpusJobResponse {
+  return {
+    id: job.id,
+    status: job.status,
+    instruction: job.instruction,
+    ...(job.result !== undefined ? { result: job.result } : {}),
+    ...(job.error ? { error: job.error } : {}),
+  };
+}
+
+function cacheAsyncJob(job: AsyncOpusJob): void {
+  asyncOpusJobs.set(job.id, job);
+}
+
+function persistAsyncJobAsync(job: AsyncOpusJob): void {
+  try {
+    const db = getDb();
+
+    void db
+      .insert(asyncJobsTable)
+      .values({
+        id: job.id,
+        status: job.status,
+        instruction: job.instruction,
+        result: job.result ?? null,
+        error: job.error ?? null,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+      })
+      .onConflictDoUpdate({
+        target: asyncJobsTable.id,
+        set: {
+          status: job.status,
+          instruction: job.instruction,
+          result: job.result ?? null,
+          error: job.error ?? null,
+          updatedAt: job.updatedAt,
+        },
+      })
+      .catch((error) => {
+        console.error('[async-jobs] persist failed:', error);
+      });
+  } catch (error) {
+    console.error('[async-jobs] persist unavailable, using in-memory only:', error);
+  }
+}
+
+function updateAsyncJob(
+  id: string,
+  patch: Partial<Pick<AsyncOpusJob, 'status' | 'result' | 'error'>>,
+): void {
+  const current = asyncOpusJobs.get(id);
+  if (!current) {
+    return;
+  }
+
+  const next: AsyncOpusJob = {
+    ...current,
+    ...patch,
+    updatedAt: new Date(),
+  };
+
+  cacheAsyncJob(next);
+  persistAsyncJobAsync(next);
+}
+
+function hydrateAsyncJob(row: typeof asyncJobsTable.$inferSelect): AsyncOpusJob {
+  return {
+    id: row.id,
+    status: row.status as AsyncOpusJob['status'],
+    instruction: row.instruction,
+    ...(row.result !== null ? { result: row.result } : {}),
+    ...(row.error ? { error: row.error } : {}),
+    createdAt: normalizeJobDate(row.createdAt),
+    updatedAt: normalizeJobDate(row.updatedAt),
+  };
+}
+
+export async function initializeAsyncJobsCache(): Promise<void> {
+  try {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(asyncJobsTable)
+      .orderBy(desc(asyncJobsTable.createdAt))
+      .limit(100);
+
+    asyncOpusJobs.clear();
+    for (const row of rows) {
+      cacheAsyncJob(hydrateAsyncJob(row));
+    }
+
+    console.log(`[async-jobs] Loaded ${rows.length} persisted jobs into cache`);
+  } catch (error) {
+    console.warn('[async-jobs] cache init failed, using in-memory only:', error);
+  }
+}
 
 // GET /api/health
 healthRouter.get('/', (_req: Request, res: Response) => {
@@ -96,7 +216,15 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
   }
 
   const id = `job-${Date.now().toString(36)}`;
-  asyncOpusJobs.set(id, { id, status: 'running', instruction });
+  const job: AsyncOpusJob = {
+    id,
+    status: 'running',
+    instruction,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  cacheAsyncJob(job);
+  persistAsyncJobAsync(job);
   res.json({ status: 'accepted', jobId: id });
 
   void import('../lib/opusTaskOrchestrator.js')
@@ -108,23 +236,18 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
       targetFile,
     }))
     .then((result) => {
-      const job = asyncOpusJobs.get(id);
-      if (job) {
-        job.status = 'done';
-        job.result = result;
-      }
+      updateAsyncJob(id, { status: 'done', result, error: undefined });
     })
     .catch((error) => {
-      const job = asyncOpusJobs.get(id);
-      if (job) {
-        job.status = 'failed';
-        job.error = error instanceof Error ? error.message : String(error);
-      }
+      updateAsyncJob(id, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 });
 
 // GET /api/health/opus-job-status
-healthRouter.get('/opus-job-status', (req: Request, res: Response) => {
+healthRouter.get('/opus-job-status', async (req: Request, res: Response) => {
   const token = typeof req.query.opus_token === 'string' ? req.query.opus_token : '';
   if (!process.env.OPUS_BRIDGE_SECRET || token !== process.env.OPUS_BRIDGE_SECRET) {
     res.status(401).json({ error: 'unauthorized' });
@@ -133,15 +256,35 @@ healthRouter.get('/opus-job-status', (req: Request, res: Response) => {
 
   const id = typeof req.query.id === 'string' ? req.query.id : '';
   if (!id) {
-    res.json({ jobs: Array.from(asyncOpusJobs.values()).slice(-20) });
+    const jobs = Array.from(asyncOpusJobs.values())
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, 20)
+      .map(toAsyncOpusJobResponse);
+
+    res.json({ jobs });
     return;
   }
 
   const job = asyncOpusJobs.get(id);
-  if (!job) {
-    res.status(404).json({ error: 'not found' });
+  if (job) {
+    res.json(toAsyncOpusJobResponse(job));
     return;
   }
 
-  res.json(job);
+  try {
+    const db = getDb();
+    const rows = await db.select().from(asyncJobsTable).where(eq(asyncJobsTable.id, id)).limit(1);
+    const persisted = rows[0];
+
+    if (persisted) {
+      const hydrated = hydrateAsyncJob(persisted);
+      cacheAsyncJob(hydrated);
+      res.json(toAsyncOpusJobResponse(hydrated));
+      return;
+    }
+  } catch (error) {
+    console.warn('[async-jobs] fallback lookup failed:', error);
+  }
+
+  res.status(404).json({ error: 'not found' });
 });

@@ -201,3 +201,13 @@ export const poolState = pgTable('pool_state', {
   poolsJson: text('pools_json').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const asyncJobs = pgTable('async_jobs', {
+  id: text('id').primaryKey(),
+  status: text('status').notNull(),
+  instruction: text('instruction').notNull(),
+  result: jsonb('result'),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

@@ -21,7 +21,7 @@ import { astrologyRouter } from './routes/astro.js';
 import { numerologyRouter } from './routes/numerology.js';
 import { scoringRouter } from './routes/scoring.js';
 import { matchRouter } from './routes/match.js';
-import { healthRouter } from './routes/health.js';
+import { healthRouter, initializeAsyncJobsCache } from './routes/health.js';
 import { metaRouter } from './routes/meta.js';
 import { journeyRouter } from './routes/journey.js';
 import { zimageRouter } from './routes/zimage.js';
@@ -89,4 +89,6 @@ app.listen(PORT, () => {
   startPatrol();
   // F7: load persisted pool state (fire-and-forget; code defaults apply until loaded)
   void initializePoolState();
+  // F10: hydrate async opus jobs from DB best-effort; in-memory fallback remains active.
+  void initializeAsyncJobsCache();
 });
