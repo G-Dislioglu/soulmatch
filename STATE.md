@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `9c72a6f`
+- `current_repo_head`: `9cf39f8`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-20`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts`
-- `last_completed_block`: `S34 Session-Log-Endpoint live (Commit b6fa46f + Follow-up 9c72a6f): /git-push schreibt bei jedem erfolgreichen Push einen Eintrag in docs/SESSION-LOG.md im selben Commit, und laeuft dann einen Fire-and-forget Follow-up-Commit der den pending-SHA-Marker durch den echten 7-stelligen Commit-SHA ersetzt. Der Follow-up ist docs-only und loest dank paths-ignore in render-deploy.yml keinen Render-Deploy aus. Live verifiziert mit Test-Push c342ddd: Haupt-Commit landete mit pending, 2 Sekunden spaeter Follow-up 9c72a6f mit echtem SHA. Hintergrund: S34-Code kam von Copilot ueber Nacht, scheiterte aber in drei Deploy-Versuchen an einem TS-Build-Fehler (PUT-Methode nicht in githubGitRequest-Signatur). Fix via Ein-Zeilen-Typ-Erweiterung in b6fa46f. F7-Persistenz ueberlebt den Deploy ebenfalls unberuehrt.`
-- `next_recommended_block`: `S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md (Schritte A, C, D) als Hauptthread. Parallel RADAR.md-Nachzug (F6 file-scout eintragen, F7+S34 closed markieren), workerProfiles.ts-Drift-Fix (veraltete Model-IDs), und optional Kaya-Rename im Code.`
+- `last_completed_block`: `S34 Session komplett durch: (1) Session-Log-Endpoint live via Commits b6fa46f und Follow-up 9c72a6f, Test-Push c342ddd verifiziert SHA-Backfill live. (2) Docs-Audit: 8 Markdown-Dokumente nachgezogen in drei atomaren Commits aecf53d + 6ca04e9 + 92bcb61 (BUILDER-TASK-session-log CLOSED, S31-CANDIDATES Session-Tracking, BUILDER-STUDIO-SPEC-v3.3 Umsetzungs-Stand, MAYA-BUILDER-AUSBAU-BLUEPRINT-v2 Fortschritt, opus-bridge-v4-spec.md alle 5 fehlt-Punkte auf DONE korrigiert, project-dna Orion-Kaya-Drift, BEING-CODEX-v1 und v1.1 Superseded-by-v1.2). (3) workerProfiles.ts Model-ID-Drift-Fix in Commit 01e35e2 (gefolgt von Backfill 9cf39f8): minimax M1-80k zu M2.7, kimi k2 zu k2.5, qwen3-coder zu qwen3.6-plus, deepseek costTier free zu cheap. Wichtig: WORKER_PROFILES wird live in Mayas System-Prompt gerendert (server/src/routes/builder.ts:919), Drift war also nicht kosmetisch. Drift-Warnung-Header in workerProfiles.ts haelt das kuenftig synchron zu POOL_MODEL_MAP in poolState.ts.`
+- `next_recommended_block`: `S31-False-Positive-Pipeline-Path-Fix aus docs/S31-CANDIDATES.md als Haupt-Thread — jetzt auch in RADAR.md als Kandidat F9 repo-sichtbar. Die drei engen Hebel: Schritt A (SHA-Verify in opusSmartPush.ts nach /push-Dispatch), Schritt C (Workflow-Haertung in builder-executor.yml: abort on empty staged diff), Schritt D (orchestrateTask-Status-Treue aus pushed-Realitaet). Kleine Aufraeumer zurueckgestellt: Kaya-Rename im Code (16 Orion-Stellen in personaRouter.ts und studioPrompt.ts, wartet auf Maya-Core-Migration).`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

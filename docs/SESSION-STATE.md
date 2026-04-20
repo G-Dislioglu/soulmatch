@@ -1,8 +1,8 @@
 # SESSION-STATE
 
-**Letzte Session:** S34 (2026-04-20)
-**Handoff:** `docs/HANDOFF-S34.md`
-**Repo-Head:** Code-Commit `b6fa46f` (S34 PUT-Fix) + Follow-up `9c72a6f` (auto SHA-Backfill). F7 Pool-Persistenz und S34 Session-Log beide live verifiziert.
+**Letzte Session:** S34 (2026-04-20, erweitert um Docs-Audit + workerProfiles-Fix)
+**Handoff:** `docs/HANDOFF-S34b.md`
+**Repo-Head:** Code-Commits `b6fa46f` (S34 PUT-Fix), `01e35e2` (workerProfiles Model-IDs), Follow-up-Backfills `9c72a6f` und `9cf39f8`, Docs-Audit-Commits `aecf53d` + `6ca04e9` + `92bcb61`. Live: `9cf39f8`.
 
 ## Aktive Entscheidungen
 

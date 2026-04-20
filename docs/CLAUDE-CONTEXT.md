@@ -98,6 +98,14 @@ drift_watchlist:
     wrong: attribute_every_build_failure_to_infra_flakiness
     right: read_the_actual_error_line_first_tscompile_errors_look_like_infra_at_first_glance
     severity: medium_recurring
+  - id: docs_drift_in_spec_files
+    wrong: assume_specs_stay_accurate_as_code_progresses
+    right: periodically_audit_specs_and_mark_implemented_vs_open_or_deprecated
+    severity: medium_audit
+  - id: worker_profiles_vs_pool_state
+    wrong: treat_workerProfiles_as_internal_logging_only
+    right: workerProfiles_is_rendered_into_maya_system_prompt_drift_propagates_to_maya_understanding
+    severity: medium_info_leak
 ---
 
 # CLAUDE-CONTEXT — soulmatch
@@ -154,7 +162,7 @@ Gürcan arbeitet auf Laptop und Smartphone. Chat-Handoffs haben historisch Konte
 
 ---
 
-## Aktive Arbeits-Threads (Stand: Session S34, 2026-04-20 morgens)
+## Aktive Arbeits-Threads (Stand: Session S34, 2026-04-20 erweitert)
 
 **Primär — Builder-App fertigstellen.** Gürcan pausiert Soulmatch-Entwicklung bewusst, um Builder zu stabilisieren. Damit Soulmatch später "aus dem Inneren heraus" mit Builder-Unterstützung weitergebaut werden kann. Relevante Ausgangsdokumente: `docs/S31-CANDIDATES.md`, `docs/HANDOFF-S31.md`, `docs/SESSION-STATE.md`.
 
@@ -202,6 +210,12 @@ Copilot hat überNacht am S34-Endpoint gearbeitet und autonom einen Commit gepus
 
 **Drift 9 — Build-Fehler nicht sofort als Infra abtun (entdeckt in S34).**
 Der S34-Deploy scheiterte dreimal in Folge mit `Exited with status 1`. Mein erster Reflex war: Infrastruktur-Problem, pnpm-Netzwerk, Cache-Flakiness. Das stimmte für den `short read EOF`-Fehler gestern Abend, aber heute morgen war es ein TypeScript-Compile-Fehler (`PUT not assignable to GET|POST|PATCH`). Die Konsequenz: bei jedem Build-Fail **zuerst die tatsächliche Fehlerzeile lesen**, nicht reflexhaft auf Infra tippen. Ein `error TS...` ist immer ein Code-Fehler, egal was drumherum steht.
+
+**Drift 10 — Docs-Drift in Spec-Files (entdeckt in S34-Audit).**
+Während des Dokumentations-Audits in S34 fanden sich mehrere Spec-Dateien, die falsche Behauptungen enthielten. Der schlimmste Fall: `docs/opus-bridge-v4-spec.md` listete fünf Punkte als "noch nicht implementiert" auf — Maya-Routing, Council-Rollen, Agent Profiles, Auto-Retry, Nachdenker — die **alle längst live waren**. Wer die Spec las, ohne den Code zu prüfen, würde in die Irre geführt. Andere Spec-Dokumente (`BUILDER-STUDIO-SPEC-v3.3`, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2`) hingen inhaltlich auf dem Stand vom 11. April, obwohl seitdem mehrere Blöcke gelandet sind. Die Konsequenz: **Spec-Dateien brauchen periodische Audits mit Umsetzungs-Hinweisen**, nicht nur einmalige Freezes. Für neue Specs gilt: Ein "Stand" oder "Umsetzungs-Status"-Feld muss mit jedem relevanten Session-Close gegengeprüft werden. Die 8 in S34 bearbeiteten Docs tragen diese Hinweise jetzt.
+
+**Drift 11 — workerProfiles.ts als Maya-Prompt-Source (entdeckt in S34-Audit).**
+`server/src/lib/workerProfiles.ts` wurde lange als reines Agent-Habitat-Metadatum behandelt — Logging, Briefing, vielleicht UI-Anzeige. Tatsächlich wird das Array `WORKER_PROFILES` in `server/src/routes/builder.ts:919` **direkt in Mayas System-Prompt gerendert**. Das heisst: wenn in workerProfiles das Modell `kimi-k2` steht, obwohl live `kimi-k2.5` läuft, dann erzählt Maya dem User und sich selbst die falsche Wahrheit. Der Drift war nicht kosmetisch. In S34 wurden 4 veraltete Model-IDs + 1 falscher costTier (`deepseek: free` statt `cheap`) gefixt. Neuer Header-Kommentar in der Datei weist auf die Konsistenz-Pflicht zu `POOL_MODEL_MAP` in `poolState.ts` hin — dort ist die Single Source of Truth.
 
 ---
 
