@@ -323,6 +323,52 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Nach Create-Mode und Judge-Hardening ist der naechste enge Hebel keine neue Intelligenzschicht, sondern ein deterministischer Neben-Kontext fuer thematisch benachbarte Dateien.
 - `evidence`: Der Scope-Resolver ist heute deterministisch, aber das nachgelagerte Worker-Briefing kennt noch keine gezielte Related-Files-Anreicherung aus Imports oder Rueckreferenzen.
 
+### Kandidat F6 - File-Scout gegen Scope-Halluzination
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `repo_review`
+- `next_gate`: `proposal`
+- `why_not_now`: `Aktuell hoehere Prioritaet auf S31-False-Positive-Pipeline-Path-Fix (Kandidat F8 sub-thread). F6 wird erst nach S31-Fix sauber umsetzbar.`
+- `non_scope`: neuer LLM-Scout, breiter Resolver-Umbau, LSP-basierte Symbol-Aufloesung
+- `risk`: mittel; ohne diesen Block formuliert der Builder weiter Dateipfade die es so nicht gibt, was zu silent-REPLACE_FAILED und False-Positive-Pipeline-Meldungen beitraegt.
+- `betroffene_bereiche`: `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/builderScopeResolver.ts`, `server/src/lib/builder-repo-index.json`
+- `kurzurteil`: Deterministische Verifikation jedes angefragten Dateipfads gegen den Repo-Index vor dem Workerlauf. Kein Scope-Pfad darf in den Worker-Kontext, ohne dass die Datei wirklich im Index gefunden wurde.
+- `evidence`: Mehrfach beobachtet in S30 und S31: Worker bekommen Scope-Pfade wie `client/src/...` die aber in der Datei-Wahrheit des Repos nicht existieren, der Workflow meldet spaeter `No changes to commit` und beendet gruen.
+
+### Kandidat F7 - Pool-Config-Persistenz ueber DB
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/poolState.ts`, `server/src/schema/builder.ts`, `STATE.md`
+- `kurzurteil`: UI-Pool-Selektionen ueberleben jetzt Render-Deploys und Container-Neustarts. Vorher wurde `activePools` pro Container-Boot aus dem Code-Default geladen, sodass jede UI-Aenderung nach dem naechsten Restart verloren war.
+- `evidence`: S33b-Session hat die `poolState`-Tabelle in Neon angelegt, `initializePoolState()` laedt beim Serverstart die persistierten Pools, `persistPoolsAsync()` schreibt Aenderungen fire-and-forget zurueck. Live verifiziert per Test (Pool-Wechsel -> Redeploy -> Config intakt).
+
+### Kandidat F8 - Session-Log-Endpoint mit SHA-Backfill
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/routes/opusBridge.ts`, `server/src/lib/builderGithubBridge.ts`, `docs/SESSION-LOG.md`, `docs/CLAUDE-CONTEXT.md`
+- `kurzurteil`: Jeder erfolgreiche `/git-push` schreibt automatisch einen strukturierten Eintrag in `docs/SESSION-LOG.md` im selben Commit. Ein Fire-and-forget Follow-up-Commit ersetzt den `pending`-SHA-Marker durch den echten Commit-SHA.
+- `evidence`: S34-Session (2026-04-20) hat den Endpoint live geschaltet und verifiziert: Test-Push c342ddd generierte Log-Eintrag mit `pending`, 2s spaeter kam Follow-up 9c72a6f mit echtem SHA. SHA-Backfill-Commit ist docs-only und loest keinen Render-Deploy aus (paths-ignore in render-deploy.yml). Damit ist die Runtime-Schicht des Anti-Drift-Systems scharf.
+
+### Kandidat F9 - S31 False-Positive Pipeline Path
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `repo_review`
+- `next_gate`: `implementation`
+- `why_not_now`: `Explizit als Haupt-Thread fuer die Session nach S34 empfohlen. Spec komplett ausformuliert in docs/S31-CANDIDATES.md.`
+- `non_scope`: neuer Executor-Pfad, Renderer-Umbau, breiter Workflow-Umbau
+- `risk`: hoch; solange `smartPush` `pushed: true` auf reine Dispatch-Akzeptanz zurueckgibt und die GitHub-Action leere Staged-Diffs als Gruen toleriert, meldet die Pipeline Erfolg ohne realen Commit-Landing.
+- `betroffene_bereiche`: `server/src/lib/opusSmartPush.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `.github/workflows/builder-executor.yml`
+- `kurzurteil`: Drei enge Hebel aus docs/S31-CANDIDATES.md: Schritt A (SHA-Verify in smartPush nach /push-Dispatch), Schritt C (Workflow-Haertung: abort on empty staged diff), Schritt D (orchestrateTask-Status-Treue aus pushed-Realitaet).
+- `evidence`: S30-Befund (2026-04-17) mit Task feat-mo38m9f0-jyy1: Pipeline meldete success, aber nur der regenerateRepoIndex-Folgeauftrag landete, der Haupt-Diff war leer. Inspection-Report in docs/S31-CANDIDATES.md dokumentiert die komplette Root-Cause-Kette.
+
 ### Kandidat G - Provider Truth Sync
 
 - `status`: `active`
