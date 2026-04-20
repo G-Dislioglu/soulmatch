@@ -8,6 +8,8 @@
 > **v2-Änderungen:** userId-Blocker explizit adressiert, Builder-Memory Runtime-Guard
 > ergänzt, ChatGPT-Gegenprüfung dokumentiert (1 Halluzination, 2 echte Korrekturen).
 
+> **Fortschritt seit 11.04.2026 (Stichtag S34, 2026-04-20):** Die meisten "blinden Stellen" aus Abschnitt 1.2 sind inzwischen adressiert. Builder-Memory läuft produktiv mit DB-Tabelle (`builder_agent_profiles`), Memory-Sync nach Task-Abschluss ist aktiv (`updateAgentProfiles()`, `buildAgentBrief()` in Worker-Prompts). Pipeline-Steuerung ist auf Denker-Triade erweitert (Vordenker, Meister-Plan, Worker-Swarm, Nachdenker). Pool-Config-Persistenz über DB (F7, S33). Session-Log mit SHA-Backfill (S34). Offen: Continuity Memory (raumübergreifend), und die im Blueprint vorgeschlagene userId-Einbindung in `POST /api/builder/chat`. Aktueller Code-Stand: siehe `STATE.md` und Handoffs S24–S34.
+
 ---
 
 ## 1. IST-ZUSTAND (verifiziert gegen Repo, 11.04.2026)

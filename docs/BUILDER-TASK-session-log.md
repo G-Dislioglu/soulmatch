@@ -1,3 +1,14 @@
+> **Status: CLOSED** — geliefert in S34 (2026-04-20).
+>
+> Der Endpoint ist live, inklusive SHA-Backfill durch Follow-up-Commit. Die
+> Spec bleibt als historisches Dokument erhalten; die tatsächliche
+> Implementierung steckt in `server/src/routes/opusBridge.ts` (Injection in
+> `/git-push`) und `server/src/lib/builderGithubBridge.ts`
+> (`formatSessionLogEntry`, `buildSessionLogBlob`). Live-Beweis siehe
+> `docs/SESSION-LOG.md` — automatisch gepflegt.
+
+---
+
 # Builder-Task-Spec: /session-log Endpoint
 
 **Zweck:** Automatisches Session-Protokoll, das bei jedem `/git-push` einen Eintrag in `docs/SESSION-LOG.md` anhängt. Bildet die Runtime-Seite des CLAUDE-CONTEXT-Systems ab (siehe `docs/CLAUDE-CONTEXT.md`).

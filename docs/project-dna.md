@@ -17,7 +17,7 @@ SPEZIALISTEN (Berechnungen + Interpretation):
 
 BEGLEITER (Companion-Funktion):
 - Maya — Haupt-Begleiterin, "Casting-Direktorin" im Arcana Studio, provider: gpt-5-nano
-- Orion — männlicher Begleiter, provider: gpt-5-nano
+- Orion — männlicher Begleiter, provider: gpt-5-nano (Being-Umbenennung zu 'Kaya' in `docs/beings/kaya.md` dokumentiert, Code-Rename steht noch aus — erfolgt zusammen mit Maya-Core-Migration)
 - Lilith — provokant aber nie beleidigend, provider: grok-4-1-fast
 
 ## Berechnungs-Engines

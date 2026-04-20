@@ -1,7 +1,16 @@
 # S31 Candidates
 
-- Status: partially adopted; S31 Task 4a implemented and live-probed, false-positive pipeline path still open
+- Status: partially adopted; S31 Task 4a implemented and live-probed, false-positive pipeline path (Schritte A, C, D) still open as of S34 (2026-04-20)
 - Source: external Claude handoff from 2026-04-17, validated against current repo before adoption
+
+## Session-Tracking
+
+- **S31 (2026-04-18):** Task 4a geliefert (Outbound-HTTP-Observability in `server/src/lib/outboundHttp.ts`, `efa5e5e`). Live-Probe landete als `docs/S31-OBSERVABILITY-VERIFIED.md` (`7a4b550`). Atomare Mehrdatei-Commits in `/git-push` via GitHub Git Data API (`363d416` → `ad8abd0`).
+- **S32 (2026-04-19):** Kein direkter Fortschritt am S31-Fix. Parallelarbeit an Beings, Render-Deploy-Optimierung (paths-ignore), Anti-Drift-System Phase 1 (CLAUDE-CONTEXT.md + Session-Close-Template + dieser Spec-Block).
+- **S33 (2026-04-19):** Zhipu-Pool-Konsolidierung + F7 Pool-Config-Persistenz. Kein direkter S31-Fortschritt.
+- **S34 (2026-04-20 morgens):** Session-Log-Endpoint live inkl. SHA-Backfill. Kein direkter S31-Fortschritt.
+
+**Weiterhin offen:** Schritte A (SHA-Verify in `opusSmartPush.ts`), C (Workflow-Härtung in `builder-executor.yml`, Abort bei leerem Diff), D (Orchestrator-Status-Treue). Das ist der explizit empfohlene nächste Block nach S34.
 
 ## Current State
 
