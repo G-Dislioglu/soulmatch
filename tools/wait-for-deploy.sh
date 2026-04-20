@@ -13,6 +13,20 @@
 # Exit codes:
 #   0  — deployment is live and healthy
 #   1  — timed out (10 minutes) without a matching healthy deployment
+#
+# Drift 13 note (2026-04-20):
+#   Two paths resolve to "deployment healthy":
+#     (a) LIVE_COMMIT == EXPECTED_COMMIT (the normal case)
+#     (b) LIVE_COMMIT is a descendant of EXPECTED_COMMIT, i.e. the session-log
+#         backfill hook from S34 pushed a docs-only commit on top of the code
+#         commit. Render auto-deploys the newest head (the backfill), so the
+#         live commit SHA differs from the expected one even though the code
+#         change is live. Without the ancestor check all S35 code commits
+#         (1065cd3, 01e35e2, 8a4317d, 52b7e28) marked the CI workflow as
+#         FAILED after a 10min timeout even though the container ran the new
+#         code. See docs/CLAUDE-CONTEXT.md drift 13 entry.
+#   The ancestor check needs full git history on the runner, so render-deploy.yml
+#   was updated with fetch-depth: 0 in the same commit (859d980).
 
 set -euo pipefail
 

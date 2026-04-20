@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T14:30:07.595Z
+- **Commit:** `pending` — docs(wait-for-deploy): add drift 13 context comment explaining ancestor check (also serves as live-verify probe for 859d980 fix)
+- **Files:** tools/wait-for-deploy.sh
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T14:15:43.544Z
 - **Commit:** `6ca6f0e` — F6 close 2/2: STATE last-completed F6 + next async-persistence/drift13-verify, HANDOFF-S35-F6 full
 - **Files:** STATE.md, docs/HANDOFF-S35-F6.md
