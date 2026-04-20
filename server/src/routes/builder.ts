@@ -24,6 +24,7 @@ import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAct
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
+import { signalPushResult } from '../lib/pushResultWaiter.js';
 import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
@@ -606,7 +607,7 @@ router.delete('/tasks/:id', async (req: Request, res: Response) => {
 // POST /api/builder/tasks/:id/execution-result — GitHub Actions callback
 router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request, res: Response) => {
   try {
-    const { tsc, build, diff, run_id, run_url, commit_hash, committed } = req.body;
+    const { tsc, build, diff, run_id, run_url, commit_hash, committed, reason } = req.body;
     const db = getDb();
     const taskId = req.params.id;
 
@@ -615,18 +616,19 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
       lane: 'code',
       kind: 'GITHUB_ACTION_RESULT',
       actor: 'system',
-      payload: { tsc, build, diff, run_id, run_url },
+      payload: { tsc, build, diff, run_id, run_url, reason },
       result: {
         tsc_ok: tsc === 'true',
         build_ok: build === 'true',
-        committed: committed || false,
+        committed: committed === true,
         commit_hash: commit_hash || null,
+        reason: typeof reason === 'string' ? reason : null,
       },
       tokenCount: 0,
     });
 
-    if (committed && commit_hash) {
-      // Commit-confirmation callback (second call from GitHub Action)
+    if (committed === true && commit_hash) {
+      // Terminaler Erfolgs-Callback: Commit liegt auf main.
       await db
         .update(builderTasks)
         .set({
@@ -640,8 +642,24 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
       await regenerateRepoIndex().catch((regenErr) => {
         console.error('[builder] index refresh after commit callback failed:', regenErr);
       });
+      signalPushResult(taskId, { landed: true, commitHash: commit_hash });
+    } else if (committed === false) {
+      // Terminaler Fehler-Callback aus dem Workflow (empty_staged_diff,
+      // checks_failed, push_conflict_after_3_retries). Der Workflow-Exit
+      // kann trotzdem 0 sein (Legacy-Pfad); für die Bridge-Semantik
+      // zählt allein dieses Signal.
+      await db
+        .update(builderTasks)
+        .set({ status: 'review_needed', updatedAt: new Date() })
+        .where(eq(builderTasks.id, taskId));
+      await syncBuilderMemoryForTask(taskId);
+      signalPushResult(taskId, {
+        landed: false,
+        reason: typeof reason === 'string' && reason.length > 0 ? reason : 'commit_not_landed',
+      });
     } else if (tsc === 'true' && build === 'true') {
-      // Build-result callback (first call from GitHub Action)
+      // Erster Callback nach erfolgreichem Build, Push steht noch aus.
+      // Kein Signal — der zweite Callback mit committed:true|false folgt.
       await db
         .update(builderTasks)
         .set({
@@ -650,7 +668,10 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         })
         .where(eq(builderTasks.id, taskId));
     } else if (tsc || build) {
-      // Build failed
+      // Erster Callback, aber tsc oder build sind nicht 'true' (leer
+      // bedeutet Step davor ist gescheitert, z.B. REPLACE_FAILED im
+      // Apply-Step). Der zweite Callback mit committed:false folgt und
+      // signalisiert dann den konkreten Grund.
       await db
         .update(builderTasks)
         .set({ status: 'review_needed', updatedAt: new Date() })

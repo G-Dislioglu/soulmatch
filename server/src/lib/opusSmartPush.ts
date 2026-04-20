@@ -6,6 +6,14 @@
 import { decideChangeMode } from './opusChangeRouter.js';
 import { applyPatch, PatchEdit } from './opusPatchMode.js';
 import { getAuthUrl } from './opusBridgeConfig.js';
+import { waitForPushResult } from './pushResultWaiter.js';
+
+// Wie lange wir maximal auf den execution-result-Callback aus der
+// GitHub Action warten, bevor wir den Push als nicht-gelandet werten.
+// Begründung: pnpm install + tsc + build + push dauern typischerweise
+// 60-150s, bei Netzwerkproblemen auch länger. 3 Minuten ist ein
+// großzügiges Fenster, das echte Erfolge nicht künstlich wegschneidet.
+const PUSH_CALLBACK_TIMEOUT_MS = 3 * 60 * 1000;
 
 const REPO_OWNER = 'G-Dislioglu';
 const REPO_NAME = 'soulmatch';
@@ -25,6 +33,10 @@ interface SmartPushResult {
   asyncDispatch: boolean;
   error?: string;
   durationMs: number;
+  /** Verified commit SHA if the GitHub Actions run actually landed a commit on main. */
+  commitHash?: string;
+  /** Set to true only after a terminal execution-result callback confirmed the commit. */
+  landed?: boolean;
 }
 
 export async function smartPush(
@@ -55,6 +67,13 @@ export async function smartPush(
     }
   }
 
+  // Tracke die taskIds aus /push-Dispatches, um danach auf
+  // execution-result-Callbacks zu warten. Erst wenn für alle
+  // dispatchten Tasks ein committed:true-Callback eintraf,
+  // werten wir pushed als true.
+  const dispatchedTaskIds: string[] = [];
+  let verifiedCommitHash: string | undefined;
+
   // Overwrites via internal /push endpoint (chunked, via GitHub Action)
   if (overwrites.length > 0) {
     asyncDispatch = true;
@@ -65,7 +84,13 @@ export async function smartPush(
         body: JSON.stringify({ files: overwrites, message }),
       });
       const data = await res.json() as Record<string, unknown>;
-      if (!data.triggered) errors.push(`overwrite push failed: ${JSON.stringify(data)}`);
+      if (!data.triggered) {
+        errors.push(`overwrite push failed: ${JSON.stringify(data)}`);
+      } else if (typeof data.taskId === 'string' && data.taskId.length > 0) {
+        dispatchedTaskIds.push(data.taskId);
+      } else {
+        errors.push('overwrite push: missing taskId in /push response');
+      }
     } catch (e: unknown) {
       errors.push(`overwrite error: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -89,7 +114,13 @@ export async function smartPush(
           body: JSON.stringify({ files: pushFiles, message }),
         });
         const data = await res.json() as Record<string, unknown>;
-        if (!data.triggered) errors.push(`patch-via-push failed for ${job.file}`);
+        if (!data.triggered) {
+          errors.push(`patch-via-push failed for ${job.file}`);
+        } else if (typeof data.taskId === 'string' && data.taskId.length > 0) {
+          dispatchedTaskIds.push(data.taskId);
+        } else {
+          errors.push(`patch-via-push for ${job.file}: missing taskId in /push response`);
+        }
       } catch (e: unknown) {
         errors.push(`patch fallback error: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -99,12 +130,47 @@ export async function smartPush(
     }
   }
 
+  // Jetzt die eigentliche Landung verifizieren.
+  // Wenn Dispatches abgesetzt wurden, warten wir für jede taskId auf ein
+  // terminales execution-result-Signal (committed:true oder reason:*).
+  // Der direkte applyPatch-Pfad ist synchron und braucht keinen Wait —
+  // seine Fehler sind bereits in `errors` gelandet.
+  let landed: boolean | undefined;
+  if (dispatchedTaskIds.length > 0) {
+    const results = await Promise.all(
+      dispatchedTaskIds.map((taskId) =>
+        waitForPushResult(taskId, PUSH_CALLBACK_TIMEOUT_MS).then((r) => ({ taskId, r })),
+      ),
+    );
+    landed = results.every((entry) => entry.r.landed);
+    for (const entry of results) {
+      if (!entry.r.landed) {
+        errors.push(
+          `push did not land for task ${entry.taskId}: ${entry.r.reason ?? 'unknown_reason'}`,
+        );
+      } else if (entry.r.commitHash && !verifiedCommitHash) {
+        verifiedCommitHash = entry.r.commitHash;
+      }
+    }
+  } else if (patchJobs.length > 0 && errors.length === 0) {
+    // Reiner direct-applyPatch-Pfad (synchron). Erfolge bedeuten echte Commits.
+    landed = true;
+  }
+
+  const dispatchesSucceeded = dispatchedTaskIds.length > 0 || patchJobs.length > 0 || overwrites.length > 0;
+  // pushed spiegelt jetzt die Realität: true nur, wenn keine Fehler UND
+  // entweder ein synchroner direct-patch-Erfolg oder eine verifizierte
+  // asynchrone Landung vorliegt.
+  const pushed = errors.length === 0 && (landed !== false) && dispatchesSucceeded;
+
   return {
-    pushed: errors.length === 0,
+    pushed,
     filesCount: files.length,
     modes,
     asyncDispatch,
     error: errors.length > 0 ? errors.join('; ') : undefined,
     durationMs: Date.now() - start,
+    commitHash: verifiedCommitHash,
+    landed,
   };
 }
