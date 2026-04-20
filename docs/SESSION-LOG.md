@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T07:38:50.325Z
-- **Commit:** `pending` — F9 docs close: drift 12 (bridge token no workflows scope), task 8 mostly-done with schritt C pending
+- **Commit:** `5e8131b` — F9 docs close: drift 12 (bridge token no workflows scope), task 8 mostly-done with schritt C pending
 - **Files:** docs/CLAUDE-CONTEXT.md, docs/SESSION-STATE.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
