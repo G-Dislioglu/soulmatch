@@ -1,3 +1,13 @@
+// health.ts
+//
+// F10 (2026-04-20): async_jobs persistence live since commit 851f7ba.
+//   - persistAsyncJobAsync: fire-and-forget UPSERT on every state change
+//   - initializeAsyncJobsCache: loads last 100 jobs from DB on startup
+//   - GET handler: cache-first, DB fallback on miss, rehydrates cache
+//   - analog to F7 pool_state pattern
+// This comment also serves as a deploy-force trigger for F10 live-verify:
+// by touching the file we force a container restart, and the initializeAsyncJobsCache()
+// call at startup is what we want to observe.
 import { Router, type Request, type Response } from 'express';
 import { desc, eq } from 'drizzle-orm';
 import { swissEphemerisProbe } from '../lib/swissEphemerisProbe.js';
