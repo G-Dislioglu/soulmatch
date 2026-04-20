@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-20T13:04:32.726Z
-- **Commit:** `pending` — F6 spec: inspection report + 3 hebel (manualScope index check, regex prefix sanity, phase-report rejections) + akzeptanzkriterium
+- **Commit:** `ba0406f` — F6 spec: inspection report + 3 hebel (manualScope index check, regex prefix sanity, phase-report rejections) + akzeptanzkriterium
 - **Files:** docs/F6-SCOPE-HALLUCINATION-FIX.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
