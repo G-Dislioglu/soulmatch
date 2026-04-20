@@ -83,7 +83,13 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
     return;
   }
 
-  const { instruction, dryRun } = req.body as { instruction?: string; dryRun?: boolean };
+  const { instruction, dryRun, scope, skipDeploy, targetFile } = req.body as {
+    instruction?: string;
+    dryRun?: boolean;
+    scope?: string[];
+    skipDeploy?: boolean;
+    targetFile?: string;
+  };
   if (!instruction?.trim()) {
     res.status(400).json({ error: 'instruction required' });
     return;
@@ -94,7 +100,13 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
   res.json({ status: 'accepted', jobId: id });
 
   void import('../lib/opusTaskOrchestrator.js')
-    .then(({ orchestrateTask }) => orchestrateTask({ instruction, dryRun: Boolean(dryRun) }))
+    .then(({ orchestrateTask }) => orchestrateTask({
+      instruction,
+      dryRun: Boolean(dryRun),
+      scope,
+      skipDeploy: Boolean(skipDeploy),
+      targetFile,
+    }))
     .then((result) => {
       const job = asyncOpusJobs.get(id);
       if (job) {
