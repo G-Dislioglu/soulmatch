@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-20T13:04:32.726Z
+- **Commit:** `pending` — F6 spec: inspection report + 3 hebel (manualScope index check, regex prefix sanity, phase-report rejections) + akzeptanzkriterium
+- **Files:** docs/F6-SCOPE-HALLUCINATION-FIX.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T12:40:59.416Z
 - **Commit:** `73b5432` — F9 close 2/2: STATE last-completed F9-komplett + next F6, HANDOFF acceptance test appendix
 - **Files:** STATE.md, docs/HANDOFF-S35-F9.md
