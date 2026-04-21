@@ -5,6 +5,7 @@ import { executeTask, type ExecuteInput, type ExecuteResult } from './opusBridge
 import { getDeployStatus, type DeployInfo } from './opusRenderBridge.js';
 import { selfVerify, type SelfTestCheck, type SelfTestResult } from './opusSelfTest.js';
 import { generateErrorCard } from './opusErrorLearning.js';
+import { outboundFetch } from './outboundHttp.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const OPUS_TOKEN = 'opus-bridge-2026-geheim';
@@ -12,7 +13,7 @@ const OPUS_TOKEN = 'opus-bridge-2026-geheim';
 // Internal call to auto-approve a review_needed task (triggers GitHub commit)
 async function autoApproveTask(taskId: string): Promise<{ approved: boolean; error?: string }> {
   try {
-    const res = await fetch(
+    const res = await outboundFetch(
       `http://localhost:${PORT}/api/builder/opus-bridge/override/${taskId}?opus_token=${OPUS_TOKEN}`,
       {
         method: 'POST',
