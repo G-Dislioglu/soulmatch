@@ -7,6 +7,7 @@ import { decideChangeMode } from './opusChangeRouter.js';
 import { applyPatch, PatchEdit } from './opusPatchMode.js';
 import { getAuthUrl } from './opusBridgeConfig.js';
 import { waitForPushResult } from './pushResultWaiter.js';
+import { outboundFetch } from './outboundHttp.js';
 
 // Wie lange wir maximal auf den execution-result-Callback aus der
 // GitHub Action warten, bevor wir den Push als nicht-gelandet werten.
@@ -78,7 +79,7 @@ export async function smartPush(
   if (overwrites.length > 0) {
     asyncDispatch = true;
     try {
-      const res = await fetch(getAuthUrl('/push'), {
+      const res = await outboundFetch(getAuthUrl('/push'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: overwrites, message }),
@@ -108,7 +109,7 @@ export async function smartPush(
           search: p.search,
           replace: p.replace,
         }));
-        const res = await fetch(getAuthUrl('/push'), {
+        const res = await outboundFetch(getAuthUrl('/push'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ files: pushFiles, message }),
