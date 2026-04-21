@@ -143,6 +143,11 @@ drift_watchlist:
     wrong: phrase_verify_as_completed_without_explicit_evidence_class
     right: every_verify_claim_in_handoff_must_mark_evidence_class_code_review_verified_logical_derivation_e2e_tested_or_live_measured_timepoint
     severity: low_open_precision
+  - id: studio_json_parse_preexisting
+    drift_number: 16
+    wrong: treat_studio_json_parse_error_as_migration_side_effect
+    right: preexisting_bug_in_studio_route_json_parsing_confirmed_via_baseline_worktree_on_285dedb_needs_separate_tracking
+    severity: medium_open_bug
 ---
 
 # CLAUDE-CONTEXT — soulmatch
