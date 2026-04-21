@@ -4,6 +4,8 @@
  * No structured-output schema — expects free JSON or plain text responses.
  */
 
+import { outboundFetch, type OutboundFetchInit, type OutboundFetchResponse } from './outboundHttp.js';
+
 interface ProviderEndpoint {
   apiUrl: string;
   envKey: string;
@@ -73,13 +75,13 @@ function isRetryableTransportError(error: unknown): boolean {
   return /wsasend|forcibly closed|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|unreachable|network|fetch failed|unavailable/i.test(message);
 }
 
-async function fetchWithRetries(url: string, init: RequestInit, provider: string): Promise<Response> {
+async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: string): Promise<OutboundFetchResponse> {
   const maxAttempts = RETRY_DELAY_MS.length + 1;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const response = await fetch(url, {
+      const response = await outboundFetch(url, {
         ...init,
         signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
