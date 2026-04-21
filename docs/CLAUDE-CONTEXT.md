@@ -138,6 +138,11 @@ drift_watchlist:
     wrong: assume_bridge_push_always_writes_to_the_declared_path
     right: historical_bridge_push_bug_wrote_a_file_as_slash_undefined_in_repo_root_instead_of_the_given_path_commit_6ff65f9_S23_handoff_restored_at_correct_path_in_S35_de90e6a_undefined_file_still_in_root_needs_git_rm_cleanup
     severity: low_historical_residue
+  - id: handoff_verify_evidence_class
+    drift_number: 15
+    wrong: phrase_verify_as_completed_without_explicit_evidence_class
+    right: every_verify_claim_in_handoff_must_mark_evidence_class_code_review_verified_logical_derivation_e2e_tested_or_live_measured_timepoint
+    severity: low_open_precision
 ---
 
 # CLAUDE-CONTEXT — soulmatch
