@@ -45,6 +45,10 @@ export interface OpusTaskResult {
   totalDurationMs: number;
   summary: string;
   edits?: EditEnvelope;
+  /** True only if dispatches landed on main (verified by pushResultWaiter). Undefined for synchronous direct-patch path where landing equals success. */
+  landed?: boolean;
+  /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
+  verifiedCommit?: string;
 }
 
 interface PhaseResult {
@@ -202,7 +206,15 @@ async function runWorkerSwarm(
 
 async function pushEdits(
   envelope: EditEnvelope, instruction: string,
-): Promise<{ pushed: boolean; filesCount: number; asyncDispatch: boolean; error?: string; durationMs: number }> {
+): Promise<{
+  pushed: boolean;
+  filesCount: number;
+  asyncDispatch: boolean;
+  error?: string;
+  durationMs: number;
+  landed?: boolean;
+  verifiedCommit?: string;
+}> {
   const start = Date.now();
   try {
     const files = envelope.edits.map((edit) =>
@@ -211,7 +223,15 @@ async function pushEdits(
         : { file: edit.path, mode: edit.mode, content: edit.content ?? '' },
     );
     const result = await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`);
-    return { pushed: result.pushed, filesCount: files.length, asyncDispatch: result.asyncDispatch, error: result.error, durationMs: Date.now() - start };
+    return {
+      pushed: result.pushed,
+      filesCount: files.length,
+      asyncDispatch: result.asyncDispatch,
+      error: result.error,
+      durationMs: Date.now() - start,
+      landed: result.landed,
+      verifiedCommit: result.commitHash,
+    };
   } catch (e: unknown) {
     return { pushed: false, filesCount: 0, asyncDispatch: false, error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - start };
   }
@@ -374,7 +394,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     phases.push({ phase: 'push', status: push.pushed ? 'ok' : 'error', durationMs: push.durationMs, detail: push });
     if (!push.pushed) {
       return { status: 'partial', runId, phases, edits: best,
-        totalDurationMs: Date.now() - totalStart, summary: `Push failed: ${push.error}` };
+        totalDurationMs: Date.now() - totalStart,
+        summary: `Push failed: ${push.error}`,
+        landed: push.landed,
+        verifiedCommit: push.verifiedCommit,
+      };
     }
   }
 
@@ -415,9 +439,13 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   }
 
   const allOk = phases.every(p => p.status === 'ok' || p.status === 'skipped');
+  const pushPhase = phases.find((phase) => phase.phase === 'push');
+  const pushDetail = pushPhase?.detail as { landed?: boolean; verifiedCommit?: string } | undefined;
   return {
     status: allOk ? 'success' : 'partial', runId, phases, edits: best,
     totalDurationMs: Date.now() - totalStart,
     summary: `${allOk ? '✅' : '⚠️'} ${Math.round((Date.now() - totalStart) / 1000)}s | ${best.worker} | ${best.edits.map(e => e.path).join(', ')}`,
+    landed: pushDetail?.landed,
+    verifiedCommit: pushDetail?.verifiedCommit,
   };
 }

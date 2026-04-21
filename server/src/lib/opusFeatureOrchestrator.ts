@@ -22,6 +22,8 @@ export interface OpusFeatureResult {
   summary: string;
   preflight?: OpusTaskResult;
   execution?: OpusTaskResult;
+  landed?: boolean;
+  verifiedCommit?: string;
 }
 
 interface FeatureContext {
@@ -179,5 +181,7 @@ export async function orchestrateFeature(input: OpusFeatureInput): Promise<OpusF
     summary: execution.summary,
     ...(preflight ? { preflight } : {}),
     execution,
+    landed: execution.landed,
+    verifiedCommit: execution.verifiedCommit,
   };
 }
