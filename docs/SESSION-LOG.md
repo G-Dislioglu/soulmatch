@@ -1,7 +1,7 @@
 # SESSION LOG
 
 ## 2026-04-21T17:34:16.856Z
-- **Commit:** `pending` — docs: add post-push protocol and terminal self-detection to agents
+- **Commit:** `809a474` — docs: add post-push protocol and terminal self-detection to agents
 - **Files:** AGENTS.md
 - **Task:** n/a
 - **Pushed by:** opus-bridge
