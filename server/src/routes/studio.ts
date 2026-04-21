@@ -9,6 +9,7 @@ import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioA
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 import { getProviderForPersona, getPersonaDefinition, shouldUseDeepMode } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
+import { outboundFetch } from '../lib/outboundHttp.js';
 import { generateTTS, generateTTSFastFirst } from '../lib/ttsService.js';
 import { handleDeepModeRequest } from '../lib/deepModeHandler.js';
 import { getDb, profiles } from '../db.js';
@@ -141,7 +142,7 @@ function withSriFallbackText(text: string, personaId?: string): string {
 
 async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const resp = await fetch(url, {
+  const resp = await outboundFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -239,7 +240,7 @@ function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | 
 }
 
 async function callOpenAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
-  const resp = await fetch(PROVIDER_CONFIGS.openai.apiUrl, {
+  const resp = await outboundFetch(PROVIDER_CONFIGS.openai.apiUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -297,7 +298,7 @@ async function callChatCompletions(
   userPrompt: string,
   opts?: { temperature?: number; extraUserInstruction?: string; maxTokens?: number }
 ) {
-  const resp = await fetch(config.apiUrl, {
+  const resp = await outboundFetch(config.apiUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -983,7 +984,7 @@ studioRouter.get('/openai-test', async (_req: Request, res: Response) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set' }); return; }
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    const r = await outboundFetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
