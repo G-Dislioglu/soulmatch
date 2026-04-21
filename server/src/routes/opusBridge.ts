@@ -1965,6 +1965,19 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       })),
       branch: targetBranch,
       message: commitMessage,
+      postPushReview: {
+        commitSha: commit.sha,
+        pushTimestamp: new Date().toISOString(),
+        anchors: [
+          `https://raw.githubusercontent.com/${repo}/${commit.sha}/STATE.md`,
+          `https://raw.githubusercontent.com/${repo}/${commit.sha}/RADAR.md`,
+          `https://raw.githubusercontent.com/${repo}/${commit.sha}/docs/CLAUDE-CONTEXT.md`,
+          `https://raw.githubusercontent.com/${repo}/${commit.sha}/docs/SESSION-STATE.md`,
+        ],
+        changedFiles: normalizedFiles
+          .filter((file) => !file.delete)
+          .map((file) => `https://raw.githubusercontent.com/${repo}/${commit.sha}/${file.file}`),
+      },
     });
 
     // Session-Log-SHA-Nachzug: nach erfolgreichem Hauptcommit den `pending`-Marker
