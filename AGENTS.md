@@ -135,6 +135,52 @@ Wenn die Aufgabe eine Review ist:
 - Wenn Voice-/Audio betroffen ist, zusaetzlich die Eventkette im Code verfolgen und relevante Tests beachten.
 - Wenn Tests nicht gelaufen sind oder nicht laufen konnten, das explizit sagen.
 
+### Selbst-Erkennung bei haengenden Tools
+
+Wenn ein Terminal-Command nach 30 Sekunden keine Ausgabe zeigt, sofort stoppen und einen alternativen Weg nehmen.
+
+Typische Faelle:
+
+- stille TypeScript-Pruefungen (tsc ohne Fehler liefert keinen Fortschritt)
+- HTTP-Calls mit haengender DNS-Aufloesung
+- Node-Inline-Scripts mit blockierten Event-Loops
+
+`| head -20` nicht als Fortschrittsanzeige fuer stille Tools verwenden — ohne Fehloutput bleibt der Prozess scheinbar stehen. Bei Unsicherheit: expliziten Timeout setzen (`curl --max-time 10`, `timeout 30 <command>`) statt blind warten.
+
+## Post-Push-Protokoll fuer externe KI-Reviews
+
+Nach jedem erfolgreichen `git push` immer zusaetzlich einen Raw-URL-Block ausgeben. Zweck: Externe Reviewer (ChatGPT, Codex, Web-KIs) bekommen frische Anker-URLs mit verifiziertem Commit-Hash statt aus dem Chat-Gedaechtnis rekonstruierter Angaben. Dies adressiert direkt Drift 15 (handoff_verify_evidence_class).
+
+Pflichtablauf:
+
+1. frischen Commit-Hash holen mit `git rev-parse HEAD`
+2. geaenderte Dateien des letzten Push-Commits holen mit `git diff --name-only HEAD~1 HEAD`
+3. folgenden Block ausgeben:
+
+```
+# URLs fuer externe KI-Reviews
+
+Aktueller Commit: {COMMIT_HASH}
+Push-Zeitpunkt: {ISO_TIMESTAMP}
+
+## Immer zuerst lesen
+- https://raw.githubusercontent.com/G-Dislioglu/soulmatch/{COMMIT_HASH}/STATE.md
+- https://raw.githubusercontent.com/G-Dislioglu/soulmatch/{COMMIT_HASH}/RADAR.md
+- https://raw.githubusercontent.com/G-Dislioglu/soulmatch/{COMMIT_HASH}/docs/CLAUDE-CONTEXT.md
+- https://raw.githubusercontent.com/G-Dislioglu/soulmatch/{COMMIT_HASH}/docs/SESSION-STATE.md
+
+## Geaenderte Dateien in diesem Push
+{LISTE DER GEAENDERTEN DATEIEN ALS RAW-URLs}
+```
+
+Regeln:
+
+- diesen Block immer nach einem Push ausgeben, ohne Aufforderung
+- Commit-Hash immer frisch holen, nie aus dem Gedaechtnis einsetzen
+- Push-Zeitpunkt als ISO-Timestamp mitliefern (Evidenz-Klasse gemaess Drift 15)
+- keine nicht existierenden Dateien auflisten
+- wenn kein Push stattfindet, keinen URL-Block ausgeben
+
 ## Externe Referenzen und Web-KI-Reviews
 
 Wenn externe Review-Strukturen genutzt werden:

@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-21T17:34:16.856Z
+- **Commit:** `pending` — docs: add post-push protocol and terminal self-detection to agents
+- **Files:** AGENTS.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-20T19:47:37.436Z
 - **Commit:** `b791aed` — F12 close 2/2: STATE last-completed F12 + next kandidaten (PURPOSE-kommentare, zirkulaer, F13-mcp, konvention), HANDOFF-S35-F12 full
 - **Files:** STATE.md, docs/HANDOFF-S35-F12.md
