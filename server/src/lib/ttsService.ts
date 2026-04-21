@@ -2,6 +2,7 @@ import type { AccentKey, GeminiVoiceName, VoiceConfig } from '../shared/types/pe
 import { buildTtsPrompt } from './voicePromptBuilder.js';
 import { ACCENT_CATALOG, SYSTEM_PERSONA_VOICES, VOICE_CATALOG } from './voiceCatalog.js';
 import { getPersonaVoice, getPersonaVoiceDirector } from './personaVoices.js';
+import { outboundFetch } from './outboundHttp.js';
 
 export interface TTSResult {
   audioBuffer: Buffer;
@@ -300,7 +301,7 @@ export async function generateTTSFastFirst(
 
 async function geminiPreviewTTS(text: string, voiceName: string, apiKey: string, directorPrompt: string): Promise<TTSResult> {
   const promptText = directorPrompt ? `${directorPrompt}\n\nText:\n${text}` : text;
-  const response = await fetch(
+  const response = await outboundFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
     {
       method: 'POST',
@@ -337,7 +338,7 @@ async function geminiPreviewTTS(text: string, voiceName: string, apiKey: string,
 }
 
 async function openaiTTS(text: string, voice: OpenAiTtsVoice, apiKey: string): Promise<TTSResult> {
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+  const response = await outboundFetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
