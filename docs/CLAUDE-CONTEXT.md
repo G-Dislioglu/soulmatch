@@ -3,8 +3,8 @@ file_type: claude_context_anchor
 repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
-last_updated: 2026-04-20
-last_session: S35_F12_complete
+last_updated: 2026-04-21
+last_session: S35_F14_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -52,6 +52,21 @@ active_threads:
     priority: closed_S35_F12
     description: F12 komplett geschlossen am 2026-04-20 spaetabends. Vierter Endpoint unter /api/context/architecture-digest — deterministischer strukturierter Repo-Aufbau. Neue Lib server/src/lib/architectureDigest.ts mit Module-/Route-/DB-Parsern und statischen cross_repos/conventions-Blocks. 5-Min-In-Memory-Cache, optionaler sections-Filter. Copilot hat drei Korrekturen gegen den urspruenglichen Prompt eingezogen (alle berechtigt): Modul-dependencies aus allen .ts/.tsx-Dateien pro Modul statt nur index.ts, Routes aus realen app.use-Mounts statt Spec-Beispielen, DB-Tabellen auch aus db.ts und arcana.ts. Live-Verify: 19 Module mit echten depends_on/used_by, 16 Routes mit Subrouter-Erkennung, 18 DB-Tabellen in 3 Gruppen. sections-Filter spart 70% Tokens. Cache greift. Ab jetzt haben alle KIs (Claude, Maya-Builder, Worker) strukturiertes Architektur-Wissen in einem Tool-Call.
     entry_point: docs/HANDOFF-S35-F12.md
+  - id: outbound_http_hardening_day1
+    status: done
+    priority: closed_2026_04_21
+    description: 5 Hotspots (providers.ts, ttsService.ts, opusSmartPush.ts, opusBuildPipeline.ts, studio.ts direkte fetch-Pfade) durch outboundFetch-Wrapper konsolidiert. Atomare Commits 064ae64, 597330a, 2802474, 98be430, 8b2218a. Live-measured via /discuss TTS-Pfad (Gemini audio/wav vorhanden). 26 direkte fetch-Stellen verbleiben, spaeter als S31-Block. Studio-JSON-Parse-Bug Drift 16 wurde dabei isoliert und als pre-existing bestaetigt (Baseline-Worktree auf 285dedb reproduziert denselben Fehler).
+    entry_point: chat_2026_04_21
+  - id: builder_F13_pipeline_observability
+    status: done
+    priority: closed_S35_F13
+    description: F13 komplett geschlossen am 2026-04-21 abends. OpusTaskResult und OpusFeatureResult um landed und verifiedCommit erweitert. Werte werden aus dem bereits verifizierten smartPush-Push-Detail durchgereicht (F9-Callback-Infrastruktur existiert seit S35-F9). Kein Verhalten-Change, nur Evidenz-Transparenz fuer Caller. Commit d07b322 live. Evidenz-Klasse code-review-verified und compiled-verified; Runtime-Serialisierung pending bei erstem non-dry-run /opus-feature Async-Pfad (dry_run serialisiert undefined-Felder nicht). Adressiert Drift 15 auf Code-Contract-Ebene.
+    entry_point: chat_2026_04_21
+  - id: builder_F14_post_push_review
+    status: done
+    priority: closed_S35_F14
+    description: F14 komplett geschlossen am 2026-04-21 abends. /git-push Success-Response enthaelt jetzt postPushReview-Block mit commitSha, pushTimestamp (ISO), anchors (4 Raw-URLs fuer STATE, RADAR, CLAUDE-CONTEXT, SESSION-STATE), changedFiles (Raw-URLs, keine deleted files). Automatisiert die AGENTS.md Post-Push-Protokoll-Regel (eingefuehrt in 809a474). Commits 954792c (Feature) und f4dcb22 (Self-Applying-Test). F14-Verify live-measured: Test-Push gegen /git-push zeigte vollen postPushReview-Block in Response. Erster Runtime-verifizierter Evidenz-Block der nicht manuell aus Chat-Gedaechtnis rekonstruiert wurde.
+    entry_point: chat_2026_04_21
   - id: session_log_endpoint
     status: done
     priority: closed_S34
