@@ -1,5 +1,5 @@
-export type PersonaTier = 'companion' | 'specialist' | 'meta';
-export type ProviderName = 'openai' | 'deepseek' | 'xai' | 'gemini';
+export type PersonaTier = 'companion' | 'specialist' | 'meta' | 'thinker';
+export type ProviderName = 'openai' | 'deepseek' | 'xai' | 'gemini' | 'anthropic' | 'zhipu' | 'openrouter';
 
 export interface PersonaProviderConfig {
   provider: ProviderName;
@@ -40,6 +40,16 @@ export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
   sibyl:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
   amara:      { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'specialist' },
   echo_prism: { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'meta' },
+  thinker_opus:      { provider: 'anthropic', model: 'claude-opus-4-7', tier: 'thinker' },
+  thinker_sonnet:    { provider: 'anthropic', model: 'claude-sonnet-4-6', tier: 'thinker' },
+  thinker_gpt54:     { provider: 'openai', model: 'gpt-5.4', tier: 'thinker' },
+  thinker_grok:      { provider: 'xai', model: 'grok-4-1-fast', tier: 'thinker' },
+  thinker_deepseek:  { provider: 'deepseek', model: 'deepseek-chat', tier: 'thinker' },
+  thinker_deepseek_r:{ provider: 'deepseek', model: 'deepseek-reasoner', tier: 'thinker' },
+  thinker_glm_turbo: { provider: 'zhipu', model: 'glm-5-turbo', tier: 'thinker' },
+  thinker_minimax:   { provider: 'openrouter', model: 'minimax/minimax-m2.7', tier: 'thinker' },
+  thinker_kimi:      { provider: 'openrouter', model: 'moonshotai/kimi-k2.5', tier: 'thinker' },
+  thinker_qwen:      { provider: 'openrouter', model: 'qwen/qwen3.6-plus', tier: 'thinker' },
 };
 
 export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
@@ -108,6 +118,66 @@ export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
     icon: '◈', color: '#e2e8f0',
     personality: 'Übergeordnet, synthetisierend. Verbindet alle Perspektiven zu einem Gesamtbild.',
     tier: 'meta',
+  },
+  thinker_opus: {
+    id: 'thinker_opus', name: 'Opus 4.7', title: 'Thinker · Anthropic',
+    icon: '◆', color: '#c4814a',
+    personality: 'Anthropic Claude Opus 4.7. Tiefes Reasoning, großer Kontext, adaptive thinking.',
+    tier: 'thinker',
+  },
+  thinker_sonnet: {
+    id: 'thinker_sonnet', name: 'Sonnet 4.6', title: 'Thinker · Anthropic',
+    icon: '◇', color: '#e8a87c',
+    personality: 'Anthropic Claude Sonnet 4.6. Schnell und kosteneffizient mit starker Allround-Leistung.',
+    tier: 'thinker',
+  },
+  thinker_gpt54: {
+    id: 'thinker_gpt54', name: 'GPT-5.4', title: 'Thinker · OpenAI',
+    icon: '◎', color: '#10a37f',
+    personality: 'OpenAI GPT-5.4. Vielseitig, breites Weltwissen, ausgewogene Problemlösung.',
+    tier: 'thinker',
+  },
+  thinker_grok: {
+    id: 'thinker_grok', name: 'Grok 4.1', title: 'Thinker · xAI',
+    icon: '◉', color: '#ff1744',
+    personality: 'xAI Grok 4.1 Fast. Schnell, direkt und oft mit unkonventionellen Blickwinkeln.',
+    tier: 'thinker',
+  },
+  thinker_deepseek: {
+    id: 'thinker_deepseek', name: 'DeepSeek Chat', title: 'Thinker · DeepSeek',
+    icon: '◈', color: '#1e5fd9',
+    personality: 'DeepSeek Chat. Präzise, effizient und stark im Preis-Leistungs-Verhältnis.',
+    tier: 'thinker',
+  },
+  thinker_deepseek_r: {
+    id: 'thinker_deepseek_r', name: 'DeepSeek-R', title: 'Thinker · DeepSeek',
+    icon: '◐', color: '#3a7fd9',
+    personality: 'DeepSeek Reasoner. Explizites Denken und gute Zerlegung komplexer Logik.',
+    tier: 'thinker',
+  },
+  thinker_glm_turbo: {
+    id: 'thinker_glm_turbo', name: 'GLM-Turbo', title: 'Thinker · Zhipu',
+    icon: '◒', color: '#7a3cbe',
+    personality: 'Zhipu GLM-5-Turbo. Großer Kontext, schnelle Antworten, moderner Generalist.',
+    tier: 'thinker',
+  },
+  thinker_minimax: {
+    id: 'thinker_minimax', name: 'MiniMax M2.7', title: 'Thinker · MiniMax',
+    icon: '◓', color: '#ff6b35',
+    personality: 'MiniMax M2.7 via OpenRouter. Langer Kontext und gute Agent-Workflow-Eignung.',
+    tier: 'thinker',
+  },
+  thinker_kimi: {
+    id: 'thinker_kimi', name: 'Kimi K2.5', title: 'Thinker · Moonshot',
+    icon: '◔', color: '#ff9800',
+    personality: 'Moonshot Kimi K2.5 via OpenRouter. Sehr langer Kontext mit Fokus auf Long-Form.',
+    tier: 'thinker',
+  },
+  thinker_qwen: {
+    id: 'thinker_qwen', name: 'Qwen 3.6+', title: 'Thinker · Alibaba',
+    icon: '◕', color: '#00a86b',
+    personality: 'Alibaba Qwen 3.6 Plus via OpenRouter. Stark in mehrsprachiger Verarbeitung.',
+    tier: 'thinker',
   },
 };
 
