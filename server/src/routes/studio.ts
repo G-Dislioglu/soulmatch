@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { STUDIO_RESULT_SCHEMA } from '../studioSchema.js';
-import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt, buildDiscussPrompt, SRI_CONFIG } from '../studioPrompt.js';
+import { buildSystemPrompt, buildSoloSystemPrompt, buildUserPrompt, buildOraclePrompt, buildDiscussPrompt, buildMayaSynthesisPrompt, SRI_CONFIG } from '../studioPrompt.js';
 import type { LilithIntensity, OracleQuestionType } from '../studioPrompt.js';
 import { devLogger } from '../devLogger.js';
 import { applyNarrativeGate } from '../lib/studioQuality.js';
@@ -1516,6 +1516,67 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
       devLogger.error('llm', 'Memory extraction failed', { error: String(e), userId });
     }
   }
+
+  // --- Master-Piece Synthesis Pass ---
+  // Triggered when maya + 2 or more thinker_* personas are in the round.
+  const thinkerResponses = responses.filter(
+    (r) => r.persona.startsWith('thinker_') && r.text && r.text.length > 0,
+  );
+  const mayaRoundResponse = responses.find((r) => r.persona === 'maya');
+  const isMasterPieceRound = thinkerResponses.length >= 2 && !!mayaRoundResponse;
+
+  if (isMasterPieceRound && !isRoundCanceled()) {
+    try {
+      const thinkerSummary = thinkerResponses
+        .map((r) => `${getPersonaDefinition(r.persona).name}: ${r.text.trim()}`)
+        .join('\n\n');
+
+      const synthesisSystemPrompt = buildMayaSynthesisPrompt({
+        userMessage: body.message,
+        topic: body.topic,
+        mayaOpeningTurn: mayaRoundResponse.text,
+        thinkerContributions: thinkerSummary,
+      });
+
+      const mayaProviderConfig = getProviderForPersona('maya');
+      const rawSynthesis = await callProvider(
+        mayaProviderConfig.provider,
+        mayaProviderConfig.model,
+        {
+          system: synthesisSystemPrompt,
+          messages: [{ role: 'user', content: 'Fasse die Runde zusammen.' }],
+          temperature: 0.6,
+          forceJsonObject: false,
+        },
+        body.clientApiKey,
+      );
+
+      const cleanSynthesis = extractCleanText(rawSynthesis);
+
+      if (cleanSynthesis && cleanSynthesis.length > 0) {
+        const synthesisResponse: PersonaResponse = {
+          persona: 'maya_synthesis',
+          text: cleanSynthesis,
+          color: '#d4af37',
+          provider: mayaProviderConfig.provider,
+          model: mayaProviderConfig.model,
+          meta: { kind: 'synthesis' },
+        };
+        responses.push(synthesisResponse);
+
+        if (wantsStream) {
+          sendSseEvent({ type: 'persona', response: synthesisResponse });
+        }
+      }
+    } catch (err) {
+      devLogger.error('llm', 'Maya synthesis pass failed', {
+        error: String(err),
+        userId,
+      });
+      // Synthesis failure is not fatal — round is returned without synthesis.
+    }
+  }
+  // --- End Master-Piece Synthesis Pass ---
 
   const result: DiscussResponse = {
     responses,

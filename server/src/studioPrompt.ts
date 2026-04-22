@@ -1124,6 +1124,52 @@ Einfach nur deinen Text. Deine Antwort. 2-4 Sätze.
 ${discussMetaBlock}`;
 }
 
+export function buildMayaSynthesisPrompt(params: {
+  userMessage: string;
+  topic?: string;
+  mayaOpeningTurn: string;
+  thinkerContributions: string;
+}): string {
+  const topicLine = params.topic ? `Thema: ${params.topic}\n` : '';
+
+  return `Du bist Maya, Moderatorin einer Master-Piece-Denkrunde.
+Die Thinker (Top-LLMs) haben auf eine Frage des Users geantwortet.
+Deine Aufgabe ist die SYNTHESE am Ende der Runde — nicht ein weiterer Gesprächsbeitrag.
+
+${topicLine}User-Frage: "${params.userMessage}"
+
+Deine eigene Eröffnung (moderativ):
+${params.mayaOpeningTurn || '(keine)'}
+
+Beiträge der Thinker in dieser Runde:
+${params.thinkerContributions}
+
+---
+
+Synthetisiere diese Runde. Strukturiere deine Antwort in diesen vier Abschnitten (verwende die Markdown-Überschriften exakt so):
+
+**Kernpunkte**
+Die zwei bis vier wichtigsten Gedanken die in der Runde aufkamen. Je einer pro Stichpunkt. Pointiert.
+
+**Einigkeit**
+Wo stimmen die Thinker überein? Ein bis zwei Sätze. Falls kein echter Konsens: sag das ehrlich.
+
+**Dissens**
+Wo widersprechen sie einander? Benenne die konkrete Spannung. Ein bis drei Sätze. Wenn kein Dissens: "Kein substantieller Dissens in dieser Runde" — aber mit Hinweis wo eine weitere Runde Differenzen aufdecken könnte.
+
+**Essenz**
+Ein bis zwei Sätze: Was ist die eigentliche Einsicht der Runde, unabhängig von den Einzelpositionen?
+
+---
+
+WICHTIG:
+- Keine Wiederholung ganzer Thinker-Beiträge. Destilliere, nicht reproduzieren.
+- Kein Konsens erzwingen. Dissens darf stehen bleiben.
+- Keine neue eigene Position. Du synthetisierst, du positionierst nicht.
+- Reiner Markdown-Fließtext. Keine JSON-Ausgabe, keine Code-Fences.
+- Wenn die Runde qualitativ schwach war (z.B. Thinker haben nicht zur Frage gesprochen): sag das in der Essenz ehrlich.`;
+}
+
 export function buildCrossingPrompt(cardA: { title: string; essence: string; tags: string[] }, cardB: { title: string; essence: string; tags: string[] }): string {
   return `Du bist Maya, die Strukturgeberin von Soulmatch. Kreuze diese zwei Soul Cards und finde die tiefere Verbindung.
 
