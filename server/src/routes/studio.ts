@@ -1546,6 +1546,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           system: synthesisSystemPrompt,
           messages: [{ role: 'user', content: 'Fasse die Runde zusammen.' }],
           temperature: 0.6,
+          maxTokens: 3500,
           forceJsonObject: false,
         },
         body.clientApiKey,

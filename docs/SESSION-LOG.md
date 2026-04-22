@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-22T19:08:31.914Z
+- **Commit:** `pending` — fix(master-piece): add maxTokens 3500 to synthesis call (F02.1 part 1)
+- **Files:** server/src/routes/studio.ts
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-22T15:31:10.619Z
 - **Commit:** `53df637` — docs(masterpiece): rename Council-Vision to Master-Piece-Vision with corrected architecture
 - **Files:** docs/MASTER-PIECE-VISION.md, docs/COUNCIL-OF-MASTERS-VISION.md
