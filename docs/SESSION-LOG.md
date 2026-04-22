@@ -1,5 +1,12 @@
 # SESSION LOG
 
+## 2026-04-22T15:30:55.215Z
+- **Commit:** `pending` — docs(masterpiece): rename Council-Vision to Master-Piece-Vision with corrected architecture
+- **Files:** docs/MASTER-PIECE-VISION.md, docs/COUNCIL-OF-MASTERS-VISION.md
+- **Task:** n/a
+- **Pushed by:** opus-bridge
+---
+
 ## 2026-04-22T13:30:03.441Z
 - **Commit:** `c3bbab4` — docs(council): add Council of Masters vision anchor
 - **Files:** docs/COUNCIL-OF-MASTERS-VISION.md
