@@ -1621,7 +1621,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           totalDurationMs: Date.now() - startTime,
         });
       } catch (err) {
-        devLogger.error('llm', 'Master-Piece telemetry logging failed', {
+        devLogger.error('masterpiece', 'Master-Piece telemetry logging failed', {
           error: String(err),
           userId,
         });

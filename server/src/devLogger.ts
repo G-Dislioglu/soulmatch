@@ -1,5 +1,5 @@
 export type LogLevel = 'info' | 'warn' | 'error';
-export type LogCategory = 'llm' | 'api' | 'system' | 'client';
+export type LogCategory = 'llm' | 'api' | 'system' | 'client' | 'masterpiece';
 
 export interface LogEntry {
   id: number;

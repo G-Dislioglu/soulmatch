@@ -53,5 +53,5 @@ export function logMasterPieceRound(
     totalDurationMs: metrics.totalDurationMs,
   };
 
-  devLogger.info('llm', 'Master-Piece round telemetry', payload);
+  devLogger.info('masterpiece', 'Master-Piece round telemetry', payload);
 }
