@@ -9,6 +9,7 @@ import { buildStudioAnchors, renderAnchorInstructionBlock } from '../lib/studioA
 import { NARRATIVE_FAIL_FIXTURE, NARRATIVE_PASS_FIXTURE } from '../shared/narrative/examples.js';
 import { getProviderForPersona, getPersonaDefinition, shouldUseDeepMode } from '../lib/personaRouter.js';
 import { callProvider } from '../lib/providers.js';
+import { logMasterPieceRound } from '../lib/masterpieceTelemetry.js';
 import { outboundFetch } from '../lib/outboundHttp.js';
 import { generateTTS, generateTTSFastFirst } from '../lib/ttsService.js';
 import { handleDeepModeRequest } from '../lib/deepModeHandler.js';
@@ -1450,7 +1451,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         meta,
       };
 
-      return { response, ttsPromise };
+      return {
+        personaId,
+        response,
+        error: false,
+        durationMs: Date.now() - callStartTime,
+        ttsPromise,
+      };
 
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -1466,7 +1473,13 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         provider: providerConfig.provider,
         model: providerConfig.model,
       };
-      return { response, error: true, ttsPromise: Promise.resolve() };
+      return {
+        personaId,
+        response,
+        error: true,
+        durationMs: Date.now() - callStartTime,
+        ttsPromise: Promise.resolve(),
+      };
     }
   });
 
@@ -1578,6 +1591,43 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     }
   }
   // --- End Master-Piece Synthesis Pass ---
+
+  // Fire-and-forget telemetry for Master-Piece rounds.
+  if (isMasterPieceRound) {
+    setImmediate(() => {
+      try {
+        const synthesisText = responses.find((r) => r.persona === 'maya_synthesis')?.text;
+        const thinkerMetrics = thinkerResponses.map((thinkerResponse) => {
+          const result = resolvedResults.find((r) => r.personaId === thinkerResponse.persona);
+          return {
+            personaId: thinkerResponse.persona,
+            provider: thinkerResponse.provider,
+            model: thinkerResponse.model,
+            responseLength: thinkerResponse.text.length,
+            responseTimeMs: result?.durationMs ?? 0,
+            hadError: result?.error === true,
+          };
+        });
+
+        logMasterPieceRound({
+          userId,
+          topic: body.topic,
+          debateMode: body.debateMode,
+          personasCount: personasToCall.length,
+          thinkersCount: thinkerResponses.length,
+          hasSynthesis: typeof synthesisText === 'string' && synthesisText.trim().length > 0,
+          synthesisText,
+          thinkerMetrics,
+          totalDurationMs: Date.now() - startTime,
+        });
+      } catch (err) {
+        devLogger.error('llm', 'Master-Piece telemetry logging failed', {
+          error: String(err),
+          userId,
+        });
+      }
+    });
+  }
 
   const result: DiscussResponse = {
     responses,
