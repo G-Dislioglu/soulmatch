@@ -1065,6 +1065,8 @@ REGELN:
 - Antworte fokussiert in 2-4 Sätzen auf Deutsch.
 - Wenn andere Thinker schon gesprochen haben, beziehe dich kurz auf mindestens einen Beitrag.
 - Wenn der User dir explizit eine Rolle gibt, nutze diese nur für diese Runde.
+- Gib AUSSCHLIESSLICH deinen eigenen Beitrag als Fließtext zurück.
+- Wiederhole nicht die Beiträge der anderen und nutze keine Dialog-Formatierung wie "[name]: ..." oder "[thinker_xyz]: ...".
 - Begründe deine Position knapp und konkret.`;
   }
 

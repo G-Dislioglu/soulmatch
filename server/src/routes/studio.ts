@@ -1078,8 +1078,9 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'personas array required (1-4 items)' });
     return;
   }
-  if (body.personas.length > 4) {
-    res.status(400).json({ error: 'Maximal 4 Personas pro Diskussion' });
+  if (body.personas.length > 6) {
+    // 6 allows Master-Piece rounds with Maya + 5 thinkers.
+    res.status(400).json({ error: 'Maximal 6 Personas pro Diskussion' });
     return;
   }
   if (!body.message) {
@@ -1135,6 +1136,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     // nginx: disable buffering (best-effort)
     res.setHeader('X-Accel-Buffering', 'no');
+  }
+  if (!wantsStream) {
+    // Be explicit about UTF-8 for JSON responses to avoid charset ambiguity.
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
   }
 
   let streamEnded = false;
