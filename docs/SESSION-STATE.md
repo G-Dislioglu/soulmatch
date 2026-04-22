@@ -1,53 +1,80 @@
 # SESSION-STATE
 
-**Letzte Session:** S35-F12 (2026-04-20 spätabends, komplett — Architecture-Digest live und live-verifiziert)
-**Handoff:** `docs/HANDOFF-S35-F12.md`
-**Repo-Head:** Code `f3cbc57` (F12 Architecture-Digest). Live-Commit auf Render: `f3cbc57`. Ab jetzt stehen alle KIs (Claude, Maya-Builder, Worker) vier Context-Broker-Endpoints zur Verfügung: `/api/context/session-start`, `/api/context/files/read`, `/api/context/ops/query`, `/api/context/architecture-digest`.
+**Letzte Session:** S36 (2026-04-22, komplett — Master-Piece Phase 1 gebaut und live verifiziert)
+**Handoff:** in diesem Dokument plus `docs/CLAUDE-CONTEXT.md`
+**Repo-Head:** Code `c8171c8` (F04 Telemetry-Category). Live-Commit auf Render: `c8171c8`.
 
-## Aktive Entscheidungen
+## S36 Übersicht — Master-Piece Phase 1
 
-- **Pipeline-Executor-Pfade:** `/opus-feature` (kanonisch, volle Pipeline inkl. Denker-Triade), `/opus-task` (Quick-Modus, deterministischer Scope), `/build` (legacy Wrapper um `executeTask`)
-- **Maya-Routing:** `determineBuildMode()` in `builderFusionChat.ts`:233 entscheidet autonom zwischen Quick und Pipeline. Triggers für Pipeline: taskType S (Architektur), risk=high, "deep mode"/"pipeline" keywords, multi-file signals, 3+ distinkte File-Pfade, taskType D+medium, taskType C (Frontend+Backend kombiniert). Sonst Quick.
-- **Council-Rollen:** Architekt/Skeptiker/Pragmatiker round-robin auf Council-Pool-Models via `COUNCIL_ROLES` + `buildCouncilParticipants()`, Maya moderiert, hard ceiling 5 Runden
-- **Worker-Pool:** GLM 5 Turbo, GLM 5.1, MiniMax M2.7, Kimi K2.5, Qwen 3.6+ (Zhipu-direkt via `poolState.ts`, keine Free-Tier-Modelle; Destillierer und Scouts nutzen GLM 4.7 FlashX statt Flash wegen Data-Collection)
-- **Patrol:** 6 Deep-Modelle (GLM-5.1, GLM-5-Turbo, GPT-5.4, Sonnet 4.6, DeepSeek-R, Kimi), 3 Routine-Scouts
-- **Agent Habitat:** `builder_agent_profiles` DB-Tabelle aktiv, Post-Task-Loop läuft via `updateAgentProfiles()`, `buildAgentBrief()` wird in Worker-Prompts injiziert (`opusWorkerSwarm.ts`:594), `reflectOnTask()` nach jedem Task mit GLM-5-Turbo
-- **TSC-Auto-Retry:** 3 Versuche max in `runTscCompileCheck`-Loop (`opusBridgeController.ts`:920–980); funktioniert in `decomposer-direct` und `auto-decomposer` Pfaden; Roundtable-only-Pfad noch ohne Retry (Lücke, siehe Offene Tasks)
-- **Pipeline-Monitoring:** Live-Polling pro Pool via `PoolChatWindow` (Maya/Council/Destillierer/Worker/Scout)
-- **Denker-Triade:** Vordenker (`opusVordenker.ts`) pre-scan live, Mitdenker deferred v4.1, Nachdenker via `reflectOnTask()` in `agentHabitat.ts`:184
-- **Deploy-Pipeline (ab S30):** `render-deploy.yml` ist alleinverantwortlich für Deploys. `/git-push` triggert weiterhin kein `triggerRedeploy()` mehr (Fix in S30, Commit `58887c7`), erzeugt GitHub-Commits jetzt aber direkt ueber die Git Data API und kann Mehrdatei-Payloads atomar in genau einem Commit schreiben. Manuelle Redeploys nur via `POST /render/redeploy`.
-- **Token-Limits:** Worker + Meister beide 100000 (aus S24)
-- **Anchor-Patch:** 5 Modi in `opusWorkerSwarm.ts` (insert-after, insert-before, replace-block, patch, overwrite) aus S24
-- **LIVE-PROBE Disclaimer-Token:** `localStorage.setItem('soulmatch_disclaimer_v2', 'accepted')` — Wert ist `'accepted'`, nicht `'true'`
-- **Pre-Push TSC-Check (Render-strikt):** `cd client && npx tsc -b` und `cd server && npx tsc --noEmit` obligatorisch vor `/git-push` (Render ist strikt mit noUnusedParameters)
-- **Regie-Regel:** Claude soll Builder-Infrastruktur (`/opus-feature`, `/opus-task`, `/git-push`) für Code- und Doku-Änderungen nutzen statt manuell via create_file/str_replace — das spart Tool-Budget und demonstriert die Pipeline
+Lange durchgezogene Session am 22.04.2026 von morgens bis abends. Elf Commits auf main, vollständiger Phase-1-Abschluss für Master-Piece (Multi-Provider-Thinker-Roundtable mit Maya als Moderatorin).
+
+**Kette der Commits (chronologisch auf main):**
+
+1. `cf37ccc` — S36-F00: Opus 4.7 API-Kompatibilität in providers.ts. Neue isOpus47OrLater-Sniffing-Logik: kein temperature/top_p/top_k für Opus 4.7+, adaptive thinking wenn vom Modell unterstützt. Ältere Opus-Versionen (4.6, 3.x) unverändert.
+2. `c3bbab4` — Vision-Doc erster Wurf als COUNCIL-OF-MASTERS-VISION.md.
+3. `53df637` — Doc-Rename auf MASTER-PIECE-VISION.md mit korrigierter Architektur. Master-Piece ist Builder-Feature, nicht Soulmatch-Feature. Teilnehmer heißen Thinker, nicht Beings oder Agents oder Personas.
+4. `1df40dc` — S36-F01: 10 Thinker-Einträge in personaRouter.ts und studioPrompt.ts. PersonaTier um `'thinker'` erweitert, ProviderName um `'anthropic' | 'zhipu' | 'openrouter'`. Thinker-IDs: thinker_opus, thinker_sonnet, thinker_gpt54, thinker_grok, thinker_deepseek, thinker_deepseek_r, thinker_glm_turbo, thinker_minimax, thinker_kimi, thinker_qwen.
+5. `879dfcb` — S36-F01.1: Thinker-Output-Format-Fix. Thinker-Zweig in buildDiscussPrompt mit reduziertem System-Prompt (kein Soulmatch-App-Kontext, kein META-Format-Zwang). forceJsonObject disabled für Thinker.
+6. `5fff8be` — S36-F01.2: Hygiene-Block. Self-Echo verhindert (Thinker-Prompt verbietet Dialog-Formatierung wie `[name]: ...`), UTF-8-Encoding korrigiert via explicit `application/json; charset=utf-8` Content-Type-Header, Max-Personas von 4 auf 6 erweitert für Master-Piece-Setup (5 Thinker + Maya).
+7. `79ff93e` — S36-F02: Maya-Synthese-Pass. Wenn Runde maya + 2+ thinker_* hat, macht der /api/discuss-Endpoint nach der Hauptrunde einen zusätzlichen Maya-Call. Neue buildMayaSynthesisPrompt-Funktion produziert 4-Sektionen-Markdown (Kernpunkte/Einigkeit/Dissens/Essenz). Synthese wird als separate Response mit persona='maya_synthesis' und meta.kind='synthesis' geliefert. Synthesis-Fehler ist non-fatal.
+8. `04fa659` — S36-F02.1 Teil 1: maxTokens 3500 im synthesis callProvider hinzugefügt. Default 2000 war zu klein für 4-Sektionen-Output, Essenz wurde abgeschnitten.
+9. `c85edeb` — S36-F02.1 Teil 2: Prompt-Disziplin in buildMayaSynthesisPrompt. Explizite Regel dass Synthese direkt mit `**Kernpunkte**` beginnen muss (keine Einleitung, keine Moderation, keine neue Frage). Alle 4 Sektionen mandatory, Essenz besonders.
+10. `5b2e0ba` — S36-F03: Master-Piece-Round-Telemetrie. Neues Modul server/src/lib/masterpieceTelemetry.ts loggt per-Runde strukturierte Metriken (personasCount, thinkersCount, hasSynthesis, synthesisSectionsPresent, thinkerMetrics mit responseLength/responseTimeMs/hadError, totalDurationMs). Fire-and-forget via setImmediate, zero Impact auf User-Response.
+11. `c8171c8` — S36-F04: devLogger um LogCategory `'masterpiece'` erweitert. Telemetrie-Logs laufen jetzt unter eigener Category statt unter 'llm', sauber filterbar für Phase-2-Analysen.
+
+**Live-verifiziert (von Claude unabhängig, nicht nur Copilot-Selbstbericht):**
+
+- Alle 10 Thinker funktional (Opus 4.7, Sonnet 4.6, GPT-5.4, Grok 4.1, DeepSeek-Chat, DeepSeek-R, GLM-Turbo, MiniMax, Kimi, Qwen)
+- Runde-2-Dialog-Qualität bestätigt: GLM-Turbo revidierte seine R1-Position in R2 nach Claude-Provokation
+- F02.1 Synthese-Output: direkt-start mit **Kernpunkte** ✓, alle 4 Sektionen ✓, keine Truncation (1653 chars in 3-Thinker-Test, 1489 chars in 6-Persona-Test), Dissens substanziell differenziert (erkennt Opus-Kontrapunkt explizit)
+- F03 Telemetrie: code-review-verified, live-running, aber Render-Log-Content nicht von Claude einsehbar (strikt: compiled-verified + code-review-verified; runtime-log-verification offen für späteren Check)
+
+## Aktive Entscheidungen (aus S35 übernommen, plus S36-Zusätze)
+
+- **Pipeline-Executor-Pfade:** `/opus-feature`, `/opus-task`, `/build` (unverändert)
+- **Maya-Routing:** determineBuildMode() in builderFusionChat.ts:233 (unverändert)
+- **Worker-Pool:** GLM 5 Turbo, GLM 5.1, MiniMax M2.7, Kimi K2.5, Qwen 3.6+ (unverändert)
+- **Patrol:** 6 Deep-Modelle + 3 Routine-Scouts (unverändert)
+- **Agent Habitat:** builder_agent_profiles DB-Tabelle, Post-Task-Loop aktiv (unverändert)
+- **Deploy-Pipeline:** render-deploy.yml alleinverantwortlich, /git-push triggert kein Redeploy (unverändert)
+- **Master-Piece-Runde (NEU seit S36):** /api/discuss erkennt Master-Piece-Runden automatisch wenn Request `personas` mindestens maya und 2+ `thinker_*` enthält. Synthese-Pass läuft als zusätzlicher Maya-Call nach Hauptrunde. Max 6 Personas total. Telemetrie fire-and-forget.
+- **Thinker-Provider-Mapping (NEU seit S36):** thinker_opus → anthropic/claude-opus-4-7, thinker_sonnet → anthropic/claude-sonnet-4-6, thinker_gpt54 → openai/gpt-5.4, thinker_grok → xai/grok-4-1-fast, thinker_deepseek → deepseek/deepseek-chat, thinker_deepseek_r → deepseek/deepseek-reasoner, thinker_glm_turbo → zhipu/glm-5-turbo, thinker_minimax → openrouter/minimax/minimax-m2.7, thinker_kimi → openrouter/moonshotai/kimi-k2.5, thinker_qwen → openrouter/qwen/qwen3.6-plus.
+- **Master-Piece vs Builder-Feature-Scope (NEU seit S36):** Master-Piece wandert mit dem Builder-System. Wenn Builder für Artifex, Maya-Core oder Bluepilot geklont wird, kommt Master-Piece mit. Es gehört nicht exklusiv zu Soulmatch.
+- **Regie-Regel:** Claude nutzt Builder-Infrastruktur (/opus-feature, /opus-task, /git-push) für Code-Änderungen, kleine Fixes via Bridge. Copilot für komplexe Code-Arbeit mit TSC-Pflicht lokal.
 
 ## Offene Tasks
 
-0. **[DONE 2026-04-20 via S34, Commits df85a18 + b6fa46f + 9c72a6f] `/session-log`-Endpoint** — Copilot baute den Endpoint über Nacht, hatte einen TS-Build-Fehler (PUT nicht in githubGitRequest-Signatur). Fix via Ein-Zeilen-Typ-Erweiterung. Live verifiziert: Test-Push c342ddd generierte Log-Eintrag mit `pending`, 2s später Follow-up 9c72a6f mit echtem SHA `c342ddd`.
-0a. **[S33-DONE 2026-04-19] STATE.md-Header nachziehen** — `current_repo_head`, `last_verified_against_code`, `last_completed_block`, `next_recommended_block` stehen seit S31 still. Im nächsten Code-Commit mitnehmen, damit der Render-Deploy nicht nur für Header-Update läuft.
-0b. **[DONE 2026-04-20 via S34b] RADAR-Kandidat F6 eintragen** — F6 (File-Scout gegen Scope-Halluzination) ist in der S34b-RADAR-Ergänzung mit `status: active, next_gate: proposal` eingetragen. Wartet explizit auf F9-Fix, damit die False-Positive-Pipeline-Path-Ursache zuerst geschlossen ist.
-0c. **[S32-NEU] Kaya-Code-Rename** — `orion` → `kaya` in `server/src/lib/personaRouter.ts`, `server/src/studioPrompt.ts`, `client/src/modules/M07_reports/ui/HallOfSouls.tsx`. Bewusst zurückgestellt bis Maya-Core-Migration.
-1. **[DONE vor S35, via Audit 2026-04-20 bestätigt]** TSC-Retry Roundtable-Pfad — `opusBridgeController.ts:850-880` hat `roundtable-tsc-fallback`-Zweig der WorkerAssignments aus Roundtable-Patches synthetisiert. Retry-Loop ab Zeile 950 konsumiert `tscRetryContext` in allen drei Pfaden (decomposer-direct, auto-decomposer, roundtable-tsc-fallback). Vermutlich in S30/S31 gelandet, Handoff-Notiz war stale. Details in `docs/BACKLOG-AUDIT-2026-04-20.md`.
-2. **[DONE vor S35, via Audit 2026-04-20 bestätigt]** Block 5d PR #2 Context-Split — `client/src/modules/M14_guide/GuideProvider.tsx` hat vollständigen React-Context mit `GuideContext` + `useGuide`-Hook. App.tsx wrappt alles (Zeile 2335). Kein Prop-Drilling. Handoff-Notiz war stale. Details in `docs/BACKLOG-AUDIT-2026-04-20.md`.
-3. **Maya-Core nächsten Block schneiden** — maya-core STATE.md `next_recommended_block` ist explizit "Noch nicht öffentlich neu geschnitten" seit 2026-04-05. Produktentscheidung nötig.
-4. **[DONE 2026-04-18] DNS-cache-overflow Hardening** — `undici`-Dispatcher + `dns.setDefaultResultOrder('ipv4first')` + `setDefaultAutoSelectFamily(false)` in `server/src/lib/outboundHttp.ts`. 7 Hotpath-Files auf `outboundFetch` umgestellt (`f6b080f`+`5300975`). Live auf `20bc008`. Verifiziert via zwei `/git-push` Probes (`70156d1`, `20bc008`), beide HTTP 200 in ~1.5s, keine DNS-overflow mehr. Probe-Artefakte in `docs/S31-PROBE-20260418.md` und `docs/S31-PROBE-20260418-2.md`.
-4a. **[DONE 2026-04-18] Outbound-HTTP Observability** — `server/src/lib/outboundHttp.ts` loggt jetzt host-only Success-/Error-Metadaten in `outboundFetch()` mit `requestId`, `method`, `host`, `durationMs`, `status`, `ok` bzw. `errName`, `errCode`, `errCause`; `OUTBOUND_HTTP_QUIET=1` unterdrueckt die Logs, Semantik bleibt unveraendert (`efa5e5e`). Harte Pre-Push-Checks: `cd client && npx tsc -b` = `CLIENT_TSC_OK`, `cd server && npx tsc --noEmit` = `SERVER_TSC_OK`. Lokaler Laufzeitbeleg: `[outbound] {"requestId":"h3g0zzte","method":"GET","host":"api.github.com","durationMs":717,"status":200,"ok":true}` und `[outbound-err] {"requestId":"k07998or","method":"GET","host":"nonexistent-s31-probe.invalid","durationMs":230,"errName":"TypeError","errCause":"ENOTFOUND"}`. Live-Beleg: echter `/git-push`-Probe gegen die deployte Bridge erzeugte `docs/S31-OBSERVABILITY-VERIFIED.md` auf `main` (`7a4b550`). Render-Console-Log-Tail wurde nach dem Deploy von `a95c366` vom Nutzer manuell im Render-Dashboard verifiziert (2026-04-18 ~12:39 UTC): vier `[outbound]`-Zeilen mit korrektem JSON-Format, alle Felder befüllt, nur `host` (kein Path/Header/Body), plausible Dauer (170-910ms). Semantik bestaetigt: GET 404 + PUT 201 bei Neu-Datei (`action: create`), GET 200 + PUT 200 bei Update. 4a damit vollstaendig geschlossen.
-4b. **[PROCESS S31] Agent-Lapsus dokumentieren** — `f6b080f` wurde gepusht ohne dass der vorgeschriebene `cd server && npx tsc --noEmit` Pre-Push-Check lief, obwohl diese Regel explizit in SESSION-STATE.md steht. Resultat: Render-Build failed, `b99b663` docs-Sync erbte den kaputten Build, erst `5300975` nachzog. Tooling-Frage: sollte der Pre-Push-Check in den Agent-Workflow eingebaut sein statt als Disziplin-Regel?
-4c. **[DONE 2026-04-18] /git-push atomare Mehrdatei-Commits** — `server/src/routes/opusBridge.ts` ersetzt die fruehere Contents-API-Dateischleife durch einen atomaren Git-Data-Ablauf: Branch-Ref lesen, Parent-Commit lesen, Base-Tree rekursiv lesen, Blobs fuer Nicht-Deletes schreiben, genau einen Tree und genau einen Commit bauen, danach den Ref bewegen. Duplicate-Pfade und fehlende Delete-Ziele scheitern vor jedem Write atomar. Harte Pre-Push-Checks: `cd client && npx tsc -b` = `CLIENT_TSC_OK`, `cd server && npx tsc --noEmit` = `SERVER_TSC_OK`. Feature-Commit `363d416` lief erfolgreich auf Render; echter Live-Probe gegen die deployte Bridge erzeugte `docs/S31-MULTIFILE-PROBE-a.md`, `docs/S31-MULTIFILE-PROBE-b.md` und `docs/S31-MULTIFILE-PROBE-c.md` in genau einem Remote-Commit `ad8abd0a2ac6e2cf6419f8598c0d524efbe7d127`, und `/api/health` zeigte diesen Commit anschliessend live.
-5. **[DONE, Commit 851f7ba + 401b3a7]** Async Job-Pattern für /opus-task — vollständig umgesetzt. (a) Endpoint-Basics live (`server/src/routes/health.ts`) seit S24, löst Render 60s-Timeout. (b) Body-Parameter-Pass-Through in Commit `401b3a7` (scope, skipDeploy, targetFile). (c) DB-Persistenz via `async_jobs`-Tabelle in Commit `851f7ba` (F10): cache-first, DB-Fallback auf GET, persistAsyncJobAsync fire-and-forget, initializeAsyncJobsCache Startup-Load. F10-Followup für Update-Pfad-Race nach Restart als letzter Commit dieser Session. Live-Verify durch Container-Restart-Probe bestätigt Persistenz. Details: `docs/F10-ASYNC-JOBS-PERSISTENCE.md`, `docs/HANDOFF-S35-F10.md`.
-6. **Patrol Finding Auto-Fix** (aus S24, noch offen) — Pipeline automatisch Fixes für Patrol-Findings generieren.
-7. **Docs-Consolidation Rest:** `opus-bridge-v4-spec.md` Status-Abgleich, `MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md` + `MAYA-BUILDER-CONTRACT.md` Aktualität prüfen.
-8. **[DONE 2026-04-20 via F9, Commits `1065cd3` + `bf22892`] S31 False-Positive-Pipeline-Path-Fix komplett** — Alle drei Hebel live und live-getestet. **Schritt A+D** via Bridge-Push `1065cd3`: neues Modul `server/src/lib/pushResultWaiter.ts` (in-memory Waiter-Queue, 3-Min-Timeout), `server/src/lib/opusSmartPush.ts` liest taskId aus /push-Response und wartet via Promise.all auf execution-result-Callbacks, `server/src/routes/builder.ts` execution-result-Handler kennt `committed === false`-Branch mit `reason`-Feld. Schritt D funktioniert automatisch durch `opusTaskOrchestrator.ts:323`. **Schritt C** via Copilot-Commit `bf22892` (Bridge-Token hat kein workflows-Scope, Drift 12): `.github/workflows/builder-executor.yml` empty-diff-Zweig sendet jetzt Callback `{committed:false, reason:"empty_staged_diff"}` + `exit 1` statt stillem `exit 0`. **Live-Akzeptanztest** mit taskId `f5d6ac23-aac2-48bc-89ac-5e69d86ff445` am 2026-04-20 nachmittags: search/replace mit nicht-existentem Anchor führte zum erwarteten `reason:"empty_staged_diff"`-Callback, task-Status `review_needed`, keine False-Positive-Success. F9 komplett geschlossen, RADAR-Kandidat `adopted`.
+Legacy aus S35 (alle weiter offen, nicht in S36 angefasst):
 
-9. **[DONE 2026-04-19 via F7, Commit ae3e020] Pool-Config-Persistenz** — `pool_state`-Tabelle in Neon PostgreSQL, Single-Row-Design (id=1). `initializePoolState()` laedt persistierte Config beim Serverstart, `updatePools()` schreibt fire-and-forget UPSERT. Live-Test: Maya auf `['opus']` gesetzt, Container via `/render/redeploy` neu gestartet, Config ueberlebt Restart. Code-Default bleibt Sicherheits-Fallback.
+0c. **[S32-NEU]** Kaya-Code-Rename — orion → kaya in personaRouter.ts, studioPrompt.ts, HallOfSouls.tsx. Zurückgestellt bis Maya-Core-Migration.
+2. **DNS-Overflow Rest-Block** — 26 direkte fetch-Stellen noch nicht auf outboundFetch migriert, als S31-artiger Hardening-Block.
+3. **Studio-JSON-Parse-Bug Drift 16** — pre-existing seit 285dedb, reproduziert im Baseline-Worktree.
+4. **F13-Runtime-Verify** — ein echter non-dry-run /opus-feature mit Async-Dispatch-Pfad triggern, landed und verifiedCommit Felder in Response prüfen.
+6. **Patrol Finding Auto-Fix** — Pipeline automatisch Fixes für Patrol-Findings generieren.
+7. **Docs-Consolidation Rest** — opus-bridge-v4-spec.md, MAYA-BUILDER-AUSBAU-BLUEPRINT-v2.md, MAYA-BUILDER-CONTRACT.md Aktualität prüfen.
+10. **Maya-Core nächsten Block schneiden** — maya-core STATE.md next_recommended_block steht auf "noch nicht öffentlich neu geschnitten" seit 2026-04-05.
+
+Neu aus S36 (Master-Piece Phase 2 Roadmap):
+
+S36-P2-1. **Dedizierte /masterpiece Surface im Client** — aktuell nutzt Master-Piece den existierenden /api/discuss-Endpoint mit studioMode:true. Phase 2 braucht eigene Route und UI mit Pool-Chips, Thinker-Auswahl, Synthese-Render.
+S36-P2-2. **Pool-Auswahl-Persistenz via DB-Tabelle** — masterpiece_state o.ä., damit User-Pool-Zusammensetzung Renders überlebt.
+S36-P2-3. **Maya-Modell-Auswahl** — aktuell hardcoded Gemini. User soll zwischen Maya-Providern wählen können.
+S36-P2-4. **Heated-Debate-Toggle UI** — aktuell nur debateMode=kontrovers als Parameter. Fine-grained heatLevel 'harmonisch' | 'kontrovers' | 'hitzig'.
+S36-P2-5. **Maya-Autonomy** — Maya darf Thinker während Runde hinzufügen/entfernen mit sichtbarer Begründung.
+S36-P2-6. **Crossing/Crushing** — explizites Verbinden von Thinker-Beiträgen (Crossing) + AICOS-Crush-Operatoren (ZL/ZQ/IL/BL/IV/AN/SE/TE/SV/OB/MB/NR) als Zerlegungs-Layer. Braucht AICOS-Operator-Spec-Read zuerst.
+S36-P2-7. **LiveTalk für Master-Piece** — per-Thinker-Voices, ähnlich Soulmatch-LiveTalk.
+S36-P2-8. **Worker-Swarm-Integration-Bridge** — Master-Piece-Entscheidung triggert Builder-Worker-Swarm.
+S36-P2-9. **Code-Terminology-Migration** — PERSONA_* Namen im Code zu BEING_*/THINKER_* ändern. Bewusst getrennter späterer Block.
+
+Follow-ups aus F03/F04:
+- **Render-Log-Einsicht für Telemetrie-Verifikation** — bei nächster Gelegenheit checken dass `Master-Piece round telemetry` Log-Entries tatsächlich unter Category 'masterpiece' erscheinen. Nicht dringend.
 
 ## Reuse-First Regel (aus S24)
 
-- R1: Search Before Build — immer zuerst grep/search ob Feature schon existiert
-- R2: Copy Over Abstract — bestehende Patterns wiederverwenden, keine premature generalization
-- R3: Proof Obligation — Behauptungen über Code-Stand mit grep/test belegen, nicht aus Memory beanspruchen
+- R1: Search Before Build
+- R2: Copy Over Abstract
+- R3: Proof Obligation
 
 ## Session-Historie-Lücke
 
-S22, S23, S26, S27, S28, S29 haben keine Handoff-Files im Repo. Kontext-Rekonstruktion nur via Memory-Einträge + Code-Befunde. Für neue Chats: `docs/CLAUDE-CONTEXT.md` + `STATE.md` + `docs/HANDOFF-S32.md` zuerst, dann bei Bedarf `HANDOFF-S31.md`, `HANDOFF-S30.md`, und für Pipeline-Geschichte `HANDOFF-S25.md` und `HANDOFF-2026-04-12-PIPELINE-COMPLETE.md`.
+S22, S23, S26, S27, S28, S29 haben keine Handoff-Files im Repo. Für neue Chats: docs/CLAUDE-CONTEXT.md + STATE.md + docs/SESSION-STATE.md zuerst.

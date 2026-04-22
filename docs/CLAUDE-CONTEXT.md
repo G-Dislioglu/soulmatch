@@ -3,8 +3,8 @@ file_type: claude_context_anchor
 repo: soulmatch
 repo_role: public_app_in_ecosystem
 maintained_by: claude
-last_updated: 2026-04-21
-last_session: S35_F14_complete
+last_updated: 2026-04-22
+last_session: S36_masterpiece_phase1_complete
 update_cadence: end_of_every_session
 read_priority: 1_first_in_every_new_chat
 
@@ -27,6 +27,11 @@ ecosystem_repos:
     coupling: post_builder_stable
 
 active_threads:
+  - id: master_piece_phase_1
+    status: done
+    priority: closed_S36_2026_04_22
+    description: Master-Piece Phase 1 komplett am 2026-04-22 in elf Commits auf main. F00 Opus 4.7 API-Kompatibilitaet (cf37ccc). Vision-Doc MASTER-PIECE-VISION.md mit korrigierter Architektur (Master-Piece ist Builder-Feature nicht Soulmatch-Feature, Teilnehmer heissen Thinker, Master-Piece wandert mit dem Builder wenn dieser fuer Artifex/Maya-Core/Bluepilot geklont wird) (c3bbab4, 53df637). F01 zehn Thinker-Eintraege in personaRouter.ts und studioPrompt.ts fuer alle Top-LLMs (Opus, Sonnet, GPT-5.4, Grok, DeepSeek-Chat, DeepSeek-R, GLM-Turbo, MiniMax, Kimi, Qwen) (1df40dc). F01.1 Thinker-Output-Format-Fix mit reduziertem System-Prompt und deaktiviertem forceJsonObject (879dfcb). F01.2 Hygiene-Block (Self-Echo-Verhinderung durch explizite Anti-Dialog-Formatierungs-Regel im Thinker-Prompt, UTF-8-Encoding via expliziten Content-Type-Header, Max-Personas von 4 auf 6 erweitert) (5fff8be). F02 Maya-Synthese-Pass als zusaetzlicher Maya-Call nach Thinker-Runde wenn maya + 2+ thinker_* in personas, produziert vier-Sektionen-Markdown Kernpunkte/Einigkeit/Dissens/Essenz, Response mit persona=maya_synthesis und meta.kind=synthesis, non-fatal bei Fehler (79ff93e). F02.1 in zwei Teilen maxTokens 3500 und Prompt-Disziplin (04fa659, c85edeb). F03 Master-Piece-Round-Telemetrie (neues Modul server/src/lib/masterpieceTelemetry.ts mit personasCount/thinkersCount/hasSynthesis/synthesisSectionsPresent/thinkerMetrics/totalDurationMs, fire-and-forget via setImmediate, zero Impact auf User-Response) (5b2e0ba). F04 devLogger LogCategory um masterpiece erweitert, Telemetrie-Logs laufen jetzt unter eigener Category statt unter generischem llm (c8171c8). Live-verifiziert durch Claude unabhaengig, nicht nur Copilot-Selbstbericht: alle zehn Thinker funktional, Runde-2-Dialog-Qualitaet bestaetigt (GLM-Turbo revidierte seine R1-Position in R2 nach Provokation), F02.1 Synthese startet direkt mit Kernpunkte-Header und liefert alle vier Sektionen in beiden Test-Szenarien (3 Thinker 1653 chars, 6 Personas 1489 chars), Dissens erkennt Opus-Kontrapunkt explizit. F03-Telemetrie code-review-verified plus compiled-verified, Runtime-Log-Content-Verify offen weil Claude Render-Logs nicht direkt einsehen kann.
+    entry_point: docs/MASTER-PIECE-VISION.md
   - id: builder_S31_observability
     status: done
     priority: closed_S35_F9
@@ -288,6 +293,17 @@ Nach einem Code-Commit auf main startet der `render-deploy.yml`-Workflow und `to
 
 **Drift 14 — Bridge-Push hat Dateipfad-Bug produziert (historisch, entdeckt 2026-04-20).**
 Ein Commit aus S23 (`6ff65f9`, 2026-04-14 abends) hat den damaligen HANDOFF-S23-Inhalt nicht unter `docs/HANDOFF-S23.md` abgelegt, sondern unter dem Dateinamen-String `undefined` im Repo-Root. Vermutete Ursache: Bridge-Push-Endpoint hat das `file`-Feld nicht korrekt aus dem Payload gelesen oder das Fallback-Literal `"undefined"` durchgereicht. Die Datei liegt seitdem als `/undefined` im Repo-Root. S23 galt dadurch als „Session ohne Handoff", obwohl der Handoff tatsächlich vorhanden war — nur unter falschem Namen. In S35 während der Legacy-Bereinigung entdeckt und gelöst: `docs/HANDOFF-S23.md` wurde aus der `/undefined`-Datei rekonstruiert (Commit `de90e6a`). Die ursprüngliche `/undefined`-Datei muss noch via `git rm` entfernt werden (nicht über Bridge, braucht lokalen Commit). Konsequenz für die Zukunft: Bridge-Push-Responses genau prüfen, besonders den zurückgegebenen `file`-Feldwert — wenn der unerwartet `undefined` oder leer ist, ist das ein Bug-Signal.
+
+---
+
+**Drift 15 — Handoff-Verify-Evidence-Class (etabliert in S35-F10, verfeinert in S36).**
+Aussagen über Code-Stand und Feature-Verhalten tragen eine explizite Evidenz-Klasse statt Schluss-Sprache. Klassen: `code-review-verified` (Claude hat Code gelesen und logisch verifiziert), `compiled-verified` (TSC/Build ist grün), `live-measured` (echter HTTP-Call gegen Render mit strukturiertem Output-Check), `logical-derivation` (Folge-Aussage aus belegten Fakten). Ohne Klassen-Markierung gelten Aussagen als Chat-Memory-Claim und sind nicht belastbar. In S36 konsequent gelebt: Copilot-Selbstberichte von Tests wurden nicht blind akzeptiert, Claude fuhr unabhängig die Verify-Tests und meldete Diskrepanzen (z.B. F02-Truncation die Copilot nicht aufgefallen war, F02-Moderator-Turn-Präfix bei Test D).
+
+**Drift 16 — Studio-JSON-Parse-Bug pre-existing (entdeckt in S35, nicht in S36 adressiert).**
+`server/src/routes/studio.ts` hat einen JSON-Parse-Fehler-Pfad der pre-existing ist mindestens seit Commit `285dedb`. Baseline-Worktree auf diesem Commit reproduziert den Fehler. Nicht kausal mit S35-Arbeit verbunden. Offen als Legacy-Task.
+
+**Drift 17 — Bridge-Push-Size-Limit (beobachtet in S36).**
+Der Bridge-Push-Endpoint `/api/builder/opus-bridge/git-push` hat einen effektiven Payload-Size-Limit von ca. 100KB (laut bisheriger Erfahrung, manchmal schon bei 130KB). In S36-F02.1 scheiterte ein kombinierter Push von `studio.ts` plus `studioPrompt.ts` (zusammen 136KB) und musste in zwei getrennte Pushes aufgeteilt werden (studio.ts allein 71KB, studioPrompt.ts allein 65KB). Kein Daten-Verlust, aber operative Komplikation. Workaround: Bei Push von zwei oder mehr großen Dateien einzeln pushen, Commit-Messages entsprechend nummerieren (z.B. "Teil 1" / "Teil 2"). Langfristig: Bridge-Endpoint sollte Chunking oder höheres Limit unterstützen.
 
 ---
 
