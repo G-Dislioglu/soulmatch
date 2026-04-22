@@ -1163,6 +1163,8 @@ Ein bis zwei Sätze: Was ist die eigentliche Einsicht der Runde, unabhängig von
 ---
 
 WICHTIG:
+- Beginne deine Antwort DIREKT mit der Zeile \`**Kernpunkte**\`. Kein Wort davor, keine Einleitung, keine Begrüßung, keine Frage an einen Thinker, keine Moderation. Du synthetisierst, du eröffnest keine neue Runde.
+- Alle vier Abschnitte (Kernpunkte, Einigkeit, Dissens, Essenz) MÜSSEN erscheinen. Kürze wenn nötig, aber lass keinen weg. Die Essenz ist nicht optional — sie ist der wichtigste Teil und muss am Ende stehen.
 - Keine Wiederholung ganzer Thinker-Beiträge. Destilliere, nicht reproduzieren.
 - Kein Konsens erzwingen. Dissens darf stehen bleiben.
 - Keine neue eigene Position. Du synthetisierst, du positionierst nicht.
