@@ -17,22 +17,55 @@ import { getUserMemoryContext, saveSessionMemory } from '../lib/memoryService.js
 import { eq, sql } from 'drizzle-orm';
 
 function extractCleanText(raw: string): string {
+  function pickTextFromUnknown(input: unknown): string | undefined {
+    if (typeof input === 'string') {
+      const value = input.trim();
+      return value.length > 0 ? value : undefined;
+    }
+
+    if (Array.isArray(input)) {
+      for (const item of input) {
+        const nested = pickTextFromUnknown(item);
+        if (nested) return nested;
+      }
+      return undefined;
+    }
+
+    if (!input || typeof input !== 'object') return undefined;
+
+    const obj = input as Record<string, unknown>;
+    const directKeys = ['text', 'answer', 'response', 'content', 'message'];
+    for (const key of directKeys) {
+      const nested = pickTextFromUnknown(obj[key]);
+      if (nested) return nested;
+    }
+
+    if (Array.isArray(obj.turns)) {
+      for (const turn of obj.turns) {
+        const nested = pickTextFromUnknown(turn);
+        if (nested) return nested;
+      }
+    }
+
+    return undefined;
+  }
+
   const trimmed = raw.trim();
 
   // Versuch 1: Echtes JSON parsen (für den Fall, dass Gemini sauberes JSON liefert)
   try {
-    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-    if (typeof parsed.text === 'string') return parsed.text;
-    if (typeof parsed.answer === 'string') return parsed.answer;
+    const parsed = JSON.parse(trimmed) as unknown;
+    const extracted = pickTextFromUnknown(parsed);
+    if (extracted) return extracted;
   } catch {}
 
   // Versuch 2: JSON in Markdown-Fences extrahieren ```json { ... } ```
-  const fenceMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  const fenceMatch = raw.match(/```(?:json)?\s*([\[{][\s\S]*[\]}])\s*```/);
   if (fenceMatch) {
     try {
-      const parsed = JSON.parse(fenceMatch[1]) as Record<string, unknown>;
-      if (typeof parsed.text === 'string') return parsed.text;
-      if (typeof parsed.answer === 'string') return parsed.answer;
+      const parsed = JSON.parse(fenceMatch[1]) as unknown;
+      const extracted = pickTextFromUnknown(parsed);
+      if (extracted) return extracted;
     } catch {}
   }
 
@@ -43,6 +76,17 @@ function extractCleanText(raw: string): string {
   // Wir entfernen KEIN Regex auf "text": "..." mehr, weil das normalen Fließtext
   // abschneiden kann, wenn das Wort "text" darin vorkommt!
   const cleaned = trimmed.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  // Einige Modelle liefern Meta-Artefakte als pseudo-JSON-Container.
+  // Wir verwerfen das nicht blind, aber versuchen erneut Text herauszuziehen.
+  if ((cleaned.startsWith('{') && cleaned.endsWith('}')) || (cleaned.startsWith('[') && cleaned.endsWith(']'))) {
+    try {
+      const parsed = JSON.parse(cleaned) as unknown;
+      const extracted = pickTextFromUnknown(parsed);
+      if (extracted) return extracted;
+    } catch {}
+  }
+
   return cleaned;
 }
 
@@ -1184,6 +1228,8 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         persona: personaId,
       });
 
+      const isThinker = personaId.startsWith('thinker_');
+
       if (wantsStream) {
         sendSseEvent({ type: 'typing', persona: personaId, color: personaDef.color });
       }
@@ -1195,7 +1241,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
           system: systemPrompt,
           messages: currentProviderMessages,
           temperature: 0.85,
-          forceJsonObject: personaId !== 'sri',
+          forceJsonObject: personaId !== 'sri' && !isThinker,
         },
         body.clientApiKey,
       );
@@ -1214,7 +1260,10 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
         }
       }
 
-      const text = withSriFallbackText(extractCleanText(cleanText), personaId);
+      let text = withSriFallbackText(extractCleanText(cleanText), personaId).trim();
+      if (isThinker && text.length === 0) {
+        text = '[Thinker lieferte keinen lesbaren Text.]';
+      }
 
       if (isRoundCanceled()) {
         devLogger.info('llm', 'Discuss: aborted round after provider returned before stream emit', {

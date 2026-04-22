@@ -1046,6 +1046,28 @@ Wenn der User fragt "Was kann ich hier machen?", erkläre ihm diese Funktionen k
     ? ''
     : firstContactBlock;
 
+  const isThinker = personaId.startsWith('thinker_');
+  if (isThinker) {
+    const thinkerMemoryBlock = memories.length > 0
+      ? `\nRELEVANTE ERINNERUNGEN:\n${memories.slice(0, 3).map((m) => `- (${m.category}, ${m.importance}/3) ${m.text}`).join('\n')}\n`
+      : '';
+
+    return `Du bist in einer Roundtable-Diskussion mit: ${activePersonaNames}.
+
+${personaDesc}
+
+${topicLine}${modeLine}${thinkerMemoryBlock}${roundTableBlock}
+NUTZER-KONTEXT:
+${context.userChart || 'Keine zusätzlichen Profildaten vorhanden.'}
+
+REGELN:
+- Antworte als reiner Klartext. Kein JSON, kein Codeblock, keine Wrapper.
+- Antworte fokussiert in 2-4 Sätzen auf Deutsch.
+- Wenn andere Thinker schon gesprochen haben, beziehe dich kurz auf mindestens einen Beitrag.
+- Wenn der User dir explizit eine Rolle gibt, nutze diese nur für diese Runde.
+- Begründe deine Position knapp und konkret.`;
+  }
+
   const conversationFrameBlock = context.studioMode
     ? `${STUDIO_INTER_DIALOG_BLOCK}${mayaModeratorBlock}\nDu bist in einer Studio-Diskussionsrunde mit ${activePersonaNames}.`
     : 'Du bist in einem direkten 1:1-Chat mit dem User.';
