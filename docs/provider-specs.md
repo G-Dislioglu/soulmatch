@@ -31,6 +31,7 @@ Letzte Teilprüfung (Zhipu-Pool-Konsolidierung): **19. April 2026**
 | Modell | Provider | Model-ID | Kontext | Preis In/Out ($/1M) | Geprüft |
 |--------|----------|----------|---------|---------------------|---------|
 | Claude Opus 4.6 | anthropic | `claude-opus-4-6` | 200K | $5.00 / $25.00 | 09.04.2026 |
+| Claude Opus 4.7 | anthropic | `claude-opus-4-7` | 1M (API), 200K (standard) | $5.00 / $25.00 | 22.04.2026 (Anthropic Release 16.04.2026) |
 | GPT-5.4 | openai | `gpt-5.4` | 128K | $2.50 / $15.00 | 09.04.2026 (Handoff S7) |
 | GLM-5-Turbo | zhipu | `glm-5-turbo` | 203K | $1.20 / $4.00 | s.o. |
 | MiniMax M2.7 | openrouter | `minimax/minimax-m2.7` | 205K | $0.30 / $1.20 | s.o. |
@@ -49,6 +50,7 @@ Letzte Teilprüfung (Zhipu-Pool-Konsolidierung): **19. April 2026**
 | Modell | Provider | Model-ID | Kontext | Max Output | Preis In/Out ($/1M) | Geprüft |
 |--------|----------|----------|---------|------------|---------------------|---------|
 | Claude Opus 4.6 | anthropic | `claude-opus-4-6` | 200K | — | $5.00 / $25.00 | 09.04.2026 (aktueller Maya-Motor) |
+| Claude Opus 4.7 | anthropic | `claude-opus-4-7` | 1M (API), 200K (standard) | 128K | $5.00 / $25.00 | 22.04.2026 (Anthropic Release 16.04.2026) |
 | Gemini 3 Flash | gemini | `gemini-3-flash-preview` | 1M | 66K | $0.50 / $3.00 | 09.04.2026 |
 | Gemini 3.1 Flash-Lite | gemini | `gemini-3.1-flash-lite-preview` | 1M | 65K | $0.25 / $1.50 | **19.04.2026** (ai.google.dev/gemini-api/docs/gemini-3, Vertex AI Docs, Google AI Blog) |
 
@@ -60,6 +62,7 @@ Letzte Teilprüfung (Zhipu-Pool-Konsolidierung): **19. April 2026**
 - **DeepSeek Reasoner als Meister geplant** — gleicher Preis wie Chat ($0.28/$0.42), aber Chain-of-Thought Thinking. Für Worker zu langsam, für Meister ideal.
 - **Gemini 3 Flash als Judge** — 1M Kontext, kein Truncation nötig, volle Worker-Outputs.
 - **Gemini 3.1 Flash-Lite als Maya-Kandidat (19.04.2026)** — Qualität laut Google "matches 2.5 Flash", Preis $0.25/$1.50 (Faktor ~16 günstiger als Opus). Thinking-Level steuerbar (minimal/low/medium/high). Test geplant: Flash-Lite als Maya-Stimme mit Scout-Unterstützung vs. Opus-Baseline auf identischem Task.
+- **Claude Opus 4.7 (22.04.2026)** — Released 16.04.2026. Breaking changes gegenüber 4.6: nur thinking.type='adaptive' unterstützt (kein 'enabled' mit budget_tokens mehr), und temperature/top_p/top_k werden ignoriert. providers.ts wurde in S36-F00 entsprechend angepasst (Model-Version-Sniffing via model.startsWith('claude-opus-4-7')). Preis identisch zu 4.6 ($5/$25). xhigh-Effort-Level neu verfügbar.
 
 ## Quellen
 

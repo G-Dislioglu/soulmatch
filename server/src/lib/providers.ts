@@ -121,7 +121,10 @@ export interface CallProviderParams {
   /** Controls GLM thinking/reasoning mode. 'enabled' for workers (quality), 'disabled' for scouts (speed). Default: 'disabled'. */
   thinking?: 'enabled' | 'disabled';
   reasoning?: boolean | { enabled: boolean } | { effort: 'low' | 'medium' | 'high' };
-  anthropicThinking?: { type: 'enabled'; budget_tokens: number } | { type: 'disabled' };
+  anthropicThinking?:
+    | { type: 'enabled'; budget_tokens: number }
+    | { type: 'disabled' }
+    | { type: 'adaptive' };
 }
 
 /**
@@ -186,6 +189,25 @@ export async function callProvider(
     if (!apiKey) throw new Error(`No API key for anthropic. Set ${ANTHROPIC_ENV_KEY} on server.`);
 
     const url = 'https://api.anthropic.com/v1/messages';
+    const isOpus47OrLater =
+      model.startsWith('claude-opus-4-7')
+      || model.startsWith('claude-opus-4-8')
+      || model.startsWith('claude-opus-5');
+
+    const body: Record<string, unknown> = {
+      model,
+      system: params.system || undefined,
+      messages: params.messages,
+      max_tokens: params.maxTokens ?? 2000,
+    };
+
+    if (isOpus47OrLater) {
+      body.thinking = { type: 'adaptive' };
+    } else if (params.anthropicThinking) {
+      body.thinking = params.anthropicThinking;
+    } else {
+      body.temperature = params.temperature ?? 0.7;
+    }
 
     const resp = await fetchWithRetries(url, {
       method: 'POST',
@@ -194,13 +216,7 @@ export async function callProvider(
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model,
-        system: params.system || undefined,
-        messages: params.messages,
-        max_tokens: params.maxTokens ?? 2000,
-        ...(params.anthropicThinking ? { thinking: params.anthropicThinking } : { temperature: params.temperature ?? 0.7 }),
-      }),
+      body: JSON.stringify(body),
     }, 'anthropic');
 
     if (!resp.ok) {
