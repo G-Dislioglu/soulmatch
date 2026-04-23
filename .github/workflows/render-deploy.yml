@@ -4,11 +4,17 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.github/ISSUE_TEMPLATE/**'
-      - 'LICENSE'
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - 'package.json'
+      - 'client/package.json'
+      - 'client/pnpm-lock.yaml'
+      - 'server/package.json'
+      - 'server/pnpm-lock.yaml'
+      - 'Dockerfile'
+      - 'tools/wait-for-deploy.sh'
+      - '.github/workflows/render-deploy.yml'
   workflow_dispatch:
 
 jobs:
@@ -28,7 +34,8 @@ jobs:
         env:
           DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
           EXPECT_COMMIT: ${{ github.sha }}
-          DEPLOY_WAIT_SECONDS: 600
+          DEPLOY_WAIT_SECONDS: 120
+          DEPLOY_POLL_INTERVAL: 15
         run: bash tools/wait-for-deploy.sh
 
       - name: Trigger Render deploy hook fallback
@@ -48,4 +55,6 @@ jobs:
         env:
           DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
           EXPECT_COMMIT: ${{ github.sha }}
+          DEPLOY_WAIT_SECONDS: 180
+          DEPLOY_POLL_INTERVAL: 15
         run: bash tools/wait-for-deploy.sh

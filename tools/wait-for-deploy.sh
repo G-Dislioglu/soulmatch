@@ -12,7 +12,9 @@
 #
 # Exit codes:
 #   0  — deployment is live and healthy
-#   1  — timed out (10 minutes) without a matching healthy deployment
+#   1  — timed out without a matching healthy deployment; the workflow stays red
+#        even if Render finishes shortly afterwards because this script enforces
+#        strict live-verify semantics rather than fire-and-forget deploys
 #
 # Drift 13 note (2026-04-20):
 #   Two paths resolve to "deployment healthy":
@@ -33,8 +35,8 @@ set -euo pipefail
 URL="${DEPLOY_URL:-https://soulmatch-1.onrender.com/api/health}"
 EXPECTED_COMMIT="${EXPECT_COMMIT:-}"
 RESOLVE_IP="${DEPLOY_RESOLVE_IP:-}"
-MAX_SECONDS="${DEPLOY_WAIT_SECONDS:-600}"   # default: 10 minutes
-INTERVAL="${DEPLOY_POLL_INTERVAL:-30}"
+MAX_SECONDS="${DEPLOY_WAIT_SECONDS:-180}"   # default: 3 minutes
+INTERVAL="${DEPLOY_POLL_INTERVAL:-15}"
 ELAPSED=0
 ATTEMPTS=0
 HOST=$(printf '%s' "$URL" | sed -E 's#https?://([^/]+).*#\1#')
@@ -49,7 +51,7 @@ if [ -n "$RESOLVE_IP" ]; then
   echo "  Resolve:  $HOST -> $RESOLVE_IP"
 fi
 echo "  Interval: ${INTERVAL}s"
-echo "  Timeout:  $((MAX_SECONDS / 60)) minutes"
+echo "  Timeout:  ${MAX_SECONDS}s"
 echo ""
 
 while [ "$ELAPSED" -lt "$MAX_SECONDS" ]; do
@@ -119,7 +121,7 @@ while [ "$ELAPSED" -lt "$MAX_SECONDS" ]; do
 done
 
 echo ""
-echo "  ❌ Deploy did not become healthy within $((MAX_SECONDS / 60)) minutes."
+echo "  ❌ Deploy did not become healthy within ${MAX_SECONDS}s."
 echo "     Last status: HTTP $STATUS"
 if [ -n "$EXPECTED_COMMIT" ]; then
   echo "     Expected commit: $EXPECTED_COMMIT"
