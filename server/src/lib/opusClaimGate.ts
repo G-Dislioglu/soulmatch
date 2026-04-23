@@ -4,10 +4,12 @@ import { extractExplicitPaths } from './opusAnchorPaths.js';
 export type GateMode = 'shadow' | 'hard';
 export type ImpactClass = 'low' | 'high';
 export type ClaimRejectCode = 'missing_claims' | 'no_anchor';
+export type ScopeCompatibility = 'compatible' | 'mismatch' | 'not_evaluated';
 
 export interface DerivedClaimResult {
   text: string;
   anchorStatus: 'anchored' | 'no_anchor';
+  scopeCompatibility: ScopeCompatibility;
   matchedRefs: string[];
   rejectCode?: ClaimRejectCode;
 }
@@ -30,6 +32,18 @@ interface EvaluateCandidateClaimsParams {
 
 function uniqueRejectCodes(codes: ClaimRejectCode[]): ClaimRejectCode[] {
   return [...new Set(codes)];
+}
+
+function deriveScopeCompatibility(matchedRefs: string[], scopeFiles: string[]): ScopeCompatibility {
+  const editPathRefs = matchedRefs
+    .filter((ref) => ref.startsWith('edit_path:'))
+    .map((ref) => ref.slice('edit_path:'.length));
+
+  if (editPathRefs.length === 0) {
+    return 'compatible';
+  }
+
+  return editPathRefs.every((path) => scopeFiles.includes(path)) ? 'compatible' : 'mismatch';
 }
 
 function matchEvidenceRef(
@@ -100,6 +114,7 @@ export function evaluateCandidateClaims({
       return {
         text: claim.text,
         anchorStatus: 'no_anchor' as const,
+        scopeCompatibility: 'not_evaluated' as const,
         matchedRefs: [],
         rejectCode: 'no_anchor' as const,
       };
@@ -108,6 +123,7 @@ export function evaluateCandidateClaims({
     return {
       text: claim.text,
       anchorStatus: 'anchored' as const,
+      scopeCompatibility: deriveScopeCompatibility(matchedRefs, scopeFiles),
       matchedRefs,
     };
   });

@@ -34,6 +34,8 @@ export interface ScopeResult {
   rejectedPaths?: string[];
 }
 
+export type RepoFilePresence = 'found' | 'not_found' | 'unreachable';
+
 let cachedIndex: RepoIndex | null = null;
 
 function hasPlausiblePrefix(path: string, index: RepoIndex): boolean {
@@ -209,4 +211,31 @@ export async function fetchFileContents(
   }));
 
   return contents;
+}
+
+/**
+ * Probe whether files are visible via GitHub raw without mutating local index state.
+ */
+export async function probeRepoFilePresence(
+  files: string[],
+  repo = 'G-Dislioglu/soulmatch',
+  branch = 'main',
+): Promise<Map<string, RepoFilePresence>> {
+  const presence = new Map<string, RepoFilePresence>();
+
+  await Promise.all(files.map(async (filePath) => {
+    try {
+      const url = `https://raw.githubusercontent.com/${repo}/${branch}/${filePath}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (res.ok) {
+        presence.set(filePath, 'found');
+        return;
+      }
+      presence.set(filePath, res.status === 404 ? 'not_found' : 'unreachable');
+    } catch {
+      presence.set(filePath, 'unreachable');
+    }
+  }));
+
+  return presence;
 }

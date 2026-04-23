@@ -19,7 +19,7 @@ try {
 import { callProvider } from './providers.js';
 import { waitForDeploy } from './opusAssist.js';
 import { WORKER_REGISTRY, DEFAULT_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
-import { resolveScope, fetchFileContents, isIndexedRepoFile, type ScopeMethod } from './builderScopeResolver.js';
+import { resolveScope, fetchFileContents, probeRepoFilePresence, isIndexedRepoFile, type ScopeMethod } from './builderScopeResolver.js';
 import { findRelatedFiles, loadBuilderFileIndex, type RelatedFile } from './builderRelatedFiles.js';
 import { decideChangeMode, getWorkerPromptForMode, type ChangeMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
@@ -86,18 +86,34 @@ interface ScopePhaseResult {
 
 // ─── Phase 1: Deterministic Scope ───
 
-function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): ScopePhaseResult {
+async function runScopePhase(instruction: string, manualScope?: string[], targetFile?: string): Promise<ScopePhaseResult> {
   if (manualScope && manualScope.length > 0) {
     const uniqueManualScope = [...new Set(manualScope)];
     const indexed = uniqueManualScope.filter((path) => isIndexedRepoFile(path));
     const unindexed = uniqueManualScope.filter((path) => !isIndexedRepoFile(path));
+    const hasCreateSignal = CREATE_SIGNAL_RE.test(instruction);
 
-    if (unindexed.length > 0 && !CREATE_SIGNAL_RE.test(instruction)) {
+    let repoVisibleUnindexed: string[] = [];
+    let missingUnindexed = unindexed;
+    let unreachableUnindexed: string[] = [];
+
+    if (unindexed.length > 0 && !hasCreateSignal) {
+      const freshRepoPresence = await probeRepoFilePresence(unindexed);
+      repoVisibleUnindexed = unindexed.filter((path) => freshRepoPresence.get(path) === 'found');
+      missingUnindexed = unindexed.filter((path) => freshRepoPresence.get(path) === 'not_found');
+      unreachableUnindexed = unindexed.filter((path) => freshRepoPresence.get(path) === 'unreachable');
+    }
+
+    if ((missingUnindexed.length > 0 || unreachableUnindexed.length > 0) && !hasCreateSignal) {
       return {
         files: [],
-        reasoning: unindexed.map((path) => `manual scope path not in repo index and no create signal in instruction: ${path}`),
+        reasoning: [
+          ...repoVisibleUnindexed.map((path) => `${path} (FRESH): manual scope path not in repo index but found via repo truth check`),
+          ...unreachableUnindexed.map((path) => `${path} (FRESH-CHECK FAILED): not in repo index, and GitHub raw could not confirm file presence`),
+          ...missingUnindexed.map((path) => `manual scope path not in repo index and no create signal in instruction: ${path}`),
+        ],
         method: 'deterministic',
-        rejectedPaths: unindexed,
+        rejectedPaths: [...unreachableUnindexed, ...missingUnindexed],
       };
     }
 
@@ -105,14 +121,17 @@ function runScopePhase(instruction: string, manualScope?: string[], targetFile?:
     if (indexed.length > 0) {
       reasoning.push(`manual scope indexed: ${indexed.join(', ')}`);
     }
-    if (unindexed.length > 0) {
+    if (repoVisibleUnindexed.length > 0) {
+      reasoning.push(...repoVisibleUnindexed.map((path) => `${path} (FRESH): manual scope path not in repo index but found via repo truth check`));
+    }
+    if (unindexed.length > 0 && hasCreateSignal) {
       reasoning.push(...unindexed.map((path) => `${path} (CREATE): manual scope path not in repo index, create signal present`));
     }
 
     return {
-      files: [...indexed, ...unindexed],
+      files: [...indexed, ...repoVisibleUnindexed, ...(hasCreateSignal ? unindexed : [])],
       reasoning,
-      method: unindexed.length > 0 ? 'create' : 'manual',
+      method: hasCreateSignal && unindexed.length > 0 ? 'create' : 'manual',
     };
   }
   const result = resolveScope(instruction);
@@ -274,7 +293,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 1: Deterministic Scope
   const s1 = Date.now();
-  const scope = runScopePhase(input.instruction, input.scope, input.targetFile);
+  const scope = await runScopePhase(input.instruction, input.scope, input.targetFile);
   const indexedFiles = scope.files.filter((path) => isIndexedRepoFile(path));
   const createTargets = scope.method === 'create'
     ? scope.files.filter((path) => !isIndexedRepoFile(path))
@@ -403,6 +422,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       claims: entry.result.claims.map((claim) => ({
         text: claim.text,
         anchorStatus: claim.anchorStatus,
+        scopeCompatibility: claim.scopeCompatibility,
         matchedRefs: claim.matchedRefs,
       })),
     })),

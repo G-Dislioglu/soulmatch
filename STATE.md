@@ -133,7 +133,14 @@ Calls statt ueber eine per-Datei-Contents-Schleife und wurde live mit drei
 Dateien, identischem `commitSha` pro Result und genau einem Remote-Commit
 `ad8abd0` verifiziert. Offen bleibt damit weniger die Commit-Semantik selbst
 als der breitere Opus-Bridge-Pfad auf Render inklusive `@READ`-Injection,
-Roundtable-BDL und Distiller-/Judge-Treue.
+Roundtable-BDL und Distiller-/Judge-Treue. Lokal ist diese Lane inzwischen
+noch eine Stufe enger geschnitten: Das F13-Claim-Gate fuehrt jetzt zusaetzlich
+ein sichtbares `scopeCompatibility`-Signal pro Claim, ohne neue Reject-Codes
+oder neue Hard-Blocker einzufuehren, und manuelle unindexierte Scope-Pfade
+bekommen genau einen Repo-Truth-Fresh-Check ueber denselben Raw-Fetch-Pfad,
+statt sofort als Halluzination zu sterben. Final normativ bleibt weiterhin der
+Judge, und der breitere Render-Nachweis fuer diesen F14A-Schnitt ist noch
+offen.
 
 Parallel dazu blockt die Builder-Runtime haengende Tasks jetzt auch autonom:
 ein eigener Server-Interval prueft alle 5 Minuten auf veraltete Tasks in

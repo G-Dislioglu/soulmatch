@@ -365,6 +365,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Drei Hebel in einem atomaren Commit (Copilot `8a4317d`): Hebel α prueft manualScope gegen Repo-Index und rejected ohne Create-Signal; Hebel β prueft Regex-Fallback-Pfade auf plausiblen 3-Segment-Prefix im Index; Hebel γ erweitert Phase-Report um indexedFiles/createTargets/rejectedPaths. opus-task-async wurde in separatem Commit (`401b3a7`) erweitert um scope/skipDeploy/targetFile fuer HTTP-Live-Verify-Pfad.
 - `evidence`: Live-Akzeptanztests 2026-04-20 abends. Probe 1 (`job-mo79mizv`): manualScope mit falschem client/-Prefix → scope.status `error`, rejectedPaths enthaelt den Pfad, summary "Scope rejected 1 hallucinated path(s)". Probe 2b (`job-mo79q986`): `erstelle server/src/xyz1234unique/sondermodul.ts` → scope.status `error`, reasoning "no indexed file shares the first 3 path segments, likely hallucination". Beide Proben: 2-7ms Laufzeit (Early-Reject, keine Worker-Swarm-Phase, keine LLM-Tokens verbrannt). F6-Spec-Dokument in `docs/F6-SCOPE-HALLUCINATION-FIX.md`.
 
+### Kandidat F14A - Claim-Gate Contract Clarification
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `why_not_now`: `none`
+- `non_scope`: neuer hard blocker fuer scope mismatch, Planner/Auditor-Formalisierung, Merge-Gate-Phase, Claim-Scoring, breiter Resolver-Umbau
+- `risk`: niedrig bis mittel; der enge Block ist jetzt lokal gebaut und typgeprueft, aber der echte Opus-Task-Nachweis auf Render fuer `scopeCompatibility` und den manual-scope-Fresh-Check bleibt noch offen.
+- `betroffene_bereiche`: `server/src/lib/opusClaimGate.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/builderScopeResolver.ts`, `docs/F14-PHASE1-CLAIM-GATE-SPEC.md`
+- `kurzurteil`: Der enge F14-Block ist kein Governance-Ausbau, sondern eine Vertragsklaerung auf drei Naehten: zweites Scope-Signal im Claim-Gate, explizite Arbeitsteilung zwischen Gate und Judge, und genau ein Fresh-Check fuer unindexierte manual-scope-Pfade gegen Repo-Wahrheit.
+- `evidence`: Repo-sichtbar pruefbar ist jetzt: `opusClaimGate.ts` liefert zusaetzlich `scopeCompatibility = compatible | mismatch | not_evaluated`; `opusTaskOrchestrator.ts` fuehrt Gate weiter vor Judge aus und macht fuer unindexierte manual-scope-Pfade genau einen Repo-Raw-Fetch-Check, bevor ein frueher Reject bleibt; `opusJudge.ts` bleibt die finale normative Reject-Instanz fuer out-of-scope edits. Der Phase-1-Entwurf liegt in `docs/F14-PHASE1-CLAIM-GATE-SPEC.md`. Lokale Verifikation: `cd server && pnpm build` gruen plus TS-Probe fuer `anchored + mismatch` und erfolgreichen Raw-Fetch von `server/src/lib/opusClaimGate.ts`.
+
 ### Kandidat F7 - Pool-Config-Persistenz ueber DB
 
 - `status`: `adopted`
