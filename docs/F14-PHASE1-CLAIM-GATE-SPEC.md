@@ -1,7 +1,7 @@
 # F14 Phase 1 - Claim Gate Contract Clarification
 
 Created: 2026-04-23
-Status: adopted (implementation live, shadow-verification pending)
+Status: adopted (implementation live and production runtime-verified on d375304)
 Scope: Phase-1 spec with implementation in opusClaimGate.ts and opusTaskOrchestrator.ts
 
 ## Zerquetsch-Satz
@@ -129,6 +129,17 @@ Phase 1 ist nur dann sauber geschnitten, wenn diese vier Faelle eindeutig klassi
 3. Manueller Scope auf repo-realen, aber unindexierten Pfad: Fruehreject wird durch genau einen Fresh-Check verhindert.
 4. Manueller Scope auf nicht existierenden Pfad ohne echten Create-Fall: Fruehreject bleibt bestehen. Nur der Netz- oder Reachability-Fall wird sichtbar als Fresh-Check-Failure markiert; ein echter Nichtfund bleibt ein normaler Halluzinations-Reject.
 
+## Production runtime verification
+
+Die vier Acceptance-Faelle sind inzwischen ueber den echten HTTP-Pfad
+`/api/health/opus-task-async` gegen die Production-Instanz auf Basis von
+Commit `d375304727421e11be62a43f4fcdf4f26c96c915` geprueft.
+
+1. Case 1, In-Scope: `anchored + compatible`, Judge approvt. Live-Job: `job-mobq28w2`.
+2. Case 2, Out-of-Scope: `anchored + mismatch`, Judge rejectet. Der zuerst naheliegende grosse Probeweg ueber `opusTaskOrchestrator.ts` war dafuer zu rauschig; der belastbare Mismatch-Nachweis kam ueber kleinen realen Scope auf `opusBridgeConfig.ts` bei tatsaechlicher Aenderung in `opusBridgeAuth.ts`. Live-Job: `job-mobq72r1`.
+3. Case 3, realer unindexierter manueller Scope: kein Fruehreject; stattdessen `(FRESH)` in der Scope-Phase fuer `F14-PHASE1-CLAIM-GATE-SPEC.md`. Live-Job: `job-mobpxh4b`.
+4. Case 4, nicht existierender Pfad ohne Create-Signal: sauberer Fruehreject mit `rejectedPaths`. Live-Job: `job-mobpt6rd`.
+
 ## Explizit nicht Teil von F14 Phase 1
 
 - missing_claims-Vertiefung
@@ -138,10 +149,9 @@ Phase 1 ist nur dann sauber geschnitten, wenn diese vier Faelle eindeutig klassi
 - Merge-Gate-Phase
 - breiter Resolver-Umbau ausserhalb des manuellen Drift-Pfads
 
-## Naechster Schritt fuer Runtime-Verifikation
+## Naechster Schritt nach Phase 1
 
-Nach dem lokalen Build und dem adversarial pass ist der naechste kleine Block:
+Phase 1 ist damit als enger Block abgeschlossen.
 
-1. Commit und Push des engen F14A-Schnitts.
-2. Danach Production-Shadow- und Hardening-Probes exakt gegen die vier Acceptance-Faelle.
-3. Double-Fetch-Reuse bleibt ein moeglicher Phase-2-Kandidat, kein Phase-1-Muss.
+1. Double-Fetch-Reuse bleibt ein moeglicher Phase-2-Kandidat, kein Phase-1-Muss.
+2. Breitere Opus-Bridge-Runtime-Themen wie `@READ`, BDL-Disziplin oder Distiller-Treue bleiben bewusst ausserhalb dieses Vertragsblocks.
