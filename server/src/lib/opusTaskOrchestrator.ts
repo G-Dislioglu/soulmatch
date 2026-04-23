@@ -23,8 +23,10 @@ import { resolveScope, fetchFileContents, isIndexedRepoFile, type ScopeMethod } 
 import { findRelatedFiles, loadBuilderFileIndex, type RelatedFile } from './builderRelatedFiles.js';
 import { decideChangeMode, getWorkerPromptForMode, type ChangeMode } from './opusChangeRouter.js';
 import { judgeValidCandidates } from './opusJudge.js';
+import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
+import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
 
@@ -164,13 +166,24 @@ RESPONSE FORMAT — respond with ONLY this JSON structure, nothing else:
       "content": "COMPLETE new file content"
     }
   ],
-  "summary": "one-line description"
+  "summary": "one-line description",
+  "claims": [
+    {
+      "text": "short concrete change claim",
+      "evidence_refs": [
+        { "type": "edit_path", "ref": "exact/file/path.ts" }
+      ]
+    }
+  ]
 }
 
 RULES:
 - For existing files: return the COMPLETE updated content (mode: overwrite)
 - For new files: return complete content (mode: create)
 - If a file is listed under CREATE TARGETS, do not treat it as an overwrite of an existing file
+- Include 1-3 short claims with concrete evidence_refs when possible
+- Allowed evidence_ref.type values: edit_path, scope_path, explicit_path, other
+- Do NOT invent anchor_status, impact_class, risk_class, or any other governance fields
 - Do NOT use SEARCH/REPLACE, diffs, or partial patches
 - Do NOT wrap in markdown code blocks
 - Return ONLY valid JSON`;
@@ -363,9 +376,68 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       summary: `${allParsed.length} parsed, 0 valid. Workers can't produce a valid overwrite or patch envelope yet.` };
   }
 
+  // Phase 4a: Claim Gate
+  const s4a = Date.now();
+  const gateMode = resolveGateMode();
+  const gateResults = valid.map(({ envelope, worker }) => ({
+    worker,
+    result: evaluateCandidateClaims({
+      instruction: input.instruction,
+      scopeFiles: scope.files,
+      envelope,
+      mode: gateMode,
+    }),
+  }));
+  const gatedCandidates = gateMode === 'hard'
+    ? valid.filter((candidate) => !gateResults.find((entry) => entry.worker === candidate.worker)?.result.blocked)
+    : valid;
+
+  devLogger.info('system', 'F13 claim gate evaluated candidates', {
+    mode: gateMode,
+    runId,
+    candidates: gateResults.map((entry) => ({
+      worker: entry.worker,
+      impactClass: entry.result.impactClass,
+      blocked: entry.result.blocked,
+      rejectCodes: entry.result.rejectCodes,
+      claims: entry.result.claims.map((claim) => ({
+        text: claim.text,
+        anchorStatus: claim.anchorStatus,
+        matchedRefs: claim.matchedRefs,
+      })),
+    })),
+  });
+
+  phases.push({
+    phase: 'claim-gate',
+    status: gatedCandidates.length > 0 ? 'ok' : 'error',
+    durationMs: Date.now() - s4a,
+    detail: {
+      mode: gateMode,
+      candidates: gateResults.map((entry) => ({
+        worker: entry.worker,
+        impactClass: entry.result.impactClass,
+        blocked: entry.result.blocked,
+        rejectCodes: entry.result.rejectCodes,
+        claims: entry.result.claims,
+      })),
+    },
+  });
+
+  if (gatedCandidates.length === 0) {
+    const rejectCodes = [...new Set(gateResults.flatMap((entry) => entry.result.rejectCodes))];
+    return {
+      status: 'failed',
+      runId,
+      phases,
+      totalDurationMs: Date.now() - totalStart,
+      summary: `F13 hard gate rejected all candidates: ${rejectCodes.join(', ') || 'unknown_reason'}`,
+    };
+  }
+
   // Phase 4b: Judge
   const s4b = Date.now();
-  const judge = await judgeValidCandidates(input.instruction, valid, {
+  const judge = await judgeValidCandidates(input.instruction, gatedCandidates, {
     scopeFiles: scope.files,
     createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path),
   });

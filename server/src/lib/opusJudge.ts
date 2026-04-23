@@ -1,21 +1,12 @@
 /**
  * Opus Judge — selects the best candidate via LLM
  */
+import type { EditEnvelope } from './opusEnvelopeValidator.js';
+import { extractExplicitPaths } from './opusAnchorPaths.js';
 import { callProvider } from './providers.js';
 import { WORKER_REGISTRY, JUDGE_WORKER } from './opusWorkerRegistry.js';
 
 // ─── Types ───
-
-interface EditEnvelope {
-  edits: Array<{
-    path: string;
-    mode: 'overwrite' | 'create' | 'patch';
-    content?: string;
-    patches?: Array<{ search: string; replace: string }>;
-  }>;
-  summary: string;
-  worker: string;
-}
 
 interface JudgeContext {
   scopeFiles: string[];
@@ -42,8 +33,6 @@ export interface JudgeDecision {
   rejectedWorkers: string[];
 }
 
-const EXPLICIT_PATH_RE = /(?:server|client)\/src\/[\w/.-]+\.tsx?/gi;
-
 function estimateEditSize(envelope: EditEnvelope): number {
   return envelope.edits.reduce((sum, edit) => {
     if (edit.mode === 'patch') {
@@ -51,10 +40,6 @@ function estimateEditSize(envelope: EditEnvelope): number {
     }
     return sum + (edit.content?.length ?? 0);
   }, 0);
-}
-
-function extractExplicitPaths(instruction: string): string[] {
-  return [...new Set(instruction.match(EXPLICIT_PATH_RE) ?? [])];
 }
 
 function previewEdit(envelope: EditEnvelope): string {

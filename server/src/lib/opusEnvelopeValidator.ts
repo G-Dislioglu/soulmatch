@@ -15,6 +15,17 @@ try {
 // ─── Types ───
 
 /** The one and only change format. No SEARCH/REPLACE. No diff. No regex. */
+export interface ClaimEvidenceRef {
+  type: 'edit_path' | 'scope_path' | 'explicit_path' | 'other';
+  ref: string;
+  description?: string;
+}
+
+export interface WorkerClaim {
+  text: string;
+  evidence_refs: ClaimEvidenceRef[];
+}
+
 export interface EditEnvelope {
   edits: Array<{
     path: string;
@@ -24,6 +35,7 @@ export interface EditEnvelope {
   }>;
   summary: string;
   worker: string;
+  claims?: WorkerClaim[];
 }
 
 type ParsedEdit = {
@@ -32,6 +44,37 @@ type ParsedEdit = {
   content?: unknown;
   patches?: unknown;
 };
+
+type ParsedClaim = {
+  text?: unknown;
+  evidence_refs?: unknown;
+};
+
+function normalizeClaimEvidenceRef(rawRef: unknown): ClaimEvidenceRef | null {
+  if (!rawRef || typeof rawRef !== 'object') return null;
+  const candidate = rawRef as { type?: unknown; ref?: unknown; description?: unknown };
+  if (typeof candidate.ref !== 'string' || candidate.ref.length === 0) return null;
+  if (candidate.type !== 'edit_path' && candidate.type !== 'scope_path' && candidate.type !== 'explicit_path' && candidate.type !== 'other') {
+    return null;
+  }
+  if (candidate.type === 'other') {
+    return {
+      type: 'other',
+      ref: candidate.ref,
+      ...(typeof candidate.description === 'string' && candidate.description.length > 0 ? { description: candidate.description } : {}),
+    };
+  }
+  return { type: candidate.type, ref: candidate.ref };
+}
+
+function normalizeClaim(rawClaim: ParsedClaim): WorkerClaim | null {
+  if (typeof rawClaim.text !== 'string' || rawClaim.text.trim().length === 0) return null;
+  if (!Array.isArray(rawClaim.evidence_refs)) return null;
+  const evidenceRefs = rawClaim.evidence_refs
+    .map((ref) => normalizeClaimEvidenceRef(ref))
+    .filter((ref): ref is ClaimEvidenceRef => ref !== null);
+  return { text: rawClaim.text.trim(), evidence_refs: evidenceRefs };
+}
 
 function normalizeEdit(rawEdit: ParsedEdit): EditEnvelope['edits'][number] | null {
   if (typeof rawEdit.path !== 'string' || rawEdit.path.length === 0) return null;
@@ -96,7 +139,13 @@ export function parseEnvelope(raw: string, worker: string): EditEnvelope | null 
       ? (parsed as { summary: string }).summary
       : '';
 
-    return { edits, summary, worker };
+    const claims = parsed && typeof parsed === 'object' && Array.isArray((parsed as { claims?: unknown }).claims)
+      ? (parsed as { claims: unknown[] }).claims
+        .map((claim) => (claim && typeof claim === 'object' ? normalizeClaim(claim as ParsedClaim) : null))
+        .filter((claim): claim is WorkerClaim => claim !== null)
+      : undefined;
+
+    return { edits, summary, worker, ...(claims ? { claims } : {}) };
   } catch {
     return null;
   }
