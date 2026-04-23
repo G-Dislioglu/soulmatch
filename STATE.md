@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `c8171c8`
+- `current_repo_head`: `d381d00`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-22`
+- `last_verified_against_code`: `2026-04-23`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts | server/src/lib/masterpieceTelemetry.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `S36 Master-Piece Phase 1 komplett abgeschlossen am 2026-04-22 in elf Commits auf main: (1) cf37ccc F00 Opus 4.7 API-Kompatibilitaet in providers.ts mit isOpus47OrLater-Sniffing, (2) c3bbab4 Vision-Doc erster Wurf, (3) 53df637 Doc-Rename auf MASTER-PIECE-VISION.md mit korrigierter Architektur (Master-Piece ist Builder-Feature nicht Soulmatch-Feature; Teilnehmer heissen Thinker), (4) 1df40dc F01 zehn Thinker-Eintraege in personaRouter.ts und studioPrompt.ts (Opus, Sonnet, GPT-5.4, Grok, DeepSeek, DeepSeek-R, GLM-Turbo, MiniMax, Kimi, Qwen), (5) 879dfcb F01.1 Thinker-Output-Format-Fix, (6) 5fff8be F01.2 Hygiene-Block (Self-Echo verhindert, UTF-8 via Content-Type Header, Max-Personas 4 auf 6), (7) 79ff93e F02 Maya-Synthese-Pass mit vier Sektionen (Kernpunkte Einigkeit Dissens Essenz), (8) 04fa659 F02.1a maxTokens 3500 im synthesis call, (9) c85edeb F02.1b Prompt-Disziplin (direkt-start mit Kernpunkte, alle vier Sektionen mandatory), (10) 5b2e0ba F03 Master-Piece-Round-Telemetrie mit setImmediate fire-and-forget, (11) c8171c8 F04 devLogger LogCategory um masterpiece erweitert. Live-verifiziert durch Claude unabhaengig: alle zehn Thinker funktional, Runde-2-Dialog-Qualitaet bestaetigt (GLM-Turbo revidierte R1-Position in R2), F02.1 Synthese direkt-start mit Kernpunkte und alle vier Sektionen in beiden Test-Szenarien (3 Thinker plus 6 Personas), Dissens erkennt Opus-Kontrapunkt explizit. F03-Telemetrie code-review-verified und compiled-verified; Runtime-Log-Content nicht von Claude direkt einsehbar, Render-Log-Verify als kleiner Follow-up offen.`
-- `next_recommended_block`: `Master-Piece Phase 1 ist komplett. Moegliche naechste Kandidaten ohne Prioritaet: (1) Master-Piece Phase 2 beginnen mit dedizierter /masterpiece Surface im Client plus Pool-Chips-UI. (2) Master-Piece Pool-Auswahl-Persistenz via neue DB-Tabelle masterpiece_state. (3) Heated-Debate-Level-Parameter (harmonisch kontrovers hitzig) im Thinker-Prompt. (4) Crossing und Crushing implementieren (AICOS-Operator-Spec lesen als Vorbereitung). (5) Render-Log-Verify fuer F03-Telemetrie. (6) Code-Terminology-Migration PERSONA zu BEING plus THINKER. (7) Worker-Swarm-Integration-Bridge zwischen Master-Piece-Entscheidung und Builder-Worker-Ausfuehrung. (8) Bluepilot Phase 1 beginnen (Builder ist substantiell stabil). (9) Legacy-Offene aus S35: DNS-Overflow Rest-Block, Studio-JSON-Parse-Bug Drift 16, F13-Runtime-Verify, Patrol-Finding-Auto-Fix, Kaya-Code-Rename (16 Orion-Stellen). (10) Maya-Core naechsten Block schneiden.`
+- `last_completed_block`: `F14A Claim-Gate Contract Clarification ist repo-sichtbar in 40dcd88 und live runtime-verifiziert gegen die Production-Instanz auf Basis von d375304: Case 1 in-scope edit endet bei anchored + compatible und Judge-Approve (job-mobq28w2); Case 2 out-of-scope edit endet bei anchored + mismatch und Judge-Reject (job-mobq72r1); Case 3 realer unindexierter manual-scope-Pfad bekommt keinen Fruehreject, sondern den Fresh-Check (job-mobpxh4b); Case 4 nicht existierender Pfad ohne Create-Signal wird frueh ueber rejectedPaths verworfen (job-mobpt6rd). Der spaetere Repo-Head d381d00 betrifft separat nur den Render-Fallback-Wait.`
+- `next_recommended_block`: `F14A ist als eigener Claim-Gate-Block abgeschlossen und runtime-verifiziert. Der naechste enge Kandidat getrennt von F14A ist die Live-Verifikation des aktuellen Render-Deploypfads auf Repo-Head d381d00, statt weiteren Deploy-Umbau oder neue Opus-Bridge-Achsen still zu vermischen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -138,9 +138,15 @@ noch eine Stufe enger geschnitten: Das F13-Claim-Gate fuehrt jetzt zusaetzlich
 ein sichtbares `scopeCompatibility`-Signal pro Claim, ohne neue Reject-Codes
 oder neue Hard-Blocker einzufuehren, und manuelle unindexierte Scope-Pfade
 bekommen genau einen Repo-Truth-Fresh-Check ueber denselben Raw-Fetch-Pfad,
-statt sofort als Halluzination zu sterben. Final normativ bleibt weiterhin der
-Judge, und der breitere Render-Nachweis fuer diesen F14A-Schnitt ist noch
-offen.
+statt sofort als Halluzination zu sterben. Dieser F14A-Schnitt ist inzwischen
+auch ueber den echten HTTP-Pfad `/api/health/opus-task-async` auf Production
+runtime-verifiziert: Case 1 endet bei `anchored + compatible` plus
+Judge-Approve, Case 2 bei `anchored + mismatch` plus Judge-Reject, Case 3
+zeigt fuer einen realen unindexierten manual-scope-Pfad den Fresh-Check statt
+Fruehreject, und Case 4 verwirft einen nicht existierenden Pfad ohne
+Create-Signal sauber ueber `rejectedPaths`. Offen bleibt damit fuer die
+Opus-Bridge weniger F14A selbst als die breiteren Render-Themen wie `@READ`,
+Roundtable-BDL, Distiller-/Judge-Treue und GLM-Laufzeit unter OpenRouter.
 
 Parallel dazu blockt die Builder-Runtime haengende Tasks jetzt auch autonom:
 ein eigener Server-Interval prueft alle 5 Minuten auf veraltete Tasks in
