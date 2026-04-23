@@ -55,6 +55,6 @@ jobs:
         env:
           DEPLOY_URL: https://soulmatch-1.onrender.com/api/health
           EXPECT_COMMIT: ${{ github.sha }}
-          DEPLOY_WAIT_SECONDS: 180
+          DEPLOY_WAIT_SECONDS: 420
           DEPLOY_POLL_INTERVAL: 15
         run: bash tools/wait-for-deploy.sh

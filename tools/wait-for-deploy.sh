@@ -35,7 +35,7 @@ set -euo pipefail
 URL="${DEPLOY_URL:-https://soulmatch-1.onrender.com/api/health}"
 EXPECTED_COMMIT="${EXPECT_COMMIT:-}"
 RESOLVE_IP="${DEPLOY_RESOLVE_IP:-}"
-MAX_SECONDS="${DEPLOY_WAIT_SECONDS:-180}"   # default: 3 minutes
+MAX_SECONDS="${DEPLOY_WAIT_SECONDS:-420}"   # default: 7 minutes
 INTERVAL="${DEPLOY_POLL_INTERVAL:-15}"
 ELAPSED=0
 ATTEMPTS=0

@@ -31,7 +31,7 @@ Render-Mechanismus zu setzen. Das Repo wartet jetzt per GitHub Actions zuerst ku
 ob Render Auto Deploy den Push selbst uebernimmt, und nutzt den Deploy Hook nur als
 Fallback. Danach wird der live Commit ueber `/api/health` verifiziert. Die Repo-
 Standardeinstellung ist jetzt bewusst kuerzer: erst 120s Auto-Deploy-Fenster, dann
-180s Fallback-Fenster, jeweils mit 15s Poll-Intervall. Wenn Render auch dann noch
+420s Fallback-Fenster, jeweils mit 15s Poll-Intervall. Wenn Render auch dann noch
 nicht den erwarteten Commit meldet, bleibt der Workflow absichtlich rot: das Repo
 behandelt den Deploy-Check weiter als strikte Live-Verifikation, nicht als reinen
 "best effort"-Trigger.
@@ -64,7 +64,7 @@ Empfohlener produktiver Pfad:
 - In GitHub den Secret `RENDER_DEPLOY_HOOK_URL` setzen
 - Push auf `main` mit deploy-relevanten Dateien triggert `.github/workflows/render-deploy.yml`
 - Der Workflow wartet zuerst bis zu 120s auf Render Auto Deploy und triggert den Hook nur, wenn der Commit nicht live wird
-- Danach wartet der Workflow bis zu 180s, bis `/api/health` genau den gepushten Commit meldet
+- Danach wartet der Workflow bis zu 420s, bis `/api/health` genau den gepushten Commit meldet
 
 Render Auto Deploy kann aktiv bleiben, ohne denselben Push doppelt zu deployen,
 weil der Hook nur noch als Fallback feuert. Nach dem Deploy:
