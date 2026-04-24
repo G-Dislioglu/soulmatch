@@ -46,6 +46,10 @@ Nicht Teil dieses Blocks:
 - keine semantische Bewertung per LLM im Hardening
 - keine stillen Umbauten an Scope, Claim-Gate, Judge oder Push
 
+Erlaubt ist jedoch eine minimale read-only Beobachtungsnaht, wenn sie nur den
+Phase-1-Zustand sichtbar macht und keinen neuen Steuer- oder Mutationspfad
+einfuehrt.
+
 ## Zielbild
 
 Phase 1 fuegt genau zwei neue Textquellen in den Builder ein:
@@ -91,6 +95,40 @@ Regel:
 - darf gespeichert, angezeigt und fuer Auswahl vorbereitet werden
 - darf nicht roh in einen Worker-Prompt uebernommen werden
 
+### AICOS-Meta-Loader-Vertrag
+
+Phase 1 meint mit HTTP Meta Source nicht beliebigen Web-Text, sondern primaer
+die AICOS-Meta-Schicht.
+
+Repo-sichtbarer Anker dafuer ist heute:
+
+- `server/src/lib/councilScout.ts` liest bereits
+  `https://raw.githubusercontent.com/G-Dislioglu/aicos-registry/master/index/INDEX.json`
+
+Der Phase-1-Loader soll darauf aufbauen und folgende Regeln einhalten:
+
+- Index-gesteuertes Laden statt hart codierter Meta-Liste im Code
+- Meta-Kandidaten werden ueber `INDEX.json` identifiziert und aus den dort
+  vorhandenen Pfaden oder Resolver-Hinweisen abgeleitet
+- keine Annahme, dass jede Meta-Karte zwingend als eigene Datei unter einem
+  festen 1-Datei-pro-ID-Schema liegt
+- wenn der Index nicht erreichbar ist, greift eine enge Fallback-Liste mit
+  `meta-001` bis `meta-007`
+- HTTP-Fetches laufen mit 10s Timeout pro Quelle
+- Mehrfach-Fetches nutzen `Promise.allSettled`, nicht `Promise.all`, damit eine
+  einzelne kaputte Quelle den ganzen Loader nicht reisst
+- erfolgreicher Meta-Text darf kurzzeitig in-memory gecacht werden; Cache ist
+  Beschleunigung, nicht Wahrheitsquelle
+
+Wichtige Klarstellung:
+
+- Der Loader identifiziert Meta-Quellen deterministisch ueber den Index,
+  normalisiert deren Inhalt und uebergibt erst danach Textfragmente an den
+  Phase-1-Pfad
+- Die spaetere Resolver-Implementierung darf gebuendelte Meta-Dateien und
+  Einzeldateien gleichermassen unterstuetzen, solange die Herkunft ueber den
+  Index nachvollziehbar bleibt
+
 ### 3. Assumption Entry
 
 Herkunft:
@@ -105,6 +143,16 @@ Regel:
 - ist fuer spaetere Wiederverwendung vorgesehen
 - muss vor Dispatch erneut gehaertet werden, wenn sie in einen Worker-Prompt
   eingeht
+
+Persistenzvertrag:
+
+- Phase 1 fuehrt eine explizite Persistenz fuer Registry-Assumptions ein
+- Default-Ziel ist eine Builder-DB-Tabelle `builder_assumptions` im Stil der
+  bestehenden `builder_*`-Tabellen
+- der Eintrag traegt mindestens Text, Provenance, Ersteller, Zeitstempel,
+  Hardening-Status und Reuse-Freigabe
+- eine reine In-Memory-Registry ist fuer diesen Block nicht die Zielarchitektur,
+  hoechstens ein lokaler Zwischenmodus waehrend Entwicklung oder Test
 
 ### 4. Final Dispatch Instruction
 
@@ -163,6 +211,44 @@ reicht aber fuer Phase 1 nicht aus. Der neue Vertrag lautet daher:
 
 Nur so wird verhindert, dass spaeter geladene Meta-Fragmente oder registrierte
 Assumptions den Schutz still umgehen.
+
+## Read-API
+
+Phase 1 darf eine minimale read-only Sicht auf den neuen Zustand bereitstellen,
+damit die Wirkung ausserhalb von Logs oder internen Speicherobjekten pruefbar
+ist.
+
+Empfohlener enger Vertrag:
+
+- `GET /api/architect/state`
+- read-only
+- abgesichert hinter `requireOpusToken`
+- keine Mutationen, keine Schreibpfade, keine Bluepilot-Governance-Aktionen
+
+Der Endpoint soll nur das sichtbar machen, was Phase 1 ohnehin intern fuehrt:
+
+- aktueller Control-Plane-Snapshot
+- geladene Meta-Quellen in kompakter Form
+- registrierte Assumptions in kompakter Form
+- Provenance- und Hardening-Metadaten ohne rohe Volltexte, wenn diese fuer die
+  Uebersicht nicht noetig sind
+
+Dieser Endpoint ist kein neuer Produktpfad. Er ist eine enge Beobachtungsnaht,
+damit Phase-1-Verifikation nicht an internen Speicher- oder DB-Details haengt.
+
+## Phase-0-Anschluss
+
+Die bereits vorhandenen `openAssumptions` aus `builderControlPlane.ts` bleiben
+nicht als parallele Sonderliste bestehen.
+
+Stattdessen gilt fuer Phase 1:
+
+- die hardcodierten Phase-0-Eintraege werden als Bootstrap-Assumptions der
+  neuen Registry uebernommen
+- diese Bootstrap-Eintraege tragen `sourceKind: 'system'`
+- nach der Uebernahme ist die Registry die einzige kanonische Assumption-Quelle
+- `builderControlPlane.ts` darf weiterhin aggregierte Sicht liefern, aber nicht
+  eine zweite Wahrheitsquelle neben der Registry fuehren
 
 ## Provenance-Felder
 
@@ -271,12 +357,14 @@ Phase 1 soll beim spaeteren Bauen in dieser Reihenfolge arbeiten:
 
 1. User-Instruction annehmen und bestehendes Eingangs-Hardening laufen lassen
 2. optionale HTTP-Meta-Quellen laden und normalisieren
-3. optionale Assumptions registrieren oder abrufen
-4. Provenance fuer alle wiederverwendeten Fragmente an den Assembly-Kontext
+3. Phase-0-`openAssumptions` als Bootstrap-Eintraege mit `sourceKind: 'system'`
+  in die neue Registry ueberfuehren statt parallel weiterzufuehren
+4. optionale Assumptions registrieren oder abrufen
+5. Provenance fuer alle wiederverwendeten Fragmente an den Assembly-Kontext
    haengen
-5. finale Worker-Instruktion zusammensetzen
-6. Dispatch-Hardening auf die vollstaendige Final-Instruktion laufen lassen
-7. nur bei `ok === true` an Worker uebergeben
+6. finale Worker-Instruktion zusammensetzen
+7. Dispatch-Hardening auf die vollstaendige Final-Instruktion laufen lassen
+8. nur bei `ok === true` an Worker uebergeben
 
 ## Fehlerverhalten
 
@@ -307,16 +395,23 @@ Diese Spec gilt als korrekt umgesetzt, wenn alle folgenden Punkte erfuellt sind:
    pauschalen Vertrag abgewickelt.
 5. Blockierende Findings stoppen den Dispatch vor Worker oder Swarm.
 6. Warnungen und Block-Codes bleiben im Task-Ergebnis sichtbar.
+7. Ein Smoke-Test bestaetigt: ein praepiertes Assumption-Fragment mit
+  `hardeningStatus: 'blocked'` fuehrt vor Worker-Dispatch zu einem Task-Fail,
+  ohne stillen Fallback oder Silent-Pass.
 
 ## Empfohlene enge Implementierungsreihenfolge
 
 Wenn diese Spec spaeter gebaut wird, dann in genau dieser Reihenfolge:
 
 1. Typen fuer Provenance und Source-Klassen definieren.
-2. Quellvalidierung fuer HTTP-Meta-Fragmente einfuehren.
-3. `addAssumption(text)` mit Validation + Provenance einfuehren.
-4. Final-Assembly-Schritt mit verpflichtendem Dispatch-Gate einfuehren.
-5. Erst danach kleine Beobachtbarkeit fuer Findings und Truncation ergaenzen.
+2. AICOS-Index-Loader mit Resolver, Timeout, Fallback-Liste und In-Memory-Cache
+  einfuehren.
+3. Quellvalidierung fuer HTTP-Meta-Fragmente einfuehren.
+4. `addAssumption(text)` mit Validation + Provenance + Persistenz einfuehren.
+5. Phase-0-Bootstrap-Assumptions in die Registry ueberfuehren.
+6. Final-Assembly-Schritt mit verpflichtendem Dispatch-Gate einfuehren.
+7. Read-only `GET /api/architect/state` fuer Beobachtbarkeit ergaenzen.
+8. Erst danach kleine Beobachtbarkeit fuer Findings und Truncation ergaenzen.
 
 ## Warum diese Fassung von der frueheren Richtung abweicht
 
