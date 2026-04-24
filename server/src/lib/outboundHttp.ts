@@ -7,10 +7,23 @@ import {
   type Dispatcher,
 } from 'undici';
 
-const OUTBOUND_DISPATCHER = new Agent({
+const OUTBOUND_AGENT_OPTIONS = {
   connections: 128,
   pipelining: 1,
-});
+} as const;
+
+const DNS_ROTATION_ERROR_CODES = new Set([
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function createOutboundDispatcher(): Agent {
+  return new Agent(OUTBOUND_AGENT_OPTIONS);
+}
+
+let outboundDispatcher = createOutboundDispatcher();
+let outboundDispatcherGeneration = 0;
 
 let outboundDefaultsInstalled = false;
 
@@ -24,7 +37,7 @@ export function installOutboundHttpDefaults(): void {
     setDefaultAutoSelectFamily?: (value: boolean) => void;
   };
   netModule.setDefaultAutoSelectFamily?.(false);
-  setGlobalDispatcher(OUTBOUND_DISPATCHER);
+  setGlobalDispatcher(outboundDispatcher);
   outboundDefaultsInstalled = true;
 }
 
@@ -37,6 +50,7 @@ export type OutboundFetchResponse = Awaited<ReturnType<typeof undiciFetch>>;
 type OutboundErrorLike = {
   name?: unknown;
   code?: unknown;
+  message?: unknown;
   cause?: unknown;
 };
 
@@ -106,6 +120,80 @@ function normalizeErrorCause(value: unknown): string | undefined {
   return normalizeErrorField(value);
 }
 
+function normalizeErrorMessage(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isDnsRotationError(err: unknown): boolean {
+  const errorLike = toErrorLike(err);
+  const causeLike = toErrorLike(errorLike.cause);
+  const signals = [
+    normalizeErrorField(errorLike.code),
+    normalizeErrorField(errorLike.name),
+    normalizeErrorField(causeLike.code),
+    normalizeErrorField(causeLike.name),
+    normalizeErrorMessage(errorLike.message),
+    normalizeErrorMessage(causeLike.message),
+  ].filter((value): value is string => value !== undefined);
+
+  return signals.some((signal) => {
+    const normalized = signal.toUpperCase();
+    return DNS_ROTATION_ERROR_CODES.has(normalized)
+      || normalized.includes('DNS')
+      || normalized.includes('GETADDRINFO')
+      || normalized.includes('CACHE OVERFLOW');
+  });
+}
+
+function recycleOutboundDispatcher(
+  staleGeneration: number,
+  requestId: string,
+  host: string,
+  reason: string,
+): void {
+  if (staleGeneration !== outboundDispatcherGeneration) {
+    return;
+  }
+
+  const previousDispatcher = outboundDispatcher;
+  outboundDispatcherGeneration += 1;
+  outboundDispatcher = createOutboundDispatcher();
+  setGlobalDispatcher(outboundDispatcher);
+
+  if (!isOutboundQuiet()) {
+    console.warn('[outbound-recycle]', JSON.stringify({
+      requestId,
+      host,
+      reason,
+      previousGeneration: staleGeneration,
+      nextGeneration: outboundDispatcherGeneration,
+    }));
+  }
+
+  void previousDispatcher.close().catch(() => {
+    previousDispatcher.destroy();
+  });
+}
+
+function resolveManagedDispatcher(init: OutboundFetchInit): { dispatcher: Dispatcher; generation: number } {
+  if (init.dispatcher) {
+    return {
+      dispatcher: init.dispatcher,
+      generation: -1,
+    };
+  }
+
+  return {
+    dispatcher: outboundDispatcher,
+    generation: outboundDispatcherGeneration,
+  };
+}
+
 export async function outboundFetch(
   input: OutboundFetchInput,
   init: OutboundFetchInit = {},
@@ -116,40 +204,66 @@ export async function outboundFetch(
   const host = resolveHost(input);
   const start = Date.now();
 
-  try {
-    const response = await undiciFetch(input, {
-      ...init,
-      dispatcher: init.dispatcher ?? OUTBOUND_DISPATCHER,
-    });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const managed = resolveManagedDispatcher(init);
 
-    if (!isOutboundQuiet()) {
-      console.log('[outbound]', JSON.stringify({
-        requestId,
-        method,
-        host,
-        durationMs: Date.now() - start,
-        status: response.status,
-        ok: response.ok,
-      }));
-    }
+    try {
+      const response = await undiciFetch(input, {
+        ...init,
+        dispatcher: managed.dispatcher,
+      });
 
-    return response;
-  } catch (err: unknown) {
-    if (!isOutboundQuiet()) {
+      if (!isOutboundQuiet()) {
+        console.log('[outbound]', JSON.stringify({
+          requestId,
+          method,
+          host,
+          durationMs: Date.now() - start,
+          status: response.status,
+          ok: response.ok,
+          attempt,
+          dispatcherGeneration: managed.generation,
+        }));
+      }
+
+      return response;
+    } catch (err: unknown) {
       const errorLike = toErrorLike(err);
-      console.error('[outbound-err]', JSON.stringify({
-        requestId,
-        method,
-        host,
-        durationMs: Date.now() - start,
-        errName: normalizeErrorField(errorLike.name),
-        errCode: normalizeErrorField(errorLike.code),
-        errCause: normalizeErrorCause(errorLike.cause),
-      }));
-    }
+      const shouldRetry = !init.dispatcher && attempt === 1 && isDnsRotationError(err);
 
-    throw err;
+      if (!isOutboundQuiet()) {
+        console.error('[outbound-err]', JSON.stringify({
+          requestId,
+          method,
+          host,
+          durationMs: Date.now() - start,
+          errName: normalizeErrorField(errorLike.name),
+          errCode: normalizeErrorField(errorLike.code),
+          errCause: normalizeErrorCause(errorLike.cause),
+          attempt,
+          dispatcherGeneration: managed.generation,
+          retrying: shouldRetry,
+        }));
+      }
+
+      if (shouldRetry) {
+        recycleOutboundDispatcher(
+          managed.generation,
+          requestId,
+          host,
+          normalizeErrorCause(errorLike.cause)
+            ?? normalizeErrorField(errorLike.code)
+            ?? normalizeErrorField(errorLike.name)
+            ?? 'dns-error',
+        );
+        continue;
+      }
+
+      throw err;
+    }
   }
+
+  throw new Error(`Outbound fetch exhausted retries for ${method} ${host}`);
 }
 
-export { OUTBOUND_DISPATCHER };
+export { outboundDispatcher as OUTBOUND_DISPATCHER };
