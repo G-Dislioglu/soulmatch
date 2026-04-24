@@ -1,5 +1,6 @@
 import dns from 'node:dns';
 import * as net from 'node:net';
+import type { LookupFunction } from 'node:net';
 import {
   Agent,
   fetch as undiciFetch,
@@ -12,14 +13,95 @@ const OUTBOUND_AGENT_OPTIONS = {
   pipelining: 1,
 } as const;
 
+const DNS_LOOKUP_TTL_MS = 300_000;
+const DNS_LOOKUP_MAX_ENTRIES = 256;
+
+type DnsLookupCacheEntry = {
+  address: string;
+  family: number;
+  expires: number;
+};
+
+const dnsLookupCache = new Map<string, DnsLookupCacheEntry>();
+
 const DNS_ROTATION_ERROR_CODES = new Set([
   'EAI_AGAIN',
   'ENOTFOUND',
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
 
+function buildDnsLookupCacheKey(hostname: string, options: Parameters<LookupFunction>[1]): string {
+  if (typeof options === 'number') {
+    return `${hostname}|family:${options}`;
+  }
+
+  return [
+    hostname,
+    `family:${options.family ?? 0}`,
+    `hints:${options.hints ?? 0}`,
+    `verbatim:${options.verbatim === true ? 1 : 0}`,
+    `order:${options.order ?? 'default'}`,
+  ].join('|');
+}
+
+function readDnsLookupCache(cacheKey: string): DnsLookupCacheEntry | undefined {
+  const now = Date.now();
+  const cached = dnsLookupCache.get(cacheKey);
+  if (!cached) {
+    return undefined;
+  }
+
+  if (cached.expires <= now) {
+    dnsLookupCache.delete(cacheKey);
+    return undefined;
+  }
+
+  dnsLookupCache.delete(cacheKey);
+  dnsLookupCache.set(cacheKey, cached);
+  return cached;
+}
+
+function writeDnsLookupCache(cacheKey: string, address: string, family: number): void {
+  if (dnsLookupCache.has(cacheKey)) {
+    dnsLookupCache.delete(cacheKey);
+  } else if (dnsLookupCache.size >= DNS_LOOKUP_MAX_ENTRIES) {
+    const oldestKey = dnsLookupCache.keys().next().value;
+    if (typeof oldestKey === 'string') {
+      dnsLookupCache.delete(oldestKey);
+    }
+  }
+
+  dnsLookupCache.set(cacheKey, {
+    address,
+    family,
+    expires: Date.now() + DNS_LOOKUP_TTL_MS,
+  });
+}
+
+const customLookup = ((hostname, options, callback) => {
+  const cacheKey = buildDnsLookupCacheKey(hostname, options);
+  const cached = readDnsLookupCache(cacheKey);
+  if (cached) {
+    callback(null, cached.address, cached.family);
+    return;
+  }
+
+  dns.lookup(hostname, options, (err, address, family) => {
+    if (!err && typeof address === 'string' && typeof family === 'number') {
+      writeDnsLookupCache(cacheKey, address, family);
+    }
+
+    callback(err, address, family);
+  });
+}) as LookupFunction;
+
 function createOutboundDispatcher(): Agent {
-  return new Agent(OUTBOUND_AGENT_OPTIONS);
+  return new Agent({
+    ...OUTBOUND_AGENT_OPTIONS,
+    connect: {
+      lookup: customLookup,
+    },
+  });
 }
 
 let outboundDispatcher = createOutboundDispatcher();
@@ -162,6 +244,7 @@ function recycleOutboundDispatcher(
 
   const previousDispatcher = outboundDispatcher;
   outboundDispatcherGeneration += 1;
+  dnsLookupCache.clear();
   outboundDispatcher = createOutboundDispatcher();
   setGlobalDispatcher(outboundDispatcher);
 
