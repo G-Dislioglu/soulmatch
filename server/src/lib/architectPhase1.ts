@@ -138,7 +138,7 @@ const BLOCKED_PATTERNS: Array<{ code: string; message: string; regex: RegExp }> 
   {
     code: 'secret_exfiltration_pattern',
     message: 'Text fordert moegliche Secret-, Env- oder Token-Ausgabe an.',
-    regex: /printenv|process\.env|api[_\s-]?key|secret|token|bearer/i,
+     regex: /printenv|process\.env|api[_\s-]?key|client[_\s-]?secret|private[_\s-]?key|bearer\s+[a-z0-9._-]+|(?:reveal|dump|show|print|expose)[^\n]{0,40}\b(?:secret|token|key)s?\b/i,
   },
   {
     code: 'script_injection_pattern',
