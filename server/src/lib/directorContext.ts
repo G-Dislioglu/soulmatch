@@ -4,6 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import { builderErrorCards, builderMemory, builderTasks } from '../schema/builder.js';
 import { getAllAgentSummaries } from './agentHabitat.js';
+import { getBuilderControlState, type BuilderControlState } from './builderControlPlane.js';
 import { getActivePools } from './poolState.js';
 import { getRepoRoot } from './builderExecutor.js';
 
@@ -26,6 +27,7 @@ export interface DirectorContext {
   };
   activePools: ReturnType<typeof getActivePools>;
   availableTools: string[];
+  controlPlane: BuilderControlState;
 }
 
 function safeReadRepoFile(relativePath: string): string {
@@ -101,5 +103,6 @@ export async function buildDirectorContext(): Promise<DirectorContext> {
       'patrol-findings: Patrol-Findings nach Severity abrufen',
       'benchmark: Worker-Benchmark ausfuehren',
     ],
+    controlPlane: getBuilderControlState(),
   };
 }
