@@ -26,6 +26,7 @@ import { judgeValidCandidates } from './opusJudge.js';
 import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
+import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -51,6 +52,7 @@ export interface OpusTaskResult {
   landed?: boolean;
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
   verifiedCommit?: string;
+  hardening?: SpecHardeningReport;
 }
 
 interface PhaseResult {
@@ -291,6 +293,25 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const workers = input.workers || DEFAULT_WORKERS;
   const maxTokens = input.maxTokens || 6000;
 
+  const hardeningStart = Date.now();
+  const hardening = hardenInstruction(input.instruction);
+  phases.push({
+    phase: 'hardening',
+    status: hardening.ok ? 'ok' : 'error',
+    durationMs: Date.now() - hardeningStart,
+    detail: hardening,
+  });
+  if (!hardening.ok) {
+    return {
+      runId,
+      status: 'failed',
+      phases,
+      hardening,
+      totalDurationMs: Date.now() - totalStart,
+      summary: 'Instruction blocked: ' + hardening.stats.blockCount + ' blocking finding(s)',
+    };
+  }
+
   // Phase 1: Deterministic Scope
   const s1 = Date.now();
   const scope = await runScopePhase(input.instruction, input.scope, input.targetFile);
@@ -315,6 +336,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       status: 'failed',
       runId,
       phases,
+      hardening,
       totalDurationMs: Date.now() - totalStart,
       summary: scope.rejectedPaths && scope.rejectedPaths.length > 0
         ? `Scope rejected ${scope.rejectedPaths.length} hallucinated path(s): ${scope.rejectedPaths.join(', ')}. Include exact paths in instruction or provide explicit create signal.`
@@ -355,7 +377,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     phases.push({ phase: 'fetch', status: 'error', durationMs: Date.now() - s2,
       detail: { fetched: fileContents.size, total: scope.files.length, ambiguousTargets } });
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: `Ambiguous file state for: ${ambiguousTargets.join(', ')}` };
+      summary: `Ambiguous file state for: ${ambiguousTargets.join(', ')}`, hardening };
   }
   const modePrompts = [...new Set(fileModes.map((entry) => getWorkerPromptForMode(entry.mode)))];
 
@@ -371,7 +393,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     durationMs: Date.now() - s3,
     detail: results.map(r => ({ worker: r.worker, chars: r.response.length, ms: r.durationMs, error: r.error })) });
   if (okResults.length === 0) {
-    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart, summary: 'All workers failed.' };
+    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart, summary: 'All workers failed.', hardening };
   }
 
   // Phase 4: Parse + Validate
@@ -392,7 +414,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   if (valid.length === 0) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: `${allParsed.length} parsed, 0 valid. Workers can't produce a valid overwrite or patch envelope yet.` };
+      summary: `${allParsed.length} parsed, 0 valid. Workers can't produce a valid overwrite or patch envelope yet.`, hardening };
   }
 
   // Phase 4a: Claim Gate
@@ -450,6 +472,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       status: 'failed',
       runId,
       phases,
+      hardening,
       totalDurationMs: Date.now() - totalStart,
       summary: `F13 hard gate rejected all candidates: ${rejectCodes.join(', ') || 'unknown_reason'}`,
     };
@@ -467,7 +490,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
   if (!judge.approved || !judge.winner) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: `Judge rejected all candidates: ${judge.reason}` };
+      summary: `Judge rejected all candidates: ${judge.reason}`, hardening };
   }
   const best = judge.winner;
 
@@ -475,7 +498,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   if (input.dryRun) {
     return { status: 'dry_run', runId, phases, edits: best,
       totalDurationMs: Date.now() - totalStart,
-      summary: `Dry run: ${best.edits.length} file(s) ready. Winner: ${best.worker}` };
+      summary: `Dry run: ${best.edits.length} file(s) ready. Winner: ${best.worker}`,
+      hardening };
   }
 
   // Phase 5: Push
@@ -490,6 +514,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         summary: `Push failed: ${push.error}`,
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
+        hardening,
       };
     }
   }
@@ -539,5 +564,6 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     summary: `${allOk ? '✅' : '⚠️'} ${Math.round((Date.now() - totalStart) / 1000)}s | ${best.worker} | ${best.edits.map(e => e.path).join(', ')}`,
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
+    hardening,
   };
 }
