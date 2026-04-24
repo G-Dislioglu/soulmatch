@@ -62,7 +62,7 @@ Empfohlener produktiver Pfad:
 
 - In Render einen Deploy Hook fuer den Web Service anlegen
 - In GitHub den Secret `RENDER_DEPLOY_HOOK_URL` setzen
-- Push auf `main` mit deploy-relevanten Dateien triggert `.github/workflows/render-deploy.yml`
+- Push auf `main` mit Client-, Server-, Infra- oder `docs/**`-Aenderungen triggert `.github/workflows/render-deploy.yml`
 - Der Workflow wartet zuerst bis zu 120s auf Render Auto Deploy und triggert den Hook nur, wenn der Commit nicht live wird
 - Danach wartet der Workflow bis zu 420s, bis `/api/health` genau den gepushten Commit meldet
 
@@ -71,9 +71,9 @@ weil der Hook nur noch als Fallback feuert. Nach dem Deploy:
 - Frontend erreichbar unter der Render-URL
 - Studio mit LLM: Einstellungen → Provider=OpenAI → LLM aktiviert → Studio öffnen
 
-Reine Doku- oder Meta-Pushes ausserhalb der Workflow-Allowlist loesen damit keinen
-Render-Deploy mehr aus. Gemischte Commits mit Code plus Doku triggern weiterhin,
-weil schon eine deploy-relevante Datei fuer den Workflow reicht.
+Reine `docs/**`-Pushes triggern den Workflow jetzt ebenfalls, damit GitHub-Deploy-
+Verifikation und Render-Commit fuer Review- oder Spec-Commits nicht auseinanderlaufen.
+Pushes ausserhalb der Workflow-Allowlist loesen weiterhin keinen Render-Deploy aus.
 
 ## Verifizierung
 

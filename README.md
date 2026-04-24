@@ -40,7 +40,7 @@ git push origin <your-branch>
    - Render Auto Deploy may stay enabled; the workflow now waits for it first and only falls back to the deploy hook if needed
 
 3. In GitHub:
-   - The workflow `.github/workflows/render-deploy.yml` verifies each push to `main`, waits briefly for Render Auto Deploy, and uses the deploy hook only as fallback
+   - The workflow `.github/workflows/render-deploy.yml` verifies each push to `main` that touches app, infra, or `docs/**`, waits briefly for Render Auto Deploy, and uses the deploy hook only as fallback
    - The workflow fails if `/api/health` does not advance to the exact pushed commit
 
 ### 3) Staging smoke checks
