@@ -27,6 +27,7 @@ import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
+import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -39,6 +40,9 @@ export interface OpusTaskInput {
   maxTokens?: number;
   skipDeploy?: boolean;
   dryRun?: boolean;
+  metaSourceIds?: string[];
+  assumptions?: string[];
+  assumptionIds?: string[];
 }
 
 export interface OpusTaskResult {
@@ -53,6 +57,7 @@ export interface OpusTaskResult {
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
   verifiedCommit?: string;
   hardening?: SpecHardeningReport;
+  dispatchHardening?: SpecHardeningReport;
 }
 
 interface PhaseResult {
@@ -312,6 +317,59 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     };
   }
 
+  const architectAssembly = await assembleArchitectInstruction(input.instruction, {
+    metaSourceIds: input.metaSourceIds,
+    assumptions: input.assumptions,
+    assumptionIds: input.assumptionIds,
+  } satisfies ArchitectTaskAugmentations);
+  phases.push({
+    phase: 'architect-assembly',
+    status: architectAssembly.ok ? 'ok' : 'error',
+    durationMs: 0,
+    detail: {
+      metaFragments: architectAssembly.metaFragments.map((fragment) => ({
+        id: fragment.id,
+        sourceId: fragment.provenance.sourceId,
+        hardeningStatus: fragment.hardeningStatus,
+        reuseAllowed: fragment.reuseAllowed,
+        truncation: fragment.truncation,
+      })),
+      selectedAssumptions: architectAssembly.selectedAssumptions.map((fragment) => ({
+        id: fragment.id,
+        sourceId: fragment.provenance.sourceId,
+        hardeningStatus: fragment.hardeningStatus,
+        reuseAllowed: fragment.reuseAllowed,
+      })),
+      omittedMetaFragments: architectAssembly.omittedMetaFragments.map((fragment) => ({
+        id: fragment.id,
+        sourceId: fragment.provenance.sourceId,
+        hardeningStatus: fragment.hardeningStatus,
+        findings: fragment.findings,
+      })),
+      warnings: architectAssembly.warnings,
+      findings: architectAssembly.findings,
+      finalInstructionLength: architectAssembly.finalInstruction.length,
+      dispatchHardening: {
+        ok: architectAssembly.dispatchHardening.ok,
+        warningCount: architectAssembly.dispatchHardening.stats.warnCount,
+        blockCount: architectAssembly.dispatchHardening.stats.blockCount,
+      },
+      blockReason: architectAssembly.blockReason,
+    },
+  });
+  if (!architectAssembly.ok) {
+    return {
+      runId,
+      status: 'failed',
+      phases,
+      hardening,
+      dispatchHardening: architectAssembly.dispatchHardening,
+      totalDurationMs: Date.now() - totalStart,
+      summary: architectAssembly.blockReason || 'Architect assembly blocked the task before worker dispatch.',
+    };
+  }
+  const workerInstruction = architectAssembly.finalInstruction;
+
   // Phase 1: Deterministic Scope
   const s1 = Date.now();
   const scope = await runScopePhase(input.instruction, input.scope, input.targetFile);
@@ -386,7 +444,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 3: Swarm
   const s3 = Date.now();
-  const prompt = `${buildWorkerPrompt(input.instruction, fileContents, scope.files, scope.method, fileModes, relatedFiles)}\n\n${modePrompts.join('\n\n')}`;
+  const prompt = `${buildWorkerPrompt(workerInstruction, fileContents, scope.files, scope.method, fileModes, relatedFiles)}\n\n${modePrompts.join('\n\n')}`;
   const results = await runWorkerSwarm(prompt, workers, maxTokens);
   const okResults = results.filter(r => r.response.length > 50 && !r.error);
   phases.push({ phase: 'swarm', status: okResults.length > 0 ? 'ok' : 'error',
@@ -499,7 +557,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     return { status: 'dry_run', runId, phases, edits: best,
       totalDurationMs: Date.now() - totalStart,
       summary: `Dry run: ${best.edits.length} file(s) ready. Winner: ${best.worker}`,
-      hardening };
+      hardening,
+      dispatchHardening: architectAssembly.dispatchHardening };
   }
 
   // Phase 5: Push
@@ -515,6 +574,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
         hardening,
+        dispatchHardening: architectAssembly.dispatchHardening,
       };
     }
   }
@@ -565,5 +625,6 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
     hardening,
+    dispatchHardening: architectAssembly.dispatchHardening,
   };
 }

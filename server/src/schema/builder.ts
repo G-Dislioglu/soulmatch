@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean as pgBoolean, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 export const BUILDER_STATUS = [
   'queued',
@@ -208,6 +208,21 @@ export const asyncJobs = pgTable('async_jobs', {
   instruction: text('instruction').notNull(),
   result: jsonb('result'),
   error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const builderAssumptions = pgTable('builder_assumptions', {
+  id: text('id').primaryKey(),
+  text: text('text').notNull(),
+  hardeningStatus: varchar('hardening_status', { length: 16 }).notNull().default('accepted'),
+  reuseAllowed: pgBoolean('reuse_allowed').notNull().default(false),
+  sourceKind: varchar('source_kind', { length: 20 }).notNull(),
+  creator: varchar('creator', { length: 80 }).notNull().default('unknown'),
+  title: varchar('title', { length: 200 }).notNull(),
+  provenance: jsonb('provenance').$type<Record<string, unknown>>().notNull().default({}),
+  findings: jsonb('findings').$type<Record<string, unknown>[]>().notNull().default([]),
+  truncation: jsonb('truncation').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

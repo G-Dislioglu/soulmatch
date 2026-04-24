@@ -1282,7 +1282,7 @@ opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, metaSourceIds, assumptions, assumptionIds } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
@@ -1290,10 +1290,13 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       maxTokens?: number;
       skipDeploy?: boolean;
       dryRun?: boolean;
+      metaSourceIds?: string[];
+      assumptions?: string[];
+      assumptionIds?: string[];
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
-        const result = await orchestrateTask({ instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun });
+        const result = await orchestrateTask({ instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, metaSourceIds, assumptions, assumptionIds });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });

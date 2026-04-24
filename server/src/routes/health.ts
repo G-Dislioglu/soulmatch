@@ -230,12 +230,15 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
     return;
   }
 
-  const { instruction, dryRun, scope, skipDeploy, targetFile } = req.body as {
+  const { instruction, dryRun, scope, skipDeploy, targetFile, metaSourceIds, assumptions, assumptionIds } = req.body as {
     instruction?: string;
     dryRun?: boolean;
     scope?: string[];
     skipDeploy?: boolean;
     targetFile?: string;
+    metaSourceIds?: string[];
+    assumptions?: string[];
+    assumptionIds?: string[];
   };
   if (!instruction?.trim()) {
     res.status(400).json({ error: 'instruction required' });
@@ -261,6 +264,9 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
       scope,
       skipDeploy: Boolean(skipDeploy),
       targetFile,
+      metaSourceIds,
+      assumptions,
+      assumptionIds,
     }))
     .then((result) => {
       void updateAsyncJob(id, { status: 'done', result, error: undefined });
