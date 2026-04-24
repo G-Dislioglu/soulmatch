@@ -380,16 +380,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat F15 - Builder Spec-Hardening vor Phase 1
 
-- `status`: `active`
-- `truth_class`: `derived_from_review`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `user_request`
-- `next_gate`: `proposal`
-- `why_not_now`: `Phase 0 der internen Control-Plane ist in 3565dcd gerade repo-sichtbar und live abgeschlossen; der naechste enge Block soll denselben Eingabepfad haerten statt sofort neue Registry- oder Governance-Schichten daraufzulegen.`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/specHardening.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/architectPhase1.ts`, `server/src/routes/architect.ts`, `docs/PHASE-1-SPEC-HARDENED.md`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
 - `non_scope`: `Phase 1 AICOS-Meta-Loader, neue Routes, UI-Ausleitung, Maya-Core-Anbindung, Webhooks, Capability-Learning`
-- `risk`: `mittel bis hoch; der Builder hat jetzt einen ersten internen Kontrollraum, aber async und Director-Pfade nehmen weiter rohe Instruktionsstrings ohne eigene Hardening-Schicht entgegen. Ohne diesen Zwischenschritt bleibt die Eingabe anfällig fuer Quote-, Escape- und Backtick-Fallen.`
-- `betroffene_bereiche`: `server/src/routes/health.ts`, `server/src/lib/directorActions.ts`, moeglicher neuer Hardening-Pfad unter `server/src/lib/`
-- `kurzurteil`: `Der enge Folgeblock nach Phase 0 ist nicht Phase 1, sondern deterministische Instruktions-Haertung vor Dispatch. Erst wenn der rohe Prompt-Pfad stabiler ist, lohnt sich mehr Meta- oder Registry-Logik darauf.`
-- `evidence`: `server/src/lib/builderControlPlane.ts` und `server/src/lib/directorContext.ts` bilden jetzt einen kleinen internen Kontrollraum; `server/src/routes/health.ts` und `server/src/lib/directorActions.ts` reichen Builder-Instruktionen weiter, aber ein eigener Spec-Hardening-Pfad existiert repo-sichtbar noch nicht.
+- `risk`: `niedrig bis mittel; der Hardening-Zwischenschritt ist live in den Phase-1-Pfad eingelassen, aber der Regex-Hotfix 4a072ec zeigt, dass Guard-Praezision weiter ueber echte False-Positive-Tests beobachtet werden muss.`
+- `betroffene_bereiche`: `server/src/lib/specHardening.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/architectPhase1.ts`, `server/src/routes/health.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/architect.ts`
+- `kurzurteil`: `Der vorgeschaltete Hardening-Block ist umgesetzt und vom anschliessenden Phase-1-Lauf live bestaetigt: Builder-Instruktionen werden vor dem Dispatch deterministisch gehaertet, vergiftete Assumptions blocken vor dem Swarm, und ein spaeter entdeckter Regex-False-Positive wurde noch in derselben Live-Schleife mit 4a072ec nachgeschaerft.`
+- `evidence`: `65e705d` fuehrt den Hardening-Pfad repo-sichtbar ein; `47deb25` baut Phase 1 mit AICOS-Meta-Loader, Assumption-Registry, Dispatch-Gate und `/api/architect/state`; `4a072ec` korrigiert einen produktiv nachgewiesenen False-Positive im Exfiltration-Regex. Live-Proben 2026-04-24: Render-Deploys auf `47deb25` und danach `4a072ec` verifiziert, produktive Migration von `builder_assumptions` ueber `/api/builder/opus-bridge/migrate`, `/api/architect/state` zeigt `persistenceMode=database`, und der Async-Gate-Smoke `job-mod99ozd` blockt die vergiftete Assumption vor dem Worker-Swarm bei gleichzeitig akzeptierten Meta-Karten `meta-001` bis `meta-007`.`
 
 ### Kandidat F7 - Pool-Config-Persistenz ueber DB
 

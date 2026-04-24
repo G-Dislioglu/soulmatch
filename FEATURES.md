@@ -144,15 +144,15 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `next_recommended_step`: Drei Live-Proben fahren: voller Digest, gefilterter Digest und Cache-Hit innerhalb von 5 Minuten; danach entscheiden, ob Claude-Session-Start standardmaessig `session-start` plus `architecture-digest` zieht.
 - `evidence`: `server/src/lib/architectureDigest.ts`, `server/src/routes/contextBroker.ts`, `docs/F12-ARCHITECTURE-DIGEST.md`.
 
-### Builder orchestration und Maya 3-layer memory
+### Builder orchestration, Maya 3-layer memory und Architect Phase 1
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
 - `last_checked`: `2026-04-24`
-- `quality`: `phase0_control_plane_live_internal_only`
-- `known_gap`: Der Builder hat jetzt zusaetzlich einen kleinen internen Phase-0-Kontrollraum: `builderControlPlane.ts` liest den STATE-Header deterministisch ein und `directorContext.ts` traegt diesen Zustand als `controlPlane` in den Director-Kontext. Der Block ist bewusst eng und live verifiziert, bleibt aber noch rein intern: kein eigener Endpoint, keine Assumption-Registry, keine Spec-Haertung vor Dispatch, keine AICOS-Normierung und keine sichtbare Maya-/UI-Ausleitung. Die frueheren Builder-/Memory-/Observe-Pfade bleiben parallel aktiv; neu ist nur eine erste gemeinsame Kontrollschicht statt einer verteilten Sammlung von Hinweisen.
-- `next_recommended_step`: Vor Phase 1 keinen weiteren Governance-Ausbau auf denselben Eingabepfad legen, sondern zuerst einen engen Spec-Hardening-Block schneiden, der Builder-Instruktionen deterministisch gegen Quote-, Escape- und Backtick-Fallen haertet.
-- `evidence`: `server/src/lib/builderControlPlane.ts`, `server/src/lib/directorContext.ts`; Commit `3565dcd` live verifiziert am 2026-04-24: `cd server && pnpm build` und `cd client && pnpm typecheck` gruen, Render-Health wechselte ueber `DEPLOY_RESOLVE_IP=216.24.57.7` nach 345s auf `3565dcd` mit HTTP 200.
+- `quality`: `phase1_architect_gate_live_with_hotfix`
+- `known_gap`: Die fruehere Phase-0-Kontrollschicht ist jetzt in einen echten Phase-1-Pfad uebergegangen: `architectPhase1.ts` fuehrt AICOS-Meta-Loader, Assumption-Registry, finale Assembly und Dispatch-Gate ein; `/api/architect/state` zeigt den Beobachtungszustand read-only; `builder_assumptions` ist produktiv aktiv. Offen bleibt nicht die Existenz des Pfads, sondern seine Beobachtungstiefe: der Endpoint ist observational statt kanonischer Fetch, findings/truncation bleiben relativ knapp, und Guard-Regexe muessen weiter auf False Positives gegen echte Registry-Daten getestet werden.
+- `next_recommended_step`: Keinen breiten Capability- oder meta-008-Ausbau auf denselben Pfad legen; wenn weitergemacht wird, dann zuerst als enger review-/observability-Block fuer findings/truncation, `/api/architect/state` und Guard-False-Positive-Tests.
+- `evidence`: `server/src/lib/builderControlPlane.ts`, `server/src/lib/directorContext.ts`, `server/src/lib/specHardening.ts`, `server/src/lib/architectPhase1.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/architect.ts`, `server/src/routes/health.ts`, `server/src/routes/opusBridge.ts`, `server/src/schema/builder.ts`, `server/migrations/0001_builder_assumptions.sql`; Feature-Commit `47deb25` live verifiziert am 2026-04-24, Hotfix `4a072ec` ebenfalls live verifiziert, produktive Migration ueber `/api/builder/opus-bridge/migrate`, `/api/architect/state` mit `persistenceMode=database`, und Live-Gate-Smoke `job-mod99ozd` blockt die Poison-Assumption vor dem Worker-Swarm bei akzeptierten Meta-Karten `meta-001` bis `meta-007`.
 
 ### Render deploy pipeline
 

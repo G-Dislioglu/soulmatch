@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `3565dcd`
+- `current_repo_head`: `4a072ec`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-24`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
-- `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts | server/src/lib/masterpieceTelemetry.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Phase 0 der Internal-Architect-Control-Plane ist repo-sichtbar und live verifiziert in 3565dcd abgeschlossen: server/src/lib/builderControlPlane.ts fuehrt einen kleinen internen Kontrollzustand aus STATE.md ein, und directorContext.ts traegt diesen jetzt als controlPlane in den Director-Kontext. Der Block blieb absichtlich intern: keine neuen Routes, kein UI, keine AICOS-Integration, keine Maya-Anbindung. Build-Pruefung lief gruen ueber cd server && pnpm build und cd client && pnpm typecheck. Der Push auf main wurde live gegen Render verifiziert: /api/health blieb zunaechst auf a53dd69 und wechselte nach 345s auf 3565dcd mit HTTP 200 ueber DEPLOY_RESOLVE_IP=216.24.57.7.`
-- `next_recommended_block`: `Nach dem live verifizierten Phase-0-Block ist der naechste enge Kandidat nicht Phase 1, sondern ein vorgeschalteter Spec-Hardening-Block fuer Builder-Instruktionen: deterministische Haertung gegen Quote-, Escape- und Backtick-Fallen, bevor mehr Meta- oder Registry-Schichten auf denselben Eingabepfad gelegt werden.`
+- `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
+- `last_completed_block`: `Phase 1 der Internal-Architect-Control-Plane ist repo-sichtbar und live verifiziert: Commit 47deb25 baut in server/src/lib/architectPhase1.ts einen AICOS-Meta-Loader, eine Assumption-Registry, das finale Assembly-/Dispatch-Gate und den read-only Endpoint /api/architect/state; opusTaskOrchestrator.ts sowie die sync/async Opus-Task-Pfade tragen jetzt metaSourceIds, assumptions und assumptionIds. Die neue Tabelle builder_assumptions wurde produktiv ueber den geschuetzten Remote-Pfad /api/builder/opus-bridge/migrate ausgerollt. Build-Pruefung lief gruen ueber cd server && pnpm build und cd client && pnpm typecheck. Live-Verifikation: Render wechselte erst auf 47deb25 und danach fuer den Hotfix auf 4a072ec; /api/architect/state zeigt persistenceMode=database; der produktive Gate-Smoke blockt eine vergiftete Assumption vor dem Worker-Swarm. Der Hotfix 4a072ec korrigiert dabei einen echten False-Positive im secret_exfiltration_pattern, das harmlose AICOS-Felder wie Token: zuvor als blocked markierte.`
+- `next_recommended_block`: `Nach dem live verifizierten Phase-1-Block ist kein breiter weiterer Governance-Ausbau fuer heute empfohlen. Wenn Arbeit wieder aufgenommen wird, dann zuerst als enger review-/observability-Block rund um /api/architect/state, Guard-False-Positives und findings/truncation; Capability-Register oder meta-008-artige Erweiterungen sollten erst danach folgen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -72,6 +72,16 @@ behautet: Profilspeicherung laeuft ueber PostgreSQL, zusaetzlich existieren
 weitere DB-Tabellen fuer Session- und Voice-Memory, waehrend viele andere
 Nutzerzustaende weiter in `localStorage` leben. Bei LLM und Audio ist Gemini
 heute realer Bestandteil der Laufzeit und nicht nur Planungsrest.
+
+Neu repo-sichtbar und live verifiziert ist ausserdem Phase 1 der Internal-
+Architect-Control-Plane: `server/src/lib/architectPhase1.ts` augmentiert
+Builder-Tasks jetzt ueber AICOS-Meta-Quellen und Assumptions, baut daraus die
+finale Dispatch-Instruktion und blockt vergiftete Fragmente vor dem
+Worker-Swarm. `server/src/routes/architect.ts` exponiert den Beobachtungszustand
+read-only ueber `/api/architect/state`, und `builder_assumptions` ist produktiv
+migriert. Ein spaeter Live-Smoke deckte dabei einen echten False-Positive im
+Exfiltration-Regex auf; `4a072ec` haertet diesen Guard nach, ohne harmlose
+Meta-Karten weiter zu blocken.
 
 Der explizit angeforderte UI-Redesign-Pfad ist jetzt durch die weiteren
 Tab-Huellen fuer Astro, Report/Match und Hall of Souls sichtbar fortgesetzt.
@@ -505,6 +515,9 @@ Runtime-Wahrheit fuer Soulmatch.
 - `profiles` ist die klarste aktive Kern-Persistenz fuer Userprofile.
 - `session_memories` ist nicht nur Schema-Rest, sondern wird von
   `server/src/lib/memoryService.ts` aktiv beschrieben und gelesen.
+- `builder_assumptions` ist jetzt produktiv aktiv: `server/src/lib/architectPhase1.ts`
+  liest und schreibt diese Tabelle fuer die neue Assumption-Registry, und die
+  Tabelle wurde live ueber den geschuetzten Remote-Migrationspfad angelegt.
 - `persona_memories` und `voice_profiles` sind im Schema vorhanden; ihr genauer
   aktiver Nutzungsgrad sollte in einem separaten Audit geprueft werden.
 - Viele Nutzerzustaende bleiben bewusst oder historisch in `localStorage`, u. a.
@@ -516,6 +529,9 @@ Runtime-Wahrheit fuer Soulmatch.
   modified im Working Tree.
 - Die Root-Dokumentation vereinfacht mehrere Runtime-Aspekte zugunsten eines
   MVP-Narrativs, was als Einstieg hilfreich, aber als operative Wahrheit zu grob ist.
+- `/api/architect/state` ist ein beobachtender read-only Endpoint und kein
+  kanonischer Prefetch fuer AICOS-Meta-Karten; die dort sichtbaren Meta-Fragmente
+  erscheinen erst nach einer realen Assembly mit `metaSourceIds`.
 - Das UI bekommt jetzt eine zweite harte Wahrheitsschicht: `REDESIGN.md` fuer den
   visuellen und strukturellen Zielzustand, ohne Routing-, Backend- oder
   Scoring-Vertraege neu zu oeffnen.
