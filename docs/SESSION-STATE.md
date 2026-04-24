@@ -1,8 +1,31 @@
 # SESSION-STATE
 
-**Letzte Session:** S36 (2026-04-22, komplett — Master-Piece Phase 1 gebaut und live verifiziert)
-**Handoff:** in diesem Dokument plus `docs/CLAUDE-CONTEXT.md`
-**Repo-Head:** Code `c8171c8` (F04 Telemetry-Category). Live-Commit auf Render: `c8171c8`.
+**Letzte Session:** S37 (2026-04-24, Architect Phase 1 live verifiziert, DNS-Fix v2 live verifiziert, Handoff-Hygiene gezogen)
+**Handoff:** `docs/HANDOFF-S37.md` plus `docs/CLAUDE-CONTEXT.md`
+**Repo-Head:** Git `3082dd6` auf `main`. Feature-Code-Anchor bleibt `4a072ec`. Live-Commit auf Render: `3082dd6`.
+
+## S37 Kurzuebersicht
+
+Enge Builder-/Architect-Session am 24.04.2026. Der produktrelevante Kern ist jetzt live und dokumentiert: Phase 0 Control Plane (`3565dcd`), Spec-Hardening vor Worker-Dispatch (`65e705d`), Phase 1 Hardened Architect mit Meta-Loader / Assumption-Registry / Dispatch-Gate / `/api/architect/state` (`47deb25`), Regex-Hotfix fuer AICOS-`Token:`-False-Positive (`4a072ec`), danach Truth-Sync (`020ea2c`) und DNS-Fix v2 in `server/src/lib/outboundHttp.ts` (`3082dd6`).
+
+Live verifiziert in S37:
+
+- Render lief am Ende auf `3082dd6`
+- `cd server && pnpm build` gruen
+- `cd client && pnpm typecheck` gruen
+- 10x `/api/health` im 5-Sekunden-Abstand: alle `HTTP 200`
+- Dry-run-Dispatch-Probe `job-modbbct9`: final `status=done`, `resultStatus=dry_run`, keine DNS-Signale
+
+Wichtige Arbeitsregel fuer die naechste Session:
+
+- Auf dieser lokalen Maschine Render-Checks weiter per `--resolve soulmatch-1.onrender.com:443:216.24.57.7` oder `DEPLOY_RESOLVE_IP=216.24.57.7` fahren; normales DNS ist lokal nicht stabil genug, um als neue Baseline zu gelten.
+
+Offiziell naechster enger Block:
+
+- Guard-False-Positive-Haertung oder
+- `/api/architect/state` Observability
+
+Kein Capability-Register, kein `meta-008`, kein breiter Governance-Ausbau als naechster Schritt.
 
 ## S36 Übersicht — Master-Piece Phase 1
 
