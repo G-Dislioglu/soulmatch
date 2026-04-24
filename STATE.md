@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `a53dd69`
+- `current_repo_head`: `3565dcd`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-24`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts | server/src/lib/masterpieceTelemetry.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Der DNS-Restblock ist repo-sichtbar in a53dd69 abgeschlossen: server/src/lib/outboundHttp.ts recycelt den globalen outbound-undici-Agent jetzt nach DNS-artigen Fehlern wie ENOTFOUND oder EAI_AGAIN und versucht den Request genau einmal mit neuer Dispatcher-Generation erneut. Der Push auf main wurde live gegen Render verifiziert: /api/health blieb zunaechst auf d381d00 und wechselte nach 165s auf a53dd69 mit HTTP 200. Lokale DNS-Aufloesung fuer soulmatch-1.onrender.com war dabei im Windows/bash-Client kaputt (curl code 6), die Live-Verifikation gelang aber sauber ueber DEPLOY_RESOLVE_IP=216.24.57.7 plus tools/wait-for-deploy.sh und direkten Health-Call mit commit a53dd69.`
-- `next_recommended_block`: `Nach dem live verifizierten DNS-Fix ist der naechste enge Block Phase 0 der Internal-Architect-Control-Plane: builderControlPlane.ts als neue kanonische Schicht plus enger Hook in directorContext.ts, getrennt von Phase 1 und ohne stillen Ausbau der restlichen Builder-Achsen.`
+- `last_completed_block`: `Phase 0 der Internal-Architect-Control-Plane ist repo-sichtbar und live verifiziert in 3565dcd abgeschlossen: server/src/lib/builderControlPlane.ts fuehrt einen kleinen internen Kontrollzustand aus STATE.md ein, und directorContext.ts traegt diesen jetzt als controlPlane in den Director-Kontext. Der Block blieb absichtlich intern: keine neuen Routes, kein UI, keine AICOS-Integration, keine Maya-Anbindung. Build-Pruefung lief gruen ueber cd server && pnpm build und cd client && pnpm typecheck. Der Push auf main wurde live gegen Render verifiziert: /api/health blieb zunaechst auf a53dd69 und wechselte nach 345s auf 3565dcd mit HTTP 200 ueber DEPLOY_RESOLVE_IP=216.24.57.7.`
+- `next_recommended_block`: `Nach dem live verifizierten Phase-0-Block ist der naechste enge Kandidat nicht Phase 1, sondern ein vorgeschalteter Spec-Hardening-Block fuer Builder-Instruktionen: deterministische Haertung gegen Quote-, Escape- und Backtick-Fallen, bevor mehr Meta- oder Registry-Schichten auf denselben Eingabepfad gelegt werden.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

@@ -378,6 +378,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Der enge F14-Block ist kein Governance-Ausbau, sondern eine Vertragsklaerung auf drei Naehten: zweites Scope-Signal im Claim-Gate, explizite Arbeitsteilung zwischen Gate und Judge, und genau ein Fresh-Check fuer unindexierte manual-scope-Pfade gegen Repo-Wahrheit.
 - `evidence`: Repo-sichtbar pruefbar ist jetzt: `opusClaimGate.ts` liefert zusaetzlich `scopeCompatibility = compatible | mismatch | not_evaluated`; `opusTaskOrchestrator.ts` fuehrt Gate weiter vor Judge aus und macht fuer unindexierte manual-scope-Pfade genau einen Repo-Raw-Fetch-Check, bevor ein frueher Reject bleibt; `opusJudge.ts` bleibt die finale normative Reject-Instanz fuer out-of-scope edits. Production-Runtime-Verify auf Basis von `d375304` lief ueber `/api/health/opus-task-async`: Case 1 in-scope `anchored + compatible` mit Judge-Approve (`job-mobq28w2`), Case 2 out-of-scope `anchored + mismatch` mit Judge-Reject (`job-mobq72r1`), Case 3 realer unindexierter manual-scope-Pfad mit Fresh-Check statt Fruehreject (`job-mobpxh4b`), Case 4 nicht existierender Pfad ohne Create-Signal mit fruehem Reject ueber `rejectedPaths` (`job-mobpt6rd`). Der Phase-1-Entwurf liegt in `docs/F14-PHASE1-CLAIM-GATE-SPEC.md`.
 
+### Kandidat F15 - Builder Spec-Hardening vor Phase 1
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `user_request`
+- `next_gate`: `proposal`
+- `why_not_now`: `Phase 0 der internen Control-Plane ist in 3565dcd gerade repo-sichtbar und live abgeschlossen; der naechste enge Block soll denselben Eingabepfad haerten statt sofort neue Registry- oder Governance-Schichten daraufzulegen.`
+- `non_scope`: `Phase 1 AICOS-Meta-Loader, neue Routes, UI-Ausleitung, Maya-Core-Anbindung, Webhooks, Capability-Learning`
+- `risk`: `mittel bis hoch; der Builder hat jetzt einen ersten internen Kontrollraum, aber async und Director-Pfade nehmen weiter rohe Instruktionsstrings ohne eigene Hardening-Schicht entgegen. Ohne diesen Zwischenschritt bleibt die Eingabe anfällig fuer Quote-, Escape- und Backtick-Fallen.`
+- `betroffene_bereiche`: `server/src/routes/health.ts`, `server/src/lib/directorActions.ts`, moeglicher neuer Hardening-Pfad unter `server/src/lib/`
+- `kurzurteil`: `Der enge Folgeblock nach Phase 0 ist nicht Phase 1, sondern deterministische Instruktions-Haertung vor Dispatch. Erst wenn der rohe Prompt-Pfad stabiler ist, lohnt sich mehr Meta- oder Registry-Logik darauf.`
+- `evidence`: `server/src/lib/builderControlPlane.ts` und `server/src/lib/directorContext.ts` bilden jetzt einen kleinen internen Kontrollraum; `server/src/routes/health.ts` und `server/src/lib/directorActions.ts` reichen Builder-Instruktionen weiter, aber ein eigener Spec-Hardening-Pfad existiert repo-sichtbar noch nicht.
+
 ### Kandidat F7 - Pool-Config-Persistenz ueber DB
 
 - `status`: `adopted`
