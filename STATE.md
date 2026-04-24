@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `d381d00`
+- `current_repo_head`: `a53dd69`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-23`
+- `last_verified_against_code`: `2026-04-24`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/builderFusionChat.ts | server/src/lib/masterpieceTelemetry.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `F14A Claim-Gate Contract Clarification ist repo-sichtbar in 40dcd88 und live runtime-verifiziert gegen die Production-Instanz auf Basis von d375304: Case 1 in-scope edit endet bei anchored + compatible und Judge-Approve (job-mobq28w2); Case 2 out-of-scope edit endet bei anchored + mismatch und Judge-Reject (job-mobq72r1); Case 3 realer unindexierter manual-scope-Pfad bekommt keinen Fruehreject, sondern den Fresh-Check (job-mobpxh4b); Case 4 nicht existierender Pfad ohne Create-Signal wird frueh ueber rejectedPaths verworfen (job-mobpt6rd). Der spaetere Repo-Head d381d00 betrifft separat nur den Render-Fallback-Wait.`
-- `next_recommended_block`: `F14A ist als eigener Claim-Gate-Block abgeschlossen und runtime-verifiziert. Der naechste enge Kandidat getrennt von F14A ist die Live-Verifikation des aktuellen Render-Deploypfads auf Repo-Head d381d00, statt weiteren Deploy-Umbau oder neue Opus-Bridge-Achsen still zu vermischen.`
+- `last_completed_block`: `Der DNS-Restblock ist repo-sichtbar in a53dd69 abgeschlossen: server/src/lib/outboundHttp.ts recycelt den globalen outbound-undici-Agent jetzt nach DNS-artigen Fehlern wie ENOTFOUND oder EAI_AGAIN und versucht den Request genau einmal mit neuer Dispatcher-Generation erneut. Der Push auf main wurde live gegen Render verifiziert: /api/health blieb zunaechst auf d381d00 und wechselte nach 165s auf a53dd69 mit HTTP 200. Lokale DNS-Aufloesung fuer soulmatch-1.onrender.com war dabei im Windows/bash-Client kaputt (curl code 6), die Live-Verifikation gelang aber sauber ueber DEPLOY_RESOLVE_IP=216.24.57.7 plus tools/wait-for-deploy.sh und direkten Health-Call mit commit a53dd69.`
+- `next_recommended_block`: `Nach dem live verifizierten DNS-Fix ist der naechste enge Block Phase 0 der Internal-Architect-Control-Plane: builderControlPlane.ts als neue kanonische Schicht plus enger Hook in directorContext.ts, getrennt von Phase 1 und ohne stillen Ausbau der restlichen Builder-Achsen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

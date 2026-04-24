@@ -158,11 +158,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-15`
-- `quality`: `repo_triggered_live_verification_pending`
-- `known_gap`: Der doppelte Deploy-Pfad ist repo-seitig jetzt enger gezogen: Der Workflow wartet zuerst kurz auf Render Auto Deploy und nutzt `RENDER_DEPLOY_HOOK_URL` nur noch als Fallback, damit derselbe Push nicht doppelt deployed wird. Voll bestaetigt ist dieser Fallback-Modus erst nach einem echten Lauf, bei dem entweder Auto Deploy rechtzeitig uebernimmt oder der Hook sauber einspringt.
-- `next_recommended_step`: Einen Push auf `main` gegen die Zielruntime fahren und pruefen, ob `.github/workflows/render-deploy.yml` entweder ohne Hook-Fallback auf den Commit laeuft oder den Hook genau einmal als Fallback nachzieht.
-- `evidence`: `.github/workflows/render-deploy.yml`, `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, `server/src/routes/health.ts`.
+- `last_checked`: `2026-04-24`
+- `quality`: `live_verified_with_local_dns_workaround`
+- `known_gap`: Der eigentliche Repo-Deploypfad ist jetzt praktisch bestaetigt: Push auf `main` brachte Render von `d381d00` auf `a53dd69`, und `/api/health` lieferte danach HTTP 200 mit dem neuen Commit. Offen ist nicht mehr der Workflow-Fallback selbst, sondern ein lokales Operator-Gap: Auf dem Windows/bash-Client schlug die DNS-Aufloesung fuer `soulmatch-1.onrender.com` mit curl code 6 fehl, waehrend dieselbe Runtime ueber `--resolve` bzw. `DEPLOY_RESOLVE_IP=216.24.57.7` sauber erreichbar war.
+- `next_recommended_step`: Den lokalen DNS-Resolve-Drift fuer die Render-Domain separat beobachten oder spaeter eng haerten; der normale Deploypfad selbst braucht vor dem naechsten Builder-Block keinen weiteren Umbau.
+- `evidence`: `.github/workflows/render-deploy.yml`, `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, `server/src/routes/health.ts`; Live-Probe 2026-04-24 nach Push `d381d00 -> a53dd69`: Standard-curl lokal mit Host-Resolve-Failure, aber `DEPLOY_RESOLVE_IP=216.24.57.7 EXPECT_COMMIT=$(git rev-parse HEAD) bash tools/wait-for-deploy.sh` wechselte nach 165s auf `a53dd69`, und direkter `curl --resolve soulmatch-1.onrender.com:443:216.24.57.7 https://soulmatch-1.onrender.com/api/health` lieferte HTTP 200 plus `commit: a53dd69...`.
 
 ### Opus-Bridge orchestration
 
