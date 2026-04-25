@@ -110,11 +110,24 @@ function pushFinding(
   });
 }
 
-function checkBacktickRegexPattern(lines: string[]): SpecHardeningFinding[] {
+function forEachCodeLine(
+  lineContexts: InstructionLineContext[],
+  visitor: (line: string, lineNumber: number) => void,
+): void {
+  for (let index = 0; index < lineContexts.length; index += 1) {
+    const lineContext = lineContexts[index];
+    if (!lineContext?.inCodeBlock) {
+      continue;
+    }
+
+    visitor(lineContext.text, index + 1);
+  }
+}
+
+function checkBacktickRegexPattern(lineContexts: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
+    forEachCodeLine(lineContexts, (line, lineNumber) => {
       if (line.indexOf('/') !== -1 && countChar(line, GA) >= 2) {
         pushFinding(
           findings,
@@ -122,23 +135,22 @@ function checkBacktickRegexPattern(lines: string[]): SpecHardeningFinding[] {
           'block',
           'Regex-Literal mit Grave-Accent erkannt — Worker eskapieren das nicht zuverlaessig',
           'Nutze statt Regex einen manuellen String-Parser, Grave-Accent als String.fromCharCode(96) konstante',
-          index + 1,
+          lineNumber,
           findFirstColumn(line, '/'),
         );
       }
-    }
+    });
     return findings;
   } catch {
     return [];
   }
 }
 
-function checkUnescapedBackslashes(lines: string[]): SpecHardeningFinding[] {
+function checkUnescapedBackslashes(lineContexts: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
     const tokens = ['\\n', '\\t', '\\r', '\\\\'];
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
+    forEachCodeLine(lineContexts, (line, lineNumber) => {
       for (const token of tokens) {
         const column = findFirstColumn(line, token);
         if (column !== undefined) {
@@ -148,24 +160,23 @@ function checkUnescapedBackslashes(lines: string[]): SpecHardeningFinding[] {
             'warn',
             'Raw-Escape-Sequenz erkannt',
             'Bei Worker-Dispatch kann der Escape unterschiedlich interpretiert werden',
-            index + 1,
+            lineNumber,
             column,
           );
           break;
         }
       }
-    }
+    });
     return findings;
   } catch {
     return [];
   }
 }
 
-function checkCurlyTemplatePattern(lines: string[]): SpecHardeningFinding[] {
+function checkCurlyTemplatePattern(lineContexts: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
+    forEachCodeLine(lineContexts, (line, lineNumber) => {
       const hasDollarTemplate = line.indexOf('${') !== -1 && line.indexOf('}') !== -1;
       const hasDoubleCurly = line.indexOf('{{') !== -1 && line.indexOf('}}') !== -1;
       if (hasDollarTemplate || hasDoubleCurly) {
@@ -175,22 +186,21 @@ function checkCurlyTemplatePattern(lines: string[]): SpecHardeningFinding[] {
           'warn',
           'Template-Placeholder-Muster erkannt',
           'Template-Placeholder werden von Workern nicht expandiert, Worker sehen den Literaltext',
-          index + 1,
+          lineNumber,
           hasDollarTemplate ? findFirstColumn(line, '${') : findFirstColumn(line, '{{'),
         );
       }
-    }
+    });
     return findings;
   } catch {
     return [];
   }
 }
 
-function checkQuoteImbalance(lines: string[]): SpecHardeningFinding[] {
+function checkQuoteImbalance(lineContexts: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
+    forEachCodeLine(lineContexts, (line, lineNumber) => {
       const graveCount = countChar(line, GA);
       const doubleQuoteCount = countChar(line, '"');
       if (graveCount % 2 !== 0 || doubleQuoteCount % 2 !== 0) {
@@ -200,11 +210,11 @@ function checkQuoteImbalance(lines: string[]): SpecHardeningFinding[] {
           'warn',
           'Unbalancierte Quotes erkannt',
           'Unbalancierte Quotes koennen Worker-Parser verwirren',
-          index + 1,
+          lineNumber,
           graveCount % 2 !== 0 ? findFirstColumn(line, GA) : findFirstColumn(line, '"'),
         );
       }
-    }
+    });
     return findings;
   } catch {
     return [];
@@ -270,10 +280,10 @@ export function hardenInstruction(instruction: string): SpecHardeningReport {
   const lineContexts = buildInstructionLineContexts(lines);
   const findings: SpecHardeningFinding[] = [];
 
-  findings.push(...checkBacktickRegexPattern(lines));
-  findings.push(...checkUnescapedBackslashes(lines));
-  findings.push(...checkCurlyTemplatePattern(lines));
-  findings.push(...checkQuoteImbalance(lines));
+  findings.push(...checkBacktickRegexPattern(lineContexts));
+  findings.push(...checkUnescapedBackslashes(lineContexts));
+  findings.push(...checkCurlyTemplatePattern(lineContexts));
+  findings.push(...checkQuoteImbalance(lineContexts));
   findings.push(...checkLengthLimits(instruction));
   findings.push(...checkForbiddenPatterns(lineContexts));
 
