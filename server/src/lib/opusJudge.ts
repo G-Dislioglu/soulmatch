@@ -70,6 +70,7 @@ function assessCandidate(
     !candidate.envelope.edits.some((edit) => edit.mode === 'create' && edit.path === path),
   );
 
+
   const blockingIssues: string[] = [];
   const warnings: string[] = [];
 
@@ -186,6 +187,7 @@ export async function judgeValidCandidates(
       maxTokens: 400,
       temperature: 0.1,
       forceJsonObject: false,
+      reasoning: { effort: 'high' },
     });
     const parsed = parseJudgeResponse(response, candidates.length);
     if (!parsed) return heuristic;
