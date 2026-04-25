@@ -59,6 +59,7 @@ maybe_skip_wait_for_non_runtime_head_commit() {
 
   current_head=$(git rev-parse HEAD 2>/dev/null) || return 1
 
+
   # Only auto-skip when the caller is waiting for the current HEAD (or did not
   # set EXPECT_COMMIT at all). If a different commit is requested, keep the
   # previous strict behavior and wait normally.
@@ -81,7 +82,7 @@ maybe_skip_wait_for_non_runtime_head_commit() {
   exit 0
 }
 
-maybe_skip_wait_for_non_runtime_head_commit
+maybe_skip_wait_for_non_runtime_head_commit || true
 
 echo ""
 echo "  Waiting for live deploy"
