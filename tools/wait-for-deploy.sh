@@ -41,6 +41,48 @@ ELAPSED=0
 ATTEMPTS=0
 HOST=$(printf '%s' "$URL" | sed -E 's#https?://([^/]+).*#\1#')
 
+is_non_runtime_path() {
+  local path="$1"
+
+  case "$path" in
+    *.md|docs/*|docs/**|tools/wait-for-deploy.sh|.github/workflows/render-deploy.yml)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+maybe_skip_wait_for_non_runtime_head_commit() {
+  local current_head changed_files path
+
+  current_head=$(git rev-parse HEAD 2>/dev/null) || return 1
+
+  # Only auto-skip when the caller is waiting for the current HEAD (or did not
+  # set EXPECT_COMMIT at all). If a different commit is requested, keep the
+  # previous strict behavior and wait normally.
+  if [[ -n "$EXPECTED_COMMIT" && "$EXPECTED_COMMIT" != "$current_head" ]]; then
+    return 1
+  fi
+
+  changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) || return 1
+  [[ -n "$changed_files" ]] || return 1
+
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    if ! is_non_runtime_path "$path"; then
+      return 1
+    fi
+  done <<< "$changed_files"
+
+  echo "  [skip] Non-runtime push detected, no redeploy expected"
+  echo ""
+  exit 0
+}
+
+maybe_skip_wait_for_non_runtime_head_commit
+
 echo ""
 echo "  Waiting for live deploy"
 echo "  URL:      $URL"
