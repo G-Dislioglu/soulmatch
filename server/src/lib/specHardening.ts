@@ -124,11 +124,37 @@ function forEachCodeLine(
   }
 }
 
+function findBacktickDelimitedRegexColumn(line: string): number | undefined {
+  let backtickStart = -1;
+
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] !== GA) {
+      continue;
+    }
+
+    if (backtickStart === -1) {
+      backtickStart = index;
+      continue;
+    }
+
+    const span = line.slice(backtickStart + 1, index).trim();
+    if (/^\/(?:\\.|[^/\n])+\/[dgimsuvy]*$/.test(span)) {
+      const slashOffset = line.slice(backtickStart + 1, index).indexOf('/');
+      return slashOffset === -1 ? undefined : backtickStart + slashOffset + 2;
+    }
+
+    backtickStart = -1;
+  }
+
+  return undefined;
+}
+
 function checkBacktickRegexPattern(lineContexts: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
     forEachCodeLine(lineContexts, (line, lineNumber) => {
-      if (line.indexOf('/') !== -1 && countChar(line, GA) >= 2) {
+      const column = findBacktickDelimitedRegexColumn(line);
+      if (column !== undefined) {
         pushFinding(
           findings,
           'BACKTICK_IN_REGEX',
@@ -136,7 +162,7 @@ function checkBacktickRegexPattern(lineContexts: InstructionLineContext[]): Spec
           'Regex-Literal mit Grave-Accent erkannt — Worker eskapieren das nicht zuverlaessig',
           'Nutze statt Regex einen manuellen String-Parser, Grave-Accent als String.fromCharCode(96) konstante',
           lineNumber,
-          findFirstColumn(line, '/'),
+          column,
         );
       }
     });
