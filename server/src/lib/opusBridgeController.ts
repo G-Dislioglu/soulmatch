@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { convertBdlPatchesToPayload, triggerGithubAction } from './builderGithubBridge.js';
+import { classifyBuilderTask, guardBuilderPush, type BuilderSafetyDecision, type BuilderTaskClass, type ExecutionPolicy } from './builderSafetyPolicy.js';
 import { getDb } from '../db.js';
 import { checkBudget, getSessionState, recordTaskUsage } from './opusBudgetGate.js';
 import { generateErrorCard } from './opusErrorLearning.js';
@@ -239,6 +240,11 @@ export interface ExecuteResult {
   approvals: string[];
   blocks: string[];
   githubAction?: { triggered: boolean; error?: string };
+  taskClass?: BuilderTaskClass;
+  executionPolicy?: ExecutionPolicy;
+  pushAllowed?: boolean;
+  pushBlockedReason?: string;
+  protectedPathsTouched?: string[];
   session?: { tasksUsed: number; tasksRemaining: number; tokensUsed: number; tokensRemaining: number };
   crush?: {
     intensity: CrushIntensity;
@@ -637,8 +643,9 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       : 'Failed to create task');
   }
 
-  let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' = 'scouted';
+  let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' | 'review_needed' = 'scouted';
   let consensusType: 'unanimous' | 'majority' | null = null;
+  let safetyDecision: BuilderSafetyDecision | null = null;
   let rounds = 0;
   let totalTokens = 0;
   let patches: Array<{ file: string; body: string }> = [];
@@ -1029,23 +1036,43 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
 
     // Only push to GitHub if TSC passed
     if (status === 'consensus') {
+      safetyDecision = classifyBuilderTask({
+        instruction,
+        scope: normalizedScope,
+        files: patches.map((patch) => patch.file),
+      });
+
       if (input.skipGithub) {
         // skipGithub: keep patches in DB but do NOT push to GitHub (used by /build with skipDeploy)
         githubAction = { triggered: false };
         pushSucceeded = false;
       } else {
-        await updateTaskStatus(task.id, 'applying');
-        // Try safe in-memory patch application first (prevents empty-SEARCH overwrites)
-        const safePayloads = toSafeOverwritePayloads(patches);
-        githubAction = safePayloads
-          ? await triggerGithubAction(task.id, safePayloads)
-          : await triggerGithubAction(task.id, toPatchPayloads(patches));
-        pushSucceeded = githubAction.triggered === true;
-        if (pushSucceeded) {
-          const { regenerateRepoIndex } = await import('./opusIndexGenerator.js');
-          await regenerateRepoIndex().catch((err) => console.error('[opus] Index refresh failed:', err));
+        const guardedPush = await guardBuilderPush(safetyDecision, async () => {
+          await updateTaskStatus(task.id, 'applying');
+          const safePayloads = toSafeOverwritePayloads(patches);
+          const result = safePayloads
+            ? await triggerGithubAction(task.id, safePayloads)
+            : await triggerGithubAction(task.id, toPatchPayloads(patches));
+
+          if (result.triggered) {
+            const { regenerateRepoIndex } = await import('./opusIndexGenerator.js');
+            await regenerateRepoIndex().catch((err) => console.error('[opus] Index refresh failed:', err));
+          }
+
+          return result;
+        });
+
+        if (!guardedPush.executed) {
+          await updateTaskStatus(task.id, 'review_needed');
+          githubAction = { triggered: false, error: guardedPush.pushBlockedReason };
+          pushSucceeded = false;
+          status = 'review_needed';
+          blocks = [...(blocks ?? []), ...safetyDecision.reasons];
+        } else {
+          githubAction = guardedPush.result;
+          pushSucceeded = githubAction.triggered === true;
+          status = githubAction.triggered ? 'applying' : 'error';
         }
-        status = githubAction.triggered ? 'applying' : 'error';
       }
     }
   }
@@ -1121,6 +1148,11 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     approvals,
     blocks,
     githubAction,
+    taskClass: safetyDecision?.taskClass,
+    executionPolicy: safetyDecision?.executionPolicy,
+    pushAllowed: safetyDecision?.pushAllowed,
+    pushBlockedReason: safetyDecision?.pushAllowed === false ? (safetyDecision.reasons[0] ?? 'Autonomous push blocked by builder safety policy.') : undefined,
+    protectedPathsTouched: safetyDecision?.protectedPathsTouched,
     session: sessionState,
         crush: {
       intensity: crushIntensity,

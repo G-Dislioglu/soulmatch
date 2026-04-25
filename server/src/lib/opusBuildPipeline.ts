@@ -2,6 +2,7 @@
 // Claude sends 1x POST /build → Builder does everything internally
 
 import { executeTask, type ExecuteInput, type ExecuteResult } from './opusBridgeController.js';
+import type { BuilderTaskClass, ExecutionPolicy } from './builderSafetyPolicy.js';
 import { getDeployStatus, type DeployInfo } from './opusRenderBridge.js';
 import { selfVerify, type SelfTestCheck, type SelfTestResult } from './opusSelfTest.js';
 import { generateErrorCard } from './opusErrorLearning.js';
@@ -47,12 +48,17 @@ export interface BuildInput {
 }
 
 export interface BuildResult {
-  status: 'success' | 'deployed' | 'deploy_timeout' | 'verify_failed' | 'build_failed' | 'retry_failed';
+  status: 'success' | 'deployed' | 'deploy_timeout' | 'verify_failed' | 'build_failed' | 'retry_failed' | 'review_needed';
   taskId: string;
   title: string;
   totalTokens: number;
   patchCount: number;
   files: string[];
+  taskClass?: BuilderTaskClass;
+  executionPolicy?: ExecutionPolicy;
+  pushAllowed?: boolean;
+  pushBlockedReason?: string;
+  protectedPathsTouched?: string[];
   deploy?: {
     status: string;
     commitId?: string;
@@ -145,6 +151,11 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     totalTokens: execResult.totalTokens,
     patchCount: execResult.patches.length,
     files,
+    taskClass: execResult.taskClass,
+    executionPolicy: execResult.executionPolicy,
+    pushAllowed: execResult.pushAllowed,
+    pushBlockedReason: execResult.pushBlockedReason,
+    protectedPathsTouched: execResult.protectedPathsTouched,
   };
 
   // Check if execute itself failed (no patches, blocked, etc.)
@@ -164,6 +175,15 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
 
   // Auto-approve if task ended in review_needed (patches exist but weren't auto-committed)
   if (execResult.status === 'review_needed') {
+    if (execResult.pushAllowed === false) {
+      return {
+        ...base,
+        status: 'review_needed',
+        error: execResult.pushBlockedReason ?? 'Manual review required before push.',
+        durationMs: duration(),
+      };
+    }
+
     const approval = await autoApproveTask(execResult.taskId);
     if (!approval.approved) {
       return {

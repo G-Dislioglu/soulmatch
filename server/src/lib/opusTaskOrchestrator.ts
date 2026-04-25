@@ -26,6 +26,7 @@ import { judgeValidCandidates } from './opusJudge.js';
 import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
+import { classifyBuilderTask, guardBuilderPush, type BuilderSafetyDecision, type BuilderTaskClass, type ExecutionPolicy } from './builderSafetyPolicy.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { devLogger } from '../devLogger.js';
@@ -52,6 +53,11 @@ export interface OpusTaskResult {
   totalDurationMs: number;
   summary: string;
   edits?: EditEnvelope;
+  taskClass?: BuilderTaskClass;
+  executionPolicy?: ExecutionPolicy;
+  pushAllowed?: boolean;
+  pushBlockedReason?: string;
+  protectedPathsTouched?: string[];
   /** True only if dispatches landed on main (verified by pushResultWaiter). Undefined for synchronous direct-patch path where landing equals success. */
   landed?: boolean;
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
@@ -244,35 +250,79 @@ async function runWorkerSwarm(
 // ─── Phase 5: Push ───
 
 async function pushEdits(
-  envelope: EditEnvelope, instruction: string,
+  envelope: EditEnvelope,
+  instruction: string,
+  safetyDecision: BuilderSafetyDecision,
 ): Promise<{
   pushed: boolean;
   filesCount: number;
   asyncDispatch: boolean;
+  taskClass: BuilderTaskClass;
+  executionPolicy: ExecutionPolicy;
+  pushAllowed: boolean;
+  pushBlockedReason?: string;
+  protectedPathsTouched: string[];
+  policyBlocked?: boolean;
   error?: string;
   durationMs: number;
   landed?: boolean;
   verifiedCommit?: string;
 }> {
   const start = Date.now();
-  try {
+  const guardedPush = await guardBuilderPush(safetyDecision, async () => {
     const files = envelope.edits.map((edit) =>
       edit.mode === 'patch'
         ? { file: edit.path, patches: edit.patches }
         : { file: edit.path, mode: edit.mode, content: edit.content ?? '' },
     );
-    const result = await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`);
+    return {
+      files,
+      result: await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`),
+    };
+  });
+
+  if (!guardedPush.executed) {
+    return {
+      pushed: false,
+      filesCount: envelope.edits.length,
+      asyncDispatch: false,
+      taskClass: safetyDecision.taskClass,
+      executionPolicy: safetyDecision.executionPolicy,
+      pushAllowed: false,
+      pushBlockedReason: guardedPush.pushBlockedReason,
+      protectedPathsTouched: safetyDecision.protectedPathsTouched,
+      policyBlocked: true,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  try {
+    const { files, result } = guardedPush.result;
     return {
       pushed: result.pushed,
       filesCount: files.length,
       asyncDispatch: result.asyncDispatch,
+      taskClass: safetyDecision.taskClass,
+      executionPolicy: safetyDecision.executionPolicy,
+      pushAllowed: safetyDecision.pushAllowed,
+      protectedPathsTouched: safetyDecision.protectedPathsTouched,
       error: result.error,
       durationMs: Date.now() - start,
       landed: result.landed,
       verifiedCommit: result.commitHash,
     };
   } catch (e: unknown) {
-    return { pushed: false, filesCount: 0, asyncDispatch: false, error: e instanceof Error ? e.message : String(e), durationMs: Date.now() - start };
+    return {
+      pushed: false,
+      filesCount: envelope.edits.length,
+      asyncDispatch: false,
+      taskClass: safetyDecision.taskClass,
+      executionPolicy: safetyDecision.executionPolicy,
+      pushAllowed: safetyDecision.pushAllowed,
+      protectedPathsTouched: safetyDecision.protectedPathsTouched,
+      error: e instanceof Error ? e.message : String(e),
+      durationMs: Date.now() - start,
+    };
   }
 }
 
@@ -551,12 +601,25 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       summary: `Judge rejected all candidates: ${judge.reason}`, hardening };
   }
   const best = judge.winner;
+  const finalSafety = classifyBuilderTask({
+    instruction: input.instruction,
+    scope: scope.files,
+    targetFile: input.targetFile,
+    files: best.edits.map((edit) => edit.path),
+    dryRun: input.dryRun,
+  });
+  const pushBlockedReason = finalSafety.reasons[0] ?? 'Autonomous push blocked by builder safety policy.';
 
   // Dry run?
   if (input.dryRun) {
     return { status: 'dry_run', runId, phases, edits: best,
       totalDurationMs: Date.now() - totalStart,
       summary: `Dry run: ${best.edits.length} file(s) ready. Winner: ${best.worker}`,
+      taskClass: finalSafety.taskClass,
+      executionPolicy: finalSafety.executionPolicy,
+      pushAllowed: finalSafety.pushAllowed,
+      pushBlockedReason,
+      protectedPathsTouched: finalSafety.protectedPathsTouched,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening };
   }
@@ -565,12 +628,19 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   if (input.skipDeploy) {
     phases.push({ phase: 'push', status: 'skipped', durationMs: 0 });
   } else {
-    const push = await pushEdits(best, input.instruction);
+    const push = await pushEdits(best, input.instruction, finalSafety);
     phases.push({ phase: 'push', status: push.pushed ? 'ok' : 'error', durationMs: push.durationMs, detail: push });
     if (!push.pushed) {
       return { status: 'partial', runId, phases, edits: best,
         totalDurationMs: Date.now() - totalStart,
-        summary: `Push failed: ${push.error}`,
+        summary: push.policyBlocked
+          ? `Push blocked by safety policy: ${push.pushBlockedReason}`
+          : `Push failed: ${push.error}`,
+        taskClass: push.taskClass,
+        executionPolicy: push.executionPolicy,
+        pushAllowed: push.pushAllowed,
+        pushBlockedReason: push.pushBlockedReason,
+        protectedPathsTouched: push.protectedPathsTouched,
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
         hardening,
@@ -622,6 +692,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     status: allOk ? 'success' : 'partial', runId, phases, edits: best,
     totalDurationMs: Date.now() - totalStart,
     summary: `${allOk ? '✅' : '⚠️'} ${Math.round((Date.now() - totalStart) / 1000)}s | ${best.worker} | ${best.edits.map(e => e.path).join(', ')}`,
+    taskClass: finalSafety.taskClass,
+    executionPolicy: finalSafety.executionPolicy,
+    pushAllowed: finalSafety.pushAllowed,
+    pushBlockedReason: finalSafety.pushAllowed ? undefined : pushBlockedReason,
+    protectedPathsTouched: finalSafety.protectedPathsTouched,
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
     hardening,
