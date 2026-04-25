@@ -21,6 +21,42 @@ export interface SpecHardeningReport {
   };
 }
 
+interface InstructionLineContext {
+  text: string;
+  inCodeBlock: boolean;
+}
+
+interface ForbiddenPatternRule {
+  token: string;
+  codeOnly: boolean;
+  normalize(line: string): string;
+}
+
+const FORBIDDEN_PATTERN_MESSAGE = 'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann';
+
+const FORBIDDEN_PATTERN_RULES: ForbiddenPatternRule[] = [
+  {
+    token: '<?php',
+    codeOnly: true,
+    normalize: (line) => line,
+  },
+  {
+    token: '<script',
+    codeOnly: true,
+    normalize: (line) => line.toLowerCase(),
+  },
+  {
+    token: 'DROP TABLE',
+    codeOnly: true,
+    normalize: (line) => line.toUpperCase(),
+  },
+  {
+    token: 'rm -rf /',
+    codeOnly: true,
+    normalize: (line) => line.toLowerCase(),
+  },
+];
+
 function countChar(value: string, target: string): number {
   let count = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -34,6 +70,26 @@ function countChar(value: string, target: string): number {
 function findFirstColumn(line: string, token: string): number | undefined {
   const index = line.indexOf(token);
   return index === -1 ? undefined : index + 1;
+}
+
+function buildInstructionLineContexts(lines: string[]): InstructionLineContext[] {
+  const contexts: InstructionLineContext[] = [];
+  let inCodeBlock = false;
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    const isFenceLine = trimmed.startsWith(`${GA}${GA}${GA}`);
+
+    if (isFenceLine) {
+      contexts.push({ text: line, inCodeBlock: false });
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    contexts.push({ text: line, inCodeBlock });
+  }
+
+  return contexts;
 }
 
 function pushFinding(
@@ -172,63 +228,35 @@ function checkLengthLimits(instruction: string): SpecHardeningFinding[] {
   }
 }
 
-function checkForbiddenPatterns(lines: string[]): SpecHardeningFinding[] {
+function checkForbiddenPatterns(lines: InstructionLineContext[]): SpecHardeningFinding[] {
   try {
     const findings: SpecHardeningFinding[] = [];
     for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index] ?? '';
-      const lower = line.toLowerCase();
-      const upper = line.toUpperCase();
-
-      if (line.indexOf('<?php') !== -1) {
-        pushFinding(
-          findings,
-          'FORBIDDEN_PATTERN',
-          'block',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          index + 1,
-          findFirstColumn(line, '<?php'),
-        );
+      const line = lines[index];
+      if (!line) {
         continue;
       }
 
-      if (lower.indexOf('<script') !== -1) {
-        pushFinding(
-          findings,
-          'FORBIDDEN_PATTERN',
-          'block',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          index + 1,
-          findFirstColumn(lower, '<script'),
-        );
-        continue;
-      }
+      for (const rule of FORBIDDEN_PATTERN_RULES) {
+        if (rule.codeOnly && !line.inCodeBlock) {
+          continue;
+        }
 
-      if (upper.indexOf('DROP TABLE') !== -1) {
-        pushFinding(
-          findings,
-          'FORBIDDEN_PATTERN',
-          'block',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          index + 1,
-          findFirstColumn(upper, 'DROP TABLE'),
-        );
-        continue;
-      }
+        const haystack = rule.normalize(line.text);
+        if (haystack.indexOf(rule.token) === -1) {
+          continue;
+        }
 
-      if (lower.indexOf('rm -rf /') !== -1) {
         pushFinding(
           findings,
           'FORBIDDEN_PATTERN',
           'block',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
-          'Instruction enthaelt Muster das als Injection/Exfiltration gelesen werden kann',
+          FORBIDDEN_PATTERN_MESSAGE,
+          FORBIDDEN_PATTERN_MESSAGE,
           index + 1,
-          findFirstColumn(lower, 'rm -rf /'),
+          findFirstColumn(haystack, rule.token),
         );
+        break;
       }
     }
     return findings;
@@ -239,6 +267,7 @@ function checkForbiddenPatterns(lines: string[]): SpecHardeningFinding[] {
 
 export function hardenInstruction(instruction: string): SpecHardeningReport {
   const lines = instruction.split('\n');
+  const lineContexts = buildInstructionLineContexts(lines);
   const findings: SpecHardeningFinding[] = [];
 
   findings.push(...checkBacktickRegexPattern(lines));
@@ -246,7 +275,7 @@ export function hardenInstruction(instruction: string): SpecHardeningReport {
   findings.push(...checkCurlyTemplatePattern(lines));
   findings.push(...checkQuoteImbalance(lines));
   findings.push(...checkLengthLimits(instruction));
-  findings.push(...checkForbiddenPatterns(lines));
+  findings.push(...checkForbiddenPatterns(lineContexts));
 
   const blockCount = findings.filter((finding) => finding.severity === 'block').length;
   const warnCount = findings.filter((finding) => finding.severity === 'warn').length;
