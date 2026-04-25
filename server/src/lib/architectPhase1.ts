@@ -61,6 +61,42 @@ export interface ArchitectAssemblyResult {
   blockReason?: string;
 }
 
+interface ArchitectObservationFindingAggregateBySeverity {
+  severity: ArchitectFinding['severity'];
+  count: number;
+}
+
+interface ArchitectObservationFindingAggregateByCode {
+  code: string;
+  count: number;
+}
+
+interface ArchitectObservationFindingAggregateBySourceKind {
+  sourceKind: ArchitectSourceKind;
+  count: number;
+}
+
+interface ArchitectObservationSignal {
+  code: string;
+  sourceKind: ArchitectSourceKind;
+  count: number;
+}
+
+interface ArchitectObservationTruncationSummary {
+  totalFragments: number;
+  truncatedFragments: number;
+  totalOriginalLength: number;
+  totalFinalLength: number;
+  totalTrimmedChars: number;
+}
+
+interface ArchitectObservationFindingSummary {
+  total: number;
+  bySeverity: ArchitectObservationFindingAggregateBySeverity[];
+  byCode: ArchitectObservationFindingAggregateByCode[];
+  bySourceKind: ArchitectObservationFindingAggregateBySourceKind[];
+}
+
 type PersistedAssumptionRow = typeof builderAssumptions.$inferSelect;
 
 type AicosIndexEntry = {
@@ -86,11 +122,16 @@ type AicosIndexCache = {
 
 type ArchitectObservation = {
   updatedAt: string | null;
+  observedAssemblies: number;
   finalInstructionLength: number;
   metaFragments: Array<ReturnType<typeof compactFragment>>;
   selectedAssumptions: Array<ReturnType<typeof compactFragment>>;
   omittedMetaFragments: Array<ReturnType<typeof compactFragment>>;
   warnings: string[];
+  findingSummary: ArchitectObservationFindingSummary;
+  truncationSummary: ArchitectObservationTruncationSummary;
+  lastBlockedSignals: ArchitectObservationSignal[];
+  lastWarningSignals: ArchitectObservationSignal[];
   dispatchHardening: {
     ok: boolean;
     warningCount: number;
@@ -116,11 +157,28 @@ let persistenceMode: 'unknown' | 'database' | 'memory_fallback' = 'unknown';
 let indexCache: AicosIndexCache | null = null;
 let latestObservation: ArchitectObservation = {
   updatedAt: null,
+  // Not every early return path reaches updateObservation() yet.
+  observedAssemblies: 0,
   finalInstructionLength: 0,
   metaFragments: [],
   selectedAssumptions: [],
   omittedMetaFragments: [],
   warnings: [],
+  findingSummary: {
+    total: 0,
+    bySeverity: [],
+    byCode: [],
+    bySourceKind: [],
+  },
+  truncationSummary: {
+    totalFragments: 0,
+    truncatedFragments: 0,
+    totalOriginalLength: 0,
+    totalFinalLength: 0,
+    totalTrimmedChars: 0,
+  },
+  lastBlockedSignals: [],
+  lastWarningSignals: [],
   dispatchHardening: null,
 };
 
@@ -245,6 +303,109 @@ function compactFragment(fragment: ArchitectSourceFragment) {
     })),
     truncation: fragment.truncation,
   };
+}
+
+function sortCountEntries(left: [string, number], right: [string, number]): number {
+  if (left[1] !== right[1]) {
+    return right[1] - left[1];
+  }
+
+  return left[0].localeCompare(right[0]);
+}
+
+function countByKey(values: string[]): Array<[string, number]> {
+  const counts = new Map<string, number>();
+
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return [...counts.entries()].sort(sortCountEntries);
+}
+
+function normalizeObservationFindings(result: ArchitectAssemblyResult): ArchitectFinding[] {
+  return [
+    ...result.findings,
+    ...result.dispatchHardening.findings.map((finding) => {
+      const severity: ArchitectFinding['severity'] = finding.severity === 'block' ? 'blocked' : 'warning';
+
+      return {
+        code: finding.code,
+        severity,
+        message: finding.message,
+        sourceKind: 'instruction' as const,
+      };
+    }),
+  ];
+}
+
+function summarizeFindings(findings: ArchitectFinding[]): ArchitectObservationFindingSummary {
+  return {
+    total: findings.length,
+    bySeverity: countByKey(findings.map((finding) => finding.severity)).map(([severity, count]) => ({
+      severity: severity as ArchitectFinding['severity'],
+      count,
+    })),
+    byCode: countByKey(findings.map((finding) => finding.code)).map(([code, count]) => ({
+      code,
+      count,
+    })),
+    bySourceKind: countByKey(findings.map((finding) => finding.sourceKind)).map(([sourceKind, count]) => ({
+      sourceKind: sourceKind as ArchitectSourceKind,
+      count,
+    })),
+  };
+}
+
+function summarizeSignals(
+  findings: ArchitectFinding[],
+  severity: ArchitectFinding['severity'],
+): ArchitectObservationSignal[] {
+  const counts = new Map<string, ArchitectObservationSignal>();
+
+  for (const finding of findings) {
+    if (finding.severity !== severity) {
+      continue;
+    }
+
+    const key = `${finding.code}::${finding.sourceKind}`;
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+
+    counts.set(key, {
+      code: finding.code,
+      sourceKind: finding.sourceKind,
+      count: 1,
+    });
+  }
+
+  return [...counts.values()].sort((left, right) => {
+    if (left.count !== right.count) {
+      return right.count - left.count;
+    }
+
+    const byCode = left.code.localeCompare(right.code);
+    return byCode !== 0 ? byCode : left.sourceKind.localeCompare(right.sourceKind);
+  });
+}
+
+function summarizeTruncation(fragments: ArchitectSourceFragment[]): ArchitectObservationTruncationSummary {
+  return fragments.reduce<ArchitectObservationTruncationSummary>((summary, fragment) => ({
+    totalFragments: summary.totalFragments + 1,
+    truncatedFragments: summary.truncatedFragments + (fragment.truncation.truncated ? 1 : 0),
+    totalOriginalLength: summary.totalOriginalLength + fragment.truncation.originalLength,
+    totalFinalLength: summary.totalFinalLength + fragment.truncation.finalLength,
+    totalTrimmedChars: summary.totalTrimmedChars + Math.max(0, fragment.truncation.originalLength - fragment.truncation.finalLength),
+  }), {
+    totalFragments: 0,
+    truncatedFragments: 0,
+    totalOriginalLength: 0,
+    totalFinalLength: 0,
+    totalTrimmedChars: 0,
+  });
 }
 
 function toJsonObject(value: object): Record<string, unknown> {
@@ -632,13 +793,25 @@ export async function loadAicosMetaFragments(metaSourceIds: string[]): Promise<{
 }
 
 function updateObservation(result: ArchitectAssemblyResult): void {
+  const observationFindings = normalizeObservationFindings(result);
+  const observationFragments = [
+    ...result.metaFragments,
+    ...result.selectedAssumptions,
+    ...result.omittedMetaFragments,
+  ];
+
   latestObservation = {
     updatedAt: nowIso(),
+    observedAssemblies: latestObservation.observedAssemblies + 1,
     finalInstructionLength: result.finalInstruction.length,
     metaFragments: result.metaFragments.map(compactFragment),
     selectedAssumptions: result.selectedAssumptions.map(compactFragment),
     omittedMetaFragments: result.omittedMetaFragments.map(compactFragment),
     warnings: result.warnings,
+    findingSummary: summarizeFindings(observationFindings),
+    truncationSummary: summarizeTruncation(observationFragments),
+    lastBlockedSignals: summarizeSignals(observationFindings, 'blocked'),
+    lastWarningSignals: summarizeSignals(observationFindings, 'warning'),
     dispatchHardening: {
       ok: result.dispatchHardening.ok,
       warningCount: result.dispatchHardening.stats.warnCount,
