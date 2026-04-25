@@ -1,0 +1,53 @@
+{
+  "id": "sol-cross-060",
+  "type": "solution_proof",
+  "token": "capability_envelope_learning",
+  "title": "Capability Envelope Learning",
+  "essence": "Worker und Modelle werden nicht mit statischen Skill-Labels beschrieben. Stattdessen wird empirisch gepflegt, in welchen Situationen ein Worker stark, schwach, teuer, riskant oder zweitpr\u00fcfpflichtig ist. Skill-Matching wird Verhalten, nicht Behauptung.",
+  "domain": ["ai_governance", "agent_orchestration", "evaluation"],
+  "scope": ["cross_app", "builder", "bluepilot"],
+  "tags": ["theme:routing", "theme:worker_profiles", "theme:empirical_learning", "theme:capability_envelope"],
+  "impact": { "value": 90, "risk": 45, "confidence": 80 },
+  "status": "proposed",
+  "applies_to": [
+    "Wenn Routing auf Marketing-Labels oder Modellnamen basiert",
+    "Wenn reale Failure-Modes pro Worker gelernt werden sollen",
+    "Wenn High-Risk-Tasks passendere Executor brauchen als Low-Risk-Tasks",
+    "Wenn Second-Check-Entscheidungen empirisch statt spekulativ getroffen werden sollen"
+  ],
+  "steps": [
+    "Capability Envelope pro Worker definieren mit Feldern: strengths, weaknesses, cost_profile, failure_modes, safe_use_cases, unsafe_use_cases, requires_second_check_when",
+    "Failure-Modes und Safe/Unsafe-Use-Cases empirisch aus realen Runs bef\u00fcllen",
+    "Second-check-Bedingungen als strukturierte Regeln festhalten",
+    "Routing-Regeln schrittweise auf reale Runs-Daten umstellen statt auf statische Defaults",
+    "Bootstrap-Mode f\u00fcr neue Worker: unter N=20 Runs statisches Default-Routing, erst danach Envelope-basiertes Routing"
+  ],
+  "tradeoffs": [
+    "Brauchbare Profile entstehen erst nach 20-50 Runs pro Worker",
+    "Pflegeaufwand f\u00fcr Observations-Daten",
+    "Gefahr falscher Generalisierung bei wenig Daten (Kaltstart-Problem)",
+    "Komplexit\u00e4t im Routing erh\u00f6ht sich gegen\u00fcber statischen Regeln"
+  ],
+  "rollback": [
+    "Auf statische Modell-Defaults zur\u00fcckfallen",
+    "Envelope-Daten aufbewahren, aber Routing nicht darauf st\u00fctzen",
+    "Nur Second-Check-Logik behalten, Envelope-Strukturen sonst deaktivieren"
+  ],
+  "copy_ready": false,
+  "evidence": {
+    "signals": [
+      "Phase 2 der AICOS Workcell Governance Architektur (nach F13-Proof geplant)",
+      "Multi-Provider-Worker-Swarm in Soulmatch-Builder liefert bereits Grunddaten (DeepSeek, GLM, Kimi, Qwen etc.)",
+      "Kimi K2.6 Claw Groups nutzen statische Skill-Profile und haben dadurch bekannte Matching-Schw\u00e4chen"
+    ],
+    "code_refs": [],
+    "notes": "Proposal-only. Kaltstart-Risiko ist hoch: Envelopes sind erst nach ~20 Runs pro Worker zuverl\u00e4ssig. Ohne Bootstrap-Regel kippt das System in den ersten Wochen auf Default-Routing zur\u00fcck."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["sol-cross-057", "sol-cross-059"],
+    "supersedes": []
+  },
+  "timestamps": { "created_at": "2026-04-23", "updated_at": "2026-04-24" }
+}

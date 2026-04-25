@@ -1,0 +1,52 @@
+{
+  "id": "sol-cross-058",
+  "type": "solution_proof",
+  "token": "dual_control_orchestration",
+  "title": "Dual Control Orchestration",
+  "essence": "Wichtige Agentenarbeit l\u00e4uft nicht \u00fcber einen einzelnen Koordinator. Planner und Auditor arbeiten komplement\u00e4r als Peers (nicht Hierarchie), und ein separates Merge Gate verhindert stillen Durchmarsch. Dissens ist Feature, nicht St\u00f6rung.",
+  "domain": ["ai_governance", "cross_app", "meta_cognition"],
+  "scope": ["cross_app", "builder", "bluepilot"],
+  "tags": ["theme:dual_control", "theme:auditing", "theme:anti_drift", "theme:merge_gate"],
+  "impact": { "value": 93, "risk": 39, "confidence": 85 },
+  "status": "proposed",
+  "applies_to": [
+    "Wenn ein zentraler Koordinator zum Single Point of Failure wird",
+    "Wenn Dissens sichtbar statt still aufgel\u00f6st werden soll",
+    "Wenn Scope-Drift und Overclaim fr\u00fch abgefangen werden m\u00fcssen",
+    "Wenn Denker-Triade formalisiert werden soll"
+  ],
+  "steps": [
+    "Planner-Rolle: zerlegt Aufgaben, setzt goal/scope/acceptance_criteria, priorisiert",
+    "Auditor-Rolle: pr\u00fcft Scope-Fit, markiert Overclaim, fordert Verify oder Gegenclaim an",
+    "Merge-Gate als separate Instanz: entscheidet nur auf deterministischer Basis, nie nach Stil",
+    "Planner darf keine eigenen Merges finalisieren",
+    "Auditor darf nicht still zum zweiten Planner werden (keine dominante L\u00f6sungsrichtung ohne neue Workcell)"
+  ],
+  "tradeoffs": [
+    "Mehr Koordinationsaufwand pro Task",
+    "Langsamere Freigaben",
+    "H\u00f6here mentale Komplexit\u00e4t im Design"
+  ],
+  "rollback": [
+    "Auf Single-Director-Pattern zur\u00fcckfallen (wie vor F14)",
+    "Merge Gate aufweichen oder in Planner integrieren",
+    "Auditor optional machen statt Pflicht"
+  ],
+  "copy_ready": false,
+  "evidence": {
+    "signals": [
+      "Denker-Triade im Soulmatch-Builder bereits als Proto-Pattern implementiert (Vordenker/Nachdenker)",
+      "F14 als geplanter n\u00e4chster Schritt nach F13-A-Proof",
+      "Claude/ChatGPT/Copilot-Dreieck hat selbst als Dual Control funktioniert bei Spec-Arbeit"
+    ],
+    "code_refs": [],
+    "notes": "Proposal-only. Wird erst active, wenn F14 die Denker-Triade formal als Planner/Auditor/Merge-Gate refactored und in mindestens einem realen Builder-Lauf bewiesen hat."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-002", "sol-cross-057", "sol-cross-059"],
+    "supersedes": []
+  },
+  "timestamps": { "created_at": "2026-04-23", "updated_at": "2026-04-24" }
+}

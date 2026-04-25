@@ -77,11 +77,11 @@ const CROSS_REPOS = {
   },
   'maya-core': {
     role: 'Maya als standalone Companion, Thread-Digest-Pipeline',
-    github: 'https://github.com/G-Dislioglu/aicos-registry/tree/main/maya-core',
+    github: 'https://github.com/G-Dislioglu/aicos-registry/tree/master/maya-core',
     note: 'liegt als Unterordner in aicos-registry, eigene Next.js-App',
   },
   'aicos-registry': {
-    role: 'Karten-System (94 Cards), MEC-Phasen, Unified System Spec',
+    role: 'Karten-System, MEC-Phasen, Unified System Spec',
     github: 'https://github.com/G-Dislioglu/aicos-registry',
   },
 } as const;

@@ -1,0 +1,54 @@
+{
+  "id": "sol-cross-061",
+  "type": "solution_proof",
+  "token": "fork_salvage_promotion_protocol",
+  "title": "Fork-Salvage-Promotion Protocol",
+  "essence": "Fehlgeschlagene oder blockierte L\u00e4ufe werden nicht als Totalverlust behandelt. Stattdessen werden belastbare Teilresultate kontrolliert geforkt, gerettet und nur unter klaren Regeln in h\u00f6here Wissensstufen promotet. Scheitern ist Materialquelle, nicht Wegwerfereignis.",
+  "domain": ["ai_governance", "cross_app", "meta_cognition"],
+  "scope": ["cross_app", "builder", "bluepilot"],
+  "tags": ["theme:salvage", "theme:fork", "theme:promotion_gate", "theme:branch_protocol", "theme:anti_waste"],
+  "impact": { "value": 91, "risk": 48, "confidence": 78 },
+  "status": "proposed",
+  "applies_to": [
+    "Wenn L\u00e4ufe teilweise erfolgreich waren und Reste sonst verworfen w\u00fcrden",
+    "Wenn parallele Workcells divergierende Teilergebnisse produzieren",
+    "Wenn Scope-Drift einen Lauf abbricht, aber brauchbare Artefakte entstanden sind",
+    "Wenn Scheitern systematisch als Lernmaterial genutzt werden soll"
+  ],
+  "steps": [
+    "Salvage-Stufen definieren (SV-1 rohe Beobachtung, SV-2 strukturiertes Fragment, SV-3 promotionsf\u00e4higes Artefakt)",
+    "Fork-Regel: Wenn Workcell blockiert/fehlschl\u00e4gt, Fork nur mit klar eingeschr\u00e4nktem Scope und neuer Workcell-ID",
+    "Promotion Gate f\u00fcr Salvage-Artefakte: nur SV-3 darf in Canon, SV-2 darf in Cases, SV-1 bleibt im Signal-Layer",
+    "Jedes Salvage-Artefakt tr\u00e4gt origin_workcell-Referenz und reject_code des Ursprungslaufs",
+    "Promotion-Entscheidung deterministisch, nicht agent-autonom (Merge Gate oder Human)"
+  ],
+  "tradeoffs": [
+    "Zus\u00e4tzlicher Struktur- und Tagging-Aufwand bei jedem Fehlschlag",
+    "Gefahr, dass Salvage zur Ausrede f\u00fcr schlampige Initiall\u00e4ufe wird",
+    "Promotion-Regeln m\u00fcssen pr\u00e4zise sein, sonst entsteht eine Hintert\u00fcr f\u00fcr Canon-Verschmutzung",
+    "Mehr Cases und Fragmente bedeuten h\u00f6here Last auf Registry und Navigation"
+  ],
+  "rollback": [
+    "Salvage deaktivieren und Fehll\u00e4ufe vollst\u00e4ndig verwerfen",
+    "Salvage nur in Signal-Layer erlauben, keine Promotion bis SV-3",
+    "Fork-Option entfernen und nur volle Reruns zulassen"
+  ],
+  "copy_ready": false,
+  "evidence": {
+    "signals": [
+      "Salvage-Stufen SV-1/SV-2/SV-3 bereits in Crush v4.1 konzeptionell verankert",
+      "Branch Protocol aus Crush v4.1 liefert Lifecycle-States f\u00fcr Fork-Operationen",
+      "Promotion Gate aus Crush v4.1 definiert den \u00dcbergang von Protected Research in Canon",
+      "Phase 3 der AICOS Workcell Governance Architektur (nach Capability-Envelope-Proof geplant)"
+    ],
+    "code_refs": [],
+    "notes": "Proposal-only. Risikofaktor: Salvage-Regeln m\u00fcssen sehr pr\u00e4zise sein, sonst wird aus der Feature eine systematische Schwachstelle. Wird erst active, wenn mindestens ein realer Salvage-Fall im Builder dokumentiert und erfolgreich weiterverwendet wurde. WICHTIG: Die Felder steps, tradeoffs und rollback wurden aus Fragmenten der Originalsession und der Crush-v4.1-Salvage-Mechanik rekonstruiert (Quelle der Originalsession nicht mehr im Chat-Index vollst\u00e4ndig zugreifbar). Bei Commit pr\u00fcfen, ob Inhalte mit Originalintention \u00fcbereinstimmen."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-002", "sol-cross-057", "sol-cross-058"],
+    "supersedes": []
+  },
+  "timestamps": { "created_at": "2026-04-23", "updated_at": "2026-04-24" }
+}

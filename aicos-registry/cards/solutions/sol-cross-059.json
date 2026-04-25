@@ -1,0 +1,52 @@
+{
+  "id": "sol-cross-059",
+  "type": "solution_proof",
+  "token": "trigger_governed_depth_activation",
+  "title": "Trigger-Governed Depth Activation",
+  "essence": "Tiefe Governance wird nicht dauerhaft aktiviert, sondern nur bei harten Triggern: High-Impact, Staleness, Contradiction oder Low-Evidence. Breite Kontrolle ohne Anlass ist der Hauptgrund, warum Multi-Agent-Systeme scheitern \u2014 nicht fehlende Tiefe.",
+  "domain": ["ai_governance", "cross_app", "meta_cognition"],
+  "scope": ["cross_app", "builder", "bluepilot"],
+  "tags": ["theme:triggering", "theme:budget_control", "theme:two_stage_truth", "theme:high_stakes"],
+  "impact": { "value": 95, "risk": 28, "confidence": 89 },
+  "status": "proposed",
+  "applies_to": [
+    "Wenn Schutzmechaniken inflation\u00e4r feuern und System verlangsamen",
+    "Wenn High-Stakes h\u00e4rter behandelt werden sollen als Low-Stakes",
+    "Wenn Tiefe selektiv statt permanent aktiviert werden soll",
+    "Wenn Budget-Discipline bei Multi-Agent-Systemen fehlt"
+  ],
+  "steps": [
+    "Fast-Mode und Critical-Mode definieren mit unterschiedlichem Overhead",
+    "Two-Stage Truth einf\u00fchren: Stage A w\u00e4hlt Top-3 nach Relevanz/Nutzen/Risiko, nur Top-3 bekommen Tiefenpr\u00fcfung in Stage B",
+    "Trigger-Priorit\u00e4t deterministisch festlegen: stale high-impact > contradiction > no-anchor/overclaim > budget breach > stagnation",
+    "Mirror, Verify und Sprachd\u00e4mpfung nur bei aktivem Trigger aktivieren",
+    "Mode-Switch auf Basis von risk_class + impact_class + high_impact-Flag + staleness_risk + merge_risk"
+  ],
+  "tradeoffs": [
+    "Mehr Regel-Design und Kalibrierung n\u00f6tig",
+    "Falsch kalibrierte Trigger k\u00f6nnen \u00fcber- oder unterreagieren",
+    "Mehr Telemetrie und Logging erforderlich, um Trigger-Performance zu messen"
+  ],
+  "rollback": [
+    "Trigger deaktivieren und auf dauerhafte Tiefe zur\u00fcckfallen (schmerzhaft aber sicher)",
+    "Nur einen einzigen Trigger aktiv lassen (z.B. nur no_anchor)",
+    "Fast/Critical-Modes zusammenlegen"
+  ],
+  "copy_ready": false,
+  "evidence": {
+    "signals": [
+      "Moonshot Claw Groups und OpenAI Swarm operieren ohne Trigger-Governance und erzeugen konstanten Overhead",
+      "F13-A startet mit Shadow-Mode als erster Trigger-\u00e4hnlicher Mechanismus",
+      "Weekly-Synthese-Strang in aicos-registry liefert Aktivierungslogik f\u00fcr diese Karte"
+    ],
+    "code_refs": [],
+    "notes": "Proposal-only. Untersch\u00e4tzte Schl\u00fcsselkarte: der Unterschied zwischen erfolgreichen und scheiternden Multi-Agent-Systemen liegt oft nicht in der Tiefe, sondern in der Selektivit\u00e4t der Tiefe. Wird erst active, wenn mindestens 2 Trigger (z.B. no_anchor + high_impact) in einem realen System kalibriert und gemessen sind."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-004", "sol-cross-057", "sol-cross-058"],
+    "supersedes": []
+  },
+  "timestamps": { "created_at": "2026-04-23", "updated_at": "2026-04-24" }
+}

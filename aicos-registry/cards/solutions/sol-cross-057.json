@@ -1,0 +1,51 @@
+{
+  "id": "sol-cross-057",
+  "type": "solution_proof",
+  "token": "evidence_carrying_workcells",
+  "title": "Evidence-Carrying Workcells",
+  "essence": "Die prim\u00e4re Arbeitseinheit ist nicht der Agent, sondern die Workcell. Jede relevante Aussage muss Evidence oder explizite Assumptions tragen, bevor sie als Candidate promoted werden kann. Ein Diff allein ist kein Beweis f\u00fcr Korrektheit.",
+  "domain": ["ai_governance", "cross_app"],
+  "scope": ["cross_app", "builder", "bluepilot"],
+  "tags": ["theme:workcells", "theme:anchoring", "theme:anti_overclaim", "theme:lineage"],
+  "impact": { "value": 96, "risk": 34, "confidence": 88 },
+  "status": "active",
+  "applies_to": [
+    "Wenn Agenten- oder Worker-Arbeit chat-zentriert wird und Belege verloren gehen",
+    "Wenn Claims ohne Evidence still promoted werden",
+    "Wenn Arbeit objekt- statt rollenzentriert strukturiert werden soll"
+  ],
+  "steps": [
+    "Workcell als kleinste aktive Arbeitseinheit definieren (goal, scope, risk_class, impact_class, acceptance_criteria, status)",
+    "Claim, Evidence und Assumption als getrennte Objekte f\u00fchren",
+    "No-anchor-no-candidate technisch erzwingen: Kein Claim wird promoted ohne Evidence ODER Assumption",
+    "Evidence typisieren (diff_ref, tsc_result, test_result, runtime_check, artifact_ref, other)",
+    "Promotion nur \u00fcber deterministischen Merge Gate mit reject_code erlauben"
+  ],
+  "tradeoffs": [
+    "Mehr Strukturaufwand pro Task",
+    "H\u00f6here Initialkosten bei Datenmodell und Logging",
+    "Langsamer als lockere Free-Text Agent-Outputs"
+  ],
+  "rollback": [
+    "Gate-Durchsetzung deaktivieren, Shadow-Mode beibehalten",
+    "Claim-Struktur optional machen statt Pflicht",
+    "Auf freie Worker-Outputs zur\u00fcckfallen"
+  ],
+  "copy_ready": false,
+  "evidence": {
+    "signals": [
+      "F14A Claim-Gate Contract Clarification ist in Soulmatch live runtime-verifiziert",
+      "Production-Runs job-mobq28w2, job-mobq72r1, job-mobpxh4b und job-mobpt6rd belegen Anchor-/Mismatch-/Fresh-/Rejected-Path unter echtem Merge Gate",
+      "Truth-Sync in STATE.md und F14-Spec zieht dieselbe Runtime-Evidenz repo-sichtbar nach"
+    ],
+    "code_refs": [],
+    "notes": "Promoted to active on 2026-04-24 after F14A was live runtime-verified in Soulmatch Builder against the production instance. Die Aktivierung basiert auf realer Runtime-Evidenz statt nur Spezifikation."
+  },
+  "links": {
+    "fixes": [],
+    "causes": [],
+    "related": ["meta-002", "meta-005", "sol-cross-058", "sol-cross-059"],
+    "supersedes": []
+  },
+  "timestamps": { "created_at": "2026-04-23", "updated_at": "2026-04-24" }
+}
