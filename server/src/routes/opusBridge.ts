@@ -8,7 +8,6 @@ import { convertBdlPatchesToPayload, triggerGithubAction, triggerGithubActionChu
 import { deleteBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
-import { executeTask } from '../lib/opusBridgeController.js';
 import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
 import { validateApprovalArtifact } from '../lib/builderApprovalArtifacts.js';
 import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
@@ -212,22 +211,53 @@ async function githubGitRequest<T>(
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const result = await executeTask(req.body);
-    const chatPool = await getChatPoolForTask(result.taskId);
-    const scoutMessages = chatPool.filter((message) => message.round === 0);
-    const roundtableMessages = chatPool.filter((message) => message.round > 0);
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds } = req.body as {
+      instruction?: string;
+      scope?: string[];
+      targetFile?: string;
+      workers?: string[];
+      maxTokens?: number;
+      skipDeploy?: boolean;
+      dryRun?: boolean;
+      approvalId?: string;
+      hasApprovedPlan?: boolean;
+      sourceTaskId?: string;
+      sourceRunId?: string;
+      metaSourceIds?: string[];
+      assumptions?: string[];
+      assumptionIds?: string[];
+    };
 
+    if (!instruction?.trim()) {
+      res.status(400).json({ error: 'instruction is required' });
+      return;
+    }
+
+    const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
+    const result = await orchestrateTask({
+      instruction,
+      scope,
+      targetFile,
+      workers,
+      maxTokens,
+      skipDeploy,
+      dryRun,
+      approvalId,
+      hasApprovedPlan,
+      sourceTaskId,
+      sourceRunId,
+      metaSourceIds,
+      assumptions,
+      assumptionIds,
+    });
+
+    // Legacy compatibility: keep /execute response shape while enforcing canonical gating.
     res.json({
       ...result,
-      scoutMessages: scoutMessages.map((message) => ({
-        actor: message.actor,
-        content: message.content.slice(0, 500),
-      })),
-      roundtableMessages: roundtableMessages.map((message) => ({
-        actor: message.actor,
-        round: message.round,
-        content: message.content.slice(0, 500),
-      })),
+      scoutMessages: [],
+      roundtableMessages: [],
+      executor: 'orchestrateTask',
+      legacyRoute: '/api/builder/opus-bridge/execute',
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });

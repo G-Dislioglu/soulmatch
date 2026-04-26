@@ -8,7 +8,7 @@ import {
   builderTestResults,
 } from '../schema/builder.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js';
-import { executeTask } from './opusBridgeController.js';
+import { orchestrateTask } from './opusTaskOrchestrator.js';
 import { runBuildPipeline } from './opusBuildPipeline.js';
 import {
   buildBuilderMemoryContext,
@@ -78,6 +78,20 @@ const CHAT_VISIBLE_BLACKLIST = [
 ] as const;
 
 const RETRYABLE_TASK_STATUSES = new Set(['blocked', 'review_needed', 'needs_human_review']);
+
+function mapOrchestratorResultToTaskStatus(result: { status: string; phases?: Array<{ phase: string; detail?: unknown }> }): 'done' | 'applying' | 'blocked' {
+  if (result.status === 'failed') {
+    return 'blocked';
+  }
+
+  const pushPhase = result.phases?.find((phase) => phase.phase === 'push');
+  const pushDetail = pushPhase?.detail as { asyncDispatch?: boolean } | undefined;
+  if (pushDetail?.asyncDispatch) {
+    return 'applying';
+  }
+
+  return 'done';
+}
 
 const SYSTEM_PROMPT = `Du bist Maya, die KI-Assistentin im Builder Studio von Soulmatch.
 Du sprichst Deutsch, locker und direkt. Du steuerst die gesamte Builder-Engine.
@@ -748,7 +762,7 @@ export async function handleBuilderChat(
         };
       }
 
-      // ─── QUICK MODE: Scope → executeTask controller ───
+      // ─── QUICK MODE: Scope → canonical orchestrateTask executor ───
       void (async () => {
         try {
           console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
@@ -758,18 +772,13 @@ export async function handleBuilderChat(
             .set({ status: 'planning', updatedAt: new Date() })
             .where(eq(builderTasks.id, created.id));
 
-          const result = await executeTask({
-            existingTaskId: created.id,
+          const result = await orchestrateTask({
             instruction: classified.goal!,
             scope: resolvedScope.length > 0 ? resolvedScope : undefined,
-            risk: classified.risk,
+            dryRun: false,
           });
 
-          const finalStatus = result.status === 'applying'
-            ? 'applying'
-            : result.status === 'consensus'
-              ? 'done'
-              : 'blocked';
+          const finalStatus = mapOrchestratorResultToTaskStatus(result);
           await db
             .update(builderTasks)
             .set({
@@ -780,7 +789,7 @@ export async function handleBuilderChat(
 
           console.log('[maya-router]',
             finalStatus === 'done' || finalStatus === 'applying'
-              ? `Schnellmodus fertig: ${result.status} (${result.patches.length} patches)`
+              ? `Schnellmodus fertig: ${result.status}`
               : `Schnellmodus fehlgeschlagen: ${result.status}`
           );
         } catch (err) {
@@ -895,17 +904,12 @@ export async function handleBuilderChat(
         void (async () => {
           try {
             await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
-            const result = await executeTask({
-              existingTaskId: taskId,
+            const result = await orchestrateTask({
               instruction: task.goal,
               scope: retryScope.length > 0 ? retryScope : undefined,
-              risk: task.risk ?? 'low',
+              dryRun: false,
             });
-            const finalStatus = result.status === 'applying'
-              ? 'applying'
-              : result.status === 'consensus'
-                ? 'done'
-                : 'blocked';
+            const finalStatus = mapOrchestratorResultToTaskStatus(result);
             await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
           } catch (err) {
             console.error('[fusion] retry quick-mode error:', err);
