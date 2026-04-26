@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `8469150`
+- `current_repo_head`: `d0b6239`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Builder Approval Artifact Validation v1.3 inklusive v1.3.1-Hotfix ist jetzt public, live und route-verifiziert. Commit 6660605 fuehrt die kanonische Approval-Artefakt-Validierung ein (instructionFingerprint, scopeFingerprint, approval-validation-Phase, Gate-Propagation in die Safety-Klassifikation). Commit 8469150 haertet den Fail-Closed-Pfad nach, damit auch getDb()/DB-Konfig-Fehler nicht mehr als Throw entgleisen, sondern als valid=false mit klarer Reason zuruecklaufen. Runtime-Evidenz ist gruen: /api/health meldet commit 8469150186bebaa8d8a2d9052b1cc483ff32cbb2; der authentifizierte Fake-ID-Call auf /api/builder/opus-bridge/approval-validate liefert valid=false mit not_found-Reason und ohne errorClass (erwartet).`
-- `next_recommended_block`: `Als naechsten Block einen engen Drift-Hygiene-Schnitt fahren: lokale, bewusst nicht gepushte Drift (`server/src/routes/studio.ts` plus untracked Audit-/F13A-Artefakte) sauber einordnen, ohne Builder-Approval-Logik oder Deploy-Pipeline erneut zu oeffnen.`
+- `last_completed_block`: `Builder Pipeline Acceptance ist auf Governance-Ebene lokal und live abgeschlossen. Block 1B ist fertig (9681fad: /execute + Quick Mode -> orchestrateTask, 86f5666: /chain -> orchestrateTask, d0b6239: /build nutzt orchestrateTask als inneren Executor). executeTask hat keinen produktiven Aufrufer mehr. K2.1 lokal ist fuer class_1/class_2/class_3 gruen, und K2.2 live ist fuer class_1/class_2/class_3 gruen (jeweils dryRun, kein Push, kein Deploy, keine neue Git-Drift).`
+- `next_recommended_block`: `K2.3 DB/Approval Readiness als enger naechster Pflichtblock (Neon/Auth und Approval-Validierung unter echter DB pruefen). Alternative nur nach expliziter Freigabe: K2.5 Controlled class_1 Push Smoke mit minimalem Risiko.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

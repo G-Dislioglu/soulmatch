@@ -167,12 +167,12 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 ### Opus-Bridge orchestration
 
 - `status`: `active`
-- `truth_basis`: `repo_visible`
+- `truth_basis`: `repo_visible_plus_runtime_probe`
 - `last_checked`: `2026-04-26`
-- `quality`: `operator_gate_and_approval_artifact_validation_live_verified`
-- `known_gap`: Der v1.2/v1.2.1-Gate-Vertrag plus v1.3/v1.3.1 Approval-Validation-Pfad ist jetzt public+live+route-verifiziert. Ausserhalb dieser Feature-Wahrheit bleibt bewusst nur lokaler Drift (`server/src/routes/studio.ts` und untracked Audit-/F13A-Artefakte).
-- `next_recommended_step`: Keinen weiteren Builder-Breitenumbau auf denselben Pfad legen. Wenn weitergearbeitet wird, dann als separater Drift-Hygiene- oder neuer fachlicher Builder-Block mit eigenem Scope.
-- `evidence`: `server/src/lib/providers.ts`, `server/src/lib/poolState.ts`, `server/src/lib/opusScoutRunner.ts`, `server/src/lib/opusRoundtable.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/opusDistiller.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusClaimGate.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusWorkerSwarm.ts`, `server/src/lib/opusWorkerRegistry.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/health.ts`, `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/builderApprovalArtifacts.ts`, `docs/F14-PHASE1-CLAIM-GATE-SPEC.md`; bestehende Live-Absicherung fuer F14A und v1.2/v1.2.1 bleibt gueltig, ergaenzt um Commit `666060547e524df305f589b0101160f7fdbda3a0` (Approval-Validation v1.3) und Commit `8469150186bebaa8d8a2d9052b1cc483ff32cbb2` (fail-closed v1.3.1). Finale Runtime-Probe auf Ziel-Commit: `/api/health` meldet `8469150...`; authentifizierter Fake-ID-Call auf `/api/builder/opus-bridge/approval-validate` liefert `valid=false` mit not_found-Reason und ohne `errorClass`.
+- `quality`: `governance_local_and_live_verified`
+- `known_gap`: Governance ist lokal und live fuer class_1/class_2/class_3 bewiesen, aber Produktionsreife ist noch nicht vollstaendig: K2.3 DB/Approval-Readiness offen, K2.4 valides Approval-Ticket live offen, K2.5 kontrollierter class_1 Push-Smoke offen, K2.6 Benchmark-Suite offen, K2.7 konsolidierter Observability/Acceptance-Report offen.
+- `next_recommended_step`: Erst Truth-Sync und danach den engen K2.3-Block fahren (DB/Neon/Auth und Approval-Validierung unter echter DB). K2.5 nur nach expliziter Freigabe als separater Risiko-Block.
+- `evidence`: Block-1B-Konsolidierung abgeschlossen mit Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor). `executeTask` hat keinen produktiven Aufrufer mehr. K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini` (swarm -> validate -> claim-gate -> judge -> safety). K2.2 live gruen fuer class_1/class_2/class_3 bei dryRun+skipDeploy, live commit `d0b6239` bestaetigt, kein Push/Deploy und keine neue lokale Git-Drift durch die Tests.
 
 ### Schema fuer persona_memories und voice_profiles
 

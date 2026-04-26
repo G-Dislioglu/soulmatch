@@ -86,16 +86,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat - Pipeline-Pfad-Konsolidierung (Orchestrator vs Council)
 
-- `status`: `unclear`
-- `truth_class`: `repo_visible`
+- `status`: `adopted`
+- `truth_class`: `repo_visible_plus_runtime_probe`
 - `source_type`: `code_audit`
-- `next_gate`: `user_approval`
-- `why_not_now`: Architekturentscheidung offen; zuerst Truth-Sync stabilisieren statt vorschnell beide Pfade zusammenzuziehen.
-- `non_scope`: stiller Full-Refactor beider Pipelines in einem Block; Provider-Umbau; Persistenzschema-Aenderungen; neue UI-Achsen.
-- `risk`: mittel bis hoch; falscher Zuschnitt kann Latenz, Stabilitaet und bestehende Builder-Flows gleichzeitig treffen.
-- `betroffene_bereiche`: `server/src/routes/health.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/routes/opusBridge.ts`
-- `kurzurteil`: Council ist produktiv angeschlossen, aber nicht im Orchestrator-Async-Pfad; es existieren zwei reale Pipelines mit unterschiedlicher Tiefe.
-- `evidence`: `/api/health/opus-task-async` routed in `health.ts` auf `orchestrateTask` (schlanker Pfad), waehrend `executeTask` in `opusBridgeController.ts` Scout/Distiller/Roundtable-Council nutzt. Verifiziert gegen Repo-Stand mit HEAD `7cd6990` am `2026-04-26`.
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/routes/opusBridge.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/opusChainController.ts`, `server/src/lib/opusBuildPipeline.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
+- `non_scope`: neuer Pipeline-Neubau, Provider-Umbau, Persistenzschema-Aenderungen, Featurearbeit.
+- `risk`: reduziert; Governance-Live-Smokes fuer class_1/class_2/class_3 sind gruen, Restoffenheit liegt jetzt in DB-Approval und kontrolliertem Push-Smoke.
+- `betroffene_bereiche`: `server/src/routes/opusBridge.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/opusChainController.ts`, `server/src/lib/opusBuildPipeline.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/health.ts`
+- `kurzurteil`: Split-Brain ist auf produktiven Schreibpfaden geschlossen, und die kanonische /opus-task-Governance wurde lokal sowie live fuer class_1/class_2/class_3 erfolgreich abgenommen.
+- `evidence`: Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor und externalisiert post-push checks). Runtime-Evidenz: K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini`; K2.2 live gruen fuer class_1/class_2/class_3 mit dryRun, ohne Push/Deploy und ohne neue Git-Drift.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 
