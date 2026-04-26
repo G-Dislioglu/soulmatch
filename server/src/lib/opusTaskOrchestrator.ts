@@ -41,6 +41,11 @@ export interface OpusTaskInput {
   workers?: string[];
   maxTokens?: number;
   skipDeploy?: boolean;
+  /**
+   * Run push but skip orchestrator's inline deploy-wait and self-test phases.
+   * Used by outer orchestrators (e.g. /build) that own post-push verification.
+   */
+  skipInlinePostPushChecks?: boolean;
   dryRun?: boolean;
   approvalId?: string;
   hasApprovedPlan?: boolean;
@@ -770,7 +775,14 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     const s6 = Date.now();
     const pushPhase = phases.find((phase) => phase.phase === 'push');
     const pushDetail = pushPhase?.detail as { asyncDispatch?: boolean } | undefined;
-    if (pushDetail?.asyncDispatch) {
+    if (input.skipInlinePostPushChecks) {
+      phases.push({
+        phase: 'deploy-wait',
+        status: 'skipped',
+        durationMs: Date.now() - s6,
+        detail: { reason: 'external_post_push_orchestrator' },
+      });
+    } else if (pushDetail?.asyncDispatch) {
       phases.push({
         phase: 'deploy-wait',
         status: 'skipped',
@@ -793,7 +805,9 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   if (!input.skipDeploy) {
     const pushPhase = phases.find((phase) => phase.phase === 'push');
     const pushDetail = pushPhase?.detail as { asyncDispatch?: boolean } | undefined;
-    if (pushDetail?.asyncDispatch) {
+    if (input.skipInlinePostPushChecks) {
+      phases.push({ phase: 'self-test', status: 'skipped', durationMs: 0, detail: { reason: 'external_post_push_orchestrator' } });
+    } else if (pushDetail?.asyncDispatch) {
       phases.push({ phase: 'self-test', status: 'skipped', durationMs: 0, detail: { reason: 'async_push_dispatch' } });
     } else {
       const t = await runSelfTest();

@@ -1,33 +1,46 @@
 // opusBuildPipeline.ts — All-in-One Builder Proxy
 // Claude sends 1x POST /build → Builder does everything internally
 
-import { executeTask, type ExecuteInput, type ExecuteResult } from './opusBridgeController.js';
+import { orchestrateTask, type OpusTaskResult } from './opusTaskOrchestrator.js';
 import type { BuilderTaskClass, ExecutionPolicy } from './builderSafetyPolicy.js';
 import { getDeployStatus, type DeployInfo } from './opusRenderBridge.js';
 import { selfVerify, type SelfTestCheck, type SelfTestResult } from './opusSelfTest.js';
 import { generateErrorCard } from './opusErrorLearning.js';
-import { outboundFetch } from './outboundHttp.js';
 
-const PORT = parseInt(process.env.PORT ?? '3001', 10);
-const OPUS_TOKEN = 'opus-bridge-2026-geheim';
+interface PipelineExecutionSnapshot {
+  taskId: string;
+  title: string;
+  status: OpusTaskResult['status'];
+  summary: string;
+  totalTokens: number;
+  files: string[];
+  taskClass?: BuilderTaskClass;
+  executionPolicy?: ExecutionPolicy;
+  pushAllowed?: boolean;
+  requiredExternalApproval?: boolean;
+  approvalReason?: string;
+  pushBlockedReason?: string;
+  protectedPathsTouched?: string[];
+}
 
-// Internal call to auto-approve a review_needed task (triggers GitHub commit)
-async function autoApproveTask(taskId: string): Promise<{ approved: boolean; error?: string }> {
-  try {
-    const res = await outboundFetch(
-      `http://localhost:${PORT}/api/builder/opus-bridge/override/${taskId}?opus_token=${OPUS_TOKEN}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', reason: 'auto-approved by /build pipeline' }),
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
-    const data = await res.json() as Record<string, unknown>;
-    return { approved: res.ok && data.newStatus !== 'error', error: res.ok ? undefined : String(data.error) };
-  } catch (err) {
-    return { approved: false, error: err instanceof Error ? err.message : String(err) };
-  }
+function mapOrchestratorToSnapshot(input: BuildInput, result: OpusTaskResult): PipelineExecutionSnapshot {
+  const files = [...new Set((result.edits?.edits ?? []).map((edit) => edit.path))];
+  return {
+    taskId: result.runId,
+    title: input.instruction.slice(0, 100),
+    status: result.status,
+    summary: result.summary,
+    // Legacy field from executeTask; orchestrateTask does not expose token totals.
+    totalTokens: 0,
+    files,
+    taskClass: result.taskClass,
+    executionPolicy: result.executionPolicy,
+    pushAllowed: result.pushAllowed,
+    requiredExternalApproval: result.requiredExternalApproval,
+    approvalReason: result.approvalReason,
+    pushBlockedReason: result.pushBlockedReason,
+    protectedPathsTouched: result.protectedPathsTouched,
+  };
 }
 
 // ==================== Types ====================
@@ -119,18 +132,23 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
   const start = Date.now();
   const duration = () => Date.now() - start;
 
-  // --- Phase 1: Execute Task (Scout → Decompose/Roundtable → Swarm → GitHub) ---
+  // --- Phase 1: Canonical execution (orchestrateTask) ---
   const deployStartedAt = new Date().toISOString(); // record BEFORE execute — any deploy after this is ours
-  let execResult: ExecuteResult;
+  let execResult: PipelineExecutionSnapshot;
   try {
-    const execInput: ExecuteInput = {
+    const orchestratorResult = await orchestrateTask({
       instruction: input.instruction,
       scope: input.scope,
-      risk: input.risk ?? 'low',
-      useDecomposer: input.useDecomposer ?? true,
-      codeWriter: input.codeWriter,
-    };
-    execResult = await executeTask({ ...execInput, skipGithub: input.skipDeploy });
+      skipDeploy: input.skipDeploy,
+      // /build owns deploy polling + self-verify (+ retries), so skip orchestrator's inline post-push checks.
+      skipInlinePostPushChecks: input.skipDeploy ? undefined : true,
+      assumptions: [
+        `Build pipeline mode: ${input.useDecomposer === false ? 'roundtable-preferred' : 'decomposer-preferred'}`,
+        `Requested risk: ${input.risk ?? 'low'}`,
+        input.codeWriter ? `Preferred code writer: ${input.codeWriter}` : '',
+      ].filter(Boolean),
+    });
+    execResult = mapOrchestratorToSnapshot(input, orchestratorResult);
   } catch (err) {
     return {
       status: 'build_failed',
@@ -144,13 +162,12 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     };
   }
 
-  const files = execResult.patches.map((p) => p.file);
   const base: Omit<BuildResult, 'status' | 'durationMs'> = {
     taskId: execResult.taskId,
     title: execResult.title,
     totalTokens: execResult.totalTokens,
-    patchCount: execResult.patches.length,
-    files,
+    patchCount: execResult.files.length,
+    files: execResult.files,
     taskClass: execResult.taskClass,
     executionPolicy: execResult.executionPolicy,
     pushAllowed: execResult.pushAllowed,
@@ -158,12 +175,31 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     protectedPathsTouched: execResult.protectedPathsTouched,
   };
 
-  // Check if execute itself failed (no patches, blocked, etc.)
-  if (execResult.status === 'blocked' || execResult.patches.length === 0) {
+  // Governance-first mapping: safety/approval gating must not be flattened into build_failed.
+  if (execResult.requiredExternalApproval || execResult.pushAllowed === false || execResult.status === 'dry_run') {
+    return {
+      ...base,
+      status: 'review_needed',
+      error: execResult.pushBlockedReason ?? execResult.approvalReason ?? execResult.summary,
+      durationMs: duration(),
+    };
+  }
+
+  if (execResult.status === 'failed') {
     return {
       ...base,
       status: 'build_failed',
-      error: `Task ${execResult.status}: ${execResult.blocks?.join(', ') || 'no patches produced'}`,
+      error: execResult.summary || 'Canonical execution failed.',
+      durationMs: duration(),
+    };
+  }
+
+  // Check if execute itself failed to produce concrete edits.
+  if (execResult.files.length === 0) {
+    return {
+      ...base,
+      status: 'build_failed',
+      error: `Task ${execResult.status}: no patches produced`,
       durationMs: duration(),
     };
   }
@@ -171,28 +207,6 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
   // --- skipDeploy: return immediately without GitHub push or deploy polling ---
   if (input.skipDeploy) {
     return { ...base, status: 'success', durationMs: duration() };
-  }
-
-  // Auto-approve if task ended in review_needed (patches exist but weren't auto-committed)
-  if (execResult.status === 'review_needed') {
-    if (execResult.pushAllowed === false) {
-      return {
-        ...base,
-        status: 'review_needed',
-        error: execResult.pushBlockedReason ?? 'Manual review required before push.',
-        durationMs: duration(),
-      };
-    }
-
-    const approval = await autoApproveTask(execResult.taskId);
-    if (!approval.approved) {
-      return {
-        ...base,
-        status: 'build_failed',
-        error: `Auto-approve failed: ${approval.error}`,
-        durationMs: duration(),
-      };
-    }
   }
 
   const deployResult = await waitForDeploy({ maxWaitMs: 300_000, notBefore: deployStartedAt });
@@ -261,7 +275,7 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
 
 async function retryOnFailure(
   input: BuildInput,
-  _prevResult: ExecuteResult,
+  _prevResult: PipelineExecutionSnapshot,
   _deployResult: { status: string },
 ): Promise<Partial<BuildResult> | null> {
   try {
@@ -272,7 +286,7 @@ async function retryOnFailure(
       taskGoal: input.instruction,
       blockReason: `Deploy ${_deployResult.status} after task ${_prevResult.taskId}`,
       chatPoolSummary: '',
-      affectedFiles: _prevResult.patches.map((p) => p.file),
+      affectedFiles: _prevResult.files,
     });
 
     // Retry with a fix instruction
@@ -280,7 +294,7 @@ async function retryOnFailure(
       ...input,
       instruction: `FIX: The previous change caused a deploy failure (${_deployResult.status}). ` +
         `Original instruction: "${input.instruction}". ` +
-        `Files changed: ${_prevResult.patches.map((p) => p.file).join(', ')}. ` +
+        `Files changed: ${_prevResult.files.join(', ')}. ` +
         `Please fix any TypeScript or build errors.`,
       autoRetry: false, // don't recurse
     };
