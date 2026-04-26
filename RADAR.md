@@ -84,6 +84,19 @@ Ein guter Soulmatch-Kandidat:
 
 ## Aktuell relevante Radar-Eintraege
 
+### Kandidat - Pipeline-Pfad-Konsolidierung (Orchestrator vs Council)
+
+- `status`: `unclear`
+- `truth_class`: `repo_visible`
+- `source_type`: `code_audit`
+- `next_gate`: `user_approval`
+- `why_not_now`: Architekturentscheidung offen; zuerst Truth-Sync stabilisieren statt vorschnell beide Pfade zusammenzuziehen.
+- `non_scope`: stiller Full-Refactor beider Pipelines in einem Block; Provider-Umbau; Persistenzschema-Aenderungen; neue UI-Achsen.
+- `risk`: mittel bis hoch; falscher Zuschnitt kann Latenz, Stabilitaet und bestehende Builder-Flows gleichzeitig treffen.
+- `betroffene_bereiche`: `server/src/routes/health.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusBridgeController.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/routes/opusBridge.ts`
+- `kurzurteil`: Council ist produktiv angeschlossen, aber nicht im Orchestrator-Async-Pfad; es existieren zwei reale Pipelines mit unterschiedlicher Tiefe.
+- `evidence`: `/api/health/opus-task-async` routed in `health.ts` auf `orchestrateTask` (schlanker Pfad), waehrend `executeTask` in `opusBridgeController.ts` Scout/Distiller/Roundtable-Council nutzt. Verifiziert gegen Repo-Stand mit HEAD `7cd6990` am `2026-04-26`.
+
 ### Kandidat F11 - Context-Broker fuer Claude
 
 - `status`: `adopted`

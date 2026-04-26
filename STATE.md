@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `890b03b`
+- `current_repo_head`: `7cd6990`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-25`
+- `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Der enge AICOS-Folgeblock nach der grueneren A-Light-Diagnose zieht den lokalen Soulmatch-Snapshot kontrolliert naeher an den externen Upstream heran, ohne beide Wahrheiten wieder zu vermischen. Repo-sichtbar importiert Soulmatch jetzt die fehlenden Governance-Cards `sol-cross-057` bis `sol-cross-061` unter `aicos-registry/cards/solutions/`, waehrend die Diagnose gleichzeitig bestaetigt hat, dass die Runtime-Pfade in `server/src/lib/architectPhase1.ts` und `server/src/lib/councilScout.ts` weiterhin direkt `https://raw.githubusercontent.com/G-Dislioglu/aicos-registry/master/index/INDEX.json` lesen und `server/src` keine hart codierten `sol-cross-*`-Abhaengigkeiten auf diese lokalen Dateien traegt. Im selben engen Block ist in `server/src/lib/architectureDigest.ts` der falsche GitHub-Pfad `tree/main` auf `tree/master` korrigiert und der veraltete Card-Count aus der Rollenbeschreibung entfernt worden. Die operative Wahrheit bleibt damit jetzt praeziser: lokaler Snapshot und externes AICOS-Upstream-Repo sind getrennte Quellen, aber der lokale Snapshot enthaelt diese fuenf Governance-Cards nun ebenfalls repo-sichtbar.`
-- `next_recommended_block`: `Keinen breiten AICOS-Vollsync aus diesem Mini-Import ableiten. Die geschlossene Hardening-Entscheidung bleibt unveraendert (`BACKTICK_IN_REGEX` auf `block`, global nur `checkLengthLimits`, Verlaufstelemetrie weiter deferred), und der docs-only/non-runtime Deploy-Betriebsfall bleibt mit 890b03b fuer normale `HEAD`-Waits gehaertet. Fuer AICOS ist der naechste sinnvolle Schritt nur dann ein weiterer lokaler Snapshot-Import oder eine Runtime-Umbewertung, wenn ein konkreter repo-belegter Bedarf dafuer auftaucht; bis dahin darf niemand still von voller lokaler Paritaet mit dem separaten Public-Upstream-Repo ausgehen.`
+- `last_completed_block`: `Block A Safety Policy ist repo-sichtbar abgeschlossen und auf main verifiziert: server/src/lib/builderSafetyPolicy.ts klassifiziert Builder-Tasks in class_1/class_2/class_3 und erzwingt fail-closed Push-Gating ueber executionPolicy (allow_push/dry_run_only/manual_only). Die Guard ist in beiden Ausfuehrungspfaden eingebunden (server/src/lib/opusTaskOrchestrator.ts und server/src/lib/opusBridgeController.ts) sowie im Pipeline-Wrapper (server/src/lib/opusBuildPipeline.ts). Commit-Truth: HEAD 7cd6990 auf main und origin/main.`
+- `next_recommended_block`: `Truth-Sync fuer die Zwei-Pfad-Realitaet stabil halten und dann eine explizite Architekturentscheidung schneiden: Council nur im schweren executeTask-Pfad belassen, oder Council kontrolliert in den schlanken orchestrateTask-Pfad erweitern. Als naechster enger Schritt gilt docs-first: RADAR-Kandidat zur Pipeline-Pfad-Konsolidierung plus auditierbare Pfad-Evidenz in docs/PIPELINE-PATHS-AUDIT-2026-04-26.md.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
