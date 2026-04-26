@@ -35,6 +35,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const router = Router();
+const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
 
 // GET /api/builder/preview/:taskId — prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
@@ -610,6 +611,12 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
     const { tsc, build, diff, run_id, run_url, commit_hash, committed, reason } = req.body;
     const db = getDb();
     const taskId = req.params.id;
+    const [taskMeta] = await db
+      .select({ goal: builderTasks.goal })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, taskId))
+      .limit(1);
+    const isAcceptanceSmokeTask = typeof taskMeta?.goal === 'string' && taskMeta.goal.includes(ACCEPTANCE_SMOKE_MARKER);
 
     await db.insert(builderActions).values({
       taskId,
@@ -638,10 +645,12 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
-      const { regenerateRepoIndex } = await import('../lib/opusIndexGenerator.js');
-      await regenerateRepoIndex().catch((regenErr) => {
-        console.error('[builder] index refresh after commit callback failed:', regenErr);
-      });
+      if (!isAcceptanceSmokeTask) {
+        const { regenerateRepoIndex } = await import('../lib/opusIndexGenerator.js');
+        await regenerateRepoIndex().catch((regenErr) => {
+          console.error('[builder] index refresh after commit callback failed:', regenErr);
+        });
+      }
       signalPushResult(taskId, { landed: true, commitHash: commit_hash });
     } else if (committed === false) {
       // Terminaler Fehler-Callback aus dem Workflow (empty_staged_diff,

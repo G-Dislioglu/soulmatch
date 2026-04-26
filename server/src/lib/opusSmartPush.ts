@@ -40,9 +40,14 @@ interface SmartPushResult {
   landed?: boolean;
 }
 
+interface SmartPushOptions {
+  acceptanceSmoke?: boolean;
+}
+
 export async function smartPush(
   files: SmartPushFile[],
   message: string,
+  options?: SmartPushOptions,
 ): Promise<SmartPushResult> {
   const start = Date.now();
   const modes: Record<string, 'ambiguous' | 'overwrite' | 'create' | 'patch'> = {};
@@ -82,7 +87,11 @@ export async function smartPush(
       const res = await outboundFetch(getAuthUrl('/push'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: overwrites, message }),
+        body: JSON.stringify({
+          files: overwrites,
+          message,
+          acceptanceSmoke: options?.acceptanceSmoke === true,
+        }),
       });
       const data = await res.json() as Record<string, unknown>;
       if (!data.triggered) {
@@ -112,7 +121,11 @@ export async function smartPush(
         const res = await outboundFetch(getAuthUrl('/push'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: pushFiles, message }),
+          body: JSON.stringify({
+            files: pushFiles,
+            message,
+            acceptanceSmoke: options?.acceptanceSmoke === true,
+          }),
         });
         const data = await res.json() as Record<string, unknown>;
         if (!data.triggered) {
