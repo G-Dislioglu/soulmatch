@@ -101,15 +101,15 @@ Ein guter Soulmatch-Kandidat:
 ### Kandidat - Builder Benchmark / Operating Boundary
 
 - `status`: `active`
-- `truth_class`: `repo_visible_plus_runtime_probe`
+- `truth_class`: `repo_visible`
 - `source_type`: `user_request`
-- `next_gate`: `user_approval`
-- `why_not_now`: `K2.7 zieht gerade erst die Truth nach; aus K2.5 darf keine implizite Generalfreigabe fuer groessere autonome Arbeit werden.`
+- `next_gate`: `implementation`
+- `why_not_now`: `none; der Plan ist jetzt repo-sichtbar vorbereitet, die Ausfuehrung bleibt als eigener Folgeblock getrennt.`
 - `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
 - `risk`: mittel; die groesste verbleibende Gefahr ist nicht fehlende class_1-Funktion, sondern Ueberverkauf der jetzigen Abnahme als breite Autonomie-Freigabe.
-- `betroffene_bereiche`: `STATE.md`, `RADAR.md`, `FEATURES.md`, Benchmark-Runbooks, spaetere Runtime-Probes fuer `/api/builder/opus-bridge/opus-task`.
-- `kurzurteil`: Nach K2.5 ist der naechste sinnvolle Block kein weiterer Governance-Smoke, sondern K2.6 Benchmark Suite oder eine explizite Operating-Grenze. Der Builder ist aktuell fuer kontrollierte kleine class_1 Tasks unter bestehendem Gate-Set freigegeben, aber nicht als allgemeiner autonomer Feature-Autopilot. class_2 bleibt approval-gebunden mit Reviewpflicht; class_3 bleibt `manual_only`/protected.
-- `evidence`: Live-Acceptance fuer K2.5 ist grün auf `d31882257f91eb9ffecc729b5981450376539502`; der Doku-Sync in K2.7 zieht diesen Stand repo-sichtbar nach. Benchmark-Evidenz fuer breitere Last, Wiederholbarkeit und groessere autonome Aufgaben fehlt weiterhin.
+- `betroffene_bereiche`: `STATE.md`, `RADAR.md`, `FEATURES.md`, `docs/BUILDER-BENCHMARK-K2.6.md`, spaetere Runtime-Probes fuer `/api/builder/opus-bridge/opus-task`.
+- `kurzurteil`: Der Operating-Boundary-Stand ist veroeffentlicht, und K2.6 ist jetzt als plan-only Benchmark-Suite repo-sichtbar vorbereitet. Naechster Ausfuehrungsblock ist K2.6a local dryRun suite; keine Runs in diesem Plan-Block.
+- `evidence`: Live-Acceptance fuer K2.5 ist gruen auf `d31882257f91eb9ffecc729b5981450376539502`; Operating-Boundary wurde auf main veroeffentlicht (`ed8b477f2b40e7c523d45d16ce1589663dec95f8`); K2.6 Plan liegt repo-sichtbar in `docs/BUILDER-BENCHMARK-K2.6.md` vor.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 
