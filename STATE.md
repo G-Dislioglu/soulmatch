@@ -20,7 +20,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
 - `last_completed_block`: `K2.7 Truth-Sync / Acceptance Report zieht den Builder-Abnahmestand repo-sichtbar nach. K2.1 lokal, K2.2 live, K2.3 DB/Approval-Readiness, K2.4 Valid Approval Artifact Smoke und K2.5 Controlled Strict-Scope Push Smoke sind gruen. Der letzte nachgewiesene Live-Builder-Smoke landete auf verifiedCommit d31882257f91eb9ffecc729b5981450376539502, aenderte exakt docs/archive/push-test.md und erzeugte weder SESSION-LOG.md noch builder-repo-index.json noch Folgecommits im 90s-Fenster.`
-- `next_recommended_block`: `K2.6a local dryRun suite auf Basis des repo-sichtbaren Plans in docs/BUILDER-BENCHMARK-K2.6.md; danach K2.6b live dryRun suite. Weiterhin keine allgemeine Freigabe fuer grosse autonome Featurearbeit.`
+- `next_recommended_block`: `K2.6a Batch 1 local dryRun execution based on docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md (T01, T02, T04, T05, T07, T08, T09, T10; skip T03+T06). Danach K2.6b live dryRun suite. Weiterhin keine allgemeine Freigabe fuer grosse autonome Featurearbeit.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
