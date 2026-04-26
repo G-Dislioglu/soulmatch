@@ -93,10 +93,23 @@ Ein guter Soulmatch-Kandidat:
 - `absorbed_into`: `server/src/routes/opusBridge.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/opusChainController.ts`, `server/src/lib/opusBuildPipeline.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `FEATURES.md`
 - `why_not_now`: `none`
 - `non_scope`: neuer Pipeline-Neubau, Provider-Umbau, Persistenzschema-Aenderungen, Featurearbeit.
-- `risk`: reduziert; Governance-Live-Smokes fuer class_1/class_2/class_3 sind gruen, Restoffenheit liegt jetzt in DB-Approval und kontrolliertem Push-Smoke.
+- `risk`: reduziert; Governance-Live-Smokes fuer class_1/class_2/class_3, Approval-Readiness und der kontrollierte strict-scope Push-Smoke sind gruen. Restoffenheit liegt jetzt in Benchmark-Evidenz und einer expliziten Operating-Grenze gegen zu breite autonome Featurearbeit.
 - `betroffene_bereiche`: `server/src/routes/opusBridge.ts`, `server/src/lib/builderFusionChat.ts`, `server/src/lib/opusChainController.ts`, `server/src/lib/opusBuildPipeline.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/health.ts`
-- `kurzurteil`: Split-Brain ist auf produktiven Schreibpfaden geschlossen, und die kanonische /opus-task-Governance wurde lokal sowie live fuer class_1/class_2/class_3 erfolgreich abgenommen.
-- `evidence`: Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor und externalisiert post-push checks). Runtime-Evidenz: K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini`; K2.2 live gruen fuer class_1/class_2/class_3 mit dryRun, ohne Push/Deploy und ohne neue Git-Drift.
+- `kurzurteil`: Split-Brain ist auf produktiven Schreibpfaden geschlossen, und der kanonische `/opus-task`-Pfad ist jetzt fuer kontrollierte kleine class_1 Builder-Tasks lokal sowie live abgenommen, inklusive strict-scope-clean Push. Das ist bewusst keine allgemeine Freigabe fuer grosse autonome Featurearbeit.
+- `evidence`: Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor und externalisiert post-push checks). Runtime-Evidenz: K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini`; K2.2 live gruen fuer class_1/class_2/class_3 mit dryRun, ohne Push/Deploy und ohne neue Git-Drift; K2.3/K2.4 live gruen ueber Approval-Validate- und fail-closed-Readiness-Pfad (`666060547e524df305f589b0101160f7fdbda3a0`, `8469150186bebaa8d8a2d9052b1cc483ff32cbb2`); K2.5 live gruen auf verifiedCommit `d31882257f91eb9ffecc729b5981450376539502` mit exakt einem geaenderten Pfad `docs/archive/push-test.md`, ohne `SESSION-LOG.md`, ohne `builder-repo-index.json` und ohne Folgecommits nach 90 Sekunden.
+
+### Kandidat - Builder Benchmark / Operating Boundary
+
+- `status`: `active`
+- `truth_class`: `repo_visible_plus_runtime_probe`
+- `source_type`: `user_request`
+- `next_gate`: `user_approval`
+- `why_not_now`: `K2.7 zieht gerade erst die Truth nach; aus K2.5 darf keine implizite Generalfreigabe fuer groessere autonome Arbeit werden.`
+- `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads.
+- `risk`: mittel; die groesste verbleibende Gefahr ist nicht fehlende class_1-Funktion, sondern Ueberverkauf der jetzigen Abnahme als breite Autonomie-Freigabe.
+- `betroffene_bereiche`: `STATE.md`, `RADAR.md`, `FEATURES.md`, Benchmark-Runbooks, spaetere Runtime-Probes fuer `/api/builder/opus-bridge/opus-task`.
+- `kurzurteil`: Nach K2.5 ist der naechste sinnvolle Block kein weiterer Governance-Smoke, sondern K2.6 Benchmark Suite oder eine explizite Operating-Grenze: ready for controlled small class_1 builder tasks under existing gates, aber nicht fuer grosse autonome Featurearbeit.
+- `evidence`: Live-Acceptance fuer K2.5 ist grün auf `d31882257f91eb9ffecc729b5981450376539502`; der Doku-Sync in K2.7 zieht diesen Stand repo-sichtbar nach. Benchmark-Evidenz fuer breitere Last, Wiederholbarkeit und groessere autonome Aufgaben fehlt weiterhin.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 
