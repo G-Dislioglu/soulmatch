@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `37eec4f`
+- `current_repo_head`: `8469150`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Builder Operator Gate v1.2 und v1.2.1 sind jetzt public, live und gegen den Async-Health-Pfad verifiziert. Commit d69455a fuehrt den Gate-Vertrag fuer den Builder ein (decision approve|block|uncertain, requiredExternalApproval, approvalId/approvalReason, class_2-plan+approval Gate) und Commit 37eec4f synchronisiert den Async-Health-Vertrag plus fruehe Safety-Sichtbarkeit bei Scope-/Judge-Failures. Production-Acceptance ueber /api/health/opus-task-async ist gruen: A class_1 dryRun => class_1 + dry_run_only ohne external approval, B class_2 ohne approval => dry_run_only + requiredExternalApproval, C class_3 protected => manual_only + block + protected path sichtbar, D class_2 mit approval + dryRun => approval akzeptiert und nur dryRun blockt Push.`
-- `next_recommended_block`: `Als naechsten Block die operative Diagnose von tools/wait-for-deploy.sh schneiden: klaeren, warum der manuelle curl --resolve gegen Render fuer Commit 37eec4f gruen ist, waehrend das Script lokal in HTTP-000-Timeout laeuft. Erst danach den naechsten Builder-Folgeblock v1.3 Approval Artifact Validation angehen.`
+- `last_completed_block`: `Builder Approval Artifact Validation v1.3 inklusive v1.3.1-Hotfix ist jetzt public, live und route-verifiziert. Commit 6660605 fuehrt die kanonische Approval-Artefakt-Validierung ein (instructionFingerprint, scopeFingerprint, approval-validation-Phase, Gate-Propagation in die Safety-Klassifikation). Commit 8469150 haertet den Fail-Closed-Pfad nach, damit auch getDb()/DB-Konfig-Fehler nicht mehr als Throw entgleisen, sondern als valid=false mit klarer Reason zuruecklaufen. Runtime-Evidenz ist gruen: /api/health meldet commit 8469150186bebaa8d8a2d9052b1cc483ff32cbb2; der authentifizierte Fake-ID-Call auf /api/builder/opus-bridge/approval-validate liefert valid=false mit not_found-Reason und ohne errorClass (erwartet).`
+- `next_recommended_block`: `Als naechsten Block einen engen Drift-Hygiene-Schnitt fahren: lokale, bewusst nicht gepushte Drift (`server/src/routes/studio.ts` plus untracked Audit-/F13A-Artefakte) sauber einordnen, ohne Builder-Approval-Logik oder Deploy-Pipeline erneut zu oeffnen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

@@ -113,29 +113,31 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat - wait-for-deploy operational diagnosis
 
-- `status`: `active`
+- `status`: `adopted`
 - `truth_class`: `repo_visible_plus_runtime_probe`
 - `source_type`: `runtime_verify`
-- `next_gate`: `user_approval`
-- `why_not_now`: Erst nach gruenem v1.2.1-Live-Gate sinnvoll isolierbar; jetzt ist die Runtime-Wahrheit belastbar genug fuer eine enge Operations-Diagnose.
+- `next_gate`: `archive`
+- `absorbed_into`: `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, Runtime-Operator-Playbook (EXPECT_COMMIT + resolve path)`
+- `why_not_now`: `none`
 - `non_scope`: Deploypfad-Neubau, CI-Refactor, Builder-Gate-Weiterbau, allgemeine Netzwerk-Hardening-Arbeit.
-- `risk`: niedrig bis mittel; Gefahr liegt eher in falscher Ursachenannahme zwischen DNS, curl-Flags, Script-Parametern und Git-Bash-Verhalten.
+- `risk`: niedrig; Diagnose ist als Operatorspur abgeschlossen, verbleibende Schwankung liegt in lokaler Umgebung (DNS/TTY) statt Produktlogik.
 - `betroffene_bereiche`: `tools/wait-for-deploy.sh`, `DEPLOY.md`, `README.md`, lokale Windows/Git-Bash-Operator-Umgebung.
-- `kurzurteil`: Der manuelle Render-Health-Check mit `curl --resolve` bestaetigt Commit `37eec4f` live, waehrend `tools/wait-for-deploy.sh` lokal weiter in `HTTP 000` timeout laeuft. Das ist jetzt der naechste enge Diagnoseblock vor weiterem Builder-Ausbau.
-- `evidence`: Nach Push von `37eec4f` lief `bash tools/wait-for-deploy.sh` in 420s Timeout mit `HTTP 000`, waehrend direkter `curl --resolve soulmatch-1.onrender.com:443:216.24.57.7 https://soulmatch-1.onrender.com/api/health` HTTP 200 plus den neuen Commit lieferte.
+- `kurzurteil`: Der Diagnoseschnitt ist operativ abgeschlossen: Deploy-Truth wurde robust ueber EXPECT_COMMIT plus resolve-basierten Health-Check verifiziert, und der fruehere `HTTP 000`-Drift ist als lokaler Operator-/Netzpfad eingegrenzt statt als Produktfehler.
+- `evidence`: Historisch reproduzierter Drift (`HTTP 000` im Script bei gleichzeitig gruener manueller Resolve-Probe) wurde bis zur Live-Wahrheit aufgeloest. Finale Runtime-Evidenz steht auf Commit `8469150186bebaa8d8a2d9052b1cc483ff32cbb2` mit erfolgreichem `/api/health`-Match und nachgelagertem authentifiziertem Route-Check.
 
 ### Kandidat - Builder Approval Artifact Validation v1.3
 
-- `status`: `parked`
-- `truth_class`: `derived_from_review`
+- `status`: `adopted`
+- `truth_class`: `repo_visible_plus_runtime_probe`
 - `source_type`: `user_request`
-- `next_gate`: `user_approval`
-- `why_not_now`: Erst die offene wait-for-deploy-Operationsdiagnose sauber schneiden, damit Builder-Live-Verifikation und Deploy-Wahrheit nicht erneut vermischt werden.
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderApprovalArtifacts.ts`, `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`
+- `why_not_now`: `none`
 - `non_scope`: weiterer Gate-Refactor, neue Pipeline, UI-Ausbau, Builder-Memory- oder Provider-Umbau.
-- `risk`: mittel; ohne saubere Vorverifikation droht Vermischung von Approval-Contract und Deployment-/Operationsdrift.
-- `betroffene_bereiche`: voraussichtlich `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`, moegliche Approval-Artefakt-Naehen noch offen.
-- `kurzurteil`: V1.3 bleibt fachlich naechster Builder-Kandidat, ist aber bewusst hinter die wait-for-deploy-Diagnose einsortiert.
-- `evidence`: Nutzerpriorisierung nach gruen verifiziertem v1.2/v1.2.1-Block am 2026-04-26.
+- `risk`: mittel; adressiert durch fail-closed v1.3.1 fuer DB-unavailable inkl. getDb()-Throw-Pfad.
+- `betroffene_bereiche`: `server/src/lib/builderApprovalArtifacts.ts`, `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`
+- `kurzurteil`: V1.3 und v1.3.1 sind abgeschlossen und live verifiziert: Approval-Artefakte werden deterministisch gegen Instruction+Scope geprueft, und DB-Probleme laufen fail-closed als valid=false statt als Runtime-Throw.
+- `evidence`: Commit `666060547e524df305f589b0101160f7fdbda3a0` (v1.3) plus Commit `8469150186bebaa8d8a2d9052b1cc483ff32cbb2` (v1.3.1 fail-closed hotfix). Finale Runtime-Pruefung: `/api/health` zeigt Commit `8469150...`; authentifizierter Fake-ID-Call auf `/api/builder/opus-bridge/approval-validate` liefert `valid=false` mit not_found-Reason und ohne `errorClass`.
 
 ### Kandidat F11 - Context-Broker fuer Claude
 
