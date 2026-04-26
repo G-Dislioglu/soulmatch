@@ -20,7 +20,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
 - `last_completed_block`: `K2.7 Truth-Sync / Acceptance Report zieht den Builder-Abnahmestand repo-sichtbar nach. K2.1 lokal, K2.2 live, K2.3 DB/Approval-Readiness, K2.4 Valid Approval Artifact Smoke und K2.5 Controlled Strict-Scope Push Smoke sind gruen. Der letzte nachgewiesene Live-Builder-Smoke landete auf verifiedCommit d31882257f91eb9ffecc729b5981450376539502, aenderte exakt docs/archive/push-test.md und erzeugte weder SESSION-LOG.md noch builder-repo-index.json noch Folgecommits im 90s-Fenster.`
-- `next_recommended_block`: `K2.6 Benchmark Suite oder alternativ ein enger Operating-Boundary-Block fuer die Builder-Freigabe. Keine allgemeine Freigabe fuer grosse autonome Featurearbeit ohne Benchmark-Evidenz.`
+- `next_recommended_block`: `K2.6 Benchmark Suite oder alternativ ein enger Operating-Boundary-Block fuer die Builder-Freigabe. Der Builder ist aktuell fuer kontrollierte kleine class_1 Tasks unter bestehendem Gate-Set freigegeben, aber nicht als allgemeiner autonomer Feature-Autopilot.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -86,8 +86,19 @@ Meta-Karten weiter zu blocken.
 
 Die Builder-Pipeline ist abgenommen fuer kontrollierte kleine class_1 Builder-
 Tasks ueber den kanonischen `/opus-task`-Pfad, inklusive Live-Governance,
-Approval-Readiness und strict-scope-clean Push. Sie ist noch nicht allgemein
-freigegeben fuer grosse autonome Featurearbeit ohne Benchmark Suite.
+Approval-Readiness und strict-scope-clean Push.
+
+Der Builder ist damit aktuell ein eng gefuehrtes Ausfuehrungssystem fuer
+kontrollierte kleine class_1 Tasks mit explizitem Scope und bestehenden Gates,
+nicht aber ein allgemeiner autonomer Feature-Autopilot.
+
+Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
+Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
+(`manual_only`/protected), Featurearbeit ohne expliziten Produktauftrag sowie
+weitere Live-Push-Smokes ohne explizite Freigabe.
+
+class_2 bleibt an gueltige Approval-Artefakte und anschliessende Reviewpflicht
+gebunden; class_3 bleibt `manual_only`/protected.
 
 Der explizit angeforderte UI-Redesign-Pfad ist jetzt durch die weiteren
 Tab-Huellen fuer Astro, Report/Match und Hall of Souls sichtbar fortgesetzt.

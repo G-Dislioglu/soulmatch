@@ -105,10 +105,10 @@ Ein guter Soulmatch-Kandidat:
 - `source_type`: `user_request`
 - `next_gate`: `user_approval`
 - `why_not_now`: `K2.7 zieht gerade erst die Truth nach; aus K2.5 darf keine implizite Generalfreigabe fuer groessere autonome Arbeit werden.`
-- `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads.
+- `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
 - `risk`: mittel; die groesste verbleibende Gefahr ist nicht fehlende class_1-Funktion, sondern Ueberverkauf der jetzigen Abnahme als breite Autonomie-Freigabe.
 - `betroffene_bereiche`: `STATE.md`, `RADAR.md`, `FEATURES.md`, Benchmark-Runbooks, spaetere Runtime-Probes fuer `/api/builder/opus-bridge/opus-task`.
-- `kurzurteil`: Nach K2.5 ist der naechste sinnvolle Block kein weiterer Governance-Smoke, sondern K2.6 Benchmark Suite oder eine explizite Operating-Grenze: ready for controlled small class_1 builder tasks under existing gates, aber nicht fuer grosse autonome Featurearbeit.
+- `kurzurteil`: Nach K2.5 ist der naechste sinnvolle Block kein weiterer Governance-Smoke, sondern K2.6 Benchmark Suite oder eine explizite Operating-Grenze. Der Builder ist aktuell fuer kontrollierte kleine class_1 Tasks unter bestehendem Gate-Set freigegeben, aber nicht als allgemeiner autonomer Feature-Autopilot. class_2 bleibt approval-gebunden mit Reviewpflicht; class_3 bleibt `manual_only`/protected.
 - `evidence`: Live-Acceptance fuer K2.5 ist grün auf `d31882257f91eb9ffecc729b5981450376539502`; der Doku-Sync in K2.7 zieht diesen Stand repo-sichtbar nach. Benchmark-Evidenz fuer breitere Last, Wiederholbarkeit und groessere autonome Aufgaben fehlt weiterhin.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
