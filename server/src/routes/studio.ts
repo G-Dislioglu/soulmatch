@@ -139,6 +139,55 @@ function parseChatExcerptToHistory(chatExcerpt?: string): Array<{ role: string; 
     });
 }
 
+function parseProviderJson(raw: string): Record<string, unknown> {
+  const candidates: string[] = [];
+  const trimmed = raw.trim();
+
+  if (trimmed.length > 0) {
+    candidates.push(trimmed);
+  }
+
+  if (trimmed.startsWith('```')) {
+    const withoutFence = trimmed
+      .replace(/^```(?:json|text)?\s*\n?/i, '')
+      .replace(/\n?```\s*$/i, '')
+      .trim();
+    if (withoutFence.length > 0) {
+      candidates.push(withoutFence);
+    }
+  }
+
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch?.[1]?.trim()) {
+    candidates.push(fenceMatch[1].trim());
+  }
+
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(trimmed.slice(firstBrace, lastBrace + 1).trim());
+  }
+
+  const firstBracket = trimmed.indexOf('[');
+  const lastBracket = trimmed.lastIndexOf(']');
+  if (firstBracket >= 0 && lastBracket > firstBracket) {
+    candidates.push(trimmed.slice(firstBracket, lastBracket + 1).trim());
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Try next candidate format.
+    }
+  }
+
+  throw new Error('JSON parse failed for provider response object');
+}
+
 interface SpeakerInfo {
   name?: string;
   isNew?: boolean;
@@ -211,12 +260,7 @@ async function callGemini(apiKey: string, model: string, systemPrompt: string, u
   let content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
   if (!content) throw new Error('No content in Gemini response');
 
-  content = content.trim();
-  if (content.startsWith('```')) {
-    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-  }
-
-  return JSON.parse(content);
+  return parseProviderJson(content);
 }
 
 const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
@@ -332,7 +376,7 @@ async function callOpenAI(apiKey: string, model: string, systemPrompt: string, u
   }
 
   if (!resultText) throw new Error('No text content in OpenAI response');
-  return JSON.parse(resultText);
+  return parseProviderJson(resultText);
 }
 
 async function callChatCompletions(
@@ -378,13 +422,7 @@ async function callChatCompletions(
   let content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('No content in chat completion response');
 
-  // Strip markdown code fences if LLM wraps JSON in ```json ... ```
-  content = content.trim();
-  if (content.startsWith('```')) {
-    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-  }
-
-  return JSON.parse(content);
+  return parseProviderJson(content);
 }
 
 studioRouter.post('/studio', async (req: Request, res: Response) => {
@@ -494,7 +532,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       return;
     }
 
-    let parsed;
+    let parsed: Record<string, unknown>;
 
     devLogger.info('llm', `Calling ${providerName}/${model}`, {
       provider: providerName,
@@ -546,11 +584,11 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     });
 
     // Normalize: some LLMs wrap result in a top-level key
-    if (!parsed.turns && parsed.result && typeof parsed.result === 'object') {
-      parsed = parsed.result;
+    if (!parsed.turns && parsed.result && typeof parsed.result === 'object' && !Array.isArray(parsed.result)) {
+      parsed = parsed.result as Record<string, unknown>;
     }
-    if (!parsed.turns && parsed.data && typeof parsed.data === 'object') {
-      parsed = parsed.data;
+    if (!parsed.turns && parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+      parsed = parsed.data as Record<string, unknown>;
     }
 
     // Normalize: nextSteps may come as next_steps
@@ -661,15 +699,15 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       }
     }
 
-    // Ensure turns have valid seat/text
-    parsed.turns = parsed.turns.map((t: Record<string, unknown>) => {
+    const normalizedTurns = (parsed.turns as Array<Record<string, unknown>>).map((t) => {
       const seat = String(t.seat ?? 'maya');
       const text = withSriFallbackText(String(t.text ?? t.content ?? ''), seat);
       return { seat, text };
     });
 
-    // Ensure nextSteps is string array
-    parsed.nextSteps = parsed.nextSteps.map((s: unknown) => String(s));
+    const normalizedNextSteps = (parsed.nextSteps as unknown[]).map((s) => String(s));
+    parsed.turns = normalizedTurns;
+    parsed.nextSteps = normalizedNextSteps;
 
     const anchorsProvided = anchors.map((anchor) => anchor.id);
     const anchorsUsed = Array.isArray(parsed.anchorsUsed)
@@ -679,8 +717,8 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
     // Narrative quality gate: evaluate user-visible fields and apply fallback when needed.
     const gated = applyNarrativeGate(
       {
-        turns: parsed.turns,
-        nextSteps: parsed.nextSteps,
+        turns: normalizedTurns,
+        nextSteps: normalizedNextSteps,
         watchOut: String(parsed.watchOut ?? ''),
       },
       {
@@ -723,7 +761,7 @@ studioRouter.post('/studio', async (req: Request, res: Response) => {
       const sessionMessages = [
         ...history,
         { role: 'user' as const, content: studioRequest.userMessage },
-        ...parsed.turns.map((turn: { seat: string; text: string }) => ({
+        ...gated.output.turns.map((turn) => ({
           role: 'assistant' as const,
           content: `${turn.seat}: ${turn.text}`,
         })),
@@ -1040,7 +1078,13 @@ studioRouter.get('/openai-test', async (_req: Request, res: Response) => {
       }),
     });
     const body = await r.text();
-    res.json({ status: r.status, body: JSON.parse(body) });
+    let parsedBody: unknown;
+    try {
+      parsedBody = parseProviderJson(body);
+    } catch {
+      parsedBody = body;
+    }
+    res.json({ status: r.status, body: parsedBody });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
