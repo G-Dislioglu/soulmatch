@@ -121,6 +121,11 @@ export function classifyBuilderTask(input: BuilderSafetyInput): BuilderSafetyDec
     reasons.push('dryRun=true blocks autonomous push.');
   }
 
+  if (taskClass === 'class_2' && executionPolicy === 'allow_push' && input.allowAutonomousPush !== true) {
+    executionPolicy = 'dry_run_only';
+    reasons.push('Class-2 tasks require explicit allowAutonomousPush=true after external review.');
+  }
+
   if (input.allowAutonomousPush === false) {
     if (executionPolicy === 'allow_push') {
       executionPolicy = 'dry_run_only';
