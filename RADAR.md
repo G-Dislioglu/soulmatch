@@ -101,15 +101,15 @@ Ein guter Soulmatch-Kandidat:
 ### Kandidat - Builder Benchmark / Operating Boundary
 
 - `status`: `active`
-- `truth_class`: `repo_visible`
+- `truth_class`: `runtime_verified`
 - `source_type`: `user_request`
-- `next_gate`: `implementation`
-- `why_not_now`: `none; der Plan ist jetzt repo-sichtbar vorbereitet, die Ausfuehrung bleibt als eigener Folgeblock getrennt.`
+- `next_gate`: `findings_triage`
+- `why_not_now`: `none; K2.6a Batch 1 ist ausgefuehrt und ausgewertet.`
 - `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
-- `risk`: mittel; die groesste verbleibende Gefahr ist nicht fehlende class_1-Funktion, sondern Ueberverkauf der jetzigen Abnahme als breite Autonomie-Freigabe.
-- `betroffene_bereiche`: `STATE.md`, `RADAR.md`, `FEATURES.md`, `docs/BUILDER-BENCHMARK-K2.6.md`, spaetere Runtime-Probes fuer `/api/builder/opus-bridge/opus-task`.
-- `kurzurteil`: Der Operating-Boundary-Stand ist veroeffentlicht, und K2.6 ist jetzt als plan-only Benchmark-Suite repo-sichtbar vorbereitet. Naechster Ausfuehrungsblock ist K2.6a local dryRun suite; keine Runs in diesem Plan-Block.
-- `evidence`: Live-Acceptance fuer K2.5 ist gruen auf `d31882257f91eb9ffecc729b5981450376539502`; Operating-Boundary wurde auf main veroeffentlicht (`ed8b477f2b40e7c523d45d16ce1589663dec95f8`); K2.6 Plan liegt repo-sichtbar in `docs/BUILDER-BENCHMARK-K2.6.md` vor.
+- `risk`: reduziert auf Findings-Ebene; Sicherheits-Invarianten (landed=false, pushAllowed=false) haben gehalten. Offene Punkte: T09 Soft-Block-Gap (MANUAL_ONLY_PATTERNS produziert Worker-Artefakt vor Push-Gate) und T02 Markdown-Envelope-Gap (Workers koennen kein guel­tiges Envelope fuer reine Markdown-Tasks erzeugen).
+- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `docs/BUILDER-BENCHMARK-K2.6A-RUNNER-PREFLIGHT.md`, `docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md`.
+- `kurzurteil`: K2.6a Batch 1 (T01,T02,T04,T05,T07,T08,T09,T10) lokal abgeschlossen. Kein Hard Stop. T01/T04/T05 gruen. T02 Worker-Failure (Markdown). T07 class_2-Gate wirkt als Push-Block, nicht als Submission-Block. T08 gruen (MANUAL_ONLY_RULES verweigert Worker-Output). T09 partiell (MANUAL_ONLY_PATTERNS erzeugt Artefakt, Push geblockt). T10 gruen (Ambiguity). Naechster Block: Findings-Triage, dann T03 Batch 1b.
+- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; Preflight-Docs auf origin/main `5797f96`; alle 8 Tasks ohne Hard Stop, alle mit landed=false und pushAllowed=false.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 

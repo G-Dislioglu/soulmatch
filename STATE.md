@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `6cab763`
-- `last_verified_origin_main`: `d31882257f91eb9ffecc729b5981450376539502`
+- `current_repo_head`: `5797f96`
+- `last_verified_origin_main`: `5797f96`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `K2.7 Truth-Sync / Acceptance Report zieht den Builder-Abnahmestand repo-sichtbar nach. K2.1 lokal, K2.2 live, K2.3 DB/Approval-Readiness, K2.4 Valid Approval Artifact Smoke und K2.5 Controlled Strict-Scope Push Smoke sind gruen. Der letzte nachgewiesene Live-Builder-Smoke landete auf verifiedCommit d31882257f91eb9ffecc729b5981450376539502, aenderte exakt docs/archive/push-test.md und erzeugte weder SESSION-LOG.md noch builder-repo-index.json noch Folgecommits im 90s-Fenster.`
-- `next_recommended_block`: `K2.6a Batch 1 local dryRun execution based on docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md (T01, T02, T04, T05, T07, T08, T09, T10; skip T03+T06). Danach K2.6b live dryRun suite. Weiterhin keine allgemeine Freigabe fuer grosse autonome Featurearbeit.`
+- `last_completed_block`: `K2.6a Batch 1 local dryRun (T01,T02,T04,T05,T07,T08,T09,T10) abgeschlossen. Ergebnisse in k26a-batch1-results-2026-04-26-19-02-43.json. Kein Hard Stop, kein landed=true, kein pushAllowed=true. T01/T04/T05 gruen (dry_run, scopeClean). T02 failed (Workers koennen kein Envelope fuer reinen Markdown-Task erzeugen). T07 dry_run statt rejected (class_2-Gate ist Push-Block, nicht Submission-Block). T08 failed wie erwartet (MANUAL_ONLY_RULES verweigert Worker-Output). T09 dry_run mit pushBlockedReason (MANUAL_ONLY_PATTERNS blockiert erst am Push-Gate). T10 failed wie erwartet (Ambiguity). Zwei offene Findings: T09 Soft-Block-Gap (class_3 PATTERNS produziert Worker-Artefakt) und T02 Markdown-Envelope-Gap.`
+- `next_recommended_block`: `K2.6a Post-Batch-1 Findings-Triage: (1) T09 Soft-Block-Gap bewerten — genuegt Push-Gate oder braucht MANUAL_ONLY_PATTERNS einen Worker-Early-Exit? (2) T02 Markdown-Worker-Gap analysieren. Dann T03 Sub-Block (Batch 1b, class_2 mit gueltigem approvalId). Keine allgemeine Freigabe fuer grosse autonome Featurearbeit.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
