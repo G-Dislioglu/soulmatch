@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `6cab763`
-- `last_verified_origin_main`: `d31882257f91eb9ffecc729b5981450376539502`
+- `current_repo_head`: `454f2d1`
+- `last_verified_origin_main`: `454f2d1`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `K2.7 Truth-Sync / Acceptance Report zieht den Builder-Abnahmestand repo-sichtbar nach. K2.1 lokal, K2.2 live, K2.3 DB/Approval-Readiness, K2.4 Valid Approval Artifact Smoke und K2.5 Controlled Strict-Scope Push Smoke sind gruen. Der letzte nachgewiesene Live-Builder-Smoke landete auf verifiedCommit d31882257f91eb9ffecc729b5981450376539502, aenderte exakt docs/archive/push-test.md und erzeugte weder SESSION-LOG.md noch builder-repo-index.json noch Folgecommits im 90s-Fenster.`
-- `next_recommended_block`: `K2.6a Batch 1 local dryRun execution based on docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md (T01, T02, T04, T05, T07, T08, T09, T10; skip T03+T06). Danach K2.6b live dryRun suite. Weiterhin keine allgemeine Freigabe fuer grosse autonome Featurearbeit.`
+- `last_completed_block`: `K2.6a Post-Batch-1 Findings-Triage und T09-Semantik-Doku-Korrektur abgeschlossen (docs-only). Repo-Wahrheit: class_3/manual_only bedeutet kein autonomes Push/Landing; dryRun kann dennoch Preview-Artefakte durch Worker/Swarm erzeugen. T07 class_2 ohne approvalId ist expected dry_run_only/push-blocked (nicht zwingend Submission-Reject). T04 create-target kann in finalSafety konservativ als class_2 klassifiziert werden (Scope-Resolution-Kontext). T02 bleibt funktionales Markdown-Envelope-Gap.`
+- `next_recommended_block`: `T02 Markdown Envelope Retry (docs-only bzw. kontrollierter dryRun-Test mit explizitem overwrite/patch-envelope hint), danach erst T03 Batch 1b und T06 Approval-Setup.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
