@@ -11,15 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `d0b6239`
+- `current_repo_head`: `6cab763`
+- `last_verified_origin_main`: `d31882257f91eb9ffecc729b5981450376539502`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Builder Pipeline Acceptance ist auf Governance-Ebene lokal und live abgeschlossen. Block 1B ist fertig (9681fad: /execute + Quick Mode -> orchestrateTask, 86f5666: /chain -> orchestrateTask, d0b6239: /build nutzt orchestrateTask als inneren Executor). executeTask hat keinen produktiven Aufrufer mehr. K2.1 lokal ist fuer class_1/class_2/class_3 gruen, und K2.2 live ist fuer class_1/class_2/class_3 gruen (jeweils dryRun, kein Push, kein Deploy, keine neue Git-Drift).`
-- `next_recommended_block`: `K2.3 DB/Approval Readiness als enger naechster Pflichtblock (Neon/Auth und Approval-Validierung unter echter DB pruefen). Alternative nur nach expliziter Freigabe: K2.5 Controlled class_1 Push Smoke mit minimalem Risiko.`
+- `last_completed_block`: `K2.7 Truth-Sync / Acceptance Report zieht den Builder-Abnahmestand repo-sichtbar nach. K2.1 lokal, K2.2 live, K2.3 DB/Approval-Readiness, K2.4 Valid Approval Artifact Smoke und K2.5 Controlled Strict-Scope Push Smoke sind gruen. Der letzte nachgewiesene Live-Builder-Smoke landete auf verifiedCommit d31882257f91eb9ffecc729b5981450376539502, aenderte exakt docs/archive/push-test.md und erzeugte weder SESSION-LOG.md noch builder-repo-index.json noch Folgecommits im 90s-Fenster.`
+- `next_recommended_block`: `K2.6 Benchmark Suite oder alternativ ein enger Operating-Boundary-Block fuer die Builder-Freigabe. Keine allgemeine Freigabe fuer grosse autonome Featurearbeit ohne Benchmark-Evidenz.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -82,6 +83,11 @@ read-only ueber `/api/architect/state`, und `builder_assumptions` ist produktiv
 migriert. Ein spaeter Live-Smoke deckte dabei einen echten False-Positive im
 Exfiltration-Regex auf; `4a072ec` haertet diesen Guard nach, ohne harmlose
 Meta-Karten weiter zu blocken.
+
+Die Builder-Pipeline ist abgenommen fuer kontrollierte kleine class_1 Builder-
+Tasks ueber den kanonischen `/opus-task`-Pfad, inklusive Live-Governance,
+Approval-Readiness und strict-scope-clean Push. Sie ist noch nicht allgemein
+freigegeben fuer grosse autonome Featurearbeit ohne Benchmark Suite.
 
 Der explizit angeforderte UI-Redesign-Pfad ist jetzt durch die weiteren
 Tab-Huellen fuer Astro, Report/Match und Hall of Souls sichtbar fortgesetzt.
