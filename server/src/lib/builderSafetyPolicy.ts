@@ -35,6 +35,8 @@ type BuilderSafetyInput = {
   allowAutonomousPush?: boolean;
   approvalId?: string;
   hasApprovedPlan?: boolean;
+  approvalValid?: boolean;
+  approvalValidationReason?: string;
   judgeDecision?: BuilderGateDecision;
 };
 
@@ -121,6 +123,7 @@ export function classifyBuilderTask(input: BuilderSafetyInput): BuilderSafetyDec
   let approvalReason: string | undefined;
   const approvedPlan = input.hasApprovedPlan === true;
   const approvalId = input.approvalId?.trim() || undefined;
+  const approvalValid = input.approvalValid !== false;
 
   if (protectedPathsTouched.length > 0) {
     decision = 'block';
@@ -138,6 +141,16 @@ export function classifyBuilderTask(input: BuilderSafetyInput): BuilderSafetyDec
     approvalReason = approvedPlan
       ? 'class_2 requires approvalId before live push.'
       : 'class_2 requires approved plan + approvalId before live push.';
+    reasons.push(approvalReason);
+  }
+
+  if (taskClass === 'class_2' && !approvalValid) {
+    if (executionPolicy === 'allow_push') {
+      executionPolicy = 'dry_run_only';
+    }
+    requiredExternalApproval = true;
+    approvalReason = input.approvalValidationReason?.trim()
+      || 'class_2 approvalId failed approval_ticket validation before live push.';
     reasons.push(approvalReason);
   }
 

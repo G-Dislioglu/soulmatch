@@ -27,6 +27,7 @@ import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
 import { classifyBuilderTask, guardBuilderPush, type BuilderGateDecision, type BuilderSafetyDecision, type BuilderTaskClass, type ExecutionPolicy } from './builderSafetyPolicy.js';
+import { validateApprovalArtifact, type ApprovalArtifactValidationResult } from './builderApprovalArtifacts.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { devLogger } from '../devLogger.js';
@@ -43,6 +44,8 @@ export interface OpusTaskInput {
   dryRun?: boolean;
   approvalId?: string;
   hasApprovedPlan?: boolean;
+  sourceTaskId?: string;
+  sourceRunId?: string;
   metaSourceIds?: string[];
   assumptions?: string[];
   assumptionIds?: string[];
@@ -395,6 +398,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const phases: PhaseResult[] = [];
   const workers = input.workers || DEFAULT_WORKERS;
   const maxTokens = input.maxTokens || 6000;
+  let approvalValidation: ApprovalArtifactValidationResult | undefined;
   const preflightSafety = classifyBuilderTask({
     instruction: input.instruction,
     scope: input.scope,
@@ -507,6 +511,29 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         : 'Scope resolver found 0 files. Include exact paths in instruction.',
       ...buildSafetyResultFields(preflightSafety),
     };
+  }
+
+  if (input.approvalId?.trim()) {
+    const sApproval = Date.now();
+    approvalValidation = await validateApprovalArtifact({
+      approvalId: input.approvalId,
+      instruction: input.instruction,
+      scope: scope.files,
+      sourceTaskId: input.sourceTaskId,
+      sourceRunId: input.sourceRunId,
+    });
+    phases.push({
+      phase: 'approval-validation',
+      status: approvalValidation.valid ? 'ok' : 'error',
+      durationMs: Date.now() - sApproval,
+      detail: {
+        approvalId: approvalValidation.approvalId,
+        valid: approvalValidation.valid,
+        reason: approvalValidation.reason,
+        instructionFingerprint: approvalValidation.instructionFingerprint,
+        scopeFingerprint: approvalValidation.scopeFingerprint,
+      },
+    });
   }
 
   // Phase 2: Fetch
@@ -662,6 +689,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       dryRun: input.dryRun,
       approvalId: input.approvalId,
       hasApprovedPlan: input.hasApprovedPlan,
+      approvalValid: approvalValidation?.valid,
+      approvalValidationReason: approvalValidation?.reason,
       judgeDecision,
     });
     return {
@@ -683,6 +712,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     dryRun: input.dryRun,
     approvalId: input.approvalId,
     hasApprovedPlan: input.hasApprovedPlan,
+    approvalValid: approvalValidation?.valid,
+    approvalValidationReason: approvalValidation?.reason,
     judgeDecision,
   });
   const pushBlockedReason = finalSafety.reasons[0] ?? 'Autonomous push blocked by builder safety policy.';

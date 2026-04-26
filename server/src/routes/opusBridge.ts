@@ -10,6 +10,7 @@ import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { executeTask } from '../lib/opusBridgeController.js';
 import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
+import { validateApprovalArtifact } from '../lib/builderApprovalArtifacts.js';
 import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
@@ -1279,10 +1280,41 @@ opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
   }
 });
 
+opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) => {
+  try {
+    const { approvalId, instruction, scope, sourceTaskId, sourceRunId } = req.body as {
+      approvalId?: string;
+      instruction?: string;
+      scope?: string[];
+      sourceTaskId?: string;
+      sourceRunId?: string;
+    };
+
+    if (!approvalId || !instruction || !Array.isArray(scope)) {
+      res.status(400).json({
+        error: 'approvalId, instruction, and scope[] are required',
+      });
+      return;
+    }
+
+    const validation = await validateApprovalArtifact({
+      approvalId,
+      instruction,
+      scope,
+      sourceTaskId,
+      sourceRunId,
+    });
+
+    res.json(validation);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, metaSourceIds, assumptions, assumptionIds } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
@@ -1292,13 +1324,30 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       dryRun?: boolean;
       approvalId?: string;
       hasApprovedPlan?: boolean;
+      sourceTaskId?: string;
+      sourceRunId?: string;
       metaSourceIds?: string[];
       assumptions?: string[];
       assumptionIds?: string[];
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
-        const result = await orchestrateTask({ instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, metaSourceIds, assumptions, assumptionIds });
+    const result = await orchestrateTask({
+      instruction,
+      scope,
+      targetFile,
+      workers,
+      maxTokens,
+      skipDeploy,
+      dryRun,
+      approvalId,
+      hasApprovedPlan,
+      sourceTaskId,
+      sourceRunId,
+      metaSourceIds,
+      assumptions,
+      assumptionIds,
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
