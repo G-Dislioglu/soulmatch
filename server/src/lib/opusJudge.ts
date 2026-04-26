@@ -26,6 +26,7 @@ interface CandidateAssessment {
 }
 
 export interface JudgeDecision {
+  decision: 'approve' | 'block' | 'uncertain';
   approved: boolean;
   reason: string;
   winner?: EditEnvelope;
@@ -122,18 +123,36 @@ function buildHeuristicDecision(assessments: CandidateAssessment[]): JudgeDecisi
 
   const best = ranked[0];
   if (!best) {
-    return { approved: false, reason: 'No valid candidates reached the judge.', rejectedWorkers: [] };
+    return {
+      decision: 'block',
+      approved: false,
+      reason: 'No valid candidates reached the judge.',
+      rejectedWorkers: [],
+    };
   }
 
   if (best.blockingIssues.length > 0) {
     return {
+      decision: 'block',
       approved: false,
       reason: best.blockingIssues.join('; '),
       rejectedWorkers: assessments.map((assessment) => assessment.worker),
     };
   }
 
+  if (best.warnings.length > 0) {
+    return {
+      decision: 'uncertain',
+      approved: false,
+      reason: best.warnings[0],
+      winner: best.envelope,
+      worker: best.worker,
+      rejectedWorkers: assessments.filter((assessment) => assessment.worker !== best.worker).map((assessment) => assessment.worker),
+    };
+  }
+
   return {
+    decision: 'approve',
     approved: true,
     reason: best.warnings[0] ?? 'Heuristic fallback selected the least risky candidate.',
     winner: best.envelope,
@@ -142,18 +161,21 @@ function buildHeuristicDecision(assessments: CandidateAssessment[]): JudgeDecisi
   };
 }
 
-function parseJudgeResponse(raw: string, candidateCount: number): { approved: boolean; pick: number; reason: string } | null {
+function parseJudgeResponse(raw: string, candidateCount: number): { approved: boolean; pick: number; reason: string; decision?: 'approve' | 'block' | 'uncertain' } | null {
   const cleaned = raw.trim();
   const jsonText = cleaned.match(/\{[\s\S]*\}/)?.[0] ?? cleaned;
 
   try {
-    const parsed = JSON.parse(jsonText) as { approved?: unknown; pick?: unknown; reason?: unknown };
+    const parsed = JSON.parse(jsonText) as { approved?: unknown; pick?: unknown; reason?: unknown; decision?: unknown };
     const approved = parsed.approved === true;
     const pick = typeof parsed.pick === 'number'
       ? Math.max(0, Math.min(parsed.pick, candidateCount))
       : 0;
     const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
-    return { approved, pick, reason };
+    const decision = parsed.decision === 'approve' || parsed.decision === 'block' || parsed.decision === 'uncertain'
+      ? parsed.decision
+      : undefined;
+    return { approved, pick, reason, decision };
   } catch {
     return null;
   }
@@ -191,8 +213,22 @@ export async function judgeValidCandidates(
     });
     const parsed = parseJudgeResponse(response, candidates.length);
     if (!parsed) return heuristic;
-    if (!parsed.approved || parsed.pick === 0) {
+    if (parsed.decision === 'uncertain') {
+      const idx = Math.max(0, Math.min((parsed.pick || 1) - 1, candidates.length - 1));
+      const winner = assessments[idx];
       return {
+        decision: 'uncertain',
+        approved: false,
+        reason: parsed.reason || 'Judge uncertain. Requires external approval.',
+        winner: winner?.envelope,
+        worker: winner?.worker,
+        rejectedWorkers: assessments.filter((assessment) => assessment.worker !== winner?.worker).map((assessment) => assessment.worker),
+      };
+    }
+
+    if (!parsed.approved || parsed.pick === 0 || parsed.decision === 'block') {
+      return {
+        decision: 'block',
         approved: false,
         reason: parsed.reason || 'Judge rejected all candidates.',
         rejectedWorkers: candidates.map((candidate) => candidate.worker),
@@ -203,6 +239,7 @@ export async function judgeValidCandidates(
     const winner = assessments[idx];
     if (winner.blockingIssues.length > 0) {
       return {
+        decision: 'block',
         approved: false,
         reason: winner.blockingIssues.join('; '),
         rejectedWorkers: candidates.map((candidate) => candidate.worker),
@@ -210,6 +247,7 @@ export async function judgeValidCandidates(
     }
 
     return {
+      decision: parsed.decision === 'approve' ? 'approve' : 'approve',
       approved: true,
       reason: parsed.reason || 'Judge approved the selected candidate.',
       winner: winner.envelope,

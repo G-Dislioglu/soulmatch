@@ -26,7 +26,7 @@ import { judgeValidCandidates } from './opusJudge.js';
 import { evaluateCandidateClaims, resolveGateMode } from './opusClaimGate.js';
 import { smartPush } from './opusSmartPush.js';
 import { parseEnvelope, validateEnvelope, type EditEnvelope } from './opusEnvelopeValidator.js';
-import { classifyBuilderTask, guardBuilderPush, type BuilderSafetyDecision, type BuilderTaskClass, type ExecutionPolicy } from './builderSafetyPolicy.js';
+import { classifyBuilderTask, guardBuilderPush, type BuilderGateDecision, type BuilderSafetyDecision, type BuilderTaskClass, type ExecutionPolicy } from './builderSafetyPolicy.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { devLogger } from '../devLogger.js';
@@ -41,6 +41,8 @@ export interface OpusTaskInput {
   maxTokens?: number;
   skipDeploy?: boolean;
   dryRun?: boolean;
+  approvalId?: string;
+  hasApprovedPlan?: boolean;
   metaSourceIds?: string[];
   assumptions?: string[];
   assumptionIds?: string[];
@@ -55,7 +57,11 @@ export interface OpusTaskResult {
   edits?: EditEnvelope;
   taskClass?: BuilderTaskClass;
   executionPolicy?: ExecutionPolicy;
+  decision?: BuilderGateDecision;
   pushAllowed?: boolean;
+  requiredExternalApproval?: boolean;
+  approvalId?: string;
+  approvalReason?: string;
   pushBlockedReason?: string;
   protectedPathsTouched?: string[];
   /** True only if dispatches landed on main (verified by pushResultWaiter). Undefined for synchronous direct-patch path where landing equals success. */
@@ -259,7 +265,11 @@ async function pushEdits(
   asyncDispatch: boolean;
   taskClass: BuilderTaskClass;
   executionPolicy: ExecutionPolicy;
+  decision: BuilderGateDecision;
   pushAllowed: boolean;
+  requiredExternalApproval: boolean;
+  approvalId?: string;
+  approvalReason?: string;
   pushBlockedReason?: string;
   protectedPathsTouched: string[];
   policyBlocked?: boolean;
@@ -288,7 +298,11 @@ async function pushEdits(
       asyncDispatch: false,
       taskClass: safetyDecision.taskClass,
       executionPolicy: safetyDecision.executionPolicy,
+      decision: safetyDecision.decision,
       pushAllowed: false,
+      requiredExternalApproval: safetyDecision.requiredExternalApproval,
+      approvalId: safetyDecision.approvalId,
+      approvalReason: safetyDecision.approvalReason,
       pushBlockedReason: guardedPush.pushBlockedReason,
       protectedPathsTouched: safetyDecision.protectedPathsTouched,
       policyBlocked: true,
@@ -304,7 +318,11 @@ async function pushEdits(
       asyncDispatch: result.asyncDispatch,
       taskClass: safetyDecision.taskClass,
       executionPolicy: safetyDecision.executionPolicy,
+      decision: safetyDecision.decision,
       pushAllowed: safetyDecision.pushAllowed,
+      requiredExternalApproval: safetyDecision.requiredExternalApproval,
+      approvalId: safetyDecision.approvalId,
+      approvalReason: safetyDecision.approvalReason,
       protectedPathsTouched: safetyDecision.protectedPathsTouched,
       error: result.error,
       durationMs: Date.now() - start,
@@ -318,7 +336,11 @@ async function pushEdits(
       asyncDispatch: false,
       taskClass: safetyDecision.taskClass,
       executionPolicy: safetyDecision.executionPolicy,
+      decision: safetyDecision.decision,
       pushAllowed: safetyDecision.pushAllowed,
+      requiredExternalApproval: safetyDecision.requiredExternalApproval,
+      approvalId: safetyDecision.approvalId,
+      approvalReason: safetyDecision.approvalReason,
       protectedPathsTouched: safetyDecision.protectedPathsTouched,
       error: e instanceof Error ? e.message : String(e),
       durationMs: Date.now() - start,
@@ -596,7 +618,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     detail: judge.approved && judge.winner
       ? { winner: judge.worker, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
       : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
-  if (!judge.approved || !judge.winner) {
+  const judgeDecision: BuilderGateDecision = judge.decision ?? (judge.approved ? 'approve' : 'block');
+  if (judgeDecision === 'block' || !judge.winner) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
       summary: `Judge rejected all candidates: ${judge.reason}`, hardening };
   }
@@ -607,6 +630,9 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     targetFile: input.targetFile,
     files: best.edits.map((edit) => edit.path),
     dryRun: input.dryRun,
+    approvalId: input.approvalId,
+    hasApprovedPlan: input.hasApprovedPlan,
+    judgeDecision,
   });
   const pushBlockedReason = finalSafety.reasons[0] ?? 'Autonomous push blocked by builder safety policy.';
 
@@ -617,7 +643,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       summary: `Dry run: ${best.edits.length} file(s) ready. Winner: ${best.worker}`,
       taskClass: finalSafety.taskClass,
       executionPolicy: finalSafety.executionPolicy,
+      decision: finalSafety.decision,
       pushAllowed: finalSafety.pushAllowed,
+      requiredExternalApproval: finalSafety.requiredExternalApproval,
+      approvalId: finalSafety.approvalId,
+      approvalReason: finalSafety.approvalReason,
       pushBlockedReason,
       protectedPathsTouched: finalSafety.protectedPathsTouched,
       hardening,
@@ -638,7 +668,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
           : `Push failed: ${push.error}`,
         taskClass: push.taskClass,
         executionPolicy: push.executionPolicy,
+        decision: push.decision,
         pushAllowed: push.pushAllowed,
+        requiredExternalApproval: push.requiredExternalApproval,
+        approvalId: push.approvalId,
+        approvalReason: push.approvalReason,
         pushBlockedReason: push.pushBlockedReason,
         protectedPathsTouched: push.protectedPathsTouched,
         landed: push.landed,
@@ -694,7 +728,11 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     summary: `${allOk ? '✅' : '⚠️'} ${Math.round((Date.now() - totalStart) / 1000)}s | ${best.worker} | ${best.edits.map(e => e.path).join(', ')}`,
     taskClass: finalSafety.taskClass,
     executionPolicy: finalSafety.executionPolicy,
+    decision: finalSafety.decision,
     pushAllowed: finalSafety.pushAllowed,
+    requiredExternalApproval: finalSafety.requiredExternalApproval,
+    approvalId: finalSafety.approvalId,
+    approvalReason: finalSafety.approvalReason,
     pushBlockedReason: finalSafety.pushAllowed ? undefined : pushBlockedReason,
     protectedPathsTouched: finalSafety.protectedPathsTouched,
     landed: pushDetail?.landed,

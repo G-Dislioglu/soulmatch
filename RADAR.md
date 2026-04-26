@@ -97,6 +97,19 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: Council ist produktiv angeschlossen, aber nicht im Orchestrator-Async-Pfad; es existieren zwei reale Pipelines mit unterschiedlicher Tiefe.
 - `evidence`: `/api/health/opus-task-async` routed in `health.ts` auf `orchestrateTask` (schlanker Pfad), waehrend `executeTask` in `opusBridgeController.ts` Scout/Distiller/Roundtable-Council nutzt. Verifiziert gegen Repo-Stand mit HEAD `7cd6990` am `2026-04-26`.
 
+### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
+
+- `status`: `active`
+- `truth_class`: `repo_visible_plus_worktree`
+- `source_type`: `user_request`
+- `next_gate`: `verify_then_user_approval_for_commit`
+- `why_not_now`: Kein Full-Refactor; erst den engen Gate-Vertrag auf dem kanonischen `/opus-task`-Pfad belastbar machen.
+- `non_scope`: Neubau der Pipeline, Aenderung des Legacy-`/build`-Verhaltens, Provider-Wechsel, Persistenzschema-Umbau, UI-Redesign.
+- `risk`: mittel; Gate-Logik greift direkt in Push-Freigaben ein, daher klarer Fokus auf false-positive/false-negative Push-Blocks noetig.
+- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`
+- `kurzurteil`: V1.2 ist als enger Folgeblock auf bestehender Architektur umgesetzt: tri-state decision (`approve|block|uncertain`) plus `requiredExternalApproval` und class_2 Plan/Approval-Gate ohne neue Pipeline.
+- `evidence`: Worktree-Stand 2026-04-26: `classifyBuilderTask` erzwingt class_2 ohne `hasApprovedPlan+approvalId` als `dry_run_only`; `uncertain` blockt Push mit `requiredExternalApproval=true`; `/opus-task` nimmt `approvalId` + `hasApprovedPlan` an und reicht Vertrag bis ins Ergebnis durch.
+
 ### Kandidat F11 - Context-Broker fuer Claude
 
 - `status`: `adopted`
