@@ -135,7 +135,6 @@ export async function validateApprovalArtifact(
     );
   }
 
-  const db = getDb();
   let artifact: {
     id: string;
     artifactType: string;
@@ -143,6 +142,7 @@ export async function validateApprovalArtifact(
   } | undefined;
 
   try {
+    const db = getDb();
     [artifact] = await db
       .select({
         id: builderArtifacts.id,
