@@ -11,15 +11,15 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `7cd6990`
+- `current_repo_head`: `37eec4f`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Block A Safety Policy ist repo-sichtbar abgeschlossen und auf main verifiziert: server/src/lib/builderSafetyPolicy.ts klassifiziert Builder-Tasks in class_1/class_2/class_3 und erzwingt fail-closed Push-Gating ueber executionPolicy (allow_push/dry_run_only/manual_only). Die Guard ist in beiden Ausfuehrungspfaden eingebunden (server/src/lib/opusTaskOrchestrator.ts und server/src/lib/opusBridgeController.ts) sowie im Pipeline-Wrapper (server/src/lib/opusBuildPipeline.ts). Commit-Truth: HEAD 7cd6990 auf main und origin/main. Lokaler Folgeblock (noch uncommitted): Builder Operator Gate v1.2 erweitert den Vertrag um decision (approve|block|uncertain) sowie requiredExternalApproval/approvalId/approvalReason und erzwingt class_2-plan+approval Gate bzw. uncertain=>dry_run_only im Opus-Task-Pfad.`
-- `next_recommended_block`: `Den lokalen v1.2-Folgeblock gezielt gegen echte Opus-Task-Payloads verifizieren (class_2 ohne approvalId => dry_run_only, class_2 mit approvalId+hasApprovedPlan => push-faehig bei approve, uncertain => push-block + requiredExternalApproval=true), danach als enges Commit schneiden und erst dann den groesseren Pipeline-Konsolidierungsentscheid weiterfuehren.`
+- `last_completed_block`: `Builder Operator Gate v1.2 und v1.2.1 sind jetzt public, live und gegen den Async-Health-Pfad verifiziert. Commit d69455a fuehrt den Gate-Vertrag fuer den Builder ein (decision approve|block|uncertain, requiredExternalApproval, approvalId/approvalReason, class_2-plan+approval Gate) und Commit 37eec4f synchronisiert den Async-Health-Vertrag plus fruehe Safety-Sichtbarkeit bei Scope-/Judge-Failures. Production-Acceptance ueber /api/health/opus-task-async ist gruen: A class_1 dryRun => class_1 + dry_run_only ohne external approval, B class_2 ohne approval => dry_run_only + requiredExternalApproval, C class_3 protected => manual_only + block + protected path sichtbar, D class_2 mit approval + dryRun => approval akzeptiert und nur dryRun blockt Push.`
+- `next_recommended_block`: `Als naechsten Block die operative Diagnose von tools/wait-for-deploy.sh schneiden: klaeren, warum der manuelle curl --resolve gegen Render fuer Commit 37eec4f gruen ist, waehrend das Script lokal in HTTP-000-Timeout laeuft. Erst danach den naechsten Builder-Folgeblock v1.3 Approval Artifact Validation angehen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -257,6 +257,17 @@ Darauf aufbauend ist jetzt auch die Siegerwahl haerter: `opusJudge.ts` waehlt
 nicht mehr blind irgendeinen formalen Gewinner, sondern kann Kandidaten bei
 fehlenden expliziten Zielpfaden, fehlenden Create-Targets oder zu breitem
 Out-of-Scope-Drift komplett verwerfen.
+
+Seitdem ist auch die Builder-Safety-Lane auf main sichtbar komplettiert: `d69455a`
+haertet den eigentlichen Operator-Gate-Vertrag mit class_1/class_2/class_3,
+tri-state `decision`, `requiredExternalApproval` und class_2 Plan/Approval-Gate,
+waehrend `37eec4f` denselben Vertrag fuer den Async-Health-Pfad synchronisiert und
+Safety-Felder schon bei fruehen Scope-/Judge-Failures sichtbar macht. Die vier
+Production-Acceptance-Faelle A/B/C/D sind live gegen
+`/api/health/opus-task-async` gruen verifiziert. Separat davon bleibt lokaler
+Drift im Worktree bestehen: `server/src/routes/studio.ts` ist modifiziert und
+mehrere Audit-/Handoff-/F13A-Artefakte sind untracked; diese gehoeren nicht zu
+der jetzt verifizierten Runtime-Wahrheit.
 
 Parallel dazu ist der Repo-Brain-Rahmen jetzt naeher an Maya Core ausgerichtet:
 `docs/methods/compression-check.md` verankert die ausgefuehrte Zerquetsch-Methode,

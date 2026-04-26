@@ -99,16 +99,43 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 
-- `status`: `active`
-- `truth_class`: `repo_visible_plus_worktree`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `user_request`
-- `next_gate`: `verify_then_user_approval_for_commit`
-- `why_not_now`: Kein Full-Refactor; erst den engen Gate-Vertrag auf dem kanonischen `/opus-task`-Pfad belastbar machen.
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/health.ts`, `STATE.md`, `FEATURES.md`
+- `why_not_now`: `none`
 - `non_scope`: Neubau der Pipeline, Aenderung des Legacy-`/build`-Verhaltens, Provider-Wechsel, Persistenzschema-Umbau, UI-Redesign.
 - `risk`: mittel; Gate-Logik greift direkt in Push-Freigaben ein, daher klarer Fokus auf false-positive/false-negative Push-Blocks noetig.
-- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`
-- `kurzurteil`: V1.2 ist als enger Folgeblock auf bestehender Architektur umgesetzt: tri-state decision (`approve|block|uncertain`) plus `requiredExternalApproval` und class_2 Plan/Approval-Gate ohne neue Pipeline.
-- `evidence`: Worktree-Stand 2026-04-26: `classifyBuilderTask` erzwingt class_2 ohne `hasApprovedPlan+approvalId` als `dry_run_only`; `uncertain` blockt Push mit `requiredExternalApproval=true`; `/opus-task` nimmt `approvalId` + `hasApprovedPlan` an und reicht Vertrag bis ins Ergebnis durch.
+- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/health.ts`
+- `kurzurteil`: V1.2 und der enge Folgeblock v1.2.1 sind repo-sichtbar abgeschlossen: Der Gate-Vertrag ist auf main live und liefert jetzt auch ueber den Async-Health-Pfad fruehe Safety-Felder fuer kritische oder frueh scheiternde Faelle.
+- `evidence`: Commit `d69455a` fuehrt decision (`approve|block|uncertain`), `requiredExternalApproval` und class_2 Plan/Approval-Gate ein; Commit `37eec4f` reicht `approvalId`/`hasApprovedPlan` auch ueber `health.ts` weiter und ergaenzt Scope-/Judge-Failures in `opusTaskOrchestrator.ts` um Safety-Felder. Live-Production-Acceptance ueber `/api/health/opus-task-async` ist am 2026-04-26 fuer A/B/C/D gruen verifiziert.
+
+### Kandidat - wait-for-deploy operational diagnosis
+
+- `status`: `active`
+- `truth_class`: `repo_visible_plus_runtime_probe`
+- `source_type`: `runtime_verify`
+- `next_gate`: `user_approval`
+- `why_not_now`: Erst nach gruenem v1.2.1-Live-Gate sinnvoll isolierbar; jetzt ist die Runtime-Wahrheit belastbar genug fuer eine enge Operations-Diagnose.
+- `non_scope`: Deploypfad-Neubau, CI-Refactor, Builder-Gate-Weiterbau, allgemeine Netzwerk-Hardening-Arbeit.
+- `risk`: niedrig bis mittel; Gefahr liegt eher in falscher Ursachenannahme zwischen DNS, curl-Flags, Script-Parametern und Git-Bash-Verhalten.
+- `betroffene_bereiche`: `tools/wait-for-deploy.sh`, `DEPLOY.md`, `README.md`, lokale Windows/Git-Bash-Operator-Umgebung.
+- `kurzurteil`: Der manuelle Render-Health-Check mit `curl --resolve` bestaetigt Commit `37eec4f` live, waehrend `tools/wait-for-deploy.sh` lokal weiter in `HTTP 000` timeout laeuft. Das ist jetzt der naechste enge Diagnoseblock vor weiterem Builder-Ausbau.
+- `evidence`: Nach Push von `37eec4f` lief `bash tools/wait-for-deploy.sh` in 420s Timeout mit `HTTP 000`, waehrend direkter `curl --resolve soulmatch-1.onrender.com:443:216.24.57.7 https://soulmatch-1.onrender.com/api/health` HTTP 200 plus den neuen Commit lieferte.
+
+### Kandidat - Builder Approval Artifact Validation v1.3
+
+- `status`: `parked`
+- `truth_class`: `derived_from_review`
+- `source_type`: `user_request`
+- `next_gate`: `user_approval`
+- `why_not_now`: Erst die offene wait-for-deploy-Operationsdiagnose sauber schneiden, damit Builder-Live-Verifikation und Deploy-Wahrheit nicht erneut vermischt werden.
+- `non_scope`: weiterer Gate-Refactor, neue Pipeline, UI-Ausbau, Builder-Memory- oder Provider-Umbau.
+- `risk`: mittel; ohne saubere Vorverifikation droht Vermischung von Approval-Contract und Deployment-/Operationsdrift.
+- `betroffene_bereiche`: voraussichtlich `server/src/lib/opusTaskOrchestrator.ts`, `server/src/routes/opusBridge.ts`, moegliche Approval-Artefakt-Naehen noch offen.
+- `kurzurteil`: V1.3 bleibt fachlich naechster Builder-Kandidat, ist aber bewusst hinter die wait-for-deploy-Diagnose einsortiert.
+- `evidence`: Nutzerpriorisierung nach gruen verifiziertem v1.2/v1.2.1-Block am 2026-04-26.
 
 ### Kandidat F11 - Context-Broker fuer Claude
 
