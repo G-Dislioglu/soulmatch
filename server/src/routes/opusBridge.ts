@@ -44,6 +44,9 @@ import {
 
 export const opusBridgeRouter = Router();
 
+const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
+const ACCEPTANCE_SMOKE_SCOPE = 'docs/archive/push-test.md';
+
 opusBridgeRouter.use(requireOpusToken);
 opusBridgeRouter.use(repoFileRouter);
 
@@ -211,7 +214,7 @@ async function githubGitRequest<T>(
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
       instruction?: string;
       scope?: string[];
       targetFile?: string;
@@ -226,6 +229,7 @@ opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
       metaSourceIds?: string[];
       assumptions?: string[];
       assumptionIds?: string[];
+      acceptanceSmoke?: boolean;
     };
 
     if (!instruction?.trim()) {
@@ -249,6 +253,7 @@ opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
       metaSourceIds,
       assumptions,
       assumptionIds,
+      acceptanceSmoke,
     });
 
     // Legacy compatibility: keep /execute response shape while enforcing canonical gating.
@@ -1002,10 +1007,11 @@ opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
-    const { files, message, branch } = req.body as {
+    const { files, message, branch, acceptanceSmoke } = req.body as {
       files?: Array<{ file: string; content?: string; search?: string; replace?: string }>;
       message?: string;
       branch?: string;
+      acceptanceSmoke?: boolean;
     };
 
     if (!files || !Array.isArray(files) || files.length === 0) {
@@ -1031,12 +1037,18 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       };
     });
 
+    const controlledAcceptanceSmoke = acceptanceSmoke === true
+      && files.length === 1
+      && files[0].file === ACCEPTANCE_SMOKE_SCOPE
+      && typeof message === 'string'
+      && message.toLowerCase().includes('controlled class_1 push smoke');
+
     const db = getDb();
     const [task] = await db
       .insert(builderTasks)
       .values({
         title: (message || 'direct push').slice(0, 100),
-        goal: message || 'Direct file push via /push endpoint',
+        goal: `${message || 'Direct file push via /push endpoint'}${controlledAcceptanceSmoke ? ` ${ACCEPTANCE_SMOKE_MARKER}` : ''}`,
         scope: files.map((f) => f.file),
         risk: 'low',
         status: 'applying',
@@ -1056,6 +1068,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       error: result.error,
       files: files.map((f) => f.file),
       message: message || 'direct push',
+      acceptanceSmokeApplied: controlledAcceptanceSmoke,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -1344,7 +1357,7 @@ opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) 
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
@@ -1359,6 +1372,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       metaSourceIds?: string[];
       assumptions?: string[];
       assumptionIds?: string[];
+      acceptanceSmoke?: boolean;
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
@@ -1377,6 +1391,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       metaSourceIds,
       assumptions,
       assumptionIds,
+      acceptanceSmoke,
     });
     res.json(result);
   } catch (err) {
@@ -1803,7 +1818,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     sessionLog?: { taskId?: string; skip?: boolean };
   };
 
-  const sessionLogSkip: boolean = sessionLog?.skip === true;
+  let sessionLogSkip: boolean = sessionLog?.skip === true;
   const sessionLogTaskId: string | undefined = sessionLog?.taskId;
   let sessionLogTimestamp: string | null = null;
 
@@ -1832,6 +1847,23 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     }
 
     const repo = process.env.GITHUB_REPO || 'G-Dislioglu/soulmatch';
+
+    if (!sessionLogSkip) {
+      const taskMatch = commitMessage.match(/task\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+      if (taskMatch?.[1]) {
+        const db = getDb();
+        const [task] = await db
+          .select({ goal: builderTasks.goal })
+          .from(builderTasks)
+          .where(eq(builderTasks.id, taskMatch[1]))
+          .limit(1);
+        if (typeof task?.goal === 'string' && task.goal.includes(ACCEPTANCE_SMOKE_MARKER)) {
+          sessionLogSkip = true;
+          console.log('[session-log] skipped for controlled acceptance smoke task');
+        }
+      }
+    }
+
     const branchRef = encodeURIComponent(targetBranch);
     const ref = await githubGitRequest<GitHubRefResponse>(
       `https://api.github.com/repos/${repo}/git/ref/heads/${branchRef}`,
