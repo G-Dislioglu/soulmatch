@@ -1041,7 +1041,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       && files.length === 1
       && files[0].file === ACCEPTANCE_SMOKE_SCOPE
       && typeof message === 'string'
-      && message.toLowerCase().includes('controlled class_1 push smoke');
+      && message.startsWith('feat(opus-task):');
 
     const db = getDb();
     const [task] = await db
