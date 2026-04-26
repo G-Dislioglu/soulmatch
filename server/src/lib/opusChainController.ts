@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
-import { executeTask, type ExecuteResult } from './opusBridgeController.js';
+import { orchestrateTask, type OpusTaskResult } from './opusTaskOrchestrator.js';
 import { checkBudget } from './opusBudgetGate.js';
 import { callProvider } from './providers.js';
-import { builderChains, builderTasks } from '../schema/builder.js';
+import { builderChains } from '../schema/builder.js';
 
 export interface ChainTask {
   instruction: string;
@@ -51,12 +51,14 @@ function isSuccessfulStatus(status: string): boolean {
   return status === 'consensus' || status === 'applying' || status === 'done';
 }
 
-async function decideNextStep(currentResult: ExecuteResult, nextTask?: ChainTask): Promise<ControllerDecision> {
+async function decideNextStep(currentResult: OpusTaskResult, nextTask?: ChainTask): Promise<ControllerDecision> {
   if (!nextTask) {
     return { decision: 'continue', reason: 'No next task.' };
   }
 
   try {
+    const patchCount = currentResult.edits?.edits.length ?? 0;
+    const blockSummary = currentResult.status === 'failed' ? currentResult.summary.slice(0, 200) : 'none';
     const response = await callProvider('anthropic', 'claude-opus-4-6', {
       system: `Du bist der Chain-Controller für eine Task-Kette im Soulmatch Builder.
 Entscheide ob die Kette weiterlaufen soll.
@@ -67,11 +69,10 @@ oder {"decision":"adjust","reason":"...","adjustedHints":"..."}
 oder {"decision":"stop","reason":"..."}`,
       messages: [{
         role: 'user',
-        content: `Letzter Task: ${currentResult.title}
+        content: `Letzter Task: ${currentResult.summary.slice(0, 80)}
 Status: ${currentResult.status}
-Approvals: ${currentResult.approvals.join(', ')}
-Blocks: ${currentResult.blocks.join(', ')}
-Patches: ${currentResult.patches.length} Dateien
+Blocks: ${blockSummary}
+Patches: ${patchCount} Dateien
 
 Nächster geplanter Task: ${nextTask.instruction}
 
@@ -148,40 +149,39 @@ export async function runChain(config: ChainConfig): Promise<ChainResult> {
       }
     }
 
-    let executionResult: ExecuteResult;
+    let orchestratorResult: OpusTaskResult;
     try {
-      executionResult = await executeTask({
+      orchestratorResult = await orchestrateTask({
         instruction: task.instruction,
         scope: task.scope,
-        risk: task.risk,
-        opusHints: task.opusHints,
+        assumptions: task.opusHints ? [task.opusHints] : undefined,
       });
     } catch (error) {
-      console.error('[opusChainController] executeTask failed:', error);
+      console.error('[opusChainController] orchestrateTask failed:', error);
       results.push({ index, taskId: '', status: 'error' });
       chainStatus = 'error';
       partial = true;
       continue;
     }
 
-    totalTokens += executionResult.totalTokens;
-
-    const [storedTask] = await db
-      .select({ commitHash: builderTasks.commitHash })
-      .from(builderTasks)
-      .where(eq(builderTasks.id, executionResult.taskId));
+    // Map orchestrateTask status to chain step status understood by isSuccessfulStatus()
+    const mappedStatus = orchestratorResult.status === 'failed'
+      ? 'error'
+      : orchestratorResult.status === 'dry_run'
+        ? 'no_consensus'
+        : 'applying'; // success or partial → applying
 
     const taskResult: ChainTaskResult = {
       index,
-      taskId: executionResult.taskId,
-      status: executionResult.status,
-      commitHash: storedTask?.commitHash ?? undefined,
+      taskId: orchestratorResult.runId,
+      status: mappedStatus,
+      commitHash: undefined, // orchestrateTask does not expose a DB commitHash directly
     };
 
     const nextTask = tasks[index + 1];
-    const unanimous = executionResult.consensusType === 'unanimous';
+    const unanimous = false; // consensusType not available in OpusTaskResult
     if (!(config.autoSkipIfUnanimous && unanimous) && nextTask) {
-      const controllerDecision = await decideNextStep(executionResult, nextTask);
+      const controllerDecision = await decideNextStep(orchestratorResult, nextTask);
       taskResult.controllerDecision = controllerDecision;
 
       if (controllerDecision.decision === 'adjust' && controllerDecision.adjustedHints) {
@@ -198,7 +198,7 @@ export async function runChain(config: ChainConfig): Promise<ChainResult> {
 
     results.push(taskResult);
 
-    if ((config.stopOnBlock ?? true) && !isSuccessfulStatus(executionResult.status)) {
+    if ((config.stopOnBlock ?? true) && !isSuccessfulStatus(mappedStatus)) {
       chainStatus = 'blocked';
       partial = true;
       break;
