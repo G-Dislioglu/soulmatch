@@ -230,12 +230,14 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
     return;
   }
 
-  const { instruction, dryRun, scope, skipDeploy, targetFile, metaSourceIds, assumptions, assumptionIds } = req.body as {
+  const { instruction, dryRun, scope, skipDeploy, targetFile, approvalId, hasApprovedPlan, metaSourceIds, assumptions, assumptionIds } = req.body as {
     instruction?: string;
     dryRun?: boolean;
     scope?: string[];
     skipDeploy?: boolean;
     targetFile?: string;
+    approvalId?: string;
+    hasApprovedPlan?: boolean;
     metaSourceIds?: string[];
     assumptions?: string[];
     assumptionIds?: string[];
@@ -264,6 +266,8 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
       scope,
       skipDeploy: Boolean(skipDeploy),
       targetFile,
+      approvalId,
+      hasApprovedPlan,
       metaSourceIds,
       assumptions,
       assumptionIds,

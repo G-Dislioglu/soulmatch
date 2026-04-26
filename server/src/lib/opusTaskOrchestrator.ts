@@ -86,6 +86,32 @@ function generateRunId(): string {
   return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function buildSafetyResultFields(safetyDecision: BuilderSafetyDecision): Pick<OpusTaskResult,
+  'taskClass' |
+  'executionPolicy' |
+  'decision' |
+  'pushAllowed' |
+  'requiredExternalApproval' |
+  'approvalId' |
+  'approvalReason' |
+  'pushBlockedReason' |
+  'protectedPathsTouched'
+> {
+  return {
+    taskClass: safetyDecision.taskClass,
+    executionPolicy: safetyDecision.executionPolicy,
+    decision: safetyDecision.decision,
+    pushAllowed: safetyDecision.pushAllowed,
+    requiredExternalApproval: safetyDecision.requiredExternalApproval,
+    approvalId: safetyDecision.approvalId,
+    approvalReason: safetyDecision.approvalReason,
+    pushBlockedReason: safetyDecision.pushAllowed
+      ? undefined
+      : (safetyDecision.reasons[0] ?? 'Autonomous push blocked by builder safety policy.'),
+    protectedPathsTouched: safetyDecision.protectedPathsTouched,
+  };
+}
+
 function internalUrl(path: string): string {
   const port = process.env.PORT || 3000;
   const token = process.env.OPUS_BRIDGE_SECRET;
@@ -369,6 +395,14 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   const phases: PhaseResult[] = [];
   const workers = input.workers || DEFAULT_WORKERS;
   const maxTokens = input.maxTokens || 6000;
+  const preflightSafety = classifyBuilderTask({
+    instruction: input.instruction,
+    scope: input.scope,
+    targetFile: input.targetFile,
+    dryRun: input.dryRun,
+    approvalId: input.approvalId,
+    hasApprovedPlan: input.hasApprovedPlan,
+  });
 
   const hardeningStart = Date.now();
   const hardening = hardenInstruction(input.instruction);
@@ -471,6 +505,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       summary: scope.rejectedPaths && scope.rejectedPaths.length > 0
         ? `Scope rejected ${scope.rejectedPaths.length} hallucinated path(s): ${scope.rejectedPaths.join(', ')}. Include exact paths in instruction or provide explicit create signal.`
         : 'Scope resolver found 0 files. Include exact paths in instruction.',
+      ...buildSafetyResultFields(preflightSafety),
     };
   }
 
@@ -620,8 +655,24 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
   const judgeDecision: BuilderGateDecision = judge.decision ?? (judge.approved ? 'approve' : 'block');
   if (judgeDecision === 'block' || !judge.winner) {
-    return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
-      summary: `Judge rejected all candidates: ${judge.reason}`, hardening };
+    const judgeFailureSafety = classifyBuilderTask({
+      instruction: input.instruction,
+      scope: scope.files,
+      targetFile: input.targetFile,
+      dryRun: input.dryRun,
+      approvalId: input.approvalId,
+      hasApprovedPlan: input.hasApprovedPlan,
+      judgeDecision,
+    });
+    return {
+      status: 'failed',
+      runId,
+      phases,
+      totalDurationMs: Date.now() - totalStart,
+      summary: `Judge rejected all candidates: ${judge.reason}`,
+      hardening,
+      ...buildSafetyResultFields(judgeFailureSafety),
+    };
   }
   const best = judge.winner;
   const finalSafety = classifyBuilderTask({
