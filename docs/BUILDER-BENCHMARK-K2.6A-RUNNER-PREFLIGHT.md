@@ -79,7 +79,7 @@ This means:
 
 ---
 
-### **K26-T03: class_1 two-file narrow consistency patch**
+### **K26-T03: class_2 two-file narrow consistency patch**
 
 **Concrete Specification:**
 
