@@ -64,7 +64,11 @@ const MANUAL_ONLY_PATTERNS = [
 ] as const;
 
 function normalizePath(filePath: string): string {
-  return filePath.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  return filePath
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .trim()
+    .replace(/[.,;:!?]+$/, '');
 }
 
 function uniquePaths(paths: string[]): string[] {
