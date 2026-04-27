@@ -46,7 +46,7 @@ Nicht-Ziel in K2.6-Plan:
 - dryRun: true
 - skipDeploy: true
 - approvalId mode: none
-- expected taskClass: class_1
+- expected taskClass: class_2
 - expected executionPolicy: allow_push
 - expected pushAllowed: true
 - expected requiredExternalApproval: false
@@ -77,7 +77,7 @@ Nicht-Ziel in K2.6-Plan:
 ### T03
 
 - id: K26-T03
-- title: class_1 two-file narrow consistency patch
+- title: class_2 two-file narrow consistency patch
 - instruction: Align one field name usage across exactly two explicit files without behavior change.
 - scope: two explicit files under server/src/lib
 - workers: gpt, grok, gemini
