@@ -250,14 +250,32 @@ RESPONSE FORMAT — respond with ONLY this JSON structure, nothing else:
   ]
 }
 
+ALTERNATIVE PATCH SHAPE for small targeted edits:
+{
+  "edits": [
+    {
+      "path": "exact/file/path.ts",
+      "mode": "patch",
+      "patches": [
+        {
+          "search": "exact old text",
+          "replace": "exact new text"
+        }
+      ]
+    }
+  ],
+  "summary": "one-line description"
+}
+
 RULES:
-- For existing files: return the COMPLETE updated content (mode: overwrite)
+- For existing files: prefer a valid patch envelope for small targeted changes; use complete overwrite only when patching is impractical
 - For new files: return complete content (mode: create)
 - If a file is listed under CREATE TARGETS, do not treat it as an overwrite of an existing file
 - Include 1-3 short claims with concrete evidence_refs when possible
 - Allowed evidence_ref.type values: edit_path, scope_path, explicit_path, other
 - Do NOT invent anchor_status, impact_class, risk_class, or any other governance fields
-- Do NOT use SEARCH/REPLACE, diffs, or partial patches
+- Do NOT use unified diff format, prose instructions, or markdown patch blocks
+- If you use mode "patch", provide exact search/replace strings inside edits[].patches
 - Do NOT wrap in markdown code blocks
 - Return ONLY valid JSON`;
 }

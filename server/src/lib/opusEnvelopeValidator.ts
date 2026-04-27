@@ -106,6 +106,106 @@ function normalizeEdit(rawEdit: ParsedEdit): EditEnvelope['edits'][number] | nul
   return { path: rawEdit.path, mode: inferredMode, content: rawEdit.content };
 }
 
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function extractBalancedJsonCandidate(raw: string): string | null {
+  const start = raw.search(/[\[{]/);
+  if (start === -1) return null;
+
+  const open = raw[start];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === open) depth += 1;
+    if (char === close) depth -= 1;
+
+    if (depth === 0) {
+      return raw.slice(start, index + 1);
+    }
+  }
+
+  return null;
+}
+
+function normalizeParsedEnvelope(parsed: unknown, worker: string): EditEnvelope | null {
+  const rawEdits = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { edits?: unknown }).edits)
+      ? (parsed as { edits: unknown[] }).edits
+      : parsed && typeof parsed === 'object' && 'path' in (parsed as Record<string, unknown>)
+        ? [parsed]
+        : null;
+
+  if (!rawEdits || rawEdits.length === 0) return null;
+
+  const edits = rawEdits
+    .map((edit) => (edit && typeof edit === 'object' ? normalizeEdit(edit as ParsedEdit) : null))
+    .filter((edit): edit is EditEnvelope['edits'][number] => edit !== null);
+
+  if (edits.length === 0) return null;
+
+  const summary = parsed && typeof parsed === 'object' && 'summary' in (parsed as Record<string, unknown>)
+    && typeof (parsed as { summary?: unknown }).summary === 'string'
+    ? (parsed as { summary: string }).summary
+    : '';
+
+  const claims = parsed && typeof parsed === 'object' && Array.isArray((parsed as { claims?: unknown }).claims)
+    ? (parsed as { claims: unknown[] }).claims
+      .map((claim) => (claim && typeof claim === 'object' ? normalizeClaim(claim as ParsedClaim) : null))
+      .filter((claim): claim is WorkerClaim => claim !== null)
+    : undefined;
+
+  return { edits, summary, worker, ...(claims ? { claims } : {}) };
+}
+
+function collectParseCandidates(raw: string): string[] {
+  const trimmed = raw.trim();
+  const candidates = new Set<string>();
+  if (trimmed.length > 0) candidates.add(trimmed);
+
+  const fencePattern = /```(?:json)?\s*([\s\S]*?)```/gi;
+  for (const match of trimmed.matchAll(fencePattern)) {
+    const fenced = match[1]?.trim();
+    if (fenced) candidates.add(fenced);
+  }
+
+  const unfenced = trimmed.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
+  if (unfenced.length > 0) candidates.add(unfenced);
+
+  const balanced = extractBalancedJsonCandidate(trimmed);
+  if (balanced) candidates.add(balanced.trim());
+
+  return [...candidates];
+}
+
 // ─── Parse ───
 
 /**
@@ -114,41 +214,28 @@ function normalizeEdit(rawEdit: ParsedEdit): EditEnvelope['edits'][number] | nul
  * Returns null if parsing fails or structure is invalid.
  */
 export function parseEnvelope(raw: string, worker: string): EditEnvelope | null {
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
-    const parsed = JSON.parse(cleaned) as unknown;
+  for (const candidate of collectParseCandidates(raw)) {
+    const parsed = tryParseJson(candidate);
+    if (parsed === null) continue;
 
-    const rawEdits = Array.isArray(parsed)
-      ? parsed
-      : parsed && typeof parsed === 'object' && Array.isArray((parsed as { edits?: unknown }).edits)
-        ? (parsed as { edits: unknown[] }).edits
-        : parsed && typeof parsed === 'object' && 'path' in (parsed as Record<string, unknown>)
-          ? [parsed]
-          : null;
+    const normalized = normalizeParsedEnvelope(parsed, worker);
+    if (normalized) return normalized;
 
-    if (!rawEdits || rawEdits.length === 0) return null;
-
-    const edits = rawEdits
-      .map((edit) => (edit && typeof edit === 'object' ? normalizeEdit(edit as ParsedEdit) : null))
-      .filter((edit): edit is EditEnvelope['edits'][number] => edit !== null);
-
-    if (edits.length === 0) return null;
-
-    const summary = parsed && typeof parsed === 'object' && 'summary' in (parsed as Record<string, unknown>)
-      && typeof (parsed as { summary?: unknown }).summary === 'string'
-      ? (parsed as { summary: string }).summary
-      : '';
-
-    const claims = parsed && typeof parsed === 'object' && Array.isArray((parsed as { claims?: unknown }).claims)
-      ? (parsed as { claims: unknown[] }).claims
-        .map((claim) => (claim && typeof claim === 'object' ? normalizeClaim(claim as ParsedClaim) : null))
-        .filter((claim): claim is WorkerClaim => claim !== null)
-      : undefined;
-
-    return { edits, summary, worker, ...(claims ? { claims } : {}) };
-  } catch {
-    return null;
+    if (parsed && typeof parsed === 'object') {
+      for (const key of ['answer', 'content', 'response', 'result', 'output']) {
+        const nested = (parsed as Record<string, unknown>)[key];
+        if (typeof nested !== 'string') continue;
+        for (const nestedCandidate of collectParseCandidates(nested)) {
+          const nestedParsed = tryParseJson(nestedCandidate);
+          if (nestedParsed === null) continue;
+          const nestedEnvelope = normalizeParsedEnvelope(nestedParsed, worker);
+          if (nestedEnvelope) return nestedEnvelope;
+        }
+      }
+    }
   }
+
+  return null;
 }
 
 // ─── TypeScript Syntax Check ───
