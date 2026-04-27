@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `454f2d1`
-- `last_verified_origin_main`: `454f2d1`
+- `current_repo_head`: `a50c903`
+- `last_verified_origin_main`: `4d6aa07`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-26`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `K2.6a Post-Batch-1 Findings-Triage und T09-Semantik-Doku-Korrektur abgeschlossen (docs-only). Repo-Wahrheit: class_3/manual_only bedeutet kein autonomes Push/Landing; dryRun kann dennoch Preview-Artefakte durch Worker/Swarm erzeugen. T07 class_2 ohne approvalId ist expected dry_run_only/push-blocked (nicht zwingend Submission-Reject). T04 create-target kann in finalSafety konservativ als class_2 klassifiziert werden (Scope-Resolution-Kontext). T02 bleibt funktionales Markdown-Envelope-Gap.`
-- `next_recommended_block`: `T02 Markdown Envelope Retry (docs-only bzw. kontrollierter dryRun-Test mit explizitem overwrite/patch-envelope hint), danach erst T03 Batch 1b und T06 Approval-Setup.`
+- `last_completed_block`: `K2.6a T03 Batch 1b ist jetzt lokal ausgewertet und docs-seitig nachgezogen. Der bereits ausgefuehrte class_2 dryRun lief mit frischem Approval-Artefakt ueber approval-validation=ok, validate=ok, claim-gate=ok und judge=ok sauber durch; pushAllowed blieb false, landed blieb aus, und der Scope blieb exakt auf `server/src/lib/opusJudge.ts` plus `server/src/lib/opusEnvelopeValidator.ts` begrenzt. Das temporaere T03-Approval wurde danach verifiziert entfernt (`beforeFound=true`, `deleted=true`, `afterCount=0`). T02 bleibt dabei nicht offen, sondern lokal behoben und verifiziert.`
+- `next_recommended_block`: `Kein weiterer Benchmark-Run in diesem Block. Naechster echte Folgeentscheid ist nach Freigabe entweder K2.6b Live-DryRun-Suite oder eine kleine reale class_1 Builder-Nutzung; weiterhin keine Soulmatch-Featurearbeit und jedes neue class_2-Szenario nur mit frischem Approval plus Cleanup.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
