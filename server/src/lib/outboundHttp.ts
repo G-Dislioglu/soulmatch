@@ -106,6 +106,13 @@ function createOutboundDispatcher(): Agent {
 
 let outboundDispatcher = createOutboundDispatcher();
 let outboundDispatcherGeneration = 0;
+let outboundIpv4Dispatcher = new Agent({
+  ...OUTBOUND_AGENT_OPTIONS,
+  connect: {
+    lookup: customLookup,
+    family: 4,
+  },
+});
 
 let outboundDefaultsInstalled = false;
 
@@ -243,9 +250,17 @@ function recycleOutboundDispatcher(
   }
 
   const previousDispatcher = outboundDispatcher;
+  const previousIpv4Dispatcher = outboundIpv4Dispatcher;
   outboundDispatcherGeneration += 1;
   dnsLookupCache.clear();
   outboundDispatcher = createOutboundDispatcher();
+  outboundIpv4Dispatcher = new Agent({
+    ...OUTBOUND_AGENT_OPTIONS,
+    connect: {
+      lookup: customLookup,
+      family: 4,
+    },
+  });
   setGlobalDispatcher(outboundDispatcher);
 
   if (!isOutboundQuiet()) {
@@ -261,13 +276,29 @@ function recycleOutboundDispatcher(
   void previousDispatcher.close().catch(() => {
     previousDispatcher.destroy();
   });
+  void previousIpv4Dispatcher.close().catch(() => {
+    previousIpv4Dispatcher.destroy();
+  });
 }
 
-function resolveManagedDispatcher(init: OutboundFetchInit): { dispatcher: Dispatcher; generation: number } {
+function shouldForceIpv4Host(host: string): boolean {
+  return host === 'api.github.com'
+    || host === 'github.com'
+    || host === 'raw.githubusercontent.com';
+}
+
+function resolveManagedDispatcher(init: OutboundFetchInit, host: string): { dispatcher: Dispatcher; generation: number } {
   if (init.dispatcher) {
     return {
       dispatcher: init.dispatcher,
       generation: -1,
+    };
+  }
+
+  if (shouldForceIpv4Host(host)) {
+    return {
+      dispatcher: outboundIpv4Dispatcher,
+      generation: outboundDispatcherGeneration,
     };
   }
 
@@ -288,7 +319,7 @@ export async function outboundFetch(
   const start = Date.now();
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const managed = resolveManagedDispatcher(init);
+    const managed = resolveManagedDispatcher(init, host);
 
     try {
       const response = await undiciFetch(input, {
