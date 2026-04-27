@@ -46,7 +46,7 @@ Nicht-Ziel in K2.6-Plan:
 - dryRun: true
 - skipDeploy: true
 - approvalId mode: none
-- expected taskClass: class_2
+- expected taskClass: class_1
 - expected executionPolicy: allow_push
 - expected pushAllowed: true
 - expected requiredExternalApproval: false
@@ -84,7 +84,7 @@ Nicht-Ziel in K2.6-Plan:
 - dryRun: true
 - skipDeploy: true
 - approvalId mode: none
-- expected taskClass: class_1
+- expected taskClass: class_2
 - expected executionPolicy: allow_push
 - expected pushAllowed: true
 - expected requiredExternalApproval: false
