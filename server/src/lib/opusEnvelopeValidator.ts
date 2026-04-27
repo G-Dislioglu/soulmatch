@@ -272,6 +272,88 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
   return errors;
 }
 
+function countExactOccurrences(source: string, search: string): number {
+  if (search.length === 0) return 0;
+
+  let count = 0;
+  let fromIndex = 0;
+
+  while (fromIndex <= source.length - search.length) {
+    const foundIndex = source.indexOf(search, fromIndex);
+    if (foundIndex === -1) break;
+    count += 1;
+    fromIndex = foundIndex + search.length;
+  }
+
+  return count;
+}
+
+function validatePatchEdits(
+  edits: EditEnvelope['edits'],
+  originalFileContents?: Map<string, string>,
+): string[] {
+  const errors: string[] = [];
+
+  if (!originalFileContents) return errors;
+
+  for (const edit of edits) {
+    if (edit.mode !== 'patch') continue;
+
+    const originalContent = originalFileContents.get(edit.path);
+    if (typeof originalContent !== 'string') {
+      errors.push(`Patch search anchor not found: ${edit.path}`);
+      continue;
+    }
+
+    const patches = edit.patches ?? [];
+    let updatedContent = originalContent;
+    let patchFailed = false;
+
+    for (const patch of patches) {
+      const matchCount = countExactOccurrences(originalContent, patch.search);
+
+      if (matchCount === 0) {
+        errors.push(`Patch search anchor not found: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      if (matchCount > 1) {
+        errors.push(`Ambiguous patch search anchor in ${edit.path}: matched ${matchCount} times`);
+        patchFailed = true;
+        continue;
+      }
+
+      if (patch.search === patch.replace) {
+        errors.push(`Patch replace does not change content: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      if (!updatedContent.includes(patch.search)) {
+        errors.push(`Patch search anchor not found: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      const nextContent = updatedContent.replace(patch.search, patch.replace);
+      if (nextContent === updatedContent) {
+        errors.push(`Patch replace does not change content: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      updatedContent = nextContent;
+    }
+
+    if (!patchFailed && updatedContent === originalContent) {
+      errors.push(`Patch replace does not change content: ${edit.path}`);
+    }
+  }
+
+  return errors;
+}
+
 // ─── Validate ───
 
 /**
@@ -279,7 +361,11 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
  * Checks that edits are in scope (unless create mode) and content is substantial.
  * Also runs TypeScript syntax check.
  */
-export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid: boolean; errors: string[] } {
+export function validateEnvelope(
+  envelope: EditEnvelope,
+  scopeFiles: string[],
+  originalFileContents?: Map<string, string>,
+): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   for (const edit of envelope.edits) {
     // Scope = Kontext, nicht Beschränkung. Worker dürfen jede Datei anfassen.
@@ -293,6 +379,7 @@ export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): 
       errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
+  errors.push(...validatePatchEdits(envelope.edits, originalFileContents));
   errors.push(...checkTypeScriptSyntax(envelope.edits));
   return { valid: errors.length === 0, errors };
 }

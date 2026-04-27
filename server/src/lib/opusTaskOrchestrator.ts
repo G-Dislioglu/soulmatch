@@ -622,7 +622,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     console.log(`[validate] raw worker output (${r.worker}):`, r.response.slice(0, 500));
     const envelope = parseEnvelope(r.response, r.worker);
     if (!envelope) continue;
-    const v = validateEnvelope(envelope, scope.files);
+    const v = validateEnvelope(envelope, scope.files, fileContents);
     allParsed.push({ envelope, worker: r.worker, errors: v.errors });
   }
   const valid = allParsed.filter(c => c.errors.length === 0);
