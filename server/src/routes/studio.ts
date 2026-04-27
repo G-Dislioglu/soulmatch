@@ -139,7 +139,7 @@ function parseChatExcerptToHistory(chatExcerpt?: string): Array<{ role: string; 
     });
 }
 
-function parseProviderJson(raw: string): Record<string, unknown> {
+function collectJsonCandidates(raw: string): string[] {
   const candidates: string[] = [];
   const trimmed = raw.trim();
 
@@ -174,6 +174,12 @@ function parseProviderJson(raw: string): Record<string, unknown> {
     candidates.push(trimmed.slice(firstBracket, lastBracket + 1).trim());
   }
 
+  return candidates;
+}
+
+function parseProviderJson(raw: string): Record<string, unknown> {
+  const candidates = collectJsonCandidates(raw);
+
   for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate) as unknown;
@@ -186,6 +192,23 @@ function parseProviderJson(raw: string): Record<string, unknown> {
   }
 
   throw new Error('JSON parse failed for provider response object');
+}
+
+function parseProviderJsonArray(raw: string): unknown[] {
+  const candidates = collectJsonCandidates(raw);
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // Try next candidate format.
+    }
+  }
+
+  throw new Error('JSON parse failed for provider response array');
 }
 
 interface SpeakerInfo {
@@ -956,13 +979,12 @@ ${args.conversationText}`;
       maxTokens: 150,
     },
   );
-  content = content.trim();
-  if (content.startsWith('```')) {
-    content = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  let parsed: unknown[];
+  try {
+    parsed = parseProviderJsonArray(content);
+  } catch {
+    return [];
   }
-
-  const parsed = JSON.parse(content) as unknown;
-  if (!Array.isArray(parsed)) return [];
 
   return parsed
     .map((item) => item as Record<string, unknown>)
