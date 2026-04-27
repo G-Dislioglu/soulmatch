@@ -44,6 +44,12 @@ export interface AppliedDiffFileSnapshot {
   changed: boolean;
   changedSegmentsCount: number;
   changedSegmentsPreview: string[];
+  sectionGuardApplied?: boolean;
+  sectionAnchor?: string;
+  sectionRangeStart?: number;
+  sectionRangeEnd?: number;
+  changedSegmentsOutsideSection?: number;
+  sectionGuardWarnings?: string[];
 }
 
 export interface AppliedDiffSnapshot {
@@ -311,13 +317,47 @@ function compactDiffPreview(value: string): string {
   return value.replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
+function normalizeInstructionSectionAnchor(instruction: string): string | null {
+  const matches = instruction.match(/(?:###\s*)?(?:K26-)?(T(?:0[1-9]|10))\b/gi) ?? [];
+  const uniqueAnchors = [...new Set(matches.map((match) => {
+    const normalized = match.toUpperCase().replace(/^###\s*/, '').replace(/^K26-/, '');
+    return normalized;
+  }))];
+
+  return uniqueAnchors.length === 1 ? uniqueAnchors[0] : null;
+}
+
+function isMarkdownPath(filePath: string): boolean {
+  return filePath.endsWith('.md') || filePath.endsWith('.markdown');
+}
+
+function findMarkdownSectionRange(source: string, anchor: string): { start: number; end: number } | null {
+  const headingRe = /^###\s+(T(?:0[1-9]|10))\s*$/gm;
+  const headings = [...source.matchAll(headingRe)].map((match) => ({
+    anchor: match[1],
+    index: match.index ?? 0,
+  }));
+  const currentHeadingIndex = headings.findIndex((heading) => heading.anchor === anchor);
+
+  if (currentHeadingIndex === -1) return null;
+
+  const currentHeading = headings[currentHeadingIndex];
+  const nextHeading = headings[currentHeadingIndex + 1];
+  return {
+    start: currentHeading.index,
+    end: nextHeading?.index ?? source.length,
+  };
+}
+
 function validatePatchEdits(
   envelope: EditEnvelope,
   edits: EditEnvelope['edits'],
   originalFileContents?: Map<string, string>,
+  instruction?: string,
 ): { errors: string[]; appliedDiffSnapshot?: AppliedDiffSnapshot } {
   const errors: string[] = [];
   const hasPatchEdits = edits.some((edit) => edit.mode === 'patch');
+  const sectionAnchor = instruction ? normalizeInstructionSectionAnchor(instruction) : null;
 
   if (!hasPatchEdits || !originalFileContents) {
     return { errors };
@@ -335,6 +375,7 @@ function validatePatchEdits(
       changed: false,
       changedSegmentsCount: 0,
       changedSegmentsPreview: [],
+      sectionGuardWarnings: [],
     };
 
     if (typeof originalContent !== 'string') {
@@ -346,6 +387,20 @@ function validatePatchEdits(
     const patches = edit.patches ?? [];
     let updatedContent = originalContent;
     let patchFailed = false;
+    const changedSegmentPositions: number[] = [];
+    let sectionRange: { start: number; end: number } | null = null;
+
+    if (sectionAnchor && isMarkdownPath(edit.path)) {
+      fileSnapshot.sectionGuardApplied = true;
+      fileSnapshot.sectionAnchor = sectionAnchor;
+      sectionRange = findMarkdownSectionRange(originalContent, sectionAnchor);
+      if (sectionRange) {
+        fileSnapshot.sectionRangeStart = sectionRange.start;
+        fileSnapshot.sectionRangeEnd = sectionRange.end;
+      } else {
+        fileSnapshot.sectionGuardWarnings?.push(`Requested section ${sectionAnchor} not found in markdown file.`);
+      }
+    }
 
     for (const patch of patches) {
       const matchCount = countExactOccurrences(originalContent, patch.search);
@@ -368,6 +423,8 @@ function validatePatchEdits(
         continue;
       }
 
+      const originalMatchIndex = originalContent.indexOf(patch.search);
+
       if (!updatedContent.includes(patch.search)) {
         errors.push(`Patch search anchor not found: ${edit.path}`);
         patchFailed = true;
@@ -385,6 +442,9 @@ function validatePatchEdits(
       fileSnapshot.changedSegmentsPreview.push(
         `${compactDiffPreview(patch.search)} => ${compactDiffPreview(patch.replace)}`,
       );
+      if (originalMatchIndex >= 0) {
+        changedSegmentPositions.push(originalMatchIndex);
+      }
       updatedContent = nextContent;
     }
 
@@ -393,6 +453,15 @@ function validatePatchEdits(
     }
 
     fileSnapshot.changed = !patchFailed && updatedContent !== originalContent;
+    if (fileSnapshot.sectionGuardApplied && sectionRange) {
+      const changedSegmentsOutsideSection = changedSegmentPositions.filter((position) =>
+        position < sectionRange!.start || position >= sectionRange!.end,
+      ).length;
+      fileSnapshot.changedSegmentsOutsideSection = changedSegmentsOutsideSection;
+      if (changedSegmentsOutsideSection > 0) {
+        errors.push(`Patch change outside requested section ${sectionAnchor}: ${edit.path}`);
+      }
+    }
     files.push(fileSnapshot);
 
     if (!fileSnapshot.changed) {
@@ -439,6 +508,7 @@ export function validateEnvelope(
   envelope: EditEnvelope,
   scopeFiles: string[],
   originalFileContents?: Map<string, string>,
+  instruction?: string,
 ): EnvelopeValidationResult {
   const errors: string[] = [];
   for (const edit of envelope.edits) {
@@ -453,7 +523,7 @@ export function validateEnvelope(
       errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
-  const patchValidation = validatePatchEdits(envelope, envelope.edits, originalFileContents);
+  const patchValidation = validatePatchEdits(envelope, envelope.edits, originalFileContents, instruction);
   errors.push(...patchValidation.errors);
   errors.push(...checkTypeScriptSyntax(envelope.edits));
   return {

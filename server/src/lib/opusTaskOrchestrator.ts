@@ -622,7 +622,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     console.log(`[validate] raw worker output (${r.worker}):`, r.response.slice(0, 500));
     const envelope = parseEnvelope(r.response, r.worker);
     if (!envelope) continue;
-    const v = validateEnvelope(envelope, scope.files, fileContents);
+    const v = validateEnvelope(envelope, scope.files, fileContents, input.instruction);
     allParsed.push({ envelope, worker: r.worker, errors: v.errors, appliedDiffSnapshot: v.appliedDiffSnapshot });
   }
   const valid = allParsed.filter(c => c.errors.length === 0);
@@ -638,6 +638,12 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
           changed: file.changed,
           changedSegmentsCount: file.changedSegmentsCount,
           changedSegmentsPreview: file.changedSegmentsPreview,
+          sectionGuardApplied: file.sectionGuardApplied,
+          sectionAnchor: file.sectionAnchor,
+          sectionRangeStart: file.sectionRangeStart,
+          sectionRangeEnd: file.sectionRangeEnd,
+          changedSegmentsOutsideSection: file.changedSegmentsOutsideSection,
+          sectionGuardWarnings: file.sectionGuardWarnings,
         })) ?? [],
       })) } });
 
