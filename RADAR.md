@@ -104,12 +104,38 @@ Ein guter Soulmatch-Kandidat:
 - `truth_class`: `runtime_verified`
 - `source_type`: `user_request`
 - `next_gate`: `decision_gate`
-- `why_not_now`: `kein technischer Blocker mehr in K2.6a local dryRun; offen ist jetzt nur die bewusst freizugebende Folgeentscheidung nach dem docs-only Closeout.`
-- `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
-- `risk`: reduziert auf Findings-Ebene; Sicherheits-Invarianten (landed=false, pushAllowed=false) haben ueber T02, T03 und das class_2-Approval-Paar gehalten. T09 wird als akzeptierte manual_only-Semantik gefuehrt (Preview in dryRun moeglich, kein Push/Landing). Offenes Risiko ist aktuell nicht ein weiterer lokaler Benchmark-Fail, sondern nur die falsche Schlussfolgerung aus gruenen dryRuns: Der T03-Winner ist reviewbar, aber weiterhin nicht angewandt und wuerde als echter Multi-File-Eingriff erneut Approval brauchen.
+- `why_not_now`: `Nach dem nicht akzeptierten T03-Landing-Run ist der sichtbare Doku-Schaden zwar repariert und die Hardening-Kette 1A/1B/1C liegt auf main, aber ein weiterer Builder-Nutzungsnachweis ist vor den getrennten Restentscheidungen bewusst nicht freigegeben.`
+- `non_scope`: neue Builder-Features, Gate-Umbau ausserhalb der schmalen Hardening-Kette, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
+- `risk`: reduziert, aber nicht ausgeraeumt. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt. Offen bleiben Side-effect-Commits (`SESSION-LOG.md`, `builder-repo-index`), `landed=false` trotz realem Remote-Commit, spaetere TS/JSON-Section-Guards und staerkere semantische Fehlfaelle innerhalb eines formal gueltigen Diffs.
 - `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`, `docs/BUILDER-BENCHMARK-K2.6A-RUNNER-PREFLIGHT.md`, `docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md`.
-- `kurzurteil`: K2.6a ist lokal fuer den aktuellen Acceptance-Korridor sauber zusammengezogen: T06/T07 Approval-Paar blieb gruen, T02 ist lokal funktional repariert, und T03 Batch 1b lief als class_2 dryRun mit frischem Approval und nachgelagertem Cleanup ebenfalls gruen durch. Der naechste Schritt ist keine weitere Execution, sondern die freigegebene Wahl des Folgeblocks.
-- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; T03-Evidence `k26a-t03-result-1777263868136.json` mit `status=dry_run`, `taskClass=class_2`, `approval-validation=ok`, `validate=ok`, `claim-gate=ok`, `judge=ok`, Winner `grok` und Judge-Files nur `server/src/lib/opusJudge.ts` plus `server/src/lib/opusEnvelopeValidator.ts`; T03-Cleanup lokal verifiziert mit `beforeFound=true`, `deleted=true`, `afterCount=0`; origin/main verifiziert auf `4d6aa07` ohne Folgebewegung.
+- `kurzurteil`: Der Acceptance-Korridor ist nicht mit einem weiteren Nutzungsbeleg zu erweitern, sondern sauber auf Truth und Hardening zurückgeschnitten: Der fehlerhafte T03-Landing-Run bleibt nicht akzeptiert, `24fc1b8` repariert den sichtbaren Doku-Schaden, und `77fbdd3`/`0619640`/`53af22a` haerten die Validierung jetzt gegen genau die konkret belegte Fehlerklasse. Der naechste Schritt ist deshalb kein weiterer Run, sondern erst die getrennte Folgeentscheidung fuer Hardening 2 oder 3.
+- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, `landed=false` und spaeter repo-sichtbar falschem Diff; Reparatur-Commit `24fc1b8`; Hardening-Commits `77fbdd3`, `0619640`, `53af22a`; origin/main verifiziert auf `53af22a`.
+
+### Kandidat - Builder Hardening 2 (Side-Effect Suppression)
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `runtime_verify`
+- `next_gate`: `proposal`
+- `why_not_now`: `Die Truth- und Hardening-1-Kette ist zuerst als sauberer Stopp-Punkt dokumentiert worden; der naechste Block muss diesen Restpfad getrennt schneiden statt ihn an 1A/1B/1C anzuhängen.`
+- `non_scope`: neuer Push-Pfad, Async-Truth-Reparatur, Claim-/Judge-Semantik, weitere Builder-Nutzungsbelege.
+- `risk`: mittel bis hoch; betrifft reale Folgecommits ausserhalb des sichtbaren Task-Diffs (`SESSION-LOG.md`, `builder-repo-index`) und muss deshalb eng auf kontrollierte Runs begrenzt werden.
+- `betroffene_bereiche`: `server/src/routes/opusBridge.ts`, `server/src/routes/builder.ts`, `server/src/lib/opusIndexGenerator.ts`, Session-Log-Pfad, Repo-Index-Regeneration.
+- `kurzurteil`: Repo-sichtbar offen. Nach dem nicht akzeptierten T03-Landing-Run bleiben die unerwuenschten Folgecommits der naechste operative Wahrheitsbruch neben dem Diff selbst.
+- `evidence`: Folgecommits `c634249` und `25f84fc`, analysierte Session-Log- und Repo-Index-Seitenpfade, Nutzerentscheidung nach 1C explizit noch nicht zu bauen.
+
+### Kandidat - Builder Hardening 3 (Async Truth Repair)
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `runtime_verify`
+- `next_gate`: `proposal`
+- `why_not_now`: `Bleibt bewusst getrennt von der Hardening-1-Kette und vom Side-effect-Pfad, weil sonst Push-, Callback- und Waiter-Wahrheit in einem Mischblock kippen wuerden.`
+- `non_scope`: neue Side-effect-Suppression, Claim-/Judge-Umbau, neue Builder-Nutzungsbelege, Deploy-Pfad-Neubau.
+- `risk`: mittel bis hoch; greift direkt in die Wahrheitslage `landed`/`verifiedCommit` und in Callback-/Waiter-Koordination ein.
+- `betroffene_bereiche`: `server/src/lib/opusSmartPush.ts`, `server/src/lib/pushResultWaiter.ts`, `server/src/routes/builder.ts`, callback execution-result Pfad.
+- `kurzurteil`: Repo-sichtbar offen. Der nicht akzeptierte T03-Landing-Run zeigte erneut, dass `landed=false` lokal stehen kann, obwohl spaeter ein realer Remote-Commit sichtbar wird; dieser Drift ist bewusst noch nicht behoben.
+- `evidence`: `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json`, analysierter Timeout `timeout_180000ms`, spaeter repo-sichtbarer Commit-Landing-Widerspruch, Nutzerentscheidung nach 1C explizit noch nicht zu bauen.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 

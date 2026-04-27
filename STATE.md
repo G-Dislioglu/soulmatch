@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `a50c903`
-- `last_verified_origin_main`: `4d6aa07`
+- `current_repo_head`: `53af22a`
+- `last_verified_origin_main`: `53af22a`
 - `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-26`
+- `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `yes`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `K2.6a T03 Batch 1b ist jetzt lokal ausgewertet und docs-seitig nachgezogen. Der bereits ausgefuehrte class_2 dryRun lief mit frischem Approval-Artefakt ueber approval-validation=ok, validate=ok, claim-gate=ok und judge=ok sauber durch; pushAllowed blieb false, landed blieb aus, und der Scope blieb exakt auf `server/src/lib/opusJudge.ts` plus `server/src/lib/opusEnvelopeValidator.ts` begrenzt. Das temporaere T03-Approval wurde danach verifiziert entfernt (`beforeFound=true`, `deleted=true`, `afterCount=0`). T02 bleibt dabei nicht offen, sondern lokal behoben und verifiziert.`
-- `next_recommended_block`: `Kein weiterer Benchmark-Run in diesem Block. Naechster echte Folgeentscheid ist nach Freigabe entweder K2.6b Live-DryRun-Suite oder eine kleine reale class_1 Builder-Nutzung; weiterhin keine Soulmatch-Featurearbeit und jedes neue class_2-Szenario nur mit frischem Approval plus Cleanup.`
+- `last_completed_block`: `Die Builder-K2-Hardening-Kette ist repo-sichtbar abgeschlossen: Der fehlerhafte T03-Landing-Run bleibt explizit nicht akzeptiert, der sichtbare Doku-Schaden wurde ueber `24fc1b8` repariert, und danach haerten `77fbdd3`, `0619640` und `53af22a` den Builder schrittweise gegen mehrdeutige Patch-Anker, Null-Diffs bzw. falsche Datei-Claims und Markdown-Patches ausserhalb eines eindeutig angeforderten Txx-Abschnitts.`
+- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist erst ein getrennter Hardening-Entscheid zwischen Side-effect-Suppression fuer kontrollierte Runs und Async-Truth-Reparatur fuer landed/verifiedCommit; Deploy-Wait bleibt lokal ohne separate Verifikation nicht belastbar.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -84,18 +84,32 @@ migriert. Ein spaeter Live-Smoke deckte dabei einen echten False-Positive im
 Exfiltration-Regex auf; `4a072ec` haertet diesen Guard nach, ohne harmlose
 Meta-Karten weiter zu blocken.
 
-Die Builder-Pipeline ist abgenommen fuer kontrollierte kleine class_1 Builder-
-Tasks ueber den kanonischen `/opus-task`-Pfad, inklusive Live-Governance,
-Approval-Readiness und strict-scope-clean Push.
+Die Builder-Pipeline ist repo-sichtbar ueber den kanonischen `/opus-task`-Pfad
+haerter geworden, aber nicht als allgemein sicher freigegeben. Ein nicht
+akzeptierter T03-Landing-Run auf `docs/BUILDER-BENCHMARK-K2.6.md` erzeugte
+sichtbaren Doku-Schaden, der ueber `24fc1b8` repariert wurde; danach haerten
+die Folgeschnitte `77fbdd3`, `0619640` und `53af22a` die Validierung gegen
+mehrdeutige Patch-Anker, Null-Diffs bzw. falsche Datei-Claims und Markdown-
+Patches ausserhalb eines eindeutig angeforderten Txx-Abschnitts.
 
-Der Builder ist damit aktuell ein eng gefuehrtes Ausfuehrungssystem fuer
-kontrollierte kleine class_1 Tasks mit explizitem Scope und bestehenden Gates,
-nicht aber ein allgemeiner autonomer Feature-Autopilot.
+Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
+kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
+aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
+nicht fuer weitere class_1 Push-Smokes freigegeben, bis die offenen Restpfade
+gesondert entschieden sind.
 
 Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
 Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
 (`manual_only`/protected), Featurearbeit ohne expliziten Produktauftrag sowie
-weitere Live-Push-Smokes ohne explizite Freigabe.
+weitere Live-Push-Smokes oder neue Builder-Nutzungsnachweise ohne explizite
+Freigabe.
+
+Offen bleiben nach dieser Kette bewusst getrennte Restthemen: Side-effect-
+Suppression fuer kontrollierte Runs (`SESSION-LOG.md`, `builder-repo-index`),
+Async-Truth-Reparatur fuer `landed=false` trotz realem Remote-Commit, spaetere
+TS/JSON/Intra-Code-Section-Guards und jede staerkere semantische Diff-Pruefung.
+Der vorhandene Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg,
+solange er nur im bekannten `HTTP 000`-Operatorpfad endet.
 
 class_2 bleibt an gueltige Approval-Artefakte und anschliessende Reviewpflicht
 gebunden; class_3 bleibt `manual_only`/protected.
