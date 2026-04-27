@@ -214,13 +214,14 @@ async function githubGitRequest<T>(
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
       instruction?: string;
       scope?: string[];
       targetFile?: string;
       workers?: string[];
       maxTokens?: number;
       skipDeploy?: boolean;
+      skipInlinePostPushChecks?: boolean;
       dryRun?: boolean;
       approvalId?: string;
       hasApprovedPlan?: boolean;
@@ -245,6 +246,7 @@ opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
       workers,
       maxTokens,
       skipDeploy,
+      skipInlinePostPushChecks,
       dryRun,
       approvalId,
       hasApprovedPlan,
@@ -1357,13 +1359,14 @@ opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) 
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
       workers?: string[];
       maxTokens?: number;
       skipDeploy?: boolean;
+      skipInlinePostPushChecks?: boolean;
       dryRun?: boolean;
       approvalId?: string;
       hasApprovedPlan?: boolean;
@@ -1383,6 +1386,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       workers,
       maxTokens,
       skipDeploy,
+      skipInlinePostPushChecks,
       dryRun,
       approvalId,
       hasApprovedPlan,
