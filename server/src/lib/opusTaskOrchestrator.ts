@@ -617,19 +617,29 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 4: Parse + Validate
   const s4 = Date.now();
-  const allParsed: Array<{ envelope: EditEnvelope; worker: string; errors: string[] }> = [];
+  const allParsed: Array<{ envelope: EditEnvelope; worker: string; errors: string[]; appliedDiffSnapshot?: import('./opusEnvelopeValidator.js').AppliedDiffSnapshot }> = [];
   for (const r of okResults) {
     console.log(`[validate] raw worker output (${r.worker}):`, r.response.slice(0, 500));
     const envelope = parseEnvelope(r.response, r.worker);
     if (!envelope) continue;
     const v = validateEnvelope(envelope, scope.files, fileContents);
-    allParsed.push({ envelope, worker: r.worker, errors: v.errors });
+    allParsed.push({ envelope, worker: r.worker, errors: v.errors, appliedDiffSnapshot: v.appliedDiffSnapshot });
   }
   const valid = allParsed.filter(c => c.errors.length === 0);
   phases.push({ phase: 'validate', status: valid.length > 0 ? 'ok' : 'error',
     durationMs: Date.now() - s4,
     detail: { parsed: allParsed.length, valid: valid.length, total: okResults.length,
-      errors: allParsed.filter(c => c.errors.length > 0).map(c => ({ worker: c.worker, errors: c.errors })) } });
+      errors: allParsed.filter(c => c.errors.length > 0).map(c => ({ worker: c.worker, errors: c.errors })),
+      snapshots: allParsed.map(c => ({
+        worker: c.worker,
+        actualChangedFiles: c.appliedDiffSnapshot?.actualChangedFiles ?? [],
+        files: c.appliedDiffSnapshot?.files.map((file) => ({
+          path: file.path,
+          changed: file.changed,
+          changedSegmentsCount: file.changedSegmentsCount,
+          changedSegmentsPreview: file.changedSegmentsPreview,
+        })) ?? [],
+      })) } });
 
   if (valid.length === 0) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,

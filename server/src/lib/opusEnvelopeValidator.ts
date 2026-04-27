@@ -38,6 +38,25 @@ export interface EditEnvelope {
   claims?: WorkerClaim[];
 }
 
+export interface AppliedDiffFileSnapshot {
+  path: string;
+  mode: 'patch';
+  changed: boolean;
+  changedSegmentsCount: number;
+  changedSegmentsPreview: string[];
+}
+
+export interface AppliedDiffSnapshot {
+  actualChangedFiles: string[];
+  files: AppliedDiffFileSnapshot[];
+}
+
+export interface EnvelopeValidationResult {
+  valid: boolean;
+  errors: string[];
+  appliedDiffSnapshot?: AppliedDiffSnapshot;
+}
+
 type ParsedEdit = {
   path?: unknown;
   mode?: unknown;
@@ -288,20 +307,39 @@ function countExactOccurrences(source: string, search: string): number {
   return count;
 }
 
+function compactDiffPreview(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
 function validatePatchEdits(
+  envelope: EditEnvelope,
   edits: EditEnvelope['edits'],
   originalFileContents?: Map<string, string>,
-): string[] {
+): { errors: string[]; appliedDiffSnapshot?: AppliedDiffSnapshot } {
   const errors: string[] = [];
+  const hasPatchEdits = edits.some((edit) => edit.mode === 'patch');
 
-  if (!originalFileContents) return errors;
+  if (!hasPatchEdits || !originalFileContents) {
+    return { errors };
+  }
+
+  const files: AppliedDiffFileSnapshot[] = [];
 
   for (const edit of edits) {
     if (edit.mode !== 'patch') continue;
 
     const originalContent = originalFileContents.get(edit.path);
+    const fileSnapshot: AppliedDiffFileSnapshot = {
+      path: edit.path,
+      mode: 'patch',
+      changed: false,
+      changedSegmentsCount: 0,
+      changedSegmentsPreview: [],
+    };
+
     if (typeof originalContent !== 'string') {
       errors.push(`Patch search anchor not found: ${edit.path}`);
+      files.push(fileSnapshot);
       continue;
     }
 
@@ -343,15 +381,51 @@ function validatePatchEdits(
         continue;
       }
 
+      fileSnapshot.changedSegmentsCount += 1;
+      fileSnapshot.changedSegmentsPreview.push(
+        `${compactDiffPreview(patch.search)} => ${compactDiffPreview(patch.replace)}`,
+      );
       updatedContent = nextContent;
     }
 
     if (!patchFailed && updatedContent === originalContent) {
       errors.push(`Patch replace does not change content: ${edit.path}`);
     }
+
+    fileSnapshot.changed = !patchFailed && updatedContent !== originalContent;
+    files.push(fileSnapshot);
+
+    if (!fileSnapshot.changed) {
+      errors.push(`Patch edit path does not change content: ${edit.path}`);
+    }
   }
 
-  return errors;
+  const actualChangedFiles = files.filter((file) => file.changed).map((file) => file.path);
+  const appliedDiffSnapshot: AppliedDiffSnapshot = {
+    actualChangedFiles,
+    files,
+  };
+
+  if (actualChangedFiles.length === 0) {
+    errors.push('Applied patch diff is empty');
+    if ((envelope.claims?.length ?? 0) > 0) {
+      errors.push('Claims present without applied patch diff');
+    }
+    if (envelope.summary.trim().length > 0) {
+      errors.push('Summary present without applied patch diff');
+    }
+  }
+
+  for (const claim of envelope.claims ?? []) {
+    for (const ref of claim.evidence_refs) {
+      if (ref.type !== 'edit_path') continue;
+      if (!actualChangedFiles.includes(ref.ref)) {
+        errors.push(`Claim edit_path does not match applied diff: ${ref.ref}`);
+      }
+    }
+  }
+
+  return { errors, appliedDiffSnapshot };
 }
 
 // ─── Validate ───
@@ -365,7 +439,7 @@ export function validateEnvelope(
   envelope: EditEnvelope,
   scopeFiles: string[],
   originalFileContents?: Map<string, string>,
-): { valid: boolean; errors: string[] } {
+): EnvelopeValidationResult {
   const errors: string[] = [];
   for (const edit of envelope.edits) {
     // Scope = Kontext, nicht Beschränkung. Worker dürfen jede Datei anfassen.
@@ -379,7 +453,12 @@ export function validateEnvelope(
       errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
-  errors.push(...validatePatchEdits(envelope.edits, originalFileContents));
+  const patchValidation = validatePatchEdits(envelope, envelope.edits, originalFileContents);
+  errors.push(...patchValidation.errors);
   errors.push(...checkTypeScriptSyntax(envelope.edits));
-  return { valid: errors.length === 0, errors };
+  return {
+    valid: errors.length === 0,
+    errors,
+    appliedDiffSnapshot: patchValidation.appliedDiffSnapshot,
+  };
 }
