@@ -11,7 +11,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `c98c8e7`
+- `current_repo_head`: `741c8ab`
 - `last_verified_origin_main`: `c98c8e7`
 - `last_live_runtime_head`: `ed27349`
 - `current_branch`: `builder-k26-next`
@@ -20,8 +20,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H3 ist jetzt komplett geschlossen dokumentiert: `307fa3d` fuehrt die persistierte Async-Job-Bruecke `builder_tasks.sourceAsyncJobId` von `health.ts` ueber Orchestrator, SmartPush und `/push` bis in die Builder-Task an; `ed27349` zieht danach im execution-result-Callback die spaete Wahrheit fuer `async_jobs.result` auf dem Async-Health-Pfad nach; `c98c8e7` synchronisiert die Truth-Anker und die historischen H3-Read-only-Dokus auf diesen Stand. Der Reconcile-Schnitt bleibt bewusst konservativ: `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase werden nachgezogen, aber spaet gelandete Jobs werden nicht still als vollstaendig `success` ausgegeben, weil inline post-push checks nicht rerun wurden.`
-- `next_recommended_block`: `Der akute Builder-Hardening-Korridor ist nach H3A plus H3-async-0/1 repo-sichtbar und live auf `ed27349` nachgezogen. Kein neuer Builder-Nutzungsnachweis und kein neuer class_1 Push-Smoke ohne neuen bewussten Entscheid; als moeglicher Folgepunkt bleibt nur noch die getrennte Entscheidung, ob synchrone Caller (`/opus-task`, `/execute`, `/build`) ebenfalls eine spaet persistierte Reconciliation-Wahrheit brauchen oder ob der Acceptance-Korridor fuer diesen Hardening-Zyklus als ausreichend geschlossen gilt.`
+- `last_completed_block`: `Die branch-sichtige Builder-Linie reicht jetzt bis `741c8ab`: Nach dem abgeschlossenen H3-Async-Hardening (`307fa3d`, `ed27349`) traegt die Architect-/Control-Plane-Kette Team-Koordination und aktive Regeln repo-sichtbar bis in Dispatch, Observation und Orchestrator (`be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658`, `3f08301`); `741c8ab` zieht dazu den branch-sichtigen Builder-UI-Slice nach, verdrahtet Deep Patrol clientseitig auf den bestehenden Server-Contract und surfacet Architect State kompakt im Studio. P1 und P2 sind damit erledigt und werden nicht mehr als offene Review-Last gefuehrt.`
+- `next_recommended_block`: `Der naechste kleine Builder-Block ist jetzt nicht mehr Deep Patrol oder weiteres Architect-Bauen, sondern Routine Patrol client contract alignment: die aktuelle Routine-Scout-Flaeche soll auf ehrliche Server-Wahrheit zurueckgezogen werden, optional mit minimalem body-losen Trigger fuer `/patrol-trigger-round`, ohne freie Modellkonfiguration, ohne Serverumbau und ohne neuen Live-Runtime-Anspruch.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -182,6 +182,20 @@ kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
 aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
 nicht fuer weitere class_1 Push-Smokes freigegeben, bis die offenen Restpfade
 gesondert entschieden sind.
+
+Parallel dazu ist auf `builder-k26-next` inzwischen eine zweite branch-sichtige
+Builder-Linie gewachsen, die nicht mit einem neuen Live-Head verwechselt werden
+darf: `builderTeamAwareness.ts` traegt seit `bad1eca`, `cfb88b0`, `b21859b` und
+`b7db2ee` eine kompaktere Team-/Memory-Koordination in Maya, Scout, Distiller,
+Council und Worker; `be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658` und
+`3f08301` ziehen dieselbe Wahrheit weiter in Control Plane,
+Architect-Dispatch, no-DB-Fallback, Observation und Orchestrator. Mit
+`741c8ab` ist diese Linie jetzt auch im branch-sichtigen Builder UI angekommen:
+Deep Patrol spricht den bestehenden Server-Contract (`models[]` + `files[]`)
+ueber den Client korrekt an, und Builder Studio surfacet read-only
+Architect-State kompakt im Context-Bereich. Das ist branch-sichtige Wahrheit,
+aber weiterhin keine neue Live-Runtime-Bestaetigung; `last_live_runtime_head`
+bleibt bis zu einem frischen Runtime-Beleg bewusst auf `ed27349`.
 
 Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
 Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
