@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `bd9c2ef`
-- `last_verified_origin_main`: `bd9c2ef`
+- `current_repo_head`: `c25a4e2`
+- `last_verified_origin_main`: `c25a4e2`
 - `current_branch`: `builder-k26-next`
 - `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H2B ist repo-sichtbar auf `main` abgeschlossen: Commit `5c76561` fuehrt das minimale Pre-Push Workflow Simulation Gate v0.1 additiv in `opusTaskOrchestrator.ts` ein, Commit `bd9c2ef` korrigiert die Dry-Run-Semantik auf konsequent `dry_run_only`. Die neue `workflowSimulation` bleibt lokal am Orchestrator-Hook, macht `allow_push | require_review | dry_run_only | block_push` im Result sichtbar und verhindert Pushes bei non-allow Entscheidungen, ohne H2A, H3 oder die breitere Pipeline umzubauen.`
-- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H2C als reiner Read-only-Block fuer Recommendation/Clarification Output auf Basis der jetzt sichtbaren `workflowSimulation`; Async-Truth-Reparatur fuer landed/verifiedCommit bleibt getrennt, und ein neuer Builder-Test ist weiter nicht freigegeben.`
+- `last_completed_block`: `H2C-1 ist repo-sichtbar auf `main` abgeschlossen: Commit `c25a4e2` fuehrt im kanonischen Orchestrator-Result einen additiven Recommendation-Output auf Basis der bestehenden `workflowSimulation` ein. `recommendation.kind` bleibt exakt bei `allow_push | require_review | dry_run_only | block_push`, dazu kommen deterministische Felder wie `userMessage`, `operatorSummary`, `nextBestAction`, `requiresUserDecision`, `reviewReasons` und `safeOptions`. Die Push-Entscheidung selbst bleibt unveraendert; Legacy-`/build`-Mapping, H3 und `requires_clarification` bleiben bewusst ausserhalb dieses Blocks.`
+- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H2D als reiner Read-only-Block fuer Analysis Before Schema; das Legacy-`/build`-Mapping der neuen Recommendation bleibt als optionaler Folgeblock H2C-2 getrennt, Async-Truth-Reparatur fuer landed/verifiedCommit bleibt weiter ausserhalb, und ein neuer Builder-Test ist weiter nicht freigegeben.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -114,6 +114,16 @@ bewusst noch kein Architekturgraph-/Telemetry-Simulator, sondern ein lokaler
 Orchestrator-Hook mit konservativer Confidence und explizit benannter
 Missing-Evidence.
 
+Direkt danach ist auch H2C-1 repo-sichtbar auf `main`: `c25a4e2` fuehrt in
+`server/src/lib/builderRecommendationOutput.ts` und
+`server/src/lib/opusTaskOrchestrator.ts` einen additiven Recommendation-
+Output auf Basis der bestehenden `workflowSimulation` ein. Das Ergebnis traegt
+jetzt im kanonischen Orchestrator-Pfad ein eigenes `recommendation`-Objekt mit
+deterministischen Feldern fuer kurze User-Sprache, Operator-Zusammenfassung,
+naechste sichere Aktion, Entscheidungspflicht und sichere Optionen. Wichtig:
+dieser Block fuehrt keine neue Gate-Klasse ein, aendert die Push-Entscheidung
+selbst nicht und laesst den Legacy-`/build`-Pfad bewusst unberuehrt.
+
 Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
 kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
 aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
@@ -128,10 +138,10 @@ Freigabe.
 
 Offen bleiben nach dieser Kette bewusst getrennte Restthemen: der spaetere
 `planned`-Modus des Side-Effect-Contracts, Async-Truth-Reparatur fuer
-`landed=false` trotz realem Remote-Commit, der Read-only-Folgeblock H2C fuer
-Recommendation/Clarification Output auf Basis der `workflowSimulation`,
-spaetere TS/JSON/Intra-Code-Section-Guards und jede staerkere semantische
-Diff-Pruefung. Der vorhandene
+`landed=false` trotz realem Remote-Commit, der optionale Folgeblock H2C-2 fuer
+Legacy-`/build`-Mapping der neuen Recommendation, der Read-only-Folgeblock H2D
+fuer Analysis Before Schema, spaetere TS/JSON/Intra-Code-Section-Guards und
+jede staerkere semantische Diff-Pruefung. Der vorhandene
 Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg, solange er nur im
 bekannten `HTTP 000`-Operatorpfad endet.
 

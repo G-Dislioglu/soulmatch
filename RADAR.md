@@ -104,12 +104,12 @@ Ein guter Soulmatch-Kandidat:
 - `truth_class`: `runtime_verified`
 - `source_type`: `user_request`
 - `next_gate`: `decision_gate`
-- `why_not_now`: `Nach dem nicht akzeptierten T03-Landing-Run, der Hardening-Kette 1A/1B/1C sowie den jetzt auf main liegenden H2A- und H2B-Schnitten bleibt ein weiterer Builder-Nutzungsnachweis bewusst nicht freigegeben; vor dem naechsten Run stehen erst die getrennten Folgeentscheidungen H2C/H2D bzw. H3.`
+- `why_not_now`: `Nach dem nicht akzeptierten T03-Landing-Run, der Hardening-Kette 1A/1B/1C sowie den jetzt auf main liegenden H2A-, H2B- und H2C-1-Schnitten bleibt ein weiterer Builder-Nutzungsnachweis bewusst nicht freigegeben; vor dem naechsten Run stehen erst die getrennten Folgeentscheidungen H2C-2/H2D bzw. H3.`
 - `non_scope`: neue Builder-Features, Gate-Umbau ausserhalb der schmalen Hardening-Kette, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
-- `risk`: reduziert, aber nicht ausgeraeumt. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt; kontrollierte Runs koennen Side-Effects inzwischen ueber `mode=none` unterdruecken, und H2B fuegt vor dem Push einen konservativen Workflow-Simulations-Hook ein. Offen bleiben `landed=false` trotz realem Remote-Commit, der spaetere `planned`-Modus, H2C/H2D und staerkere semantische Fehlfaelle innerhalb eines formal gueltigen Diffs.
+- `risk`: reduziert, aber nicht ausgeraeumt. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt; kontrollierte Runs koennen Side-Effects inzwischen ueber `mode=none` unterdruecken, H2B fuegt vor dem Push einen konservativen Workflow-Simulations-Hook ein, und H2C-1 macht diesen Pfad im kanonischen Orchestrator-Result verstaendlicher. Offen bleiben `landed=false` trotz realem Remote-Commit, der spaetere `planned`-Modus, H2C-2/H2D und staerkere semantische Fehlfaelle innerhalb eines formal gueltigen Diffs.
 - `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`, `docs/BUILDER-BENCHMARK-K2.6A-RUNNER-PREFLIGHT.md`, `docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md`.
-- `kurzurteil`: Der Acceptance-Korridor ist nicht mit einem weiteren Nutzungsbeleg zu erweitern, sondern sauber auf Truth und getrennte Folgeentscheidungen zurueckgeschnitten: Der fehlerhafte T03-Landing-Run bleibt nicht akzeptiert, `24fc1b8` repariert den sichtbaren Doku-Schaden, `77fbdd3`/`0619640`/`53af22a` haerten gegen die konkret belegte Fehlerklasse, `b2d08ea` schliesst H2A fuer kontrollierte Runs und `5c76561`/`bd9c2ef` fuehren H2B als lokalen Pre-Push-Gate-Hook ein. Der naechste Schritt ist deshalb weiter kein neuer Run, sondern erst ein eng geschnittener Folgeentscheid.
-- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, `landed=false` und spaeter repo-sichtbar falschem Diff; Reparatur-Commit `24fc1b8`; Hardening-Commits `77fbdd3`, `0619640`, `53af22a`; H2A-Commit `b2d08ea`; H2B-Commits `5c76561` und `bd9c2ef`; origin/main verifiziert auf `bd9c2ef`.
+- `kurzurteil`: Der Acceptance-Korridor ist nicht mit einem weiteren Nutzungsbeleg zu erweitern, sondern sauber auf Truth und getrennte Folgeentscheidungen zurueckgeschnitten: Der fehlerhafte T03-Landing-Run bleibt nicht akzeptiert, `24fc1b8` repariert den sichtbaren Doku-Schaden, `77fbdd3`/`0619640`/`53af22a` haerten gegen die konkret belegte Fehlerklasse, `b2d08ea` schliesst H2A fuer kontrollierte Runs, `5c76561`/`bd9c2ef` fuehren H2B als lokalen Pre-Push-Gate-Hook ein, und `c25a4e2` macht den kanonischen Result-Pfad mit Recommendation-Output verstaendlicher. Der naechste Schritt ist deshalb weiter kein neuer Run, sondern erst ein eng geschnittener Folgeentscheid.
+- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, `landed=false` und spaeter repo-sichtbar falschem Diff; Reparatur-Commit `24fc1b8`; Hardening-Commits `77fbdd3`, `0619640`, `53af22a`; H2A-Commit `b2d08ea`; H2B-Commits `5c76561` und `bd9c2ef`; H2C-1-Commit `c25a4e2`; origin/main verifiziert auf `c25a4e2`.
 
 ### Kandidat - Builder Hardening 2 (Side-Effect Suppression)
 
@@ -139,18 +139,32 @@ Ein guter Soulmatch-Kandidat:
 - `kurzurteil`: H2B ist repo-sichtbar auf main abgeschlossen. `5c76561` fuehrt das minimale Pre-Push Workflow Simulation Gate v0.1 additiv in den Orchestrator ein; `bd9c2ef` korrigiert die Dry-Run-Semantik auf konsequent `dry_run_only`. Pushes werden bei non-allow Entscheidungen vor dem Dispatch gestoppt, ohne H2A, H3 oder breitere Pipeline-Architektur zu oeffnen.
 - `evidence`: Read-only-H2B-Scan gegen `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`; Commit `5c76561` (`fix(builder): add pre-push workflow simulation gate`); Folgecommit `bd9c2ef` (`fix(builder): keep workflow simulation dry-run only`); lokaler Static-Verify mit `pnpm build` und helper checks fuer `dryRun`, `manual_only`, protected paths, `pushAllowed=false`, clean allow und outside-scope; kein Builder-Run.
 
-### Kandidat - Builder H2C (Recommendation / Clarification Output)
+### Kandidat - Builder H2C-1 (Recommendation Output on canonical orchestrator result)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderRecommendationOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: Legacy-`/build`-Mapping, H3 Async-Truth-Reparatur, neuer Workflow-Simulator, neuer Builder-Test, `requires_clarification` als neuer Gate-Wert.
+- `risk`: reduziert; Recommendation-Output bleibt ein additiver Presentation-Layer auf der bestehenden `workflowSimulation`, ohne die Gate-Semantik selbst zu aendern.
+- `betroffene_bereiche`: `server/src/lib/builderRecommendationOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`
+- `kurzurteil`: H2C-1 ist repo-sichtbar auf main abgeschlossen. `c25a4e2` fuehrt fuer den kanonischen Orchestrator-Pfad ein eigenes `recommendation`-Objekt mit deterministischen Feldern fuer User-/Operator-Sprache, naechste Aktion, Entscheidungspflicht und sichere Optionen ein; `recommendation.kind` bleibt exakt an `workflowSimulation.recommendedAction` gebunden.
+- `evidence`: Read-only-H2C-Scan identifizierte `workflowSimulation` als vorhandene Wahrheit und den Legacy-`/build`-Pfad als getrennten Folgepunkt; Commit `c25a4e2` (`fix(builder): add recommendation output for workflow simulation`); lokaler Static-Verify mit `pnpm build` und helper checks fuer `allow_push`, `dry_run_only`, `require_review`, `block_push`; kein Builder-Run.
+
+### Kandidat - Builder H2C-2 (Legacy /build Recommendation Mapping)
 
 - `status`: `active`
 - `truth_class`: `derived_from_review`
-- `source_type`: `user_request`
+- `source_type`: `repo_review`
 - `next_gate`: `scan`
-- `why_not_now`: `H2B musste zuerst als lokaler Pre-Push-Hook auf main landen, bevor aus `workflowSimulation` weitere Recommendation- oder Clarification-Semantik abgeleitet wird.`
-- `non_scope`: H3 Async-Truth-Reparatur, neuer Workflow-Simulator, neuer Builder-Test, stilles Einfuehren von `requires_clarification` ohne vorgelagerten Read-only-Schnitt.
-- `risk`: mittel; kippt schnell von klarer Result-Sichtbarkeit in neue Builder-Entscheidungssemantik, wenn Recommendation und Clarification nicht streng von H2B und H3 getrennt bleiben.
-- `betroffene_bereiche`: `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/builderWorkflowSimulation.ts`, Result-/Response-Sichtbarkeit im Builder-Pfad
-- `kurzurteil`: Nach H2B ist der naechste saubere Block nicht ein neuer Run, sondern ein Read-only-Schnitt dazu, wie Recommendation- oder spaetere Clarification-Ausgaben auf der jetzt sichtbaren `workflowSimulation` aufsetzen koennen, ohne `requires_clarification` vorschnell als neue Gate-Klasse einzuziehen.
-- `evidence`: Nutzerreihenfolge H2A -> H2B -> H2C -> H2D; H2B jetzt repo-sichtbar auf `main`, `workflowSimulation` im Orchestrator-Result vorhanden, aber `requires_clarification` bewusst noch nicht gebaut.
+- `why_not_now`: `H2C-1 sollte bewusst nur den kanonischen Orchestrator-Result-Pfad verbessern; sobald der Legacy-`/build`-Pfad im selben Block mitgezogen wird, kippt H2C von Output-Verbesserung in breitere Downstream-Kompatibilitaet.`
+- `non_scope`: neuer Gate-Wert, H3 Async-Truth-Reparatur, neuer Builder-Test, `requires_clarification`.
+- `risk`: niedrig bis mittel; fachlich klein, aber leicht scope-driftig, weil `opusBuildPipeline.ts` heute bewusst nur `summary`/`pushBlockedReason` und nicht das volle `workflowSimulation`-/`recommendation`-Objekt weiterreicht.
+- `betroffene_bereiche`: `server/src/lib/opusBuildPipeline.ts`, moegliche spaetere Snapshot-/Build-Result-Typen
+- `kurzurteil`: Optionaler Folgeblock nur dann, wenn der Legacy-Build-Pfad dieselbe Recommendation-Sichtbarkeit wirklich braucht. Die kanonische Wahrheit ist bereits ueber den Orchestrator- und Async-Health-Pfad sichtbar; `/build` ist ein separater Abwaegungsblock.
+- `evidence`: H2C-Read-only-Befund zeigte, dass `health.ts` Orchestrator-Result roh durchreicht, waehrend `opusBuildPipeline.ts` heute auf `summary`, `pushBlockedReason` und Governance-Felder flacht; Nutzerentscheidung fuer H2C-1 explizit ohne Legacy-`/build`-Mitnahme.
 
 ### Kandidat - Builder Hardening 3 (Async Truth Repair)
 
