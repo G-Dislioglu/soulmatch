@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `acb2b1b`
-- `last_verified_origin_main`: `acb2b1b`
+- `current_repo_head`: `cb5f510`
+- `last_verified_origin_main`: `cb5f510`
 - `current_branch`: `builder-k26-next`
 - `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H2D-1 ist repo-sichtbar auf `main` abgeschlossen: Commit `acb2b1b` fuehrt im kanonischen Orchestrator-Result einen additiven Analysis-Before-Schema-Layer auf Basis der bestehenden `workflowSimulation` ein. Das neue `analysis`-Objekt verdichtet Evidence-Level, Schema-Lock-Risiko, offene Fragen und Vorsichtsgruende deterministisch aus vorhandenen Signalen wie `confidence`, `missingEvidence`, `ambiguityRisk` und `claimAnchoringRisk`, ohne neue Gate-Werte oder neue Push-Logik einzufuehren. Legacy-`/build`-Mapping und H3 bleiben bewusst getrennt.`
-- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H2C-2 als enger Legacy-`/build`-Mapping-Schnitt fuer `workflowSimulation`, `recommendation` und `analysis`; Async-Truth-Reparatur fuer landed/verifiedCommit bleibt weiter ausserhalb, und ein neuer Builder-Test ist weiter nicht freigegeben.`
+- `last_completed_block`: `H2C-2 ist repo-sichtbar auf `main` abgeschlossen: Commit `cb5f510` reicht die bereits vorhandenen Orchestrator-Felder `workflowSimulation`, `recommendation` und `analysis` additiv auch durch den Legacy-`/build`-Pfad in `server/src/lib/opusBuildPipeline.ts`. Der Block aendert keine Gate- oder Push-Entscheidung, sondern schliesst nur den bisher getrennten Sichtbarkeitsrest zwischen kanonischem Orchestrator-Result und altem Build-Mapping.`
+- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H3 zunaechst nur als read-only Async-Truth-Repair-Schnitt fuer `landed`/`verifiedCommit`; neuer Builder-Test bleibt bis nach dieser gesonderten Entscheidungsrunde weiter nicht freigegeben.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -133,6 +133,13 @@ Objekt zieht die schon vorhandenen Signale `confidence`, `missingEvidence`,
 `protectedPathRisk` zu einer expliziteren Evidence-/Schema-Lock-Lesart
 zusammen, ohne Recommendation oder Push-Entscheidung selbst umzubauen.
 
+Direkt danach ist auch H2C-2 repo-sichtbar auf `main`: `cb5f510` zieht
+denselben Satz aus `workflowSimulation`, `recommendation` und `analysis`
+additiv in `server/src/lib/opusBuildPipeline.ts` nach, damit der Legacy-
+`/build`-Pfad die bereits vorhandene Orchestrator-Wahrheit nicht mehr auf
+`summary` und `pushBlockedReason` verflacht. Auch dieser Block fuehrt keine
+neue Gate-Semantik ein und aendert keine Push- oder Review-Entscheidung.
+
 Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
 kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
 aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
@@ -147,9 +154,8 @@ Freigabe.
 
 Offen bleiben nach dieser Kette bewusst getrennte Restthemen: der spaetere
 `planned`-Modus des Side-Effect-Contracts, Async-Truth-Reparatur fuer
-`landed=false` trotz realem Remote-Commit, der optionale Folgeblock H2C-2 fuer
-Legacy-`/build`-Mapping von `workflowSimulation`, `recommendation` und
-`analysis`, spaetere TS/JSON/Intra-Code-Section-Guards und jede staerkere
+`landed=false` trotz realem Remote-Commit, spaetere TS/JSON/Intra-Code-
+Section-Guards und jede staerkere
 semantische Diff-Pruefung. Der vorhandene
 Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg, solange er nur im
 bekannten `HTTP 000`-Operatorpfad endet.
