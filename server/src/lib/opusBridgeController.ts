@@ -666,7 +666,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let tscPassed = false;
   let tscErrors: string[] = [];
   let pushSucceeded = false;
-  const memoryContext = await buildCouncilContext().catch(() => '');
+  const memoryContext = await buildCouncilContext(instruction, normalizedScope).catch(() => '');
 
   const scoutResult = await runScoutPhase({
     id: task.id,

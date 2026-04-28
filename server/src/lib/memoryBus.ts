@@ -20,12 +20,18 @@ import {
   loadProjectDna,
 } from './opusGraphIntegration.js';
 import { buildBuilderMemoryContext } from './builderMemory.js';
+import { buildTeamCoordinationContext } from './builderTeamAwareness.js';
 import { getWorkerRanking } from './opusWorkerSwarm.js';
+
+function hasDatabaseAccess(): boolean {
+  return Boolean(process.env.DATABASE_URL);
+}
 
 // ─── Shared Helpers ───
 
 async function getRecentTasksInScope(scope: string[], limit = 3): Promise<string> {
   if (scope.length === 0) return '';
+  if (!hasDatabaseAccess()) return '';
 
   try {
     const db = getDb();
@@ -57,6 +63,8 @@ async function getRecentTasksInScope(scope: string[], limit = 3): Promise<string
 }
 
 async function getRecentCouncilDecisions(limit = 3): Promise<string> {
+  if (!hasDatabaseAccess()) return '';
+
   try {
     const db = getDb();
     // Get recent roundtable messages that contain @APPROVE or @BLOCK
@@ -91,6 +99,8 @@ async function getRecentCouncilDecisions(limit = 3): Promise<string> {
 }
 
 async function formatWorkerRanking(): Promise<string> {
+  if (!hasDatabaseAccess()) return '';
+
   try {
     const ranking = await getWorkerRanking();
     if (ranking.length === 0) return '';
@@ -106,6 +116,17 @@ async function formatWorkerRanking(): Promise<string> {
   }
 }
 
+async function safeFindRelevantErrorCards(taskGoal: string, scope: string[]) {
+  if (!hasDatabaseAccess()) return [];
+
+  try {
+    return await findRelevantErrorCards(taskGoal, scope);
+  } catch {
+    console.warn('[memoryBus] error cards unavailable, continuing without them.');
+    return [];
+  }
+}
+
 // ─── Role-Specific Context Builders ───
 
 /**
@@ -118,7 +139,7 @@ async function formatWorkerRanking(): Promise<string> {
 export async function buildScoutContext(taskGoal: string, scope: string[]): Promise<string> {
   const [projectDna, errorCards, recentTasks] = await Promise.all([
     Promise.resolve(loadProjectDna()),
-    findRelevantErrorCards(taskGoal, scope),
+    safeFindRelevantErrorCards(taskGoal, scope),
     getRecentTasksInScope(scope),
   ]);
 
@@ -126,6 +147,7 @@ export async function buildScoutContext(taskGoal: string, scope: string[]): Prom
   const graphBriefing = generateGraphBriefing(graph, scope);
 
   const sections: string[] = [];
+  sections.push(buildTeamCoordinationContext({ role: 'scout', taskGoal, scope }));
 
   if (projectDna) sections.push(projectDna);
   if (graphBriefing) sections.push(`REPO-KONTEXT:\n${graphBriefing}`);
@@ -148,11 +170,12 @@ export async function buildScoutContext(taskGoal: string, scope: string[]): Prom
  */
 export async function buildDistillerContext(taskGoal: string, scope: string[]): Promise<string> {
   const [errorCards, recentTasks] = await Promise.all([
-    findRelevantErrorCards(taskGoal, scope),
+    safeFindRelevantErrorCards(taskGoal, scope),
     getRecentTasksInScope(scope, 5),
   ]);
 
   const sections: string[] = [];
+  sections.push(buildTeamCoordinationContext({ role: 'distiller', taskGoal, scope }));
 
   if (errorCards.length > 0) {
     sections.push(`BEKANNTE FEHLER-PATTERNS (fuer SE-Operator):\n${errorCards
@@ -173,14 +196,16 @@ export async function buildDistillerContext(taskGoal: string, scope: string[]): 
  * - Worker-Ranking (wer kann was am besten)
  * - Entscheidungshistorie (was hat vorher funktioniert/nicht)
  */
-export async function buildCouncilContext(): Promise<string> {
+export async function buildCouncilContext(taskGoal?: string, scope: string[] = []): Promise<string> {
   const [builderMemory, workerRanking, councilHistory] = await Promise.all([
     buildBuilderMemoryContext().catch(() => ''),
     formatWorkerRanking(),
     getRecentCouncilDecisions(),
   ]);
 
-  const sections: string[] = [];
+  const sections: string[] = [
+    buildTeamCoordinationContext({ role: 'council', taskGoal, scope }),
+  ];
 
   if (builderMemory) sections.push(`BUILDER MEMORY:\n${builderMemory}`);
   if (workerRanking) sections.push(workerRanking);
@@ -196,13 +221,16 @@ export async function buildCouncilContext(): Promise<string> {
  * - Relevante Code-Konventionen
  */
 export async function buildWorkerContext(
+  taskGoal: string,
   files: string[],
   councilReasoning?: string,
 ): Promise<string> {
   const projectDna = loadProjectDna();
-  const errorCards = await findRelevantErrorCards(files.join(' '), files);
+  const errorCards = await safeFindRelevantErrorCards(files.join(' '), files);
 
-  const sections: string[] = [];
+  const sections: string[] = [
+    buildTeamCoordinationContext({ role: 'worker', taskGoal, scope: files }),
+  ];
 
   if (councilReasoning) {
     sections.push(`COUNCIL-ENTSCHEIDUNG (warum dieser Ansatz):\n${councilReasoning}`);
@@ -235,7 +263,9 @@ export async function buildMayaFullContext(): Promise<string> {
     formatWorkerRanking(),
   ]);
 
-  const sections: string[] = [];
+  const sections: string[] = [
+    buildTeamCoordinationContext({ role: 'maya' }),
+  ];
 
   if (builderMemory) sections.push(builderMemory);
   if (workerRanking) sections.push(workerRanking);

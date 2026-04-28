@@ -386,6 +386,25 @@ function buildFocusLines(taskGoal: string | undefined, scope: string[]): string[
   return lines;
 }
 
+export function buildTeamCoordinationContext(options: TeamAwarenessOptions): string {
+  const position = ROLE_POSITIONS[options.role];
+  const scope = options.scope ?? [];
+  const focusLines = buildFocusLines(options.taskGoal, scope);
+  const sections: string[] = ['TEAM-KOORDINATION'];
+
+  if (focusLines.length > 0) {
+    sections.push(...focusLines.map((line) => `- ${line}`));
+  }
+
+  sections.push(`- Stage: ${position.stage}`);
+  sections.push(`- Auftrag: ${position.duty}`);
+  sections.push(`- Downstream: ${position.downstream}`);
+  sections.push(`- Erfolgssignal: ${position.successSignal}`);
+  sections.push(`- Handoff-Pflicht: ${compactList(position.handoff, 220)}`);
+
+  return sections.join('\n');
+}
+
 export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Promise<string> {
   const position = ROLE_POSITIONS[options.role];
   const scope = options.scope ?? [];

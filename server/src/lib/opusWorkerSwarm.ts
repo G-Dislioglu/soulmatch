@@ -588,7 +588,7 @@ async function runSingleWorker(
     // Memory-Bus: Error Cards + Council-Begründung für diese Datei
     let memoryContext: string | undefined;
     try {
-      memoryContext = await buildWorkerContext([assignment.file], assignment.reason);
+        memoryContext = await buildWorkerContext(taskGoal, [assignment.file], assignment.reason);
       if (memoryContext && memoryContext.trim().length < 10) memoryContext = undefined;
     } catch (e) {
       console.warn('[worker-swarm] Memory context failed, continuing without:', e);
