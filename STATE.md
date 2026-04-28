@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `cb5f510`
-- `last_verified_origin_main`: `cb5f510`
+- `current_repo_head`: `1d7c6bc`
+- `last_verified_origin_main`: `1d7c6bc`
 - `current_branch`: `builder-k26-next`
 - `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H2C-2 ist repo-sichtbar auf `main` abgeschlossen: Commit `cb5f510` reicht die bereits vorhandenen Orchestrator-Felder `workflowSimulation`, `recommendation` und `analysis` additiv auch durch den Legacy-`/build`-Pfad in `server/src/lib/opusBuildPipeline.ts`. Der Block aendert keine Gate- oder Push-Entscheidung, sondern schliesst nur den bisher getrennten Sichtbarkeitsrest zwischen kanonischem Orchestrator-Result und altem Build-Mapping.`
-- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H3 zunaechst nur als read-only Async-Truth-Repair-Schnitt fuer `landed`/`verifiedCommit`; neuer Builder-Test bleibt bis nach dieser gesonderten Entscheidungsrunde weiter nicht freigegeben.`
+- `last_completed_block`: `H3A ist repo-sichtbar auf `main` abgeschlossen: Commit `1d7c6bc` haertet die Async-Truth-Seam zwischen `server/src/lib/pushResultWaiter.ts` und `server/src/lib/opusSmartPush.ts`, sodass ein reiner Callback-Timeout nicht mehr still als `landed=false` ausgegeben wird. Timeout bleibt jetzt `landed=undefined` mit explizitem pending-truth-Hinweis; terminale committed:false-Callbacks bleiben weiter echte Negativ-Wahrheit.`
+- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock bleibt H3 weiter nur als read-only Folge-Schnitt fuer spaete Callback->Result-/DB-Reconciliation nach Timeout; neuer Builder-Test bleibt bis nach dieser gesonderten Entscheidungsrunde weiter nicht freigegeben.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -140,6 +140,14 @@ additiv in `server/src/lib/opusBuildPipeline.ts` nach, damit der Legacy-
 `summary` und `pushBlockedReason` verflacht. Auch dieser Block fuehrt keine
 neue Gate-Semantik ein und aendert keine Push- oder Review-Entscheidung.
 
+Direkt danach ist auch H3A repo-sichtbar auf `main`: `1d7c6bc` zieht einen
+kleinen, aber wichtigen Async-Truth-Fix in `server/src/lib/opusSmartPush.ts`
+und `server/src/lib/pushResultWaiter.ts` nach. Ein reiner Waiter-Timeout wird
+jetzt nicht mehr als harte Negativ-Wahrheit `landed=false` behandelt, sondern
+bleibt explizit `landed=undefined` mit pending Callback-Truth. Das vermeidet
+falsche Negativ-Aussagen, ohne schon die spaetere Callback-Result-
+Reconciliation selbst zu bauen.
+
 Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
 kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
 aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
@@ -153,8 +161,8 @@ weitere Live-Push-Smokes oder neue Builder-Nutzungsnachweise ohne explizite
 Freigabe.
 
 Offen bleiben nach dieser Kette bewusst getrennte Restthemen: der spaetere
-`planned`-Modus des Side-Effect-Contracts, Async-Truth-Reparatur fuer
-`landed=false` trotz realem Remote-Commit, spaetere TS/JSON/Intra-Code-
+`planned`-Modus des Side-Effect-Contracts, die tiefere Async-Truth-
+Reparatur fuer spaete Callback->Result-/DB-Reconciliation nach Timeout, spaetere TS/JSON/Intra-Code-
 Section-Guards und jede staerkere
 semantische Diff-Pruefung. Der vorhandene
 Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg, solange er nur im
