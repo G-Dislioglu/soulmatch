@@ -36,7 +36,7 @@ interface PatrolModelSlot {
   color: string;
 }
 
-const API = 'https://soulmatch-1.onrender.com/api/builder/opus-bridge';
+const API_BASE = '/api/builder/opus-bridge';
 
 const AVAILABLE_MODELS = [
   'GLM-5-Turbo', 'GLM-5.1', 'GLM-5', 'GLM-4.7',
@@ -413,7 +413,8 @@ function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onD
 
 export function PatrolConsole() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const token = params.get('opus_token') || params.get('token') || 'opus-bridge-2026-geheim';
+  const token = (params.get('opus_token') || params.get('token') || '').trim();
+  const hasToken = token.length > 0;
   const [status, setStatus] = useState<PatrolStatus | null>(null);
   const [findings, setFindings] = useState<PatrolFinding[]>([]);
   const [filter, setFilter] = useState<'all' | Severity>('all');
@@ -429,17 +430,26 @@ export function PatrolConsole() {
   );
 
   const api = useCallback(async <T,>(endpoint: string, extraParams = ''): Promise<T> => {
-    const response = await fetch(`${API}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
+    if (!hasToken) {
+      throw new Error('Opus-Token fehlt');
+    }
+
+    const response = await fetch(`${API_BASE}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     return response.json() as Promise<T>;
-  }, [token]);
+  }, [hasToken, token]);
 
   const triggerDeep = useCallback(async (findingId: string) => {
+    if (!hasToken) {
+      console.error('Deep patrol error: Opus-Token fehlt');
+      return;
+    }
+
     setDeepLoading((prev) => ({ ...prev, [findingId]: true }));
     try {
-      const response = await fetch(`${API}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_BASE}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ findingId }),
@@ -452,7 +462,7 @@ export function PatrolConsole() {
     } finally {
       setDeepLoading((prev) => ({ ...prev, [findingId]: false }));
     }
-  }, [token]);
+  }, [hasToken, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -471,8 +481,13 @@ export function PatrolConsole() {
   }, [api]);
 
   useEffect(() => {
+    if (!hasToken) {
+      setLoading(false);
+      return;
+    }
+
     void load();
-  }, [load]);
+  }, [hasToken, load]);
 
   const filtered = filter === 'all' ? findings : findings.filter((finding) => finding.severity === filter);
   const sev = status?.bySeverity || {};
@@ -516,12 +531,16 @@ export function PatrolConsole() {
             Scout Patrol Console
           </h1>
           <div style={{ fontSize: 12, color: '#6b7084', marginTop: 4 }}>
-            {status ? `Letzte Runde: ${timeAgo(status.lastRound)} · ${status.triaged ?? 0} triaged · ${status.crossConfirmed ?? 0} bestätigt` : 'Laden...'}
+            {!hasToken
+              ? 'Opus-Token fehlt in der URL.'
+              : status
+                ? `Letzte Runde: ${timeAgo(status.lastRound)} · ${status.triaged ?? 0} triaged · ${status.crossConfirmed ?? 0} bestätigt`
+                : 'Laden...'}
           </div>
         </div>
         <button
           onClick={() => { void load(); }}
-          disabled={loading}
+          disabled={loading || !hasToken}
           style={{
             background: '#7c6af7',
             color: '#fff',
@@ -611,7 +630,11 @@ export function PatrolConsole() {
       </div>
 
       <div>
-        {loading && findings.length === 0 ? (
+        {!hasToken ? (
+          <div style={{ textAlign: 'center', padding: 40, color: '#6b7084' }}>
+            Patrol braucht einen gueltigen Opus-Token in der URL. Oeffne die Konsole ueber Builder Studio.
+          </div>
+        ) : loading && findings.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#6b7084' }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>⟳</div>
             Patrol-Daten werden geladen...

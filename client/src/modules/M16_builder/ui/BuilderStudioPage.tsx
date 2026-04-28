@@ -1069,6 +1069,15 @@ export function BuilderStudioPage() {
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
+  const patrolHref = useMemo(() => {
+    const patrolToken = (effectiveOpusToken ?? token).trim();
+    if (!patrolToken) {
+      return '/patrol';
+    }
+
+    const params = new URLSearchParams({ opus_token: patrolToken });
+    return `/patrol?${params.toString()}`;
+  }, [effectiveOpusToken, token]);
   const previewUrl = activeTask
     ? (() => {
         const params = new URLSearchParams({
@@ -1796,7 +1805,7 @@ export function BuilderStudioPage() {
               </button>
               <a
                 data-maya-target="patrol-console"
-                href="/patrol?opus_token=opus-bridge-2026-geheim"
+                href={patrolHref}
                 style={{
                   borderRadius: 999,
                   border: '1.5px solid #f97316',
