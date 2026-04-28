@@ -31,6 +31,7 @@ import { validateApprovalArtifact, type ApprovalArtifactValidationResult } from 
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { type BuilderSideEffectsContract } from './builderSideEffects.js';
+import { buildWorkflowSimulation, type BuilderWorkflowSimulation } from './builderWorkflowSimulation.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -79,6 +80,7 @@ export interface OpusTaskResult {
   landed?: boolean;
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
   verifiedCommit?: string;
+  workflowSimulation?: BuilderWorkflowSimulation;
   hardening?: SpecHardeningReport;
   dispatchHardening?: SpecHardeningReport;
 }
@@ -751,6 +753,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     };
   }
   const best = judge.winner;
+  const winnerValidation = valid.find((candidate) => candidate.envelope === best);
+  const winnerGate = gateResults.find((entry) => entry.worker === best.worker)?.result;
   const finalSafety = classifyBuilderTask({
     instruction: input.instruction,
     scope: scope.files,
@@ -764,6 +768,26 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     judgeDecision,
   });
   const pushBlockedReason = finalSafety.reasons[0] ?? 'Autonomous push blocked by builder safety policy.';
+  const s4c = Date.now();
+  const workflowSimulation = buildWorkflowSimulation({
+    scopeFiles: scope.files,
+    createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path),
+    winner: best,
+    winnerClaimGate: winnerGate,
+    finalSafety,
+    dryRun: input.dryRun === true,
+    appliedDiffSnapshot: winnerValidation?.appliedDiffSnapshot,
+    sideEffectsMode: input.sideEffects?.mode === 'none' ? 'none' : 'default',
+  });
+  phases.push({
+    phase: 'workflow-simulation',
+    status: workflowSimulation.recommendedAction === 'allow_push'
+      || (input.dryRun === true && workflowSimulation.recommendedAction === 'dry_run_only')
+      ? 'ok'
+      : 'error',
+    durationMs: Date.now() - s4c,
+    detail: workflowSimulation,
+  });
 
   // Dry run?
   if (input.dryRun) {
@@ -779,8 +803,37 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       approvalReason: finalSafety.approvalReason,
       pushBlockedReason,
       protectedPathsTouched: finalSafety.protectedPathsTouched,
+      workflowSimulation,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening };
+  }
+
+  if (workflowSimulation.recommendedAction !== 'allow_push') {
+    const workflowSimulationSummary = workflowSimulation.recommendedAction === 'block_push'
+      ? `Workflow simulation gate blocked push: ${workflowSimulation.simulatedFindings[0] ?? 'pre-push workflow violation'}`
+      : workflowSimulation.recommendedAction === 'dry_run_only'
+        ? `Workflow simulation gate downgraded this run to dry-run-only: ${workflowSimulation.simulatedFindings[0] ?? 'pre-push caution'}`
+        : `Workflow simulation gate requires review before push: ${workflowSimulation.simulatedFindings[0] ?? workflowSimulation.recommendedAction}`;
+    return {
+      status: workflowSimulation.recommendedAction === 'block_push' ? 'failed' : 'partial',
+      runId,
+      phases,
+      edits: best,
+      totalDurationMs: Date.now() - totalStart,
+      summary: workflowSimulationSummary,
+      taskClass: finalSafety.taskClass,
+      executionPolicy: finalSafety.executionPolicy,
+      decision: finalSafety.decision,
+      pushAllowed: false,
+      requiredExternalApproval: finalSafety.requiredExternalApproval,
+      approvalId: finalSafety.approvalId,
+      approvalReason: finalSafety.approvalReason,
+      pushBlockedReason: workflowSimulation.simulatedFindings[0] ?? pushBlockedReason,
+      protectedPathsTouched: finalSafety.protectedPathsTouched,
+      workflowSimulation,
+      hardening,
+      dispatchHardening: architectAssembly.dispatchHardening,
+    };
   }
 
   // Phase 5: Push
@@ -806,6 +859,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         protectedPathsTouched: push.protectedPathsTouched,
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
+        workflowSimulation,
         hardening,
         dispatchHardening: architectAssembly.dispatchHardening,
       };
@@ -875,6 +929,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     protectedPathsTouched: finalSafety.protectedPathsTouched,
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
+    workflowSimulation,
     hardening,
     dispatchHardening: architectAssembly.dispatchHardening,
   };
