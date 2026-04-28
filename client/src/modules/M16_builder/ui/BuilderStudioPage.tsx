@@ -860,7 +860,7 @@ function BuilderAuthGate(props: {
       >
         <div style={{ fontFamily: TOKENS.font.display, fontSize: 28, color: TOKENS.text }}>Builder Studio</div>
         <div style={{ marginTop: 10, fontFamily: TOKENS.font.body, fontSize: 14, lineHeight: 1.7, color: TOKENS.text2 }}>
-          Zugriff nur mit Builder-Token aus URL oder Passwort-Dialog. Der Token bleibt nur im laufenden Zustand und wird nicht im Browser gespeichert.
+          Zugriff nur mit Builder-Token aus URL, vorhandenem Browser-Speicher oder Passwort-Dialog. Auf diesem Geraet gespeicherte Tokens koennen wiederverwendet werden.
         </div>
         {error ? (
           <div style={{ marginTop: 18, borderRadius: 14, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.32)', color: '#fecaca', padding: '12px 14px', fontSize: 13 }}>
