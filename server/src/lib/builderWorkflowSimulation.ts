@@ -75,7 +75,7 @@ export function buildWorkflowSimulation({
   const claimRejectCodes = winnerClaimGate?.rejectCodes ?? [];
 
   const simulatedFindings: string[] = [];
-  let recommendedAction: WorkflowSimulationRecommendedAction = 'allow_push';
+  let baseRecommendedAction: WorkflowSimulationRecommendedAction = 'allow_push';
 
   const protectedPathRisk = protectedPaths.length > 0 ? 1 : 0;
   const scopeRisk = outOfScopeFiles.length > 0 ? 1 : 0;
@@ -88,46 +88,47 @@ export function buildWorkflowSimulation({
   const driftRisk = clamp(Math.max(protectedPathRisk, claimAnchoringRisk * 0.5));
 
   if (dryRun) {
-    recommendedAction = 'dry_run_only';
     simulatedFindings.push('dryRun=true keeps the workflow in report-only mode before push.');
   }
 
   if (finalSafety.executionPolicy === 'manual_only') {
-    recommendedAction = 'block_push';
+    baseRecommendedAction = 'block_push';
     simulatedFindings.push('manual_only execution policy requires a hard pre-push stop.');
   }
 
   if (protectedPaths.length > 0) {
-    recommendedAction = 'block_push';
+    baseRecommendedAction = 'block_push';
     simulatedFindings.push(`Protected paths touched: ${protectedPaths.join(', ')}`);
   }
 
   if (outOfScopeFiles.length > 0) {
-    recommendedAction = 'block_push';
+    baseRecommendedAction = 'block_push';
     simulatedFindings.push(`Winner edits outside allowed scope/create targets: ${outOfScopeFiles.join(', ')}`);
   }
 
   if (claimMismatches.length > 0) {
-    recommendedAction = 'block_push';
+    baseRecommendedAction = 'block_push';
     simulatedFindings.push(`Claim gate flagged scope mismatches for winner claims (${claimMismatches.length}).`);
-  } else if (recommendedAction === 'allow_push' && (claimNoAnchor.length > 0 || claimRejectCodes.length > 0)) {
-    recommendedAction = 'require_review';
+  } else if (baseRecommendedAction === 'allow_push' && (claimNoAnchor.length > 0 || claimRejectCodes.length > 0)) {
+    baseRecommendedAction = 'require_review';
     simulatedFindings.push(`Claim anchoring is incomplete for winner claims (${claimNoAnchor.length || claimRejectCodes.length}).`);
   }
 
-  if (!dryRun && recommendedAction === 'allow_push' && !finalSafety.pushAllowed) {
-    recommendedAction = finalSafety.decision === 'block' ? 'block_push' : 'require_review';
+  if (baseRecommendedAction === 'allow_push' && !finalSafety.pushAllowed) {
+    baseRecommendedAction = finalSafety.decision === 'block' ? 'block_push' : 'require_review';
     simulatedFindings.push(finalSafety.reasons[0] ?? 'Final safety does not allow an autonomous push.');
   }
 
   if (
     appliedDiffSnapshot
-    && recommendedAction === 'allow_push'
+    && baseRecommendedAction === 'allow_push'
     && appliedDiffSnapshot.actualChangedFiles.some((path) => !allowedFiles.has(path))
   ) {
-    recommendedAction = 'require_review';
+    baseRecommendedAction = 'require_review';
     simulatedFindings.push('Applied diff snapshot shows changed files outside the expected scope.');
   }
+
+  const recommendedAction: WorkflowSimulationRecommendedAction = dryRun ? 'dry_run_only' : baseRecommendedAction;
 
   let confidence = 0.55;
   if (recommendedAction === 'dry_run_only') confidence = 0.45;
