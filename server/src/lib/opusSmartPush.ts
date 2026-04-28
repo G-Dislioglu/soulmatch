@@ -37,7 +37,7 @@ interface SmartPushResult {
   durationMs: number;
   /** Verified commit SHA if the GitHub Actions run actually landed a commit on main. */
   commitHash?: string;
-  /** Set to true only after a terminal execution-result callback confirmed the commit. */
+  /** True after a terminal success callback, false after a terminal failure callback, undefined while callback truth is still pending. */
   landed?: boolean;
 }
 
@@ -160,11 +160,16 @@ export async function smartPush(
         waitForPushResult(taskId, PUSH_CALLBACK_TIMEOUT_MS).then((r) => ({ taskId, r })),
       ),
     );
-    landed = results.every((entry) => entry.r.landed);
+    const hasPendingTruth = results.some((entry) => entry.r.landed === undefined);
+    landed = hasPendingTruth ? undefined : results.every((entry) => entry.r.landed === true);
     for (const entry of results) {
-      if (!entry.r.landed) {
+      if (entry.r.landed === false) {
         errors.push(
           `push did not land for task ${entry.taskId}: ${entry.r.reason ?? 'unknown_reason'}`,
+        );
+      } else if (entry.r.landed === undefined) {
+        errors.push(
+          `push callback timed out for task ${entry.taskId}: ${entry.r.reason ?? 'unknown_reason'}; landing truth still pending`,
         );
       } else if (entry.r.commitHash && !verifiedCommitHash) {
         verifiedCommitHash = entry.r.commitHash;
