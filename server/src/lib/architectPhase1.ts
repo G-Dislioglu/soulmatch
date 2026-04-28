@@ -134,6 +134,12 @@ type ArchitectObservation = {
   updatedAt: string | null;
   observedAssemblies: number;
   finalInstructionLength: number;
+  dispatchSections: {
+    controlPlane: boolean;
+    teamCoordination: boolean;
+    metaSources: boolean;
+    assumptions: boolean;
+  };
   metaFragments: Array<ReturnType<typeof compactFragment>>;
   selectedAssumptions: Array<ReturnType<typeof compactFragment>>;
   omittedMetaFragments: Array<ReturnType<typeof compactFragment>>;
@@ -170,6 +176,12 @@ let latestObservation: ArchitectObservation = {
   // Not every early return path reaches updateObservation() yet.
   observedAssemblies: 0,
   finalInstructionLength: 0,
+  dispatchSections: {
+    controlPlane: false,
+    teamCoordination: false,
+    metaSources: false,
+    assumptions: false,
+  },
   metaFragments: [],
   selectedAssumptions: [],
   omittedMetaFragments: [],
@@ -897,11 +909,18 @@ function updateObservation(result: ArchitectAssemblyResult): void {
     ...result.selectedAssumptions,
     ...result.omittedMetaFragments,
   ];
+  const dispatchSections = {
+    controlPlane: result.finalInstruction.includes('ARCHITECT CONTROL PLANE'),
+    teamCoordination: result.finalInstruction.includes('ARCHITECT TEAM COORDINATION'),
+    metaSources: result.finalInstruction.includes('ARCHITECT HTTP META SOURCES'),
+    assumptions: result.finalInstruction.includes('ARCHITECT ASSUMPTIONS'),
+  };
 
   latestObservation = {
     updatedAt: nowIso(),
     observedAssemblies: latestObservation.observedAssemblies + 1,
     finalInstructionLength: result.finalInstruction.length,
+    dispatchSections,
     metaFragments: result.metaFragments.map(compactFragment),
     selectedAssumptions: result.selectedAssumptions.map(compactFragment),
     omittedMetaFragments: result.omittedMetaFragments.map(compactFragment),
