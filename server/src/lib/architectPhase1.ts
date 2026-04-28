@@ -66,6 +66,11 @@ type ArchitectTeamCoordinationSection = {
   warnings: string[];
 };
 
+type ArchitectControlPlaneSection = {
+  section: string | null;
+  warnings: string[];
+};
+
 interface ArchitectObservationFindingAggregateBySeverity {
   severity: ArchitectFinding['severity'];
   count: number;
@@ -266,6 +271,44 @@ function buildArchitectTeamCoordinationSection(): ArchitectTeamCoordinationSecti
     warnings: entries.length === 3
       ? []
       : ['Architect team coordination partial; one or more role briefs were unavailable.'],
+  };
+}
+
+function buildArchitectControlPlaneSection(): ArchitectControlPlaneSection {
+  const controlPlane = getBuilderControlState();
+  const rules = controlPlane.activeRules
+    .map((entry) => normalizeWhitespace(entry))
+    .filter((entry): entry is string => Boolean(entry) && entry !== 'not available')
+    .slice(0, 5);
+
+  const nextBlockLines = [
+    controlPlane.nextBlock.title ? `Title: ${normalizeWhitespace(controlPlane.nextBlock.title)}` : null,
+    controlPlane.nextBlock.scope ? `Scope: ${normalizeWhitespace(controlPlane.nextBlock.scope)}` : null,
+    controlPlane.nextBlock.reason ? `Reason: ${normalizeWhitespace(controlPlane.nextBlock.reason)}` : null,
+  ].filter((entry): entry is string => {
+    return typeof entry === 'string' && !entry.includes('not available');
+  });
+
+  const parts: string[] = [];
+  if (rules.length > 0) {
+    parts.push(['ACTIVE RULES', ...rules.map((entry) => `- ${entry}`)].join('\n'));
+  }
+  if (nextBlockLines.length > 0) {
+    parts.push(['NEXT RECOMMENDED BLOCK', ...nextBlockLines].join('\n'));
+  }
+
+  if (parts.length === 0) {
+    return {
+      section: null,
+      warnings: ['Architect control plane unavailable; dispatch continues without rules brief.'],
+    };
+  }
+
+  return {
+    section: ['ARCHITECT CONTROL PLANE', ...parts].join('\n\n'),
+    warnings: parts.length === 2
+      ? []
+      : ['Architect control plane partial; rules or next-block guidance unavailable.'],
   };
 }
 
@@ -912,7 +955,9 @@ export async function assembleArchitectInstruction(
   const warnings: string[] = [];
   const findings: ArchitectFinding[] = [];
   const teamCoordination = buildArchitectTeamCoordinationSection();
+  const controlPlane = buildArchitectControlPlaneSection();
   warnings.push(...teamCoordination.warnings);
+  warnings.push(...controlPlane.warnings);
 
   if (instruction.length > USER_INSTRUCTION_SOFT_LIMIT) {
     const dispatchHardening = hardenInstruction(instruction);
@@ -996,6 +1041,7 @@ export async function assembleArchitectInstruction(
 
   const sections = [
     instruction.trim(),
+    controlPlane.section,
     teamCoordination.section,
     allowedMetaFragments.length > 0
       ? ['ARCHITECT HTTP META SOURCES', ...allowedMetaFragments.map(serializeFragmentSection)].join('\n\n')
