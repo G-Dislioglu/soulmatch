@@ -52,6 +52,12 @@ export interface ArchitectTaskAugmentations {
 export interface ArchitectAssemblyResult {
   ok: boolean;
   finalInstruction: string;
+  dispatchSections: {
+    controlPlane: boolean;
+    teamCoordination: boolean;
+    metaSources: boolean;
+    assumptions: boolean;
+  };
   dispatchHardening: SpecHardeningReport;
   metaFragments: ArchitectSourceFragment[];
   selectedAssumptions: ArchitectSourceFragment[];
@@ -134,12 +140,7 @@ type ArchitectObservation = {
   updatedAt: string | null;
   observedAssemblies: number;
   finalInstructionLength: number;
-  dispatchSections: {
-    controlPlane: boolean;
-    teamCoordination: boolean;
-    metaSources: boolean;
-    assumptions: boolean;
-  };
+  dispatchSections: ArchitectAssemblyResult['dispatchSections'];
   metaFragments: Array<ReturnType<typeof compactFragment>>;
   selectedAssumptions: Array<ReturnType<typeof compactFragment>>;
   omittedMetaFragments: Array<ReturnType<typeof compactFragment>>;
@@ -909,18 +910,12 @@ function updateObservation(result: ArchitectAssemblyResult): void {
     ...result.selectedAssumptions,
     ...result.omittedMetaFragments,
   ];
-  const dispatchSections = {
-    controlPlane: result.finalInstruction.includes('ARCHITECT CONTROL PLANE'),
-    teamCoordination: result.finalInstruction.includes('ARCHITECT TEAM COORDINATION'),
-    metaSources: result.finalInstruction.includes('ARCHITECT HTTP META SOURCES'),
-    assumptions: result.finalInstruction.includes('ARCHITECT ASSUMPTIONS'),
-  };
 
   latestObservation = {
     updatedAt: nowIso(),
     observedAssemblies: latestObservation.observedAssemblies + 1,
     finalInstructionLength: result.finalInstruction.length,
-    dispatchSections,
+    dispatchSections: result.dispatchSections,
     metaFragments: result.metaFragments.map(compactFragment),
     selectedAssumptions: result.selectedAssumptions.map(compactFragment),
     omittedMetaFragments: result.omittedMetaFragments.map(compactFragment),
@@ -977,12 +972,19 @@ export async function assembleArchitectInstruction(
   const controlPlane = buildArchitectControlPlaneSection();
   warnings.push(...teamCoordination.warnings);
   warnings.push(...controlPlane.warnings);
+  const baseDispatchSections = {
+    controlPlane: Boolean(controlPlane.section),
+    teamCoordination: Boolean(teamCoordination.section),
+    metaSources: false,
+    assumptions: false,
+  } satisfies ArchitectAssemblyResult['dispatchSections'];
 
   if (instruction.length > USER_INSTRUCTION_SOFT_LIMIT) {
     const dispatchHardening = hardenInstruction(instruction);
     return {
       ok: false,
       finalInstruction: instruction,
+      dispatchSections: baseDispatchSections,
       dispatchHardening,
       metaFragments: [],
       selectedAssumptions: [],
@@ -1007,6 +1009,11 @@ export async function assembleArchitectInstruction(
       return {
         ok: false,
         finalInstruction: instruction,
+        dispatchSections: {
+          ...baseDispatchSections,
+          metaSources: allowedMetaFragments.length > 0,
+          assumptions: selectedAssumptions.length > 0,
+        },
         dispatchHardening,
         metaFragments: allowedMetaFragments,
         selectedAssumptions,
@@ -1026,6 +1033,11 @@ export async function assembleArchitectInstruction(
     return {
       ok: false,
       finalInstruction: instruction,
+      dispatchSections: {
+        ...baseDispatchSections,
+        metaSources: allowedMetaFragments.length > 0,
+        assumptions: selectedAssumptions.length > 0,
+      },
       dispatchHardening,
       metaFragments: allowedMetaFragments,
       selectedAssumptions,
@@ -1046,6 +1058,11 @@ export async function assembleArchitectInstruction(
     const result = {
       ok: false,
       finalInstruction: instruction,
+      dispatchSections: {
+        ...baseDispatchSections,
+        metaSources: allowedMetaFragments.length > 0,
+        assumptions: uniqueAssumptions.length > 0,
+      },
       dispatchHardening,
       metaFragments: allowedMetaFragments,
       selectedAssumptions: uniqueAssumptions,
@@ -1069,6 +1086,12 @@ export async function assembleArchitectInstruction(
       ? ['ARCHITECT ASSUMPTIONS', ...uniqueAssumptions.map(serializeFragmentSection)].join('\n\n')
       : null,
   ].filter((section): section is string => Boolean(section));
+  const dispatchSections = {
+    controlPlane: Boolean(controlPlane.section),
+    teamCoordination: Boolean(teamCoordination.section),
+    metaSources: allowedMetaFragments.length > 0,
+    assumptions: uniqueAssumptions.length > 0,
+  } satisfies ArchitectAssemblyResult['dispatchSections'];
 
   const finalInstruction = sections.join('\n\n');
   if (finalInstruction.length > FINAL_DISPATCH_SOFT_LIMIT) {
@@ -1076,6 +1099,7 @@ export async function assembleArchitectInstruction(
     const result = {
       ok: false,
       finalInstruction,
+      dispatchSections,
       dispatchHardening,
       metaFragments: allowedMetaFragments,
       selectedAssumptions: uniqueAssumptions,
@@ -1092,6 +1116,7 @@ export async function assembleArchitectInstruction(
   const result = {
     ok: dispatchHardening.ok,
     finalInstruction,
+    dispatchSections,
     dispatchHardening,
     metaFragments: allowedMetaFragments,
     selectedAssumptions: uniqueAssumptions,

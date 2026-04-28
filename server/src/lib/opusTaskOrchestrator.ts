@@ -499,6 +499,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       warnings: architectAssembly.warnings,
       findings: architectAssembly.findings,
       finalInstructionLength: architectAssembly.finalInstruction.length,
+      dispatchSections: architectAssembly.dispatchSections,
       dispatchHardening: {
         ok: architectAssembly.dispatchHardening.ok,
         warningCount: architectAssembly.dispatchHardening.stats.warnCount,
