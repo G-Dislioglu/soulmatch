@@ -440,7 +440,7 @@ export async function runRoundtable(
           actorId: participant.actor,
           taskGoal: task.goal,
           scope: task.scope ?? [],
-        }).catch(() => '');
+        }, { compact: true }).catch(() => '');
         const system = buildRoundtableSystemPrompt(participant, task, projectDna, teamBriefing || undefined, hints || undefined);
         const prompt = `${formatChatPoolForModel(chatPool)}\n\n--- Dein Beitrag (Runde ${round}): ---`;
         const response = await callProvider(

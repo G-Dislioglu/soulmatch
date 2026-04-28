@@ -105,11 +105,11 @@ async function runSingleScout(
 ): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
   const teamBriefing = await buildTeamAwarenessBrief({
-    role: 'scout',
-    actorId: model.id,
-    taskGoal: task.goal,
-    scope: task.scope ?? [],
-  });
+      role: 'scout',
+      actorId: model.id,
+      taskGoal: task.goal,
+      scope: task.scope ?? [],
+    }, { compact: true });
   const content = await callProvider(model.provider, model.model, {
     system: buildPromptWithContext(focus.system(task.goal), graphBriefing, teamBriefing),
     messages: [{ role: 'user', content: task.goal }],

@@ -23,6 +23,10 @@ export interface TeamAwarenessOptions {
   scope?: string[];
 }
 
+interface TeamAwarenessRenderOptions {
+  compact?: boolean;
+}
+
 interface TeamAwarenessProfile {
   avgQuality: number;
   taskCount: number;
@@ -405,10 +409,14 @@ export function buildTeamCoordinationContext(options: TeamAwarenessOptions): str
   return sections.join('\n');
 }
 
-export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Promise<string> {
+export async function buildTeamAwarenessBrief(
+  options: TeamAwarenessOptions,
+  renderOptions: TeamAwarenessRenderOptions = {},
+): Promise<string> {
   const position = ROLE_POSITIONS[options.role];
   const scope = options.scope ?? [];
   const getProfile = createProfileReader();
+  const compact = renderOptions.compact === true;
 
   const [selfLine, teamLines, memoryLines] = await Promise.all([
     buildSelfLine(options.actorId, options.role, scope, getProfile),
@@ -449,12 +457,14 @@ export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Pr
   sections.push('HANDOFF');
   sections.push(`- Muss hinterlassen: ${compactList(position.handoff, 220)}`);
 
-  sections.push('MEMORY');
-  if (memoryLines.length === 0) {
-    sections.push('- Keine relevanten Team-Memory-Signale verfuegbar.');
-  } else {
-    for (const line of memoryLines) {
-      sections.push(`- ${line}`);
+  if (!compact) {
+    sections.push('MEMORY');
+    if (memoryLines.length === 0) {
+      sections.push('- Keine relevanten Team-Memory-Signale verfuegbar.');
+    } else {
+      for (const line of memoryLines) {
+        sections.push(`- ${line}`);
+      }
     }
   }
 

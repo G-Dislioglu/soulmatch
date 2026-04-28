@@ -296,13 +296,13 @@ export async function runDistiller(
       actorId: extractor.id,
       taskGoal,
       scope: [],
-    }).catch(() => ''),
+    }, { compact: true }).catch(() => ''),
     buildTeamAwarenessBrief({
       role: 'distiller',
       actorId: reasoner.id,
       taskGoal,
       scope: [],
-    }).catch(() => ''),
+    }, { compact: true }).catch(() => ''),
   ]);
 
   // Step 1: Extractor (pool model #1)
