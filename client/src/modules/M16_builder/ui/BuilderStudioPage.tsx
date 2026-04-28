@@ -829,6 +829,14 @@ function ContextPanel(props: {
           <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.tasks.length} Tasks</span>
           <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.workerStats.length} Worker</span>
         </div>
+        {ctx.teamCoordination?.summary ? (
+          <div style={{ marginTop: 10, borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, padding: '10px 12px' }}>
+            <div style={{ fontSize: 10, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Team Coordination</div>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, lineHeight: 1.55, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+              {ctx.teamCoordination.summary}
+            </pre>
+          </div>
+        ) : null}
       </div>
     </div>
   );

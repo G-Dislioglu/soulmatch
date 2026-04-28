@@ -12,6 +12,9 @@ export interface MayaContext {
   memory: { episodes: Array<{ id?: string; key: string; summary: string; updatedAt: string }> };
   continuityNotes: Array<{ id?: string; key: string; summary: string; updatedAt: string }>;
   workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
+  teamCoordination?: {
+    summary: string;
+  };
   timestamp: string;
 }
 

@@ -30,6 +30,7 @@ import { getBuilderSideEffectsFromGoal } from '../lib/builderSideEffects.js';
 import { signalPushResult } from '../lib/pushResultWaiter.js';
 import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
+import { buildTeamCoordinationContext } from '../lib/builderTeamAwareness.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
@@ -793,6 +794,9 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
       memory: { episodes },
       continuityNotes: continuity,
       workerStats: workerStats.rows,
+      teamCoordination: {
+        summary: buildTeamCoordinationContext({ role: 'maya' }),
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
