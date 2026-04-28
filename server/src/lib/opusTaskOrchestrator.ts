@@ -33,6 +33,7 @@ import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from '.
 import { type BuilderSideEffectsContract } from './builderSideEffects.js';
 import { buildWorkflowSimulation, type BuilderWorkflowSimulation } from './builderWorkflowSimulation.js';
 import { buildRecommendationOutput, type BuilderRecommendationOutput } from './builderRecommendationOutput.js';
+import { buildAnalysisOutput, type BuilderAnalysisOutput } from './builderAnalysisOutput.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -83,6 +84,7 @@ export interface OpusTaskResult {
   verifiedCommit?: string;
   workflowSimulation?: BuilderWorkflowSimulation;
   recommendation?: BuilderRecommendationOutput;
+  analysis?: BuilderAnalysisOutput;
   hardening?: SpecHardeningReport;
   dispatchHardening?: SpecHardeningReport;
 }
@@ -782,6 +784,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     sideEffectsMode: input.sideEffects?.mode === 'none' ? 'none' : 'default',
   });
   const recommendation = buildRecommendationOutput(workflowSimulation);
+  const analysis = buildAnalysisOutput(workflowSimulation);
   phases.push({
     phase: 'workflow-simulation',
     status: workflowSimulation.recommendedAction === 'allow_push'
@@ -808,6 +811,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       protectedPathsTouched: finalSafety.protectedPathsTouched,
       workflowSimulation,
       recommendation,
+      analysis,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening };
   }
@@ -836,6 +840,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       protectedPathsTouched: finalSafety.protectedPathsTouched,
       workflowSimulation,
       recommendation,
+      analysis,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening,
     };
@@ -866,6 +871,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         verifiedCommit: push.verifiedCommit,
         workflowSimulation,
         recommendation,
+        analysis,
         hardening,
         dispatchHardening: architectAssembly.dispatchHardening,
       };
@@ -937,6 +943,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     verifiedCommit: pushDetail?.verifiedCommit,
     workflowSimulation,
     recommendation,
+    analysis,
     hardening,
     dispatchHardening: architectAssembly.dispatchHardening,
   };
