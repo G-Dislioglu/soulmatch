@@ -531,7 +531,7 @@ export function PatrolConsole() {
     try {
       const result = await triggerRoutinePatrol();
       setRoutineMessage(
-        `Routine Patrol fertig: ${result.scanned} Dateien gescannt, ${result.found} Findings erkannt, ${result.inserted} neu gespeichert, ${result.crossConfirmed} cross-confirmed.`,
+        `Routine Patrol fertig: ${result.scanned} Dateien gescannt, ${result.found} Findings erkannt, ${result.inserted} neu gespeichert, ${result.crossConfirmed} doppelt bestaetigt.`,
       );
       await load();
     } catch (error) {
@@ -595,7 +595,7 @@ export function PatrolConsole() {
             {!hasToken
               ? 'Opus-Token fehlt in der URL.'
               : status
-                ? `Letzte Runde: ${timeAgo(status.lastRound)} · ${status.triaged ?? 0} triaged · ${status.crossConfirmed ?? 0} bestätigt`
+                ? `Letzte Runde: ${timeAgo(status.lastRound)} · ${status.triaged ?? 0} triagiert · ${status.crossConfirmed ?? 0} bestaetigt`
                 : 'Laden...'}
           </div>
         </div>
@@ -676,7 +676,7 @@ export function PatrolConsole() {
               opacity: routineRunning || !hasToken ? 0.6 : 1,
             }}
           >
-            {routineRunning ? 'Routine Patrol läuft...' : 'Run Routine Patrol'}
+            {routineRunning ? 'Routine Patrol laeuft...' : 'Routine Patrol starten'}
           </button>
           <span style={{ fontSize: 12, color: '#6b7084' }}>
             Nutzt den vorhandenen body-losen Server-Trigger. Keine freie Modellkonfiguration.
@@ -764,7 +764,7 @@ export function PatrolConsole() {
       </div>
 
       <div style={{ marginTop: 24, padding: '16px 0', borderTop: '1px solid #1a1b2e', fontSize: 11, color: '#4a4d60', textAlign: 'center' }}>
-        Scout Patrol v1.0 · {findings.length} findings geladen · {Object.keys(CAT_LABELS).length} Kategorien
+        Scout Patrol v1.0 · {findings.length} Findings geladen · {Object.keys(CAT_LABELS).length} Kategorien
       </div>
     </div>
   );
