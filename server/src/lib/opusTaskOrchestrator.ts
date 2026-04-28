@@ -32,6 +32,7 @@ import { hardenInstruction, type SpecHardeningReport } from './specHardening.js'
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
 import { type BuilderSideEffectsContract } from './builderSideEffects.js';
 import { buildWorkflowSimulation, type BuilderWorkflowSimulation } from './builderWorkflowSimulation.js';
+import { buildRecommendationOutput, type BuilderRecommendationOutput } from './builderRecommendationOutput.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -81,6 +82,7 @@ export interface OpusTaskResult {
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
   verifiedCommit?: string;
   workflowSimulation?: BuilderWorkflowSimulation;
+  recommendation?: BuilderRecommendationOutput;
   hardening?: SpecHardeningReport;
   dispatchHardening?: SpecHardeningReport;
 }
@@ -779,6 +781,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     appliedDiffSnapshot: winnerValidation?.appliedDiffSnapshot,
     sideEffectsMode: input.sideEffects?.mode === 'none' ? 'none' : 'default',
   });
+  const recommendation = buildRecommendationOutput(workflowSimulation);
   phases.push({
     phase: 'workflow-simulation',
     status: workflowSimulation.recommendedAction === 'allow_push'
@@ -804,6 +807,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       pushBlockedReason,
       protectedPathsTouched: finalSafety.protectedPathsTouched,
       workflowSimulation,
+      recommendation,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening };
   }
@@ -831,6 +835,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       pushBlockedReason: workflowSimulation.simulatedFindings[0] ?? pushBlockedReason,
       protectedPathsTouched: finalSafety.protectedPathsTouched,
       workflowSimulation,
+      recommendation,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening,
     };
@@ -860,6 +865,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
         workflowSimulation,
+        recommendation,
         hardening,
         dispatchHardening: architectAssembly.dispatchHardening,
       };
@@ -930,6 +936,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
     workflowSimulation,
+    recommendation,
     hardening,
     dispatchHardening: architectAssembly.dispatchHardening,
   };
