@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useBuilderApi,
+  type BuilderPatrolDeepResult,
+} from '../hooks/useBuilderApi';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -23,20 +27,13 @@ interface PatrolStatus {
   bySeverity?: Partial<Record<Severity, number>>;
 }
 
-interface DeepResult {
-  model: string;
-  severity?: string;
-  analysis?: string;
-  verdict?: string;
-}
+type DeepResult = BuilderPatrolDeepResult;
 
 interface PatrolModelSlot {
   role: string;
   model: string;
   color: string;
 }
-
-const API_BASE = '/api/builder/opus-bridge';
 
 const AVAILABLE_MODELS = [
   'GLM-5-Turbo', 'GLM-5.1', 'GLM-5', 'GLM-4.7',
@@ -45,6 +42,17 @@ const AVAILABLE_MODELS = [
   'DeepSeek-R', 'DeepSeek Chat',
   'Kimi', 'Qwen', 'Minimax',
 ];
+
+const DEEP_MODEL_TO_ID: Record<string, string> = {
+  'GLM-5-Turbo': 'glm-5-turbo',
+  'GLM-5.1': 'glm-5.1',
+  'GPT-5.4': 'gpt-5.4',
+  'Sonnet 4.6': 'sonnet-4.6',
+  'DeepSeek-R': 'deepseek-r',
+  Kimi: 'kimi',
+};
+
+const AVAILABLE_DEEP_MODELS = Object.keys(DEEP_MODEL_TO_ID);
 
 const ROUTINE_SCOUT_SLOTS: PatrolModelSlot[] = [
   { role: 'SCOUT #1', model: 'GLM-5-Turbo', color: '#39ff14' },
@@ -148,30 +156,24 @@ function DeepResultCard({ result }: DeepResultCardProps) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: '#7c6af7' }}>{result.model || 'Model'}</span>
-        {result.severity && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#7c6af7',
-              background: '#7c6af718',
-              padding: '2px 8px',
-              borderRadius: 10,
-              textTransform: 'uppercase',
-            }}
-          >
-            {result.severity}
-          </span>
-        )}
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#7c6af7',
+            background: '#7c6af718',
+            padding: '2px 8px',
+            borderRadius: 10,
+            textTransform: 'uppercase',
+          }}
+        >
+          {result.scanned} Dateien
+        </span>
       </div>
-      {result.verdict && (
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#a8e6cf', marginBottom: 4 }}>
-          ✓ {result.verdict}
-        </div>
-      )}
-      {result.analysis && (
-        <div style={{ fontSize: 12, color: '#8b8fa3', lineHeight: 1.5 }}>{result.analysis}</div>
-      )}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, color: '#8b8fa3', lineHeight: 1.5 }}>
+        <span>{result.found} Findings erkannt</span>
+        <span>{result.inserted} neu gespeichert</span>
+      </div>
     </div>
   );
 }
@@ -269,7 +271,7 @@ function ModelSelect({ value, onChange, models }: {
   );
 }
 
-function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps) {
+function PatrolModelCard({ role, model, color, onChange, models = AVAILABLE_MODELS }: PatrolModelCardProps & { models?: string[] }) {
   return (
     <div
       style={{
@@ -284,7 +286,7 @@ function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps)
         <div>
           <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
           <div style={{ marginTop: 4 }}>
-            <ModelSelect value={model} onChange={onChange} models={AVAILABLE_MODELS} />
+            <ModelSelect value={model} onChange={onChange} models={models} />
           </div>
         </div>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 12px ${color}66`, flexShrink: 0 }} />
@@ -298,11 +300,12 @@ interface FindingCardProps {
   expanded: boolean;
   onToggle: () => void;
   deepResult: DeepResult[] | null;
+  deepError?: string | null;
   deepLoading: boolean;
   onDeepPatrol: () => void;
 }
 
-function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onDeepPatrol }: FindingCardProps) {
+function FindingCard({ finding, expanded, onToggle, deepResult, deepError, deepLoading, onDeepPatrol }: FindingCardProps) {
   const cfg = SEV_CONFIG[finding.severity] || SEV_CONFIG.info;
   return (
     <div
@@ -378,6 +381,12 @@ function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onD
           </div>
 
           {/* Deep Patrol Results */}
+          {deepError ? (
+            <div style={{ marginTop: 10, fontSize: 12, color: '#ff8c42', lineHeight: 1.5 }}>
+              {deepError}
+            </div>
+          ) : null}
+
           {deepResult && deepResult.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 10, color: '#7c6af7', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>🔬 Deep Patrol Ergebnisse</div>
@@ -415,12 +424,18 @@ export function PatrolConsole() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const token = (params.get('opus_token') || params.get('token') || '').trim();
   const hasToken = token.length > 0;
+  const {
+    getPatrolStatus,
+    getPatrolFindings,
+    triggerDeepPatrol,
+  } = useBuilderApi(token || null, token || null);
   const [status, setStatus] = useState<PatrolStatus | null>(null);
   const [findings, setFindings] = useState<PatrolFinding[]>([]);
   const [filter, setFilter] = useState<'all' | Severity>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deepResults, setDeepResults] = useState<Record<string, DeepResult[]>>({});
+  const [deepErrors, setDeepErrors] = useState<Record<string, string>>({});
   const [deepLoading, setDeepLoading] = useState<Record<string, boolean>>({});
   const [routineModels, setRoutineModels] = useState<Record<string, string>>(() =>
     Object.fromEntries(ROUTINE_SCOUT_SLOTS.map((slot) => [slot.role, slot.model])),
@@ -429,56 +444,64 @@ export function PatrolConsole() {
     Object.fromEntries(DEEP_ANALYSIS_SLOTS.map((slot) => [slot.role, slot.model])),
   );
 
-  const api = useCallback(async <T,>(endpoint: string, extraParams = ''): Promise<T> => {
+  const triggerDeep = useCallback(async (finding: PatrolFinding) => {
     if (!hasToken) {
-      throw new Error('Opus-Token fehlt');
-    }
-
-    const response = await fetch(`${API_BASE}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return response.json() as Promise<T>;
-  }, [hasToken, token]);
-
-  const triggerDeep = useCallback(async (findingId: string) => {
-    if (!hasToken) {
-      console.error('Deep patrol error: Opus-Token fehlt');
+      setDeepErrors((prev) => ({ ...prev, [finding.id]: 'Deep Patrol braucht einen gueltigen Opus-Token.' }));
       return;
     }
 
-    setDeepLoading((prev) => ({ ...prev, [findingId]: true }));
-    try {
-      const response = await fetch(`${API_BASE}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ findingId }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json() as DeepResult[];
-      setDeepResults((prev) => ({ ...prev, [findingId]: data }));
-    } catch (error) {
-      console.error('Deep patrol error:', error);
-    } finally {
-      setDeepLoading((prev) => ({ ...prev, [findingId]: false }));
+    const files = Array.from(new Set((finding.affectedFiles || []).map((file) => file.trim()).filter(Boolean)));
+    if (files.length === 0) {
+      setDeepResults((prev) => ({ ...prev, [finding.id]: [] }));
+      setDeepErrors((prev) => ({ ...prev, [finding.id]: 'Deep Patrol kann fuer dieses Finding keine files[] ableiten, weil affectedFiles fehlen.' }));
+      return;
     }
-  }, [hasToken, token]);
+
+    const selectedModels = DEEP_ANALYSIS_SLOTS.map((slot) => deepModels[slot.role] ?? slot.model);
+    const unsupportedModels = selectedModels.filter((model) => !DEEP_MODEL_TO_ID[model]);
+    if (unsupportedModels.length > 0) {
+      setDeepResults((prev) => ({ ...prev, [finding.id]: [] }));
+      setDeepErrors((prev) => ({
+        ...prev,
+        [finding.id]: `Deep Patrol kennt fuer diese Auswahl keine serverseitigen model ids: ${unsupportedModels.join(', ')}.`,
+      }));
+      return;
+    }
+
+    const modelIds = Array.from(new Set(selectedModels.map((model) => DEEP_MODEL_TO_ID[model]).filter(Boolean)));
+    setDeepLoading((prev) => ({ ...prev, [finding.id]: true }));
+    setDeepErrors((prev) => {
+      const next = { ...prev };
+      delete next[finding.id];
+      return next;
+    });
+    try {
+      const data = await triggerDeepPatrol(modelIds, files);
+      setDeepResults((prev) => ({ ...prev, [finding.id]: data.results || [] }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Deep Patrol fehlgeschlagen.';
+      setDeepResults((prev) => ({ ...prev, [finding.id]: [] }));
+      setDeepErrors((prev) => ({ ...prev, [finding.id]: message }));
+    } finally {
+      setDeepLoading((prev) => ({ ...prev, [finding.id]: false }));
+    }
+  }, [deepModels, hasToken, triggerDeepPatrol]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [nextStatus, nextFindings] = await Promise.all([
-        api<PatrolStatus>('patrol-status'),
-        api<{ findings?: PatrolFinding[] } | PatrolFinding[]>('patrol-findings', '&limit=100'),
+        getPatrolStatus(),
+        getPatrolFindings(100),
       ]);
       setStatus(nextStatus);
-      setFindings(Array.isArray(nextFindings) ? nextFindings : nextFindings.findings || []);
+      setFindings(nextFindings.findings || []);
     } catch (error) {
       console.error('Patrol load error:', error);
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [getPatrolFindings, getPatrolStatus]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -590,6 +613,7 @@ export function PatrolConsole() {
               role={slot.role}
               model={deepModels[slot.role] ?? slot.model}
               color={slot.color}
+              models={AVAILABLE_DEEP_MODELS}
               onChange={(value) => setDeepModels((current) => ({ ...current, [slot.role]: value }))}
             />
           ))}
@@ -649,8 +673,9 @@ export function PatrolConsole() {
               expanded={expanded === finding.id}
               onToggle={() => setExpanded(expanded === finding.id ? null : finding.id)}
               deepResult={deepResults[finding.id] ?? null}
+              deepError={deepErrors[finding.id] ?? null}
               deepLoading={!!deepLoading[finding.id]}
-              onDeepPatrol={() => void triggerDeep(finding.id)}
+              onDeepPatrol={() => void triggerDeep(finding)}
             />
           ))
         )}

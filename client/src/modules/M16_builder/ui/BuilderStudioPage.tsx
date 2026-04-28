@@ -19,6 +19,7 @@ import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
   useBuilderApi,
   type BuilderAction,
+  type BuilderArchitectState,
   type BuilderChatMessage,
   type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
@@ -746,16 +747,26 @@ function PoolBar(props: {
 
 function ContextPanel(props: {
   ctx: MayaContext | null;
+  architectState: BuilderArchitectState | null;
+  architectError: string | null;
   onDeleteMemory: (id: string) => void;
   onAddNote: (summary: string) => void;
 }) {
-  const { ctx, onDeleteMemory, onAddNote } = props;
+  const { ctx, architectState, architectError, onDeleteMemory, onAddNote } = props;
   const [showAdd, setShowAdd] = useState(false);
   const [newNote, setNewNote] = useState('');
 
   if (!ctx) {
     return <div style={{ fontSize: 12, color: TOKENS.text3 }}>Kein Maya-Kontext geladen.</div>;
   }
+
+  const architectPersistenceLabel = architectState
+    ? architectState.persistenceMode === 'database'
+      ? 'DB aktiv'
+      : architectState.persistenceMode === 'memory_fallback'
+        ? 'Memory fallback'
+        : 'Status offen'
+    : null;
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
@@ -835,6 +846,54 @@ function ContextPanel(props: {
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, lineHeight: 1.55, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
               {ctx.teamCoordination.summary}
             </pre>
+          </div>
+        ) : null}
+
+        {architectError ? (
+          <div style={{ marginTop: 10, borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '10px 12px', fontSize: 11, lineHeight: 1.5 }}>
+            Architect State konnte nicht geladen werden: {architectError}
+          </div>
+        ) : null}
+
+        {architectState ? (
+          <div style={{ marginTop: 10, borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, padding: '10px 12px', display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 10, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Architect State</div>
+              <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px', fontSize: 10, color: TOKENS.text2 }}>
+                {architectPersistenceLabel}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {([
+                ['Rules', architectState.latestObservation.dispatchSections.controlPlane],
+                ['Team', architectState.latestObservation.dispatchSections.teamCoordination],
+                ['Meta', architectState.latestObservation.dispatchSections.metaSources],
+                ['Assume', architectState.latestObservation.dispatchSections.assumptions],
+              ] as const).map(([label, active]) => (
+                <span
+                  key={label}
+                  style={{
+                    borderRadius: 999,
+                    border: `1px solid ${active ? TOKENS.cyan : TOKENS.b3}`,
+                    background: active ? 'rgba(34,211,238,0.10)' : 'rgba(255,255,255,0.03)',
+                    color: active ? TOKENS.cyan : TOKENS.text3,
+                    padding: '2px 8px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Next Recommended Block</div>
+            <div style={{ fontSize: 11, color: TOKENS.text2, lineHeight: 1.5 }}>
+              <strong style={{ color: TOKENS.text }}>Next:</strong> {architectState.controlPlane.nextBlock.title || '—'}
+            </div>
+            <div style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Last Completed Block</div>
+            <div style={{ fontSize: 11, color: TOKENS.text3, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {architectState.controlPlane.projectState.lastCompletedBlock || '—'}
+            </div>
           </div>
         ) : null}
       </div>
@@ -1042,6 +1101,7 @@ export function BuilderStudioPage() {
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
+    getArchitectState,
     approveTask: approveBuilderTask,
     approvePrototype: approveBuilderPrototype,
     revisePrototype: reviseBuilderPrototype,
@@ -1059,6 +1119,8 @@ export function BuilderStudioPage() {
   const [patrolError, setPatrolError] = useState<string | null>(null);
   const [patrolStatus, setPatrolStatus] = useState<BuilderPatrolStatus | null>(null);
   const [patrolFindings, setPatrolFindings] = useState<BuilderPatrolFinding[]>([]);
+  const [architectState, setArchitectState] = useState<BuilderArchitectState | null>(null);
+  const [architectError, setArchitectError] = useState<string | null>(null);
   const [expandedPatrolFindingId, setExpandedPatrolFindingId] = useState<string | null>(null);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
@@ -1218,6 +1280,16 @@ export function BuilderStudioPage() {
     setMayaCtx(nextContext);
   }, [getMayaContext]);
 
+  const refreshArchitectState = useCallback(async () => {
+    setArchitectError(null);
+    try {
+      const nextState = await getArchitectState();
+      setArchitectState(nextState);
+    } catch (error) {
+      setArchitectError(error instanceof Error ? error.message : 'Architect State konnte nicht geladen werden');
+    }
+  }, [getArchitectState]);
+
   const refreshPatrolFeed = useCallback(async () => {
     setPatrolLoading(true);
     setPatrolError(null);
@@ -1299,6 +1371,7 @@ export function BuilderStudioPage() {
     void refreshTasks().catch(() => {});
     void refreshFiles().catch(() => {});
     void refreshMayaContext().catch(() => {});
+    void refreshArchitectState().catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1794,7 +1867,7 @@ export function BuilderStudioPage() {
               <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Zur App
               </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); void refreshArchitectState().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Refresh
               </button>
               <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -2668,7 +2741,7 @@ export function BuilderStudioPage() {
             </div>
 
             <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
-              <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
+              <ContextPanel ctx={mayaCtx} architectState={architectState} architectError={architectError} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
             </BuilderPanel>
 
             <BuilderPanel title="Check Results" subtitle="Runtime- und Build-Befunde aus dem aktuellen Evidence Pack." accent={TOKENS.cyan}>

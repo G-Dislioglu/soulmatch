@@ -163,6 +163,42 @@ export interface BuilderPatrolFinding {
   resolvedAt?: string | null;
 }
 
+export interface BuilderPatrolDeepResult {
+  model: string;
+  scanned: number;
+  found: number;
+  inserted: number;
+}
+
+export interface BuilderPatrolDeepResponse {
+  ok: boolean;
+  results: BuilderPatrolDeepResult[];
+}
+
+export interface BuilderArchitectState {
+  controlPlane: {
+    projectState: {
+      repoHead: string;
+      lastCompletedBlock: string;
+      runtimeNote: string;
+    };
+    nextBlock: {
+      title: string;
+      scope: string;
+      reason: string;
+    };
+  };
+  latestObservation: {
+    dispatchSections: {
+      controlPlane: boolean;
+      teamCoordination: boolean;
+      metaSources: boolean;
+      assumptions: boolean;
+    };
+  };
+  persistenceMode: 'unknown' | 'database' | 'memory_fallback';
+}
+
 function toApiPath(path: string) {
   return `/api/builder${path}`;
 }
@@ -210,7 +246,11 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
       throw new Error('Builder token missing');
     }
 
-    const response = await fetch(appendTokenQuery(toApiPath(path), requestToken, requestOpusToken), {
+    const requestPath = path.startsWith('/api/')
+      ? appendTokenQuery(path, requestToken, requestOpusToken)
+      : appendTokenQuery(toApiPath(path), requestToken, requestOpusToken);
+
+    const response = await fetch(requestPath, {
       ...init,
       headers: {
         ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
@@ -290,6 +330,21 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     });
   }, [requestJson]);
 
+  const triggerDeepPatrol = useCallback((models: string[], files: string[]) => {
+    return requestJson<BuilderPatrolDeepResponse>('/opus-bridge/patrol-trigger-deep', {
+      method: 'POST',
+      body: JSON.stringify({ models, files }),
+    }, {
+      preferOpusOnly: true,
+    });
+  }, [requestJson]);
+
+  const getArchitectState = useCallback(() => {
+    return requestJson<BuilderArchitectState>('/api/architect/state', undefined, {
+      preferOpusOnly: true,
+    });
+  }, [requestJson]);
+
   const approveTask = useCallback((taskId: string, commitHash?: string) => {
     return requestJson<BuilderTask>(`/tasks/${encodeURIComponent(taskId)}/approve`, {
       method: 'POST',
@@ -348,6 +403,8 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
+    triggerDeepPatrol,
+    getArchitectState,
     approveTask,
     approvePrototype,
     revisePrototype,
