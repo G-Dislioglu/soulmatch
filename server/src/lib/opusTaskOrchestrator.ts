@@ -30,6 +30,7 @@ import { classifyBuilderTask, guardBuilderPush, type BuilderGateDecision, type B
 import { validateApprovalArtifact, type ApprovalArtifactValidationResult } from './builderApprovalArtifacts.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
+import { type BuilderSideEffectsContract } from './builderSideEffects.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -39,6 +40,7 @@ export interface OpusTaskInput {
   scope?: string[];
   targetFile?: string;
   acceptanceSmoke?: boolean;
+  sideEffects?: BuilderSideEffectsContract;
   workers?: string[];
   maxTokens?: number;
   skipDeploy?: boolean;
@@ -313,6 +315,7 @@ async function pushEdits(
   instruction: string,
   safetyDecision: BuilderSafetyDecision,
   acceptanceSmoke?: boolean,
+  sideEffects?: BuilderSideEffectsContract,
 ): Promise<{
   pushed: boolean;
   filesCount: number;
@@ -343,6 +346,7 @@ async function pushEdits(
       files,
       result: await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`, {
         acceptanceSmoke,
+        sideEffects,
       }),
     };
   });
@@ -783,7 +787,7 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   if (input.skipDeploy) {
     phases.push({ phase: 'push', status: 'skipped', durationMs: 0 });
   } else {
-    const push = await pushEdits(best, input.instruction, finalSafety, input.acceptanceSmoke);
+    const push = await pushEdits(best, input.instruction, finalSafety, input.acceptanceSmoke, input.sideEffects);
     phases.push({ phase: 'push', status: push.pushed ? 'ok' : 'error', durationMs: push.durationMs, detail: push });
     if (!push.pushed) {
       return { status: 'partial', runId, phases, edits: best,

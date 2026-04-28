@@ -11,6 +11,7 @@
 
 import { invalidateIndexCache } from './builderScopeResolver.js';
 import { outboundFetch } from './outboundHttp.js';
+import { normalizeBuilderSideEffects, type BuilderSideEffectsContract } from './builderSideEffects.js';
 
 const GITHUB_API_BASE = 'https://api.github.com/repos/G-Dislioglu/soulmatch';
 const GITHUB_TREE_URL = `${GITHUB_API_BASE}/git/trees/main?recursive=1`;
@@ -185,7 +186,7 @@ async function processBatch(
 /**
  * Push the built index to the opus bridge /push endpoint.
  */
-async function pushIndex(payload: RepoIndexPayload): Promise<void> {
+async function pushIndex(payload: RepoIndexPayload, sideEffects?: BuilderSideEffectsContract): Promise<void> {
   const port = process.env.PORT ?? '3001';
   const token = process.env.OPUS_BRIDGE_SECRET ?? '';
   const url = `http://localhost:${port}/api/builder/opus-bridge/git-push?opus_token=${encodeURIComponent(token)}`;
@@ -196,6 +197,7 @@ async function pushIndex(payload: RepoIndexPayload): Promise<void> {
     body: JSON.stringify({
       files: [{ file: 'server/data/builder-repo-index.json', content: JSON.stringify(payload) }],
       message: `chore: regen repo index (${payload.f.length} files)`,
+      sideEffects,
     }),
   });
 
@@ -210,11 +212,21 @@ async function pushIndex(payload: RepoIndexPayload): Promise<void> {
  * fetches each file, extracts exports, pushes to opus bridge,
  * invalidates the in-memory cache, and returns stats.
  */
-export async function regenerateRepoIndex(): Promise<{
+export async function regenerateRepoIndex(sideEffects?: BuilderSideEffectsContract): Promise<{
   totalFiles: number;
   durationMs: number;
+  skipped?: boolean;
 }> {
   const start = Date.now();
+  const normalizedSideEffects = normalizeBuilderSideEffects(sideEffects);
+
+  if (!normalizedSideEffects.allowRepoIndex) {
+    return {
+      totalFiles: 0,
+      durationMs: Date.now() - start,
+      skipped: true,
+    };
+  }
 
   // 1. Fetch full GitHub tree
   let treeResponse: GitHubTreeResponse;
@@ -245,7 +257,7 @@ export async function regenerateRepoIndex(): Promise<{
 
   // 5. Push to opus bridge
   try {
-    await pushIndex(payload);
+    await pushIndex(payload, sideEffects);
     console.log(`[opusIndexGenerator] Pushed index to opus bridge (${files.length} files)`);
   } catch (err) {
     console.error('[opusIndexGenerator] Failed to push index:', err);

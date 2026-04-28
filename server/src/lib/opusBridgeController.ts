@@ -24,6 +24,11 @@ import { runDistiller } from './opusDistiller.js';
 import { getAllFromPool, pickFromPool } from './poolState.js';
 import { callProvider } from './providers.js';
 import {
+  appendBuilderSideEffectsMarker,
+  getBuilderSideEffectsFromGoal,
+  type BuilderSideEffectsContract,
+} from './builderSideEffects.js';
+import {
   DEFAULT_ROUNDTABLE_CONFIG,
   runRoundtable,
   validatePatch,
@@ -224,6 +229,7 @@ export interface ExecuteInput {
   skipRoundtable?: boolean;
   useDecomposer?: boolean;  // Skip Roundtable, go direct: Decompose → Swarm → Meister → GitHub
   skipGithub?: boolean;     // If true, produce patches but do NOT push to GitHub
+  sideEffects?: BuilderSideEffectsContract;
   codeWriter?: string;
   roundtableConfig?: Partial<RoundtableConfig>;
 }
@@ -612,13 +618,14 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   const db = getDb();
   const title = instruction.slice(0, 100);
   const risk = input.risk ?? 'low';
+  const taskGoal = appendBuilderSideEffectsMarker(instruction, input.sideEffects);
 
   const [task] = input.existingTaskId
     ? await db
       .update(builderTasks)
       .set({
         title,
-        goal: instruction,
+        goal: taskGoal,
         scope: normalizedScope,
         risk,
         status: 'scouting',
@@ -630,7 +637,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
       .insert(builderTasks)
       .values({
         title,
-        goal: instruction,
+        goal: taskGoal,
         scope: normalizedScope,
         risk,
         status: 'scouting',
@@ -646,6 +653,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   let status: 'consensus' | 'no_consensus' | 'validation_failed' | 'scouted' | 'applying' | 'error' | 'review_needed' = 'scouted';
   let consensusType: 'unanimous' | 'majority' | null = null;
   let safetyDecision: BuilderSafetyDecision | null = null;
+  const taskSideEffects = getBuilderSideEffectsFromGoal(task.goal);
   let rounds = 0;
   let totalTokens = 0;
   let patches: Array<{ file: string; body: string }> = [];
@@ -1054,9 +1062,9 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
             ? await triggerGithubAction(task.id, safePayloads)
             : await triggerGithubAction(task.id, toPatchPayloads(patches));
 
-          if (result.triggered) {
+          if (result.triggered && taskSideEffects.allowRepoIndex) {
             const { regenerateRepoIndex } = await import('./opusIndexGenerator.js');
-            await regenerateRepoIndex().catch((err) => console.error('[opus] Index refresh failed:', err));
+            await regenerateRepoIndex({ mode: taskSideEffects.mode }).catch((err) => console.error('[opus] Index refresh failed:', err));
           }
 
           return result;

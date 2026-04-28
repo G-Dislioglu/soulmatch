@@ -8,6 +8,7 @@ import { applyPatch, PatchEdit } from './opusPatchMode.js';
 import { getAuthUrl } from './opusBridgeConfig.js';
 import { waitForPushResult } from './pushResultWaiter.js';
 import { outboundFetch } from './outboundHttp.js';
+import { type BuilderSideEffectsContract } from './builderSideEffects.js';
 
 // Wie lange wir maximal auf den execution-result-Callback aus der
 // GitHub Action warten, bevor wir den Push als nicht-gelandet werten.
@@ -42,6 +43,7 @@ interface SmartPushResult {
 
 interface SmartPushOptions {
   acceptanceSmoke?: boolean;
+  sideEffects?: BuilderSideEffectsContract;
 }
 
 export async function smartPush(
@@ -91,6 +93,7 @@ export async function smartPush(
           files: overwrites,
           message,
           acceptanceSmoke: options?.acceptanceSmoke === true,
+          sideEffects: options?.sideEffects,
         }),
       });
       const data = await res.json() as Record<string, unknown>;
@@ -125,6 +128,7 @@ export async function smartPush(
             files: pushFiles,
             message,
             acceptanceSmoke: options?.acceptanceSmoke === true,
+            sideEffects: options?.sideEffects,
           }),
         });
         const data = await res.json() as Record<string, unknown>;

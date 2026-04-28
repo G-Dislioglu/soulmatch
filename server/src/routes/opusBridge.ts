@@ -10,6 +10,12 @@ import { buildBuilderMemoryContext } from '../lib/builderMemory.js';
 import { getSessionState, resetSession } from '../lib/opusBudgetGate.js';
 import { runBuildPipeline, type BuildInput } from '../lib/opusBuildPipeline.js';
 import { validateApprovalArtifact } from '../lib/builderApprovalArtifacts.js';
+import {
+  appendBuilderSideEffectsMarker,
+  getBuilderSideEffectsFromGoal,
+  normalizeBuilderSideEffects,
+  type BuilderSideEffectsContract,
+} from '../lib/builderSideEffects.js';
 import { selfVerify, selfHealthCheck, type SelfTestCheck } from '../lib/opusSelfTest.js';
 import { runChain, type ChainConfig } from '../lib/opusChainController.js';
 import { runRoutinePatrol, runDeepPatrol, getPatrolStatus } from '../lib/scoutPatrol.js';
@@ -214,7 +220,7 @@ async function githubGitRequest<T>(
 
 opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke, sideEffects } = req.body as {
       instruction?: string;
       scope?: string[];
       targetFile?: string;
@@ -231,6 +237,7 @@ opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
       assumptions?: string[];
       assumptionIds?: string[];
       acceptanceSmoke?: boolean;
+      sideEffects?: BuilderSideEffectsContract;
     };
 
     if (!instruction?.trim()) {
@@ -256,6 +263,7 @@ opusBridgeRouter.post('/execute', async (req: Request, res: Response) => {
       assumptions,
       assumptionIds,
       acceptanceSmoke,
+      sideEffects,
     });
 
     // Legacy compatibility: keep /execute response shape while enforcing canonical gating.
@@ -1009,11 +1017,12 @@ opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
-    const { files, message, branch, acceptanceSmoke } = req.body as {
+    const { files, message, branch, acceptanceSmoke, sideEffects } = req.body as {
       files?: Array<{ file: string; content?: string; search?: string; replace?: string }>;
       message?: string;
       branch?: string;
       acceptanceSmoke?: boolean;
+      sideEffects?: BuilderSideEffectsContract;
     };
 
     if (!files || !Array.isArray(files) || files.length === 0) {
@@ -1039,18 +1048,20 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       };
     });
 
+    const normalizedSideEffects = normalizeBuilderSideEffects(sideEffects);
     const controlledAcceptanceSmoke = acceptanceSmoke === true
       && files.length === 1
       && files[0].file === ACCEPTANCE_SMOKE_SCOPE
       && typeof message === 'string'
       && message.startsWith('feat(opus-task):');
+    const baseGoal = `${message || 'Direct file push via /push endpoint'}${controlledAcceptanceSmoke ? ` ${ACCEPTANCE_SMOKE_MARKER}` : ''}`;
 
     const db = getDb();
     const [task] = await db
       .insert(builderTasks)
       .values({
         title: (message || 'direct push').slice(0, 100),
-        goal: `${message || 'Direct file push via /push endpoint'}${controlledAcceptanceSmoke ? ` ${ACCEPTANCE_SMOKE_MARKER}` : ''}`,
+        goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
         scope: files.map((f) => f.file),
         risk: 'low',
         status: 'applying',
@@ -1359,7 +1370,7 @@ opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) 
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke, sideEffects } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
@@ -1376,6 +1387,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       assumptions?: string[];
       assumptionIds?: string[];
       acceptanceSmoke?: boolean;
+      sideEffects?: BuilderSideEffectsContract;
     };
     if (!instruction) { res.status(400).json({ error: 'instruction is required' }); return; }
     const { orchestrateTask } = await import('../lib/opusTaskOrchestrator.js');
@@ -1396,6 +1408,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       assumptions,
       assumptionIds,
       acceptanceSmoke,
+      sideEffects,
     });
     res.json(result);
   } catch (err) {
@@ -1815,14 +1828,16 @@ opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) =>
 // POST /git-push — push files directly via GitHub Git Data API as one atomic commit.
 // Bypasses the GH Action pipeline. Use for config files, workflow changes, cleanup.
 opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
-  const { files, message, branch, sessionLog } = req.body as {
+  const { files, message, branch, sessionLog, sideEffects } = req.body as {
     files?: DirectGitPushFile[];
     message?: string;
     branch?: string;
     sessionLog?: { taskId?: string; skip?: boolean };
+    sideEffects?: BuilderSideEffectsContract;
   };
 
-  let sessionLogSkip: boolean = sessionLog?.skip === true;
+  const normalizedSideEffects = normalizeBuilderSideEffects(sideEffects);
+  let sessionLogSkip: boolean = sessionLog?.skip === true || !normalizedSideEffects.allowSessionLog;
   const sessionLogTaskId: string | undefined = sessionLog?.taskId;
   let sessionLogTimestamp: string | null = null;
 
@@ -1861,7 +1876,11 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           .from(builderTasks)
           .where(eq(builderTasks.id, taskMatch[1]))
           .limit(1);
-        if (typeof task?.goal === 'string' && task.goal.includes(ACCEPTANCE_SMOKE_MARKER)) {
+        const taskSideEffects = getBuilderSideEffectsFromGoal(task?.goal);
+        if (!taskSideEffects.allowSessionLog) {
+          sessionLogSkip = true;
+          console.log('[session-log] skipped for side-effects-none task');
+        } else if (typeof task?.goal === 'string' && task.goal.includes(ACCEPTANCE_SMOKE_MARKER)) {
           sessionLogSkip = true;
           console.log('[session-log] skipped for controlled acceptance smoke task');
         }
@@ -2104,7 +2123,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     // durch den echten Commit-SHA ersetzen. Fault-tolerant — Fehler hier blockieren
     // nichts, der User hat schon seine Response. docs/** liegt im paths-ignore der
     // render-deploy.yml, dieser Zweitcommit löst also keinen Render-Deploy aus.
-    if (!sessionLogSkip && sessionLogTimestamp && commit.sha) {
+    if (!sessionLogSkip && normalizedSideEffects.allowShaBackfill && sessionLogTimestamp && commit.sha) {
       void (async () => {
         try {
           const shortSha = commit.sha!.slice(0, 7);

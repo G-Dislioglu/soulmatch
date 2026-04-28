@@ -24,6 +24,7 @@ import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAct
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
+import { getBuilderSideEffectsFromGoal } from '../lib/builderSideEffects.js';
 import { signalPushResult } from '../lib/pushResultWaiter.js';
 import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
@@ -617,6 +618,7 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
       .where(eq(builderTasks.id, taskId))
       .limit(1);
     const isAcceptanceSmokeTask = typeof taskMeta?.goal === 'string' && taskMeta.goal.includes(ACCEPTANCE_SMOKE_MARKER);
+    const taskSideEffects = getBuilderSideEffectsFromGoal(taskMeta?.goal);
 
     await db.insert(builderActions).values({
       taskId,
@@ -645,9 +647,9 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
-      if (!isAcceptanceSmokeTask) {
+      if (!isAcceptanceSmokeTask && taskSideEffects.allowRepoIndex) {
         const { regenerateRepoIndex } = await import('../lib/opusIndexGenerator.js');
-        await regenerateRepoIndex().catch((regenErr) => {
+        await regenerateRepoIndex({ mode: taskSideEffects.mode }).catch((regenErr) => {
           console.error('[builder] index refresh after commit callback failed:', regenErr);
         });
       }
