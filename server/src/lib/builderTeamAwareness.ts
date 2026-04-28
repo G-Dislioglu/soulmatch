@@ -12,6 +12,8 @@ interface TeamAwarenessPosition {
   upstream: string;
   downstream: string;
   duty: string;
+  handoff: string[];
+  successSignal: string;
 }
 
 export interface TeamAwarenessOptions {
@@ -37,6 +39,11 @@ const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
     upstream: 'User-Nachricht, Builder-Status, Memory-Lage, aktuelle Pools.',
     downstream: 'Task-Vorschlag, direkte Antwort oder Builder-Ausfuehrungspfad.',
     duty: 'Klare Routing- und Erklaerungsentscheidung fuer den naechsten Builder-Schritt.',
+    handoff: [
+      'den gewaehlten Modus und das konkrete Task-Ziel benennen',
+      'relevante Risiken oder Blocker fuer den Folgepfad sichtbar machen',
+    ],
+    successSignal: 'Der naechste Trager weiss, ob geantwortet, gebaut oder nachgefragt werden soll.',
   },
   scout: {
     stage: 'scout_research',
@@ -44,6 +51,11 @@ const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
     upstream: 'Task-Ziel, Scope, Project DNA, Graph, Error Cards.',
     downstream: 'Distiller und Council erwarten harte Hinweise statt Rohmeinungen.',
     duty: 'Relevante Dateien, bestehende Patterns, Risiken und Reuse-Signale sichtbar machen.',
+    handoff: [
+      'konkrete Dateien, Patterns und Belegstellen liefern',
+      'Unsicherheiten oder fehlende Evidenz klar markieren',
+    ],
+    successSignal: 'Ein Distiller kann ohne Rueckfrage Fakten von Vermutungen trennen.',
   },
   distiller: {
     stage: 'distiller_briefing',
@@ -51,6 +63,11 @@ const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
     upstream: 'Roh-Scout-Outputs plus relevante Memory-Signale.',
     downstream: 'Council bekommt nur den verdichteten Brief als Arbeitsbasis.',
     duty: 'Harte Fakten, Risiken und den besten Startansatz fuer das Team zusammenziehen.',
+    handoff: [
+      'einen in sich geschlossenen Brief mit Fakten, Risiken und offenem Rest liefern',
+      'einen klaren Startansatz fuer den Council benennen',
+    ],
+    successSignal: 'Der Council kann entscheiden, ohne die Scout-Rohdaten erneut lesen zu muessen.',
   },
   council: {
     stage: 'council_decision',
@@ -58,6 +75,11 @@ const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
     upstream: 'Destillierter Brief, Builder Memory, Moderator-Fokus.',
     downstream: 'Worker und Meister brauchen klare Aufgaben und begruendete Entscheidungen.',
     duty: 'Dissens sauber austragen, dann einen belastbaren Build-Pfad festlegen.',
+    handoff: [
+      'die gewaehlte Richtung mit Begruendung und Grenzen festhalten',
+      'klare Worker-Aufgaben oder Ablehnungsgruende hinterlassen',
+    ],
+    successSignal: 'Ein Worker weiss exakt, was er aendern darf und was bewusst ausserhalb des Scopes bleibt.',
   },
   worker: {
     stage: 'worker_execution',
@@ -65,6 +87,11 @@ const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
     upstream: 'Council-Begruendung oder Decomposer-Assignment.',
     downstream: 'Meister, Patch-Validation und Apply-Schicht erwarten exakte, pruefbare Aenderungen.',
     duty: 'Sauberen Patch im eigenen Slice liefern und fuer Downstream lesbar hinterlassen.',
+    handoff: [
+      'einen pruefbaren Patch im eigenen Slice liefern',
+      'Annahmen, Rest-Risiken oder Blocker fuer Meister/Validation klar hinterlassen',
+    ],
+    successSignal: 'Validation kann den Patch direkt pruefen, ohne den Scope neu erraten zu muessen.',
   },
 };
 
@@ -87,6 +114,10 @@ function compactText(value: string, limit: number): string {
   }
 
   return `${normalized.slice(0, Math.max(0, limit - 3)).trimEnd()}...`;
+}
+
+function compactList(values: string[], limit: number): string {
+  return compactText(values.join(' | '), limit);
 }
 
 function roleLabel(role: TeamAwarenessRole): string {
@@ -338,6 +369,23 @@ async function loadMemoryLines(actorId: string | undefined): Promise<string[]> {
   }
 }
 
+function buildFocusLines(taskGoal: string | undefined, scope: string[]): string[] {
+  const lines: string[] = [];
+
+  if (taskGoal && taskGoal.trim().length > 0) {
+    lines.push(`Ziel: ${compactText(taskGoal, 220)}`);
+  }
+
+  if (scope.length > 0) {
+    const compactScope = scope.slice(0, 3).map((file) => file.split('/').pop() ?? file);
+    const extraCount = scope.length - compactScope.length;
+    const suffix = extraCount > 0 ? ` (+${extraCount} weitere)` : '';
+    lines.push(`Scope: ${compactScope.join(', ')}${suffix}`);
+  }
+
+  return lines;
+}
+
 export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Promise<string> {
   const position = ROLE_POSITIONS[options.role];
   const scope = options.scope ?? [];
@@ -363,12 +411,24 @@ export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Pr
     }
   }
 
+  const focusLines = buildFocusLines(options.taskGoal, scope);
+  if (focusLines.length > 0) {
+    sections.push('FOCUS');
+    for (const line of focusLines) {
+      sections.push(`- ${line}`);
+    }
+  }
+
   sections.push('POSITION');
   sections.push(`- Stage: ${position.stage}`);
   sections.push(`- Auftrag: ${position.duty}`);
   sections.push(`- Upstream: ${position.upstream}`);
   sections.push(`- Downstream: ${position.downstream}`);
   sections.push(`- Entscheidungsvorrang: ${position.authority}`);
+  sections.push(`- Erfolgssignal: ${position.successSignal}`);
+
+  sections.push('HANDOFF');
+  sections.push(`- Muss hinterlassen: ${compactList(position.handoff, 220)}`);
 
   sections.push('MEMORY');
   if (memoryLines.length === 0) {
