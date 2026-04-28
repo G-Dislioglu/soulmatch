@@ -104,25 +104,39 @@ Ein guter Soulmatch-Kandidat:
 - `truth_class`: `runtime_verified`
 - `source_type`: `user_request`
 - `next_gate`: `decision_gate`
-- `why_not_now`: `Nach dem nicht akzeptierten T03-Landing-Run ist der sichtbare Doku-Schaden zwar repariert und die Hardening-Kette 1A/1B/1C liegt auf main, aber ein weiterer Builder-Nutzungsnachweis ist vor den getrennten Restentscheidungen bewusst nicht freigegeben.`
+- `why_not_now`: `Nach dem nicht akzeptierten T03-Landing-Run, der Hardening-Kette 1A/1B/1C und dem jetzt auf main liegenden H2A-Side-Effect-Contract ist ein weiterer Builder-Nutzungsnachweis weiter bewusst nicht freigegeben; vor dem naechsten Run steht erst der Read-only-Folgeblock H2B.`
 - `non_scope`: neue Builder-Features, Gate-Umbau ausserhalb der schmalen Hardening-Kette, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
-- `risk`: reduziert, aber nicht ausgeraeumt. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt. Offen bleiben Side-effect-Commits (`SESSION-LOG.md`, `builder-repo-index`), `landed=false` trotz realem Remote-Commit, spaetere TS/JSON-Section-Guards und staerkere semantische Fehlfaelle innerhalb eines formal gueltigen Diffs.
+- `risk`: reduziert, aber nicht ausgeraeumt. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt; kontrollierte Runs koennen Side-Effects inzwischen ueber `mode=none` unterdruecken. Offen bleiben `landed=false` trotz realem Remote-Commit, der spaetere `planned`-Modus, H2B Workflow-Simulation als Read-only-Entscheid und staerkere semantische Fehlfaelle innerhalb eines formal gueltigen Diffs.
 - `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`, `docs/BUILDER-BENCHMARK-K2.6A-RUNNER-PREFLIGHT.md`, `docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md`.
-- `kurzurteil`: Der Acceptance-Korridor ist nicht mit einem weiteren Nutzungsbeleg zu erweitern, sondern sauber auf Truth und Hardening zurückgeschnitten: Der fehlerhafte T03-Landing-Run bleibt nicht akzeptiert, `24fc1b8` repariert den sichtbaren Doku-Schaden, und `77fbdd3`/`0619640`/`53af22a` haerten die Validierung jetzt gegen genau die konkret belegte Fehlerklasse. Der naechste Schritt ist deshalb kein weiterer Run, sondern erst die getrennte Folgeentscheidung fuer Hardening 2 oder 3.
-- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, `landed=false` und spaeter repo-sichtbar falschem Diff; Reparatur-Commit `24fc1b8`; Hardening-Commits `77fbdd3`, `0619640`, `53af22a`; origin/main verifiziert auf `53af22a`.
+- `kurzurteil`: Der Acceptance-Korridor ist nicht mit einem weiteren Nutzungsbeleg zu erweitern, sondern sauber auf Truth und getrennte Folgeentscheidungen zurueckgeschnitten: Der fehlerhafte T03-Landing-Run bleibt nicht akzeptiert, `24fc1b8` repariert den sichtbaren Doku-Schaden, `77fbdd3`/`0619640`/`53af22a` haerten gegen die konkret belegte Fehlerklasse, und `b2d08ea` schliesst H2A fuer kontrollierte Runs. Der naechste Schritt ist deshalb kein weiterer Run, sondern erst H2B als Read-only-Block.
+- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, `landed=false` und spaeter repo-sichtbar falschem Diff; Reparatur-Commit `24fc1b8`; Hardening-Commits `77fbdd3`, `0619640`, `53af22a`; H2A-Commit `b2d08ea`; origin/main verifiziert auf `b2d08ea`.
 
 ### Kandidat - Builder Hardening 2 (Side-Effect Suppression)
 
-- `status`: `active`
-- `truth_class`: `derived_from_review`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `runtime_verify`
-- `next_gate`: `proposal`
-- `why_not_now`: `Die Truth- und Hardening-1-Kette ist zuerst als sauberer Stopp-Punkt dokumentiert worden; der naechste Block muss diesen Restpfad getrennt schneiden statt ihn an 1A/1B/1C anzuhängen.`
-- `non_scope`: neuer Push-Pfad, Async-Truth-Reparatur, Claim-/Judge-Semantik, weitere Builder-Nutzungsbelege.
-- `risk`: mittel bis hoch; betrifft reale Folgecommits ausserhalb des sichtbaren Task-Diffs (`SESSION-LOG.md`, `builder-repo-index`) und muss deshalb eng auf kontrollierte Runs begrenzt werden.
-- `betroffene_bereiche`: `server/src/routes/opusBridge.ts`, `server/src/routes/builder.ts`, `server/src/lib/opusIndexGenerator.ts`, Session-Log-Pfad, Repo-Index-Regeneration.
-- `kurzurteil`: Repo-sichtbar offen. Nach dem nicht akzeptierten T03-Landing-Run bleiben die unerwuenschten Folgecommits der naechste operative Wahrheitsbruch neben dem Diff selbst.
-- `evidence`: Folgecommits `c634249` und `25f84fc`, analysierte Session-Log- und Repo-Index-Seitenpfade, Nutzerentscheidung nach 1C explizit noch nicht zu bauen.
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderSideEffects.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/lib/opusIndexGenerator.ts`, `server/src/routes/builder.ts`, `server/src/routes/opusBridge.ts`, `server/src/lib/opusBridgeController.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: `planned`-Modus voll ausbauen, Async-Truth-Reparatur, Claim-/Judge-Semantik, Workflow Simulation Gate bauen, weitere Builder-Nutzungsbelege.
+- `risk`: reduziert; der sichtbare Side-Effect-Leckpfad fuer kontrollierte Runs ist geschlossen, das bewusste V1-Risiko bleibt der pragmatische Marker im `task.goal`.
+- `betroffene_bereiche`: `server/src/lib/builderSideEffects.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/builder.ts`, `server/src/lib/opusIndexGenerator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusBridgeController.ts`
+- `kurzurteil`: H2A ist repo-sichtbar auf main abgeschlossen. `sideEffects.mode=none` unterdrueckt fuer kontrollierte Runs `SESSION-LOG.md`, den session-log SHA-Backfill und den repo-index Folgepush; fehlender Contract bzw. `mode=default` lassen das bisherige Verhalten unveraendert.
+- `evidence`: Folgecommits `c634249` und `25f84fc` markierten die urspruengliche Fehlerklasse; Read-only-H2A-Analyse, Branch-Review und Commit `b2d08ea` fuehren den additiven Contract ein und legen ihn auf `main`. Statischer Verify: Branch-Diff sauber, `pnpm build` gruen, kein Builder-Run.
+
+### Kandidat - Builder H2B (Pre-Push Workflow Simulation Gate v0.1)
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `scan`
+- `why_not_now`: `H2A und der zugehoerige Status-Sync mussten zuerst auf main sauber abgeschlossen werden; der naechste Schritt ist jetzt bewusst Read-only statt sofortiger Implementierung.`
+- `non_scope`: echten Workflow-Simulator bauen, Callback-/Truth-Reparatur, neue Builder-Nutzungsbelege, weiterer Push-Smoke.
+- `risk`: mittel; beruehrt die Operating-Grenze vor dem Push und kann leicht in breiteren Pipeline-Umbau kippen, wenn der Block nicht als Read-only-Scan gehalten wird.
+- `betroffene_bereiche`: `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`, `server/src/lib/opusTaskOrchestrator.ts`, moegliche Folgepfade im Builder-Executor
+- `kurzurteil`: Repo-sichtbar vorbereitet, aber noch nicht gebaut. Der naechste saubere Block ist H2B als Read-only-Pruefung, wie die v0.1-Spec klein und additiv an den bestehenden Orchestrator haengt, ohne H2A, H3 oder neue Pipeline-Architektur zu vermischen.
+- `evidence`: `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md` liegt auf main; Nutzerentscheidung nach H2A-Merge: erst Status-Sync, dann H2B Read-only, weiterhin kein Builder-Test freigegeben.
 
 ### Kandidat - Builder Hardening 3 (Async Truth Repair)
 

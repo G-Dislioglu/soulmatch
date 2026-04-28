@@ -11,16 +11,16 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `53af22a`
-- `last_verified_origin_main`: `53af22a`
+- `current_repo_head`: `b2d08ea`
+- `last_verified_origin_main`: `b2d08ea`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
-- `local_drift_present`: `yes`
+- `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die Builder-K2-Hardening-Kette ist repo-sichtbar abgeschlossen: Der fehlerhafte T03-Landing-Run bleibt explizit nicht akzeptiert, der sichtbare Doku-Schaden wurde ueber `24fc1b8` repariert, und danach haerten `77fbdd3`, `0619640` und `53af22a` den Builder schrittweise gegen mehrdeutige Patch-Anker, Null-Diffs bzw. falsche Datei-Claims und Markdown-Patches ausserhalb eines eindeutig angeforderten Txx-Abschnitts.`
-- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist erst ein getrennter Hardening-Entscheid zwischen Side-effect-Suppression fuer kontrollierte Runs und Async-Truth-Reparatur fuer landed/verifiedCommit; Deploy-Wait bleibt lokal ohne separate Verifikation nicht belastbar.`
+- `last_completed_block`: `H2A ist repo-sichtbar auf `main` abgeschlossen: Commit `b2d08ea` fuehrt den Side-Effect-Contract additiv ein, `sideEffects.mode=none` unterdrueckt `SESSION-LOG.md`, den session-log SHA-Backfill und den repo-index Folgepush fuer kontrollierte Runs, waehrend fehlender Contract bzw. `mode=default` das bestehende Verhalten unveraendert laesst. Das bewusste V1-Risiko bleibt der pragmatische Marker im `task.goal`, nicht ein offener sichtbarer Side-Effect-Leckpfad.`
+- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock ist H2B als reiner Read-only-Block zur `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`; Async-Truth-Reparatur fuer landed/verifiedCommit bleibt getrennt, und ein neuer Builder-Test ist weiter nicht freigegeben.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -92,6 +92,15 @@ die Folgeschnitte `77fbdd3`, `0619640` und `53af22a` die Validierung gegen
 mehrdeutige Patch-Anker, Null-Diffs bzw. falsche Datei-Claims und Markdown-
 Patches ausserhalb eines eindeutig angeforderten Txx-Abschnitts.
 
+Direkt danach ist auch H2A repo-sichtbar auf `main` gelandet: `b2d08ea`
+fuehrt einen additiven Side-Effect-Contract ueber Orchestrator, SmartPush,
+Bridge- und Repo-Index-Pfade ein. Fuer kontrollierte Runs unterdrueckt
+`sideEffects.mode=none` jetzt `SESSION-LOG.md`, den session-log SHA-Backfill
+und den `builder-repo-index`-Folgepush; fehlender Contract und
+`mode=default` lassen das bisherige Verhalten unveraendert. Das bewusste
+V1-Risiko bleibt ein pragmatischer Marker im `task.goal`, nicht ein
+weiter offener sichtbarer Side-Effect-Leckpfad.
+
 Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
 kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
 aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
@@ -104,12 +113,13 @@ Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
 weitere Live-Push-Smokes oder neue Builder-Nutzungsnachweise ohne explizite
 Freigabe.
 
-Offen bleiben nach dieser Kette bewusst getrennte Restthemen: Side-effect-
-Suppression fuer kontrollierte Runs (`SESSION-LOG.md`, `builder-repo-index`),
-Async-Truth-Reparatur fuer `landed=false` trotz realem Remote-Commit, spaetere
-TS/JSON/Intra-Code-Section-Guards und jede staerkere semantische Diff-Pruefung.
-Der vorhandene Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg,
-solange er nur im bekannten `HTTP 000`-Operatorpfad endet.
+Offen bleiben nach dieser Kette bewusst getrennte Restthemen: der spaetere
+`planned`-Modus des Side-Effect-Contracts, Async-Truth-Reparatur fuer
+`landed=false` trotz realem Remote-Commit, der Read-only-Folgeblock H2B zur
+Pre-Push Workflow Simulation Gate v0.1, spaetere TS/JSON/Intra-Code-Section-
+Guards und jede staerkere semantische Diff-Pruefung. Der vorhandene
+Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg, solange er nur im
+bekannten `HTTP 000`-Operatorpfad endet.
 
 class_2 bleibt an gueltige Approval-Artefakte und anschliessende Reviewpflicht
 gebunden; class_3 bleibt `manual_only`/protected.
