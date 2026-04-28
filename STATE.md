@@ -11,16 +11,17 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `1d7c6bc`
-- `last_verified_origin_main`: `1d7c6bc`
+- `current_repo_head`: `ed27349`
+- `last_verified_origin_main`: `ed27349`
+- `last_live_runtime_head`: `ed27349`
 - `current_branch`: `builder-k26-next`
 - `last_verified_against_code`: `2026-04-28`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H3A ist repo-sichtbar auf `main` abgeschlossen: Commit `1d7c6bc` haertet die Async-Truth-Seam zwischen `server/src/lib/pushResultWaiter.ts` und `server/src/lib/opusSmartPush.ts`, sodass ein reiner Callback-Timeout nicht mehr still als `landed=false` ausgegeben wird. Timeout bleibt jetzt `landed=undefined` mit explizitem pending-truth-Hinweis; terminale committed:false-Callbacks bleiben weiter echte Negativ-Wahrheit.`
-- `next_recommended_block`: `Kein weiterer Builder-Nutzungsnachweis und kein weiterer class_1 Push-Smoke vor neuem Entscheid. Naechster saubere Folgeblock bleibt H3 weiter nur als read-only Folge-Schnitt fuer spaete Callback->Result-/DB-Reconciliation nach Timeout; neuer Builder-Test bleibt bis nach dieser gesonderten Entscheidungsrunde weiter nicht freigegeben.`
+- `last_completed_block`: `H3 wurde repo-sichtbar weitergezogen: `307fa3d` fuehrt die persistierte Async-Job-Bruecke `builder_tasks.sourceAsyncJobId` von `health.ts` ueber Orchestrator, SmartPush und `/push` bis in die Builder-Task an; `ed27349` zieht danach im execution-result-Callback die spaete Wahrheit fuer `async_jobs.result` auf dem Async-Health-Pfad nach. Der Reconcile-Schnitt bleibt bewusst konservativ: `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase werden nachgezogen, aber spaet gelandete Jobs werden nicht still als vollstaendig `success` ausgegeben, weil inline post-push checks nicht rerun wurden.`
+- `next_recommended_block`: `Der akute Builder-Hardening-Korridor ist nach H3A plus H3-async-0/1 repo-sichtbar und live auf `ed27349` nachgezogen. Kein neuer Builder-Nutzungsnachweis und kein neuer class_1 Push-Smoke ohne neuen bewussten Entscheid; als moeglicher Folgepunkt bleibt nur noch die getrennte Entscheidung, ob synchrone Caller (`/opus-task`, `/execute`, `/build`) ebenfalls eine spaet persistierte Reconciliation-Wahrheit brauchen oder ob der Acceptance-Korridor fuer diesen Hardening-Zyklus als ausreichend geschlossen gilt.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -147,6 +148,34 @@ jetzt nicht mehr als harte Negativ-Wahrheit `landed=false` behandelt, sondern
 bleibt explizit `landed=undefined` mit pending Callback-Truth. Das vermeidet
 falsche Negativ-Aussagen, ohne schon die spaetere Callback-Result-
 Reconciliation selbst zu bauen.
+
+Direkt danach ist auch H3-async-0 repo-sichtbar auf `main`: `307fa3d` fuehrt
+in `server/src/schema/builder.ts`, `server/src/routes/health.ts`,
+`server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`
+und `server/src/routes/opusBridge.ts` die neue nullable Bruecke
+`builder_tasks.sourceAsyncJobId` ein. Diese Kette verbindet den
+Async-Health-Job (`async_jobs.id`) explizit mit dem spaeteren
+GitHub-Callback-Task (`builder_tasks.id`), ohne die vorhandenen
+`sourceTaskId`/`sourceRunId`-Semantiken still umzudeuten. Die zugehoerige
+additive DB-Aenderung wurde lokal ueber `pnpm db:push` gegen die konfigurierte
+DB angewandt; ein eigener Index war fuer diesen Schnitt bewusst noch nicht
+noetig, weil H3-async-1 spaeter ueber `builder_tasks.id` einsteigt und nur dann
+`sourceAsyncJobId` dereferenziert.
+
+Direkt danach ist auch H3-async-1 repo-sichtbar auf `main`: `ed27349` fuehrt
+in `server/src/lib/builderAsyncJobReconciliation.ts` und
+`server/src/routes/builder.ts` die spaete Callback-Reconciliation fuer den
+Async-Health-Pfad ein. Wenn ein Job wegen Timeout/pending truth bereits als
+`partial` in `async_jobs.result` persistiert wurde und spaeter doch noch ein
+terminaler committed:true|false-Callback eintrifft, zieht der Callback jetzt
+`landed`, `verifiedCommit`, `pushBlockedReason`, die lesbare Summary und die
+Push-Phase konsistent nach. Der Schnitt bleibt bewusst konservativ:
+`async_jobs.status` bleibt dem Health-Lifecycle ueberlassen, und
+`async_jobs.result.status` bleibt auch nach spaetem Erfolg `partial`, weil
+deploy-wait/self-test nach dem spaeten Callback nicht erneut ausgefuehrt werden.
+Repo-Wahrheit steht damit auf `main`; die Live-Runtime antwortete danach ueber
+den resolve-Pfad ebenfalls mit `commit=ed27349` und zieht den neuen H3-Stand
+damit jetzt auch sichtbar auf Render.
 
 Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
 kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
@@ -671,7 +700,7 @@ Runtime-Wahrheit fuer Soulmatch.
   `BRIEFING_PART1.md`, `BRIEFING_PART2.md`, `README.md`
 - Code hat bei Widerspruch Vorrang vor groben Docs
 
-## Last Completed Block
+## Historical Archive Snapshot
 
 ### Name
 
@@ -708,7 +737,7 @@ Drift 12 in `docs/CLAUDE-CONTEXT.md` dokumentiert die Token-Limitation.
 - kein Anruehren des fire-and-forget `regenerateRepoIndex()` in `/push` (als Nebenbefund dokumentiert)
 - keine Kaya-Code-Rename-Arbeit (wartet weiter auf Maya-Core-Migration)
 
-## Next Recommended Block
+## Historical Next Recommended Block Snapshot
 
 ### Name
 
