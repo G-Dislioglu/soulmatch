@@ -175,6 +175,14 @@ export interface BuilderPatrolDeepResponse {
   results: BuilderPatrolDeepResult[];
 }
 
+export interface BuilderPatrolRoutineResponse {
+  ok: boolean;
+  scanned: number;
+  found: number;
+  inserted: number;
+  crossConfirmed: number;
+}
+
 export interface BuilderArchitectState {
   controlPlane: {
     projectState: {
@@ -330,6 +338,14 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     });
   }, [requestJson]);
 
+  const triggerRoutinePatrol = useCallback(() => {
+    return requestJson<BuilderPatrolRoutineResponse>('/opus-bridge/patrol-trigger-round', {
+      method: 'POST',
+    }, {
+      preferOpusOnly: true,
+    });
+  }, [requestJson]);
+
   const triggerDeepPatrol = useCallback((models: string[], files: string[]) => {
     return requestJson<BuilderPatrolDeepResponse>('/opus-bridge/patrol-trigger-deep', {
       method: 'POST',
@@ -403,6 +419,7 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
+    triggerRoutinePatrol,
     triggerDeepPatrol,
     getArchitectState,
     approveTask,

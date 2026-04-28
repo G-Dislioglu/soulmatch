@@ -55,9 +55,8 @@ const DEEP_MODEL_TO_ID: Record<string, string> = {
 const AVAILABLE_DEEP_MODELS = Object.keys(DEEP_MODEL_TO_ID);
 
 const ROUTINE_SCOUT_SLOTS: PatrolModelSlot[] = [
-  { role: 'SCOUT #1', model: 'GLM-5-Turbo', color: '#39ff14' },
+  { role: 'SCOUT #1', model: 'GLM 4.7 FlashX', color: '#39ff14' },
   { role: 'SCOUT #2', model: 'DeepSeek Chat', color: '#39ff14' },
-  { role: 'SCOUT #3', model: 'Minimax', color: '#39ff14' },
 ];
 
 const DEEP_ANALYSIS_SLOTS: PatrolModelSlot[] = [
@@ -271,7 +270,15 @@ function ModelSelect({ value, onChange, models }: {
   );
 }
 
-function PatrolModelCard({ role, model, color, onChange, models = AVAILABLE_MODELS }: PatrolModelCardProps & { models?: string[] }) {
+function PatrolModelCard({
+  role,
+  model,
+  color,
+  onChange,
+  models = AVAILABLE_MODELS,
+  readOnly = false,
+  sublabel,
+}: PatrolModelCardProps & { models?: string[]; readOnly?: boolean; sublabel?: string }) {
   return (
     <div
       style={{
@@ -286,8 +293,13 @@ function PatrolModelCard({ role, model, color, onChange, models = AVAILABLE_MODE
         <div>
           <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
           <div style={{ marginTop: 4 }}>
-            <ModelSelect value={model} onChange={onChange} models={models} />
+            {readOnly ? (
+              <div style={{ fontSize: 14, color: '#e2e4f0' }}>{model}</div>
+            ) : (
+              <ModelSelect value={model} onChange={onChange} models={models} />
+            )}
           </div>
+          {sublabel ? <div style={{ marginTop: 6, fontSize: 11, color: '#6b7084' }}>{sublabel}</div> : null}
         </div>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 12px ${color}66`, flexShrink: 0 }} />
       </div>
@@ -427,6 +439,7 @@ export function PatrolConsole() {
   const {
     getPatrolStatus,
     getPatrolFindings,
+    triggerRoutinePatrol,
     triggerDeepPatrol,
   } = useBuilderApi(token || null, token || null);
   const [status, setStatus] = useState<PatrolStatus | null>(null);
@@ -434,15 +447,16 @@ export function PatrolConsole() {
   const [filter, setFilter] = useState<'all' | Severity>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
   const [deepResults, setDeepResults] = useState<Record<string, DeepResult[]>>({});
   const [deepErrors, setDeepErrors] = useState<Record<string, string>>({});
   const [deepLoading, setDeepLoading] = useState<Record<string, boolean>>({});
-  const [routineModels, setRoutineModels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(ROUTINE_SCOUT_SLOTS.map((slot) => [slot.role, slot.model])),
-  );
   const [deepModels, setDeepModels] = useState<Record<string, string>>(() =>
     Object.fromEntries(DEEP_ANALYSIS_SLOTS.map((slot) => [slot.role, slot.model])),
   );
+  const [routineRunning, setRoutineRunning] = useState(false);
+  const [routineMessage, setRoutineMessage] = useState<string | null>(null);
+  const [routineError, setRoutineError] = useState<string | null>(null);
 
   const triggerDeep = useCallback(async (finding: PatrolFinding) => {
     if (!hasToken) {
@@ -489,6 +503,7 @@ export function PatrolConsole() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFeedError(null);
     try {
       const [nextStatus, nextFindings] = await Promise.all([
         getPatrolStatus(),
@@ -498,10 +513,33 @@ export function PatrolConsole() {
       setFindings(nextFindings.findings || []);
     } catch (error) {
       console.error('Patrol load error:', error);
+      setFeedError(error instanceof Error ? error.message : 'Patrol-Daten konnten nicht geladen werden.');
     } finally {
       setLoading(false);
     }
   }, [getPatrolFindings, getPatrolStatus]);
+
+  const triggerRoutine = useCallback(async () => {
+    if (!hasToken) {
+      setRoutineError('Routine Patrol braucht einen gueltigen Opus-Token.');
+      return;
+    }
+
+    setRoutineRunning(true);
+    setRoutineError(null);
+    setRoutineMessage(null);
+    try {
+      const result = await triggerRoutinePatrol();
+      setRoutineMessage(
+        `Routine Patrol fertig: ${result.scanned} Dateien gescannt, ${result.found} Findings erkannt, ${result.inserted} neu gespeichert, ${result.crossConfirmed} cross-confirmed.`,
+      );
+      await load();
+    } catch (error) {
+      setRoutineError(error instanceof Error ? error.message : 'Routine Patrol konnte nicht gestartet werden.');
+    } finally {
+      setRoutineRunning(false);
+    }
+  }, [hasToken, load, triggerRoutinePatrol]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -589,6 +627,23 @@ export function PatrolConsole() {
         <StatCard label="Niedrig" value={sev.low || 0} accent="#6ec6ff" />
       </div>
 
+      {feedError ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px solid #ff8c4233',
+            background: '#ff8c4212',
+            color: '#ffb273',
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          Patrol-Feed konnte nicht geladen werden: {feedError}
+        </div>
+      ) : null}
+
       <div style={{ margin: '20px 0 24px' }}>
         <div style={{ fontSize: 11, color: '#39ff14', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Routine Scouts</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -596,12 +651,39 @@ export function PatrolConsole() {
             <PatrolModelCard
               key={slot.role}
               role={slot.role}
-              model={routineModels[slot.role] ?? slot.model}
+              model={slot.model}
               color={slot.color}
-              onChange={(value) => setRoutineModels((current) => ({ ...current, [slot.role]: value }))}
+              onChange={() => {}}
+              readOnly
+              sublabel="Serverseitig fest verdrahteter Routine-Scout"
             />
           ))}
         </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+          <button
+            onClick={() => { void triggerRoutine(); }}
+            disabled={routineRunning || !hasToken}
+            style={{
+              background: routineRunning ? '#2b7c3a' : '#39ff14',
+              color: '#07110a',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 14px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: routineRunning || !hasToken ? 'not-allowed' : 'pointer',
+              opacity: routineRunning || !hasToken ? 0.6 : 1,
+            }}
+          >
+            {routineRunning ? 'Routine Patrol läuft...' : 'Run Routine Patrol'}
+          </button>
+          <span style={{ fontSize: 12, color: '#6b7084' }}>
+            Nutzt den vorhandenen body-losen Server-Trigger. Keine freie Modellkonfiguration.
+          </span>
+        </div>
+        {routineError ? <div style={{ marginTop: 8, fontSize: 12, color: '#ff8c42' }}>{routineError}</div> : null}
+        {routineMessage ? <div style={{ marginTop: 8, fontSize: 12, color: '#9ee7a8', lineHeight: 1.5 }}>{routineMessage}</div> : null}
 
         <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0 16px' }} />
 
