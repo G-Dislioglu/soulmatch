@@ -61,6 +61,11 @@ export interface ArchitectAssemblyResult {
   blockReason?: string;
 }
 
+type ArchitectTeamCoordinationSection = {
+  section: string | null;
+  warnings: string[];
+};
+
 interface ArchitectObservationFindingAggregateBySeverity {
   severity: ArchitectFinding['severity'];
   count: number;
@@ -229,6 +234,35 @@ function normalizeWhitespace(text: string): string {
     .replace(/[ ]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function buildArchitectTeamCoordinationSection(): ArchitectTeamCoordinationSection {
+  const controlPlane = getBuilderControlState();
+  const entries = [
+    ['Maya', controlPlane.teamCoordination.maya],
+    ['Council', controlPlane.teamCoordination.council],
+    ['Worker', controlPlane.teamCoordination.worker],
+  ].filter(([, value]) => {
+    const normalized = normalizeWhitespace(value);
+    return normalized && normalized !== 'not available';
+  });
+
+  if (entries.length === 0) {
+    return {
+      section: null,
+      warnings: ['Architect team coordination unavailable; dispatch continues without coordination brief.'],
+    };
+  }
+
+  return {
+    section: [
+      'ARCHITECT TEAM COORDINATION',
+      ...entries.map(([label, value]) => `${label}:\n${normalizeWhitespace(value)}`),
+    ].join('\n\n'),
+    warnings: entries.length === 3
+      ? []
+      : ['Architect team coordination partial; one or more role briefs were unavailable.'],
+  };
 }
 
 function clampText(text: string, limit: number): { text: string; truncation: ArchitectTruncation } {
@@ -856,6 +890,8 @@ export async function assembleArchitectInstruction(
 
   const warnings: string[] = [];
   const findings: ArchitectFinding[] = [];
+  const teamCoordination = buildArchitectTeamCoordinationSection();
+  warnings.push(...teamCoordination.warnings);
 
   if (instruction.length > USER_INSTRUCTION_SOFT_LIMIT) {
     const dispatchHardening = hardenInstruction(instruction);
@@ -939,6 +975,7 @@ export async function assembleArchitectInstruction(
 
   const sections = [
     instruction.trim(),
+    teamCoordination.section,
     allowedMetaFragments.length > 0
       ? ['ARCHITECT HTTP META SOURCES', ...allowedMetaFragments.map(serializeFragmentSection)].join('\n\n')
       : null,
