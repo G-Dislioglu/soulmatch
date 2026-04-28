@@ -467,6 +467,29 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     };
   }
 
+  if (preflightSafety.taskClass === 'class_3') {
+    phases.push({
+      phase: 'safety-preflight',
+      status: 'error',
+      durationMs: 0,
+      detail: {
+        taskClass: preflightSafety.taskClass,
+        executionPolicy: preflightSafety.executionPolicy,
+        reasons: preflightSafety.reasons,
+        protectedPathsTouched: preflightSafety.protectedPathsTouched,
+      },
+    });
+    return {
+      runId,
+      status: 'failed',
+      phases,
+      hardening,
+      totalDurationMs: Date.now() - totalStart,
+      summary: preflightSafety.reasons[0] ?? 'Protected/manual-only builder task blocked before worker dispatch.',
+      ...buildSafetyResultFields(preflightSafety),
+    };
+  }
+
   const architectAssembly = await assembleArchitectInstruction(input.instruction, {
     metaSourceIds: input.metaSourceIds,
     assumptions: input.assumptions,
