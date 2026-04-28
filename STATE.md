@@ -11,7 +11,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `741c8ab`
+- `current_repo_head`: `332000c`
 - `last_verified_origin_main`: `c98c8e7`
 - `last_live_runtime_head`: `ed27349`
 - `current_branch`: `builder-k26-next`
@@ -20,8 +20,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die branch-sichtige Builder-Linie reicht jetzt bis `741c8ab`: Nach dem abgeschlossenen H3-Async-Hardening (`307fa3d`, `ed27349`) traegt die Architect-/Control-Plane-Kette Team-Koordination und aktive Regeln repo-sichtbar bis in Dispatch, Observation und Orchestrator (`be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658`, `3f08301`); `741c8ab` zieht dazu den branch-sichtigen Builder-UI-Slice nach, verdrahtet Deep Patrol clientseitig auf den bestehenden Server-Contract und surfacet Architect State kompakt im Studio. P1 und P2 sind damit erledigt und werden nicht mehr als offene Review-Last gefuehrt.`
-- `next_recommended_block`: `Der naechste kleine Builder-Block ist jetzt nicht mehr Deep Patrol oder weiteres Architect-Bauen, sondern Routine Patrol client contract alignment: die aktuelle Routine-Scout-Flaeche soll auf ehrliche Server-Wahrheit zurueckgezogen werden, optional mit minimalem body-losen Trigger fuer `/patrol-trigger-round`, ohne freie Modellkonfiguration, ohne Serverumbau und ohne neuen Live-Runtime-Anspruch.`
+- `last_completed_block`: `Die branch-sichtige Builder-Linie reicht jetzt bis `332000c`: Nach dem abgeschlossenen H3-Async-Hardening (`307fa3d`, `ed27349`) traegt die Architect-/Control-Plane-Kette Team-Koordination und aktive Regeln repo-sichtbar bis in Dispatch, Observation und Orchestrator (`be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658`, `3f08301`); `741c8ab` zieht dazu den branch-sichtigen Builder-UI-Slice fuer Deep Patrol und Architect State nach, und `332000c` richtet die Routine-Patrol-Flaeche ehrlich auf den vorhandenen Server-Contract aus: read-only Routine-Scouts, minimaler body-loser Trigger und sichtbarer Feed-Fehlerzustand. P1 und P2 sind damit erledigt und werden nicht mehr als offene Review-Last gefuehrt.`
+- `next_recommended_block`: `Der naechste kleine Builder-Block ist jetzt kein neuer Patrol-Featurebau, sondern ein schmaler Post-332000c-QA-/Mini-Polish-Schnitt: die neue Routine-Patrol-Flaeche soll kurz gegen Loading-, Success- und Error-Zustaende geprueft werden, ohne freie Modellkonfiguration, ohne Serverumbau und ohne neuen Live-Runtime-Anspruch.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -190,12 +190,17 @@ darf: `builderTeamAwareness.ts` traegt seit `bad1eca`, `cfb88b0`, `b21859b` und
 Council und Worker; `be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658` und
 `3f08301` ziehen dieselbe Wahrheit weiter in Control Plane,
 Architect-Dispatch, no-DB-Fallback, Observation und Orchestrator. Mit
-`741c8ab` ist diese Linie jetzt auch im branch-sichtigen Builder UI angekommen:
+`741c8ab` ist diese Linie im branch-sichtigen Builder UI angekommen:
 Deep Patrol spricht den bestehenden Server-Contract (`models[]` + `files[]`)
 ueber den Client korrekt an, und Builder Studio surfacet read-only
-Architect-State kompakt im Context-Bereich. Das ist branch-sichtige Wahrheit,
-aber weiterhin keine neue Live-Runtime-Bestaetigung; `last_live_runtime_head`
-bleibt bis zu einem frischen Runtime-Beleg bewusst auf `ed27349`.
+Architect-State kompakt im Context-Bereich. `332000c` zieht dieselbe
+Ehrlichkeitslinie auch fuer Routine Patrol nach: die Routine-Scouts sind nicht
+mehr pseudo-konfigurierbar, sondern als feste Server-Realitaet sichtbar, ein
+minimaler `Run Routine Patrol`-Trigger nutzt den vorhandenen body-losen
+Endpoint, und Feed-Load-Fehler werden sichtbar gesurfaced. Das ist
+branch-sichtige Wahrheit, aber weiterhin keine neue Live-Runtime-Bestaetigung;
+`last_live_runtime_head` bleibt bis zu einem frischen Runtime-Beleg bewusst auf
+`ed27349`.
 
 Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
 Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
