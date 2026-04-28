@@ -187,6 +187,10 @@ let latestObservation: ArchitectObservation = {
   dispatchHardening: null,
 };
 
+function hasConfiguredDatabase(): boolean {
+  return Boolean(process.env.DATABASE_URL?.trim());
+}
+
 const BLOCKED_PATTERNS: Array<{ code: string; message: string; regex: RegExp }> = [
   {
     code: 'prompt_override_pattern',
@@ -502,6 +506,11 @@ async function primeAssumptionCache(): Promise<void> {
 
   assumptionsPrimed = true;
 
+  if (!hasConfiguredDatabase()) {
+    persistenceMode = 'memory_fallback';
+    return;
+  }
+
   try {
     const db = getDb();
     const rows = await db
@@ -523,6 +532,11 @@ async function primeAssumptionCache(): Promise<void> {
 
 async function persistAssumption(fragment: ArchitectSourceFragment): Promise<void> {
   assumptionCache.set(fragment.id, fragment);
+
+  if (!hasConfiguredDatabase()) {
+    persistenceMode = 'memory_fallback';
+    return;
+  }
 
   try {
     const db = getDb();
@@ -567,6 +581,13 @@ async function persistAssumption(fragment: ArchitectSourceFragment): Promise<voi
 async function getPersistedAssumptionsByIds(ids: string[]): Promise<ArchitectSourceFragment[]> {
   if (ids.length === 0) {
     return [];
+  }
+
+  if (!hasConfiguredDatabase()) {
+    persistenceMode = 'memory_fallback';
+    return ids
+      .map((id) => assumptionCache.get(id))
+      .filter((fragment): fragment is ArchitectSourceFragment => Boolean(fragment));
   }
 
   try {
