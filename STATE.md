@@ -11,8 +11,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `ed27349`
-- `last_verified_origin_main`: `ed27349`
+- `current_repo_head`: `c98c8e7`
+- `last_verified_origin_main`: `c98c8e7`
 - `last_live_runtime_head`: `ed27349`
 - `current_branch`: `builder-k26-next`
 - `last_verified_against_code`: `2026-04-28`
@@ -20,7 +20,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H3 wurde repo-sichtbar weitergezogen: `307fa3d` fuehrt die persistierte Async-Job-Bruecke `builder_tasks.sourceAsyncJobId` von `health.ts` ueber Orchestrator, SmartPush und `/push` bis in die Builder-Task an; `ed27349` zieht danach im execution-result-Callback die spaete Wahrheit fuer `async_jobs.result` auf dem Async-Health-Pfad nach. Der Reconcile-Schnitt bleibt bewusst konservativ: `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase werden nachgezogen, aber spaet gelandete Jobs werden nicht still als vollstaendig `success` ausgegeben, weil inline post-push checks nicht rerun wurden.`
+- `last_completed_block`: `H3 ist jetzt komplett geschlossen dokumentiert: `307fa3d` fuehrt die persistierte Async-Job-Bruecke `builder_tasks.sourceAsyncJobId` von `health.ts` ueber Orchestrator, SmartPush und `/push` bis in die Builder-Task an; `ed27349` zieht danach im execution-result-Callback die spaete Wahrheit fuer `async_jobs.result` auf dem Async-Health-Pfad nach; `c98c8e7` synchronisiert die Truth-Anker und die historischen H3-Read-only-Dokus auf diesen Stand. Der Reconcile-Schnitt bleibt bewusst konservativ: `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase werden nachgezogen, aber spaet gelandete Jobs werden nicht still als vollstaendig `success` ausgegeben, weil inline post-push checks nicht rerun wurden.`
 - `next_recommended_block`: `Der akute Builder-Hardening-Korridor ist nach H3A plus H3-async-0/1 repo-sichtbar und live auf `ed27349` nachgezogen. Kein neuer Builder-Nutzungsnachweis und kein neuer class_1 Push-Smoke ohne neuen bewussten Entscheid; als moeglicher Folgepunkt bleibt nur noch die getrennte Entscheidung, ob synchrone Caller (`/opus-task`, `/execute`, `/build`) ebenfalls eine spaet persistierte Reconciliation-Wahrheit brauchen oder ob der Acceptance-Korridor fuer diesen Hardening-Zyklus als ausreichend geschlossen gilt.`
 - `read_order_version`: `v2`
 
