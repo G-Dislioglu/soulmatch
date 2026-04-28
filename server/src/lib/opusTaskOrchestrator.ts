@@ -43,6 +43,7 @@ export interface OpusTaskInput {
   scope?: string[];
   targetFile?: string;
   acceptanceSmoke?: boolean;
+  sourceAsyncJobId?: string;
   sideEffects?: BuilderSideEffectsContract;
   workers?: string[];
   maxTokens?: number;
@@ -321,6 +322,7 @@ async function pushEdits(
   instruction: string,
   safetyDecision: BuilderSafetyDecision,
   acceptanceSmoke?: boolean,
+  sourceAsyncJobId?: string,
   sideEffects?: BuilderSideEffectsContract,
 ): Promise<{
   pushed: boolean;
@@ -352,6 +354,7 @@ async function pushEdits(
       files,
       result: await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`, {
         acceptanceSmoke,
+        sourceAsyncJobId,
         sideEffects,
       }),
     };
@@ -850,7 +853,14 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   if (input.skipDeploy) {
     phases.push({ phase: 'push', status: 'skipped', durationMs: 0 });
   } else {
-    const push = await pushEdits(best, input.instruction, finalSafety, input.acceptanceSmoke, input.sideEffects);
+    const push = await pushEdits(
+      best,
+      input.instruction,
+      finalSafety,
+      input.acceptanceSmoke,
+      input.sourceAsyncJobId,
+      input.sideEffects,
+    );
     phases.push({ phase: 'push', status: push.pushed ? 'ok' : 'error', durationMs: push.durationMs, detail: push });
     if (!push.pushed) {
       return { status: 'partial', runId, phases, edits: best,

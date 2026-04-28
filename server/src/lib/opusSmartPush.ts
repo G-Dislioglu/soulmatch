@@ -43,6 +43,7 @@ interface SmartPushResult {
 
 interface SmartPushOptions {
   acceptanceSmoke?: boolean;
+  sourceAsyncJobId?: string;
   sideEffects?: BuilderSideEffectsContract;
 }
 
@@ -93,6 +94,7 @@ export async function smartPush(
           files: overwrites,
           message,
           acceptanceSmoke: options?.acceptanceSmoke === true,
+          sourceAsyncJobId: options?.sourceAsyncJobId,
           sideEffects: options?.sideEffects,
         }),
       });
@@ -128,6 +130,7 @@ export async function smartPush(
             files: pushFiles,
             message,
             acceptanceSmoke: options?.acceptanceSmoke === true,
+            sourceAsyncJobId: options?.sourceAsyncJobId,
             sideEffects: options?.sideEffects,
           }),
         });

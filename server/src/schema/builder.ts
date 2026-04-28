@@ -36,6 +36,7 @@ export const builderTasks = pgTable('builder_tasks', {
     .$type<string[]>()
     .notNull()
     .default(['code', 'runtime', 'review']),
+  sourceAsyncJobId: text('source_async_job_id'),
   status: varchar('status', { length: 20 }).notNull().default('queued'),
   commitHash: varchar('commit_hash', { length: 40 }),
   tokenCount: integer('token_count').default(0),

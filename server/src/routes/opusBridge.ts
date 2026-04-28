@@ -1017,11 +1017,12 @@ opusBridgeRouter.post('/delete', async (req: Request, res: Response) => {
 // ==================== DIRECT PUSH (no LLM, just commit files) ====================
 opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
   try {
-    const { files, message, branch, acceptanceSmoke, sideEffects } = req.body as {
+    const { files, message, branch, acceptanceSmoke, sourceAsyncJobId, sideEffects } = req.body as {
       files?: Array<{ file: string; content?: string; search?: string; replace?: string }>;
       message?: string;
       branch?: string;
       acceptanceSmoke?: boolean;
+      sourceAsyncJobId?: string;
       sideEffects?: BuilderSideEffectsContract;
     };
 
@@ -1064,6 +1065,9 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
         goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
         scope: files.map((f) => f.file),
         risk: 'low',
+        sourceAsyncJobId: typeof sourceAsyncJobId === 'string' && sourceAsyncJobId.length > 0
+          ? sourceAsyncJobId
+          : null,
         status: 'applying',
       })
       .returning();
@@ -1370,7 +1374,7 @@ opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) 
 // ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
-    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke, sideEffects } = req.body as {
+    const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, sourceAsyncJobId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke, sideEffects } = req.body as {
       instruction: string;
       scope?: string[];
       targetFile?: string;
@@ -1383,6 +1387,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       hasApprovedPlan?: boolean;
       sourceTaskId?: string;
       sourceRunId?: string;
+      sourceAsyncJobId?: string;
       metaSourceIds?: string[];
       assumptions?: string[];
       assumptionIds?: string[];
@@ -1404,6 +1409,7 @@ opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
       hasApprovedPlan,
       sourceTaskId,
       sourceRunId,
+      sourceAsyncJobId,
       metaSourceIds,
       assumptions,
       assumptionIds,

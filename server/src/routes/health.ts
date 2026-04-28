@@ -271,6 +271,7 @@ healthRouter.post('/opus-task-async', async (req: Request, res: Response) => {
       metaSourceIds,
       assumptions,
       assumptionIds,
+      sourceAsyncJobId: id,
     }))
     .then((result) => {
       void updateAsyncJob(id, { status: 'done', result, error: undefined });
