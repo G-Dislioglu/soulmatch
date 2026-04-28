@@ -1,7 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../db.js';
-import { builderAssumptions, builderMemory } from '../schema/builder.js';
-import { getAgentProfile } from './agentHabitat.js';
+import { builderAgentProfiles, builderAssumptions, builderMemory } from '../schema/builder.js';
 import { POOL_MODEL_MAP, getActivePools, type PoolConfig } from './poolState.js';
 import { getWorkerById } from './workerProfiles.js';
 
@@ -20,6 +19,15 @@ export interface TeamAwarenessOptions {
   actorId?: string;
   taskGoal?: string;
   scope?: string[];
+}
+
+interface TeamAwarenessProfile {
+  avgQuality: number;
+  taskCount: number;
+  successCount: number;
+  strengths: unknown;
+  weaknesses: unknown;
+  fileExperience: unknown;
 }
 
 const ROLE_POSITIONS: Record<TeamAwarenessRole, TeamAwarenessPosition> = {
@@ -96,6 +104,10 @@ function roleLabel(role: TeamAwarenessRole): string {
   }
 }
 
+function warnDegraded(section: 'agent profiles' | 'memory lines'): void {
+  console.warn(`[team-awareness] ${section} unavailable, using degraded fallback.`);
+}
+
 function fallbackSelfLine(actorId: string | undefined, role: TeamAwarenessRole): string {
   if (!actorId) {
     return `Rolle ${roleLabel(role)} ohne expliziten Agenten-Key.`;
@@ -114,16 +126,60 @@ function fallbackSelfLine(actorId: string | undefined, role: TeamAwarenessRole):
   return `${actorId}: kein verdichtetes Profil vorhanden.`;
 }
 
-async function buildSelfLine(actorId: string | undefined, role: TeamAwarenessRole, scope: string[]): Promise<string> {
+function createProfileReader() {
+  const cache = new Map<string, TeamAwarenessProfile | null>();
+  let dbReadable = hasDatabaseAccess();
+  let warned = false;
+
+  return async (agentId: string): Promise<TeamAwarenessProfile | null> => {
+    if (!dbReadable) {
+      return null;
+    }
+
+    if (cache.has(agentId)) {
+      return cache.get(agentId) ?? null;
+    }
+
+    try {
+      const db = getDb();
+      const [profile] = await db
+        .select({
+          avgQuality: builderAgentProfiles.avgQuality,
+          taskCount: builderAgentProfiles.taskCount,
+          successCount: builderAgentProfiles.successCount,
+          strengths: builderAgentProfiles.strengths,
+          weaknesses: builderAgentProfiles.weaknesses,
+          fileExperience: builderAgentProfiles.fileExperience,
+        })
+        .from(builderAgentProfiles)
+        .where(eq(builderAgentProfiles.agentId, agentId))
+        .limit(1);
+
+      const result = profile ?? null;
+      cache.set(agentId, result);
+      return result;
+    } catch (error) {
+      dbReadable = false;
+      if (!warned) {
+        warned = true;
+        warnDegraded('agent profiles');
+      }
+      return null;
+    }
+  };
+}
+
+async function buildSelfLine(
+  actorId: string | undefined,
+  role: TeamAwarenessRole,
+  scope: string[],
+  getProfile: (agentId: string) => Promise<TeamAwarenessProfile | null>,
+): Promise<string> {
   if (!actorId) {
     return fallbackSelfLine(undefined, role);
   }
 
-  if (!hasDatabaseAccess()) {
-    return fallbackSelfLine(actorId, role);
-  }
-
-  const profile = await getAgentProfile(actorId);
+  const profile = await getProfile(actorId);
   if (!profile) {
     return fallbackSelfLine(actorId, role);
   }
@@ -161,12 +217,11 @@ async function buildSelfLine(actorId: string | undefined, role: TeamAwarenessRol
   return compactText(parts.join(' '), 320);
 }
 
-async function describePoolMember(memberId: string): Promise<string> {
-  if (!hasDatabaseAccess()) {
-    return fallbackSelfLine(memberId, 'worker');
-  }
-
-  const profile = await getAgentProfile(memberId);
+async function describePoolMember(
+  memberId: string,
+  getProfile: (agentId: string) => Promise<TeamAwarenessProfile | null>,
+): Promise<string> {
+  const profile = await getProfile(memberId);
   if (profile) {
     const strengths = (profile.strengths ?? []) as string[];
     return compactText(
@@ -191,7 +246,11 @@ async function describePoolMember(memberId: string): Promise<string> {
   return `${memberId}: unbekannter Pool-Eintrag.`;
 }
 
-async function buildTeamLines(role: TeamAwarenessRole, actorId?: string): Promise<string[]> {
+async function buildTeamLines(
+  role: TeamAwarenessRole,
+  getProfile: (agentId: string) => Promise<TeamAwarenessProfile | null>,
+  actorId?: string,
+): Promise<string[]> {
   const activePools = getActivePools();
   const lines: string[] = [];
 
@@ -201,7 +260,9 @@ async function buildTeamLines(role: TeamAwarenessRole, actorId?: string): Promis
       continue;
     }
 
-    const summaries = await Promise.all(members.slice(0, 3).map((member) => describePoolMember(member)));
+    const summaries = await Promise.all(
+      members.slice(0, 2).map((member) => describePoolMember(member, getProfile)),
+    );
     lines.push(`${pool.toUpperCase()}: ${summaries.join(' | ')}`);
   }
 
@@ -213,72 +274,78 @@ async function loadMemoryLines(actorId: string | undefined): Promise<string[]> {
     return [];
   }
 
-  const db = getDb();
-  const memoryRows = await db
-    .select({
-      layer: builderMemory.layer,
-      summary: builderMemory.summary,
-      worker: builderMemory.worker,
-    })
-    .from(builderMemory)
-    .where(inArray(builderMemory.layer, ['continuity', 'semantic', 'episode', 'worker_profile']))
-    .orderBy(desc(builderMemory.updatedAt))
-    .limit(12);
+  try {
+    const db = getDb();
+    const memoryRows = await db
+      .select({
+        layer: builderMemory.layer,
+        summary: builderMemory.summary,
+        worker: builderMemory.worker,
+      })
+      .from(builderMemory)
+      .where(inArray(builderMemory.layer, ['continuity', 'semantic', 'episode', 'worker_profile']))
+      .orderBy(desc(builderMemory.updatedAt))
+      .limit(12);
 
-  const continuity = memoryRows.find((row) => row.layer === 'continuity');
-  const semantic = memoryRows.filter((row) => row.layer === 'semantic').slice(0, 2);
-  const workerProfile = actorId
-    ? memoryRows.find((row) => row.layer === 'worker_profile' && row.worker === actorId)
-    : undefined;
-  const recentEpisode = actorId
-    ? memoryRows.find((row) => row.layer === 'episode' && row.worker === actorId)
-    : memoryRows.find((row) => row.layer === 'episode');
+    const continuity = memoryRows.find((row) => row.layer === 'continuity');
+    const semantic = memoryRows.filter((row) => row.layer === 'semantic').slice(0, 2);
+    const workerProfile = actorId
+      ? memoryRows.find((row) => row.layer === 'worker_profile' && row.worker === actorId)
+      : undefined;
+    const recentEpisode = actorId
+      ? memoryRows.find((row) => row.layer === 'episode' && row.worker === actorId)
+      : memoryRows.find((row) => row.layer === 'episode');
 
-  const assumptionRows = await db
-    .select({
-      text: builderAssumptions.text,
-      hardeningStatus: builderAssumptions.hardeningStatus,
-    })
-    .from(builderAssumptions)
-    .where(and(
-      eq(builderAssumptions.reuseAllowed, true),
-      eq(builderAssumptions.hardeningStatus, 'accepted'),
-    ))
-    .orderBy(desc(builderAssumptions.updatedAt))
-    .limit(2);
+    const assumptionRows = await db
+      .select({
+        text: builderAssumptions.text,
+        hardeningStatus: builderAssumptions.hardeningStatus,
+      })
+      .from(builderAssumptions)
+      .where(and(
+        eq(builderAssumptions.reuseAllowed, true),
+        eq(builderAssumptions.hardeningStatus, 'accepted'),
+      ))
+      .orderBy(desc(builderAssumptions.updatedAt))
+      .limit(2);
 
-  const lines: string[] = [];
+    const lines: string[] = [];
 
-  if (continuity) {
-    lines.push(`Continuity: ${compactText(continuity.summary, 180)}`);
+    if (continuity) {
+      lines.push(`Continuity: ${compactText(continuity.summary, 180)}`);
+    }
+
+    if (semantic.length > 0) {
+      lines.push(`Semantic: ${semantic.map((row) => compactText(row.summary, 120)).join(' | ')}`);
+    }
+
+    if (workerProfile) {
+      lines.push(`Worker-Pattern: ${compactText(workerProfile.summary, 140)}`);
+    }
+
+    if (recentEpisode) {
+      lines.push(`Letzte Episode: ${compactText(recentEpisode.summary, 140)}`);
+    }
+
+    if (assumptionRows.length > 0) {
+      lines.push(`Assumptions: ${assumptionRows.map((row) => compactText(row.text, 90)).join(' | ')}`);
+    }
+
+    return lines;
+  } catch {
+    warnDegraded('memory lines');
+    return [];
   }
-
-  if (semantic.length > 0) {
-    lines.push(`Semantic: ${semantic.map((row) => compactText(row.summary, 120)).join(' | ')}`);
-  }
-
-  if (workerProfile) {
-    lines.push(`Worker-Pattern: ${compactText(workerProfile.summary, 140)}`);
-  }
-
-  if (recentEpisode) {
-    lines.push(`Letzte Episode: ${compactText(recentEpisode.summary, 140)}`);
-  }
-
-  if (assumptionRows.length > 0) {
-    lines.push(`Assumptions: ${assumptionRows.map((row) => compactText(row.text, 90)).join(' | ')}`);
-  }
-
-  return lines;
 }
 
 export async function buildTeamAwarenessBrief(options: TeamAwarenessOptions): Promise<string> {
   const position = ROLE_POSITIONS[options.role];
   const scope = options.scope ?? [];
+  const getProfile = createProfileReader();
 
   const [selfLine, teamLines, memoryLines] = await Promise.all([
-    buildSelfLine(options.actorId, options.role, scope),
-    buildTeamLines(options.role, options.actorId),
+    buildSelfLine(options.actorId, options.role, scope, getProfile),
+    buildTeamLines(options.role, getProfile, options.actorId),
     loadMemoryLines(options.actorId),
   ]);
 
