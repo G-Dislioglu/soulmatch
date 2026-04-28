@@ -117,9 +117,11 @@ export function classifyBuilderTask(input: BuilderSafetyInput): BuilderSafetyDec
 
   const taskClass: BuilderTaskClass = protectedPathsTouched.length > 0
     ? 'class_3'
-    : candidatePaths.length > 1
+    : candidatePaths.length === 0
       ? 'class_2'
-      : 'class_1';
+      : candidatePaths.length > 1
+        ? 'class_2'
+        : 'class_1';
 
   let decision: BuilderGateDecision = input.judgeDecision ?? 'approve';
   let executionPolicy: ExecutionPolicy = 'allow_push';
