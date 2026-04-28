@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, eq, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
+  asyncJobs,
   builderActions,
   builderArtifacts,
   builderChatpool,
@@ -22,6 +23,7 @@ import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from 
 import { buildDirectorContext } from '../lib/directorContext.js';
 import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAction, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
+import { reconcileAsyncJobResultWithCallback } from '../lib/builderAsyncJobReconciliation.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
 import { getBuilderSideEffectsFromGoal } from '../lib/builderSideEffects.js';
@@ -613,7 +615,7 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
     const db = getDb();
     const taskId = req.params.id;
     const [taskMeta] = await db
-      .select({ goal: builderTasks.goal })
+      .select({ goal: builderTasks.goal, sourceAsyncJobId: builderTasks.sourceAsyncJobId })
       .from(builderTasks)
       .where(eq(builderTasks.id, taskId))
       .limit(1);
@@ -653,6 +655,23 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
           console.error('[builder] index refresh after commit callback failed:', regenErr);
         });
       }
+      if (taskMeta?.sourceAsyncJobId) {
+        const [asyncJob] = await db
+          .select({ result: asyncJobs.result })
+          .from(asyncJobs)
+          .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId))
+          .limit(1);
+        const reconciled = reconcileAsyncJobResultWithCallback(asyncJob?.result, {
+          committed: true,
+          commitHash: commit_hash,
+        });
+        if (reconciled.changed) {
+          await db
+            .update(asyncJobs)
+            .set({ result: reconciled.result, updatedAt: new Date() })
+            .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId));
+        }
+      }
       signalPushResult(taskId, { landed: true, commitHash: commit_hash });
     } else if (committed === false) {
       // Terminaler Fehler-Callback aus dem Workflow (empty_staged_diff,
@@ -664,6 +683,23 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         .set({ status: 'review_needed', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
+      if (taskMeta?.sourceAsyncJobId) {
+        const [asyncJob] = await db
+          .select({ result: asyncJobs.result })
+          .from(asyncJobs)
+          .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId))
+          .limit(1);
+        const reconciled = reconcileAsyncJobResultWithCallback(asyncJob?.result, {
+          committed: false,
+          reason: typeof reason === 'string' && reason.length > 0 ? reason : 'commit_not_landed',
+        });
+        if (reconciled.changed) {
+          await db
+            .update(asyncJobs)
+            .set({ result: reconciled.result, updatedAt: new Date() })
+            .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId));
+        }
+      }
       signalPushResult(taskId, {
         landed: false,
         reason: typeof reason === 'string' && reason.length > 0 ? reason : 'commit_not_landed',
