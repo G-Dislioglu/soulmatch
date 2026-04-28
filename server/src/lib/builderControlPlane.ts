@@ -1,11 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildTeamCoordinationContext } from './builderTeamAwareness.js';
 
 export interface BuilderControlState {
   projectState: {
     repoHead: string;
     lastCompletedBlock: string;
     runtimeNote: string;
+  };
+  teamCoordination: {
+    maya: string;
+    council: string;
+    worker: string;
   };
   activeRules: string[];
   openAssumptions: string[];
@@ -14,6 +20,21 @@ export interface BuilderControlState {
     scope: string;
     reason: string;
   };
+}
+
+function resolveStateFilePath(): string {
+  const candidates = [
+    path.resolve(process.cwd(), 'STATE.md'),
+    path.resolve(process.cwd(), '..', 'STATE.md'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0]!;
 }
 
 function parseStateHeader(content: string): Record<string, string> {
@@ -57,7 +78,7 @@ function parseStateHeader(content: string): Record<string, string> {
 
 export function getNextRecommendedBlock(): { title: string; scope: string; reason: string } {
   try {
-    const content = fs.readFileSync(path.resolve(process.cwd(), 'STATE.md'), 'utf-8');
+    const content = fs.readFileSync(resolveStateFilePath(), 'utf-8');
     const parsed = parseStateHeader(content);
     const text = parsed['next_recommended_block'] || 'not available';
 
@@ -77,7 +98,7 @@ export function getNextRecommendedBlock(): { title: string; scope: string; reaso
 
 export function getBuilderControlState(): BuilderControlState {
   try {
-    const content = fs.readFileSync(path.resolve(process.cwd(), 'STATE.md'), 'utf-8');
+    const content = fs.readFileSync(resolveStateFilePath(), 'utf-8');
     const parsed = parseStateHeader(content);
 
     return {
@@ -85,6 +106,11 @@ export function getBuilderControlState(): BuilderControlState {
         repoHead: parsed['current_repo_head'] || 'unknown',
         lastCompletedBlock: (parsed['last_completed_block'] || 'not available').slice(0, 200),
         runtimeNote: 'Phase 0 control plane initial read from STATE.md',
+      },
+      teamCoordination: {
+        maya: buildTeamCoordinationContext({ role: 'maya' }),
+        council: buildTeamCoordinationContext({ role: 'council' }),
+        worker: buildTeamCoordinationContext({ role: 'worker' }),
       },
       activeRules: [
         'Client: pnpm typecheck vor Abschluss',
@@ -106,6 +132,11 @@ export function getBuilderControlState(): BuilderControlState {
         repoHead: 'unknown',
         lastCompletedBlock: 'not available',
         runtimeNote: 'control plane unavailable',
+      },
+      teamCoordination: {
+        maya: 'not available',
+        council: 'not available',
+        worker: 'not available',
       },
       activeRules: ['not available'],
       openAssumptions: ['not available'],

@@ -115,6 +115,16 @@ PATROL:
 - Critical: ${ctx.patrolSummary.critical}
 - High: ${ctx.patrolSummary.high}
 
+TEAM-KOORDINATION:
+Maya:
+${ctx.controlPlane.teamCoordination.maya}
+
+Council:
+${ctx.controlPlane.teamCoordination.council}
+
+Worker:
+${ctx.controlPlane.teamCoordination.worker}
+
 AKTIVE POOLS:
 - Maya: ${ctx.activePools.maya.join(', ') || 'leer'}
 - Council: ${ctx.activePools.council.join(', ') || 'leer'}
