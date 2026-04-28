@@ -21,6 +21,8 @@ import {
 import { callProvider } from './providers.js';
 import { assembleBuilderContext } from './builderContextAssembler.js';
 import { resolveScope } from './builderScopeResolver.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
+import { getActivePools } from './poolState.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -176,6 +178,7 @@ Baue Gaps/Conflicts natuerlich in deine Chat-Antwort ein — nicht als separaten
 
 async function buildSystemPrompt(userId?: string) {
   let memoryContext = "";
+  let teamAwareness = "";
   try {
     memoryContext = await buildBuilderMemoryContext();
   } catch (err: any) {
@@ -196,6 +199,18 @@ async function buildSystemPrompt(userId?: string) {
     }
   } catch (err: any) {
     console.warn('[buildSystemPrompt] assembleBuilderContext failed:', err?.message);
+  }
+
+  try {
+    teamAwareness = await buildTeamAwarenessBrief({
+      role: 'maya',
+      actorId: getActivePools().maya[0],
+    });
+    if (teamAwareness) {
+      parts.push(`\n\n${teamAwareness}`);
+    }
+  } catch (err: any) {
+    console.warn('[buildSystemPrompt] team awareness failed:', err?.message);
   }
   
   return parts.join('');

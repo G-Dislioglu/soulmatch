@@ -8,6 +8,7 @@ import {
   loadProjectDna,
 } from './opusGraphIntegration.js';
 import { getAllFromPool, type ResolvedModel } from './poolState.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 
 export interface ScoutTask {
   id: string;
@@ -70,7 +71,7 @@ Kein Code schreiben, nur bewerten. Maximal 400 Woerter.`,
   },
 ];
 
-function buildPromptWithContext(basePrompt: string, graphBriefing?: string): string {
+function buildPromptWithContext(basePrompt: string, graphBriefing?: string, teamBriefing?: string): string {
   const projectDna = loadProjectDna();
   const sections = [];
 
@@ -88,6 +89,10 @@ function buildPromptWithContext(basePrompt: string, graphBriefing?: string): str
     );
   }
 
+  if (teamBriefing?.trim()) {
+    sections.push(teamBriefing.trim());
+  }
+
   sections.push(basePrompt);
   return sections.join('\n\n');
 }
@@ -99,8 +104,14 @@ async function runSingleScout(
   graphBriefing: string,
 ): Promise<ChatPoolMessage> {
   const startedAt = Date.now();
+  const teamBriefing = await buildTeamAwarenessBrief({
+    role: 'scout',
+    actorId: model.id,
+    taskGoal: task.goal,
+    scope: task.scope ?? [],
+  });
   const content = await callProvider(model.provider, model.model, {
-    system: buildPromptWithContext(focus.system(task.goal), graphBriefing),
+    system: buildPromptWithContext(focus.system(task.goal), graphBriefing, teamBriefing),
     messages: [{ role: 'user', content: task.goal }],
     maxTokens: focus.maxTokens,
     forceJsonObject: false,

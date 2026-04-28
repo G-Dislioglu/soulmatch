@@ -11,6 +11,7 @@ import {
 import { loadProjectDna } from './opusGraphIntegration.js';
 import { extractJsonFromText } from './opusPulseCrush.js';
 import { callProvider } from './providers.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 
 const REPO_ROOT = process.cwd();
 const MAX_FILE_SIZE = 25000;
@@ -237,6 +238,7 @@ function buildRoundtableSystemPrompt(
   participant: RoundtableParticipant,
   task: { title: string; goal: string; scope?: string[]; risk?: string },
   projectDna: string,
+  teamBriefing: string | undefined,
   opusHints?: string,
 ): string {
   const lines = [
@@ -298,6 +300,10 @@ function buildRoundtableSystemPrompt(
 
   if (opusHints?.trim()) {
     lines.push('', '=== OPUS-ARCHITECT ANWEISUNGEN ===', opusHints.trim());
+  }
+
+  if (teamBriefing?.trim()) {
+    lines.push('', teamBriefing.trim());
   }
 
   lines.push(
@@ -429,7 +435,13 @@ export async function runRoundtable(
 
       try {
         const hints = [opusHints || '', dynamicFocus].filter(Boolean).join('\n\n');
-        const system = buildRoundtableSystemPrompt(participant, task, projectDna, hints || undefined);
+        const teamBriefing = await buildTeamAwarenessBrief({
+          role: 'council',
+          actorId: participant.actor,
+          taskGoal: task.goal,
+          scope: task.scope ?? [],
+        }).catch(() => '');
+        const system = buildRoundtableSystemPrompt(participant, task, projectDna, teamBriefing || undefined, hints || undefined);
         const prompt = `${formatChatPoolForModel(chatPool)}\n\n--- Dein Beitrag (Runde ${round}): ---`;
         const response = await callProvider(
           normalizeProvider(participant.provider),

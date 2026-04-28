@@ -15,6 +15,7 @@ import { callProvider } from './providers.js';
 import { addChatPoolMessage, type ChatPoolMessage } from './opusChatPool.js';
 import type { ScoutPhaseResult } from './opusScoutRunner.js';
 import { getAllFromPool, type ResolvedModel } from './poolState.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 
 export interface DistillerResult {
   /** The final structured brief for the council */
@@ -147,11 +148,14 @@ async function runExtractor(
   taskGoal: string,
   scoutDigest: string,
   model: ResolvedModel,
+  teamBriefing?: string,
 ): Promise<{ message: ChatPoolMessage; extract: string }> {
   const startedAt = Date.now();
 
   const content = await callProvider(model.provider, model.model, {
     system: `${USER_INTENT_ANCHOR}
+
+${teamBriefing ? `${teamBriefing}\n` : ''}
 
 Du bist der Fakten-Extraktor im Destillierer. Du bekommst die Roh-Outputs von mehreren Scouts.
 Dein Job: Extrahiere NUR die harten, verwertbaren Fakten. Kein Kommentar, keine Meinung.
@@ -201,11 +205,14 @@ async function runReasoner(
   extractorOutput: string,
   scoutDigest: string,
   model: ResolvedModel,
+  teamBriefing?: string,
 ): Promise<{ message: ChatPoolMessage; brief: string }> {
   const startedAt = Date.now();
 
   const content = await callProvider(model.provider, model.model, {
     system: `${USER_INTENT_ANCHOR}
+
+${teamBriefing ? `${teamBriefing}\n` : ''}
 
 Du bist der Crush-Analyst im Destillierer. Du bekommst:
 1. Den Fakten-Extrakt eines Kollegen
@@ -283,10 +290,24 @@ export async function runDistiller(
 
   // Build the scout digest string
   const scoutDigest = buildScoutDigest(scoutResult);
+  const [extractorTeamBrief, reasonerTeamBrief] = await Promise.all([
+    buildTeamAwarenessBrief({
+      role: 'distiller',
+      actorId: extractor.id,
+      taskGoal,
+      scope: [],
+    }).catch(() => ''),
+    buildTeamAwarenessBrief({
+      role: 'distiller',
+      actorId: reasoner.id,
+      taskGoal,
+      scope: [],
+    }).catch(() => ''),
+  ]);
 
   // Step 1: Extractor (pool model #1)
   console.log(`[distiller] Step 1: Extractor (${extractor.model})`);
-  const { message: extractMsg, extract } = await runExtractor(taskId, taskGoal, scoutDigest, extractor);
+  const { message: extractMsg, extract } = await runExtractor(taskId, taskGoal, scoutDigest, extractor, extractorTeamBrief);
   messages.push(extractMsg);
 
   // Step 2: Reasoner (pool model #2, sees extract + scouts + memory)
@@ -294,7 +315,7 @@ export async function runDistiller(
   const enrichedDigest = memoryContext
     ? `${scoutDigest}\n\n--- MEMORY-KONTEXT (Error-Patterns, aehnliche Tasks) ---\n${memoryContext}`
     : scoutDigest;
-  const { message: reasonMsg, brief } = await runReasoner(taskId, taskGoal, extract, enrichedDigest, reasoner);
+  const { message: reasonMsg, brief } = await runReasoner(taskId, taskGoal, extract, enrichedDigest, reasoner, reasonerTeamBrief);
   messages.push(reasonMsg);
 
   const durationMs = Date.now() - startedAt;

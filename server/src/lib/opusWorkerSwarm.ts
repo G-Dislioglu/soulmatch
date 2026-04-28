@@ -9,6 +9,7 @@ import { builderWorkerScores } from '../schema/builder.js';
 import { getAllFromPool } from './poolState.js';
 import { buildWorkerContext } from './memoryBus.js';
 import { buildAgentBrief } from './agentHabitat.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 
 interface WorkerPreset {
   actor: string;
@@ -222,6 +223,7 @@ function buildWorkerPrompt(
   dependencyPatch?: { file: string; body: string },
   memoryContext?: string,
   agentBrief?: string,
+  teamBriefing?: string,
 ): string {
   const isOpusOrSonnet = assignment.writer === 'opus' || assignment.writer === 'sonnet';
   const projectDna = isOpusOrSonnet ? loadProjectDna() : null;
@@ -247,6 +249,10 @@ function buildWorkerPrompt(
 
   if (agentBrief) {
     sections.push('', '=== AGENT BRIEF ===', agentBrief);
+  }
+
+  if (teamBriefing) {
+    sections.push('', teamBriefing);
   }
 
   if (projectDna) {
@@ -597,8 +603,21 @@ async function runSingleWorker(
       console.warn('[worker-swarm] Agent brief failed, continuing without:', e);
     }
 
+    let teamBriefing: string | undefined;
+    try {
+      teamBriefing = await buildTeamAwarenessBrief({
+        role: 'worker',
+        actorId: assignment.writer,
+        taskGoal,
+        scope: [assignment.file],
+      });
+      if (teamBriefing && teamBriefing.trim().length < 10) teamBriefing = undefined;
+    } catch (e) {
+      console.warn('[worker-swarm] Team awareness failed, continuing without:', e);
+    }
+
     const response = await callProvider(preset.provider, preset.model, {
-      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch, memoryContext, agentBrief),
+      system: buildWorkerPrompt(taskGoal, assignment, fileContents?.[assignment.file], dependencyPatch, memoryContext, agentBrief, teamBriefing),
       messages: [{ role: 'user', content: assignment.reason }],
       maxTokens: requestedMaxTokens,
       temperature: 0.2,
