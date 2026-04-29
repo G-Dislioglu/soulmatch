@@ -11,17 +11,17 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `c98c8e7`
-- `last_verified_origin_main`: `c98c8e7`
-- `last_live_runtime_head`: `ed27349`
-- `current_branch`: `builder-k26-next`
-- `last_verified_against_code`: `2026-04-28`
+- `current_repo_head`: `fb6b767`
+- `last_verified_origin_main`: `fb6b767`
+- `last_live_runtime_head`: `96fc618`
+- `current_branch`: `main`
+- `last_verified_against_code`: `2026-04-29`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `H3 ist jetzt komplett geschlossen dokumentiert: `307fa3d` fuehrt die persistierte Async-Job-Bruecke `builder_tasks.sourceAsyncJobId` von `health.ts` ueber Orchestrator, SmartPush und `/push` bis in die Builder-Task an; `ed27349` zieht danach im execution-result-Callback die spaete Wahrheit fuer `async_jobs.result` auf dem Async-Health-Pfad nach; `c98c8e7` synchronisiert die Truth-Anker und die historischen H3-Read-only-Dokus auf diesen Stand. Der Reconcile-Schnitt bleibt bewusst konservativ: `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase werden nachgezogen, aber spaet gelandete Jobs werden nicht still als vollstaendig `success` ausgegeben, weil inline post-push checks nicht rerun wurden.`
-- `next_recommended_block`: `Der akute Builder-Hardening-Korridor ist nach H3A plus H3-async-0/1 repo-sichtbar und live auf `ed27349` nachgezogen. Kein neuer Builder-Nutzungsnachweis und kein neuer class_1 Push-Smoke ohne neuen bewussten Entscheid; als moeglicher Folgepunkt bleibt nur noch die getrennte Entscheidung, ob synchrone Caller (`/opus-task`, `/execute`, `/build`) ebenfalls eine spaet persistierte Reconciliation-Wahrheit brauchen oder ob der Acceptance-Korridor fuer diesen Hardening-Zyklus als ausreichend geschlossen gilt.`
+- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie reicht repo-sichtbar bis `fb6b767`: `1761f3e`, `4e4c72b` und `1272ccd` ziehen fail-closed Scope-Klassifikation, degraded-provider-Hardening und eine resiliente Judge-Fallback-Lane auf `main`; `96fc618` fuehrt den K2.6b-Live-DryRun-Runner fuer den echten Async-HTTP-Pfad ein; `fb6b767` richtet den T07-Runner-Contract auf ehrliches class_2 fail-closed aus. Gegen die matching Live-Runtime `96fc618` lief K2.6b danach gruen mit 5/5 Passes fuer `T01`, `T04`, `T07`, `T08` und `T10`.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein neuer UI-, Patrol- oder Architect-Schnitt, sondern provider degraded-path hardening fuer den `gpt`-/OpenAI-Pfad und danach ein enger K2.6c-Release-Korridor fuer explizite freie class_1-Familien. Live-Sync ist fuer den aktuellen K2.6b-Subset nicht mehr der Hauptrest; offen bleiben Zuverlaessigkeit und die bewusste Operating-Grenze.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -177,25 +177,29 @@ Repo-Wahrheit steht damit auf `main`; die Live-Runtime antwortete danach ueber
 den resolve-Pfad ebenfalls mit `commit=ed27349` und zieht den neuen H3-Stand
 damit jetzt auch sichtbar auf Render.
 
-Der Builder ist damit aktuell ein enger gehaertetes Ausfuehrungssystem fuer
-kontrollierte kleine Tasks mit explizitem Scope und bestehenden Gates, nicht
-aber ein allgemeiner autonomer Feature-Autopilot und nach dieser Kette bewusst
-nicht fuer weitere class_1 Push-Smokes freigegeben, bis die offenen Restpfade
-gesondert entschieden sind.
+Der Builder ist damit aktuell kein allgemeiner autonomer Feature-Autopilot,
+aber der enge Autonomie-Korridor ist deutlich weiter als auf dem alten
+H3-Stand. `1761f3e`, `4e4c72b` und `1272ccd` haerten fail-closed
+Scope-Klassifikation, degraded-provider-Verhalten und die Judge-Lane auf
+`main`; `96fc618` fuehrt den K2.6b-Live-DryRun-Runner fuer den echten
+`/api/health/opus-task-async`-Pfad ein. Gegen die matching Live-Runtime
+`96fc618` lief derselbe K2.6b-Subset nach dem kleinen Runner-Contract-Fix
+`fb6b767` gruen mit 5/5 Passes: class_1 bleibt bei exakten Single-File- und
+Create-Targets scope-clean, class_2 failt ohne Approval ehrlich closed,
+class_3 blockt frueh und Ambiguitaetsfaelle raten keine Dateien mehr.
 
-Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
+Nicht freigegeben sind weiterhin grosse autonome Featurearbeit, multi-file
 Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
 (`manual_only`/protected), Featurearbeit ohne expliziten Produktauftrag sowie
-weitere Live-Push-Smokes oder neue Builder-Nutzungsnachweise ohne explizite
-Freigabe.
+freie class_2/class_3-Nutzung ohne die bestehenden Approval- und Review-Gates.
 
-Offen bleiben nach dieser Kette bewusst getrennte Restthemen: der spaetere
-`planned`-Modus des Side-Effect-Contracts, die tiefere Async-Truth-
-Reparatur fuer spaete Callback->Result-/DB-Reconciliation nach Timeout, spaetere TS/JSON/Intra-Code-
-Section-Guards und jede staerkere
-semantische Diff-Pruefung. Der vorhandene
-Deploy-Wait ist lokal weiter kein belastbarer Produktbeleg, solange er nur im
-bekannten `HTTP 000`-Operatorpfad endet.
+Offen bleiben nach dieser Kette bewusst getrennte Restthemen: provider
+independence auf dem `gpt`-/OpenAI-Pfad, der spaetere `planned`-Modus des
+Side-Effect-Contracts, die tiefere Async-Truth-Reparatur fuer spaete
+Callback->Result-/DB-Reconciliation nach Timeout, spaetere
+TS/JSON/Intra-Code-Section-Guards und jede staerkere semantische
+Diff-Pruefung. Der vorhandene Deploy-Wait ist lokal weiter kein belastbarer
+Produktbeleg, solange er nur im bekannten `HTTP 000`-Operatorpfad endet.
 
 class_2 bleibt an gueltige Approval-Artefakte und anschliessende Reviewpflicht
 gebunden; class_3 bleibt `manual_only`/protected.
