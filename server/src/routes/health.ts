@@ -164,9 +164,9 @@ export async function initializeAsyncJobsCache(): Promise<void> {
 
 // GET /api/health
 healthRouter.get('/', (_req: Request, res: Response) => {
-  console.log('🏥 Health endpoint hit - sweph test running...');
+  console.log('[health] endpoint hit - sweph test running...');
   const swephProbe = swissEphemerisProbe();
-  console.log(`🏥 Swiss Ephemeris available: ${swephProbe.available}`);
+  console.log(`[health] Swiss Ephemeris available: ${swephProbe.available}`);
   
   res.json({
     status: 'ok',
