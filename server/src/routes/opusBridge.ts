@@ -1219,6 +1219,9 @@ opusBridgeRouter.post('/standup/cleanup', async (_req: Request, res: Response) =
 import {
   getDeployStatus,
   triggerRedeploy,
+  getDeployDetails,
+  getServiceInfo,
+  listRecentBuildLogs,
   listEnvVars,
   updateEnvVar,
   getServerInfo,
@@ -1235,8 +1238,38 @@ opusBridgeRouter.get('/render/status', async (_req: Request, res: Response) => {
 
 opusBridgeRouter.post('/render/redeploy', async (_req: Request, res: Response) => {
   try {
-    const result = await triggerRedeploy();
+    const { clearCache, commitId } = _req.body as { clearCache?: boolean; commitId?: string };
+    const result = await triggerRedeploy({ clearCache, commitId });
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/render/service', async (_req: Request, res: Response) => {
+  try {
+    const result = await getServiceInfo();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/render/deploy/:deployId', async (req: Request, res: Response) => {
+  try {
+    const result = await getDeployDetails(req.params.deployId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+opusBridgeRouter.get('/render/logs/build', async (req: Request, res: Response) => {
+  try {
+    const rawLimit = Number(req.query.limit ?? 50);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.trunc(rawLimit), 100)) : 50;
+    const result = await listRecentBuildLogs(limit);
+    res.json({ ...result, limit });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
