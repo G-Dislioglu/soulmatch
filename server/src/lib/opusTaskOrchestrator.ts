@@ -297,15 +297,19 @@ async function runWorkerSwarm(
     if (!config) return { worker, response: '', durationMs: 0, error: `Unknown worker: ${worker}` };
     const start = Date.now();
     try {
-      const response = await Promise.race([
-        callProvider(config.provider, config.model, {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(new Error('Timeout 150s')), 150_000);
+      try {
+        const response = await callProvider(config.provider, config.model, {
           system: 'You are a senior TypeScript developer. Respond ONLY with valid JSON. No markdown, no explanation.',
           messages: [{ role: 'user', content: prompt }],
           maxTokens, temperature: 0.3, forceJsonObject: false,
-        }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout 150s')), 150_000)),
-      ]) as string;
-      return { worker, response, durationMs: Date.now() - start };
+          signal: controller.signal,
+        });
+        return { worker, response, durationMs: Date.now() - start };
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       return { worker, response: '', durationMs: Date.now() - start, error: msg.slice(0, 200) };
