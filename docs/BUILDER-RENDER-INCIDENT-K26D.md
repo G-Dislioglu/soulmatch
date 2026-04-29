@@ -44,12 +44,11 @@
 
 ## Current reading
 
-This is no longer primarily a Builder scope/judge/autonomy defect.
+This was not primarily a Builder scope/judge/autonomy defect.
 
-The strongest remaining class is:
+The final root cause for the blocked deploy lane was:
 
-- Render-side build/provisioning/config incident, or
-- a missing Render API diagnostic path on the currently live old runtime
+- Render workspace pipeline-minute spend limit exhaustion
 
 The evidence does **not** support:
 
@@ -96,12 +95,28 @@ That enables two tighter incident lanes:
    env keys, build logs, and targeted redeploys without depending on a newer app
    runtime becoming live first.
 
+## Resolution
+
+After the direct Render API lane and GitHub secrets were in place, the Render UI
+surfaced the actual blocker:
+
+- `Build blocked ... Your workspace has run out of pipeline minutes.`
+- the workspace was on Starter build pipeline with a `$10 monthly spend limit`
+
+Once that spend cap was removed, the current branch recovered cleanly:
+
+- `67fa75c` fixed the Render build-log owner-id lookup
+- manual `Render Deploy` workflow run `#207` on `67fa75c` completed green
+- `/api/health` advanced to `commit=67fa75cd8c00665c9b715f73990f12426a575a98`
+
+This closes the K2.6d live-catchup incident.
+
 ## Recommended next step
 
-Do not widen the autonomy corridor yet.
+Do not jump straight to broad free Builder autonomy.
 
 Next useful action should be one of:
 
-1. run the direct Render API incident workflow against the current failing lane,
-2. capture the first concrete `build_failed` reason from deploy/log output, and
-3. fix only the minimal deploy blocker before resuming autonomy-corridor work
+1. keep the direct Render API lane in place as the new deploy incident baseline,
+2. monitor Render spend/billing limits as an explicit operational dependency, and
+3. resume autonomy-corridor work with the next narrow code-adjacent release step
