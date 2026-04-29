@@ -761,8 +761,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   });
   phases.push({ phase: 'judge', status: judge.approved && judge.winner ? 'ok' : 'error', durationMs: Date.now() - s4b,
     detail: judge.approved && judge.winner
-      ? { winner: judge.worker, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
-      : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
+      ? { winner: judge.worker, judgeLane: judge.judgeLane, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
+      : { judgeLane: judge.judgeLane, reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
   const judgeDecision: BuilderGateDecision = judge.decision ?? (judge.approved ? 'approve' : 'block');
   if (judgeDecision === 'block' || !judge.winner) {
     const judgeFailureSafety = classifyBuilderTask({
