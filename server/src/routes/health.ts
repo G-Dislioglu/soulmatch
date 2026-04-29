@@ -209,12 +209,16 @@ healthRouter.get('/read-file', (req: Request, res: Response) => {
   }
 
   const filePath = req.query.path as string;
-  if (!filePath || filePath.includes('..')) {
+  if (!filePath) {
     return res.status(400).json({ error: 'invalid path' });
   }
 
   try {
     const resolved = path.resolve(process.cwd(), filePath);
+    const cwd = process.cwd();
+    if (!resolved.startsWith(cwd)) {
+      return res.status(403).json({ error: 'path traversal blocked' });
+    }
     const content = fs.readFileSync(resolved, 'utf-8');
     res.json({ path: filePath, content });
   } catch (e: any) {
