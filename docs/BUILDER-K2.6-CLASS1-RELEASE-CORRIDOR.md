@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `free_docs_helper_plus_runtime_validation_subset_active`
+- status: `free_docs_helper_plus_runtime_validation_subset_repeatable`
 - basis: `repo_visible_plus_runtime_probe`
 - scope: `narrow_free_class_1_only`
 - not included: `class_2`, `class_3`, multi-file, protected, builder-core
@@ -29,6 +29,7 @@ The current corridor is based on:
 - first free non-governance anchored replacement landing `K2.7b`
 - first clean repeatability proof for that lane `K2.7c`
 - first free code-adjacent runtime validation proof `K2.7d`
+- second free code-adjacent runtime validation proof `K2.7e`
 
 Relevant verified commits:
 
@@ -44,6 +45,7 @@ Relevant verified commits:
 - `0b2b8c3`
 - `ef100dd`
 - `1512f95`
+- `b6b85d0`
 
 ## Candidate free corridor
 
@@ -98,6 +100,7 @@ Currently free only when all of these stay true:
 First free proof so far:
 
 - whitespace-only `profileId` rejection in `server/src/routes/astro.ts`
+- whitespace-only `aProfileId` rejection in `server/src/routes/match.ts`
 
 ## Corridor preconditions
 
@@ -160,10 +163,11 @@ Do **not** start free operation with:
 
 ## Decision output
 
-The narrow credible statement after `K2.7d` is:
+The narrow credible statement after `K2.7e` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
 > exact single-file docs/helper edits and exact non-governance anchored
 > single-file replacements inside docs/helper paths, plus exact single-file
-> public-route validation/guard fixes with direct live proof, while broader
-> runtime work and all other categories remain outside free autonomy.
+> public-route validation/guard fixes with direct live proof and a second
+> repeatability case, while broader runtime work and all other categories
+> remain outside free autonomy.
