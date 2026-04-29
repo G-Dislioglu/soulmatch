@@ -46,6 +46,7 @@ type BenchmarkTaskReport = {
   expectedChangedFiles: string[];
   scopeClean: boolean;
   judgeDecision: string;
+  judgeLane?: string;
   landed: boolean;
   durationMs: number;
   stopRuleTriggered: StopRule | null;
@@ -99,13 +100,13 @@ const BATCH_1_TASKS: BenchmarkTaskSpec[] = [
   {
     taskId: 'K26-T02',
     title: 'class_1 single-file docs wording',
-    instruction: 'Tighten the executive summary in `docs/CLAUDE-CONTEXT.md`, specifically the paragraph starting with "Soulmatch is a monorepo". Make it more direct without changing technical accuracy.',
+    instruction: 'Tighten the executive-summary wording in `docs/CLAUDE-CONTEXT.md`, specifically the paragraph under `## Ökosystem — Wo Soulmatch hingehört` starting with "Soulmatch ist ein Teil.". Make it more direct without changing technical accuracy.',
     scope: ['docs/CLAUDE-CONTEXT.md'],
     expectedChangedFiles: ['docs/CLAUDE-CONTEXT.md'],
     expectedTaskClass: 'class_1',
     expectedStatus: 'dry_run',
     stopRules: ['scope_drift'],
-    notes: 'Known docs-envelope reliability gap may still appear here.',
+    notes: 'Docs wording task; anchor must stay aligned with the live German context file.',
   },
   {
     taskId: 'K26-T04',
@@ -271,6 +272,12 @@ function deriveJudgeDecision(result: OpusTaskResult): string {
   if (!judgePhase) return 'missing';
   if (judgePhase.status === 'ok') return 'approved';
   return 'blocked_or_failed';
+}
+
+function deriveJudgeLane(result: OpusTaskResult): string | undefined {
+  const judgePhase = result.phases.find((phase) => phase.phase === 'judge');
+  const detail = judgePhase?.detail as { judgeLane?: unknown } | undefined;
+  return typeof detail?.judgeLane === 'string' ? detail.judgeLane : undefined;
 }
 
 function getWorkerErrors(result: OpusTaskResult): Array<{ worker: string; error: string }> {
@@ -461,6 +468,7 @@ async function main() {
       expectedChangedFiles: task.expectedChangedFiles,
       scopeClean,
       judgeDecision: deriveJudgeDecision(result),
+      judgeLane: deriveJudgeLane(result),
       landed: result.landed ?? false,
       durationMs: result.totalDurationMs,
       notes: [
