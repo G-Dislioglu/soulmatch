@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `decision_prep_ready`
+- status: `free_docs_helper_subset_active`
 - basis: `repo_visible_plus_runtime_probe`
 - scope: `narrow_free_class_1_only`
 - not included: `class_2`, `class_3`, multi-file, protected, builder-core
@@ -25,6 +25,9 @@ The current corridor is based on:
 - first runtime cleanup push `K2.6e`
 - first runtime guard hardening push `K2.6f`
 - first public-route validation hardening push `K2.6g`
+- first free docs/helper subset `K2.7a`
+- first free non-governance anchored replacement landing `K2.7b`
+- first clean repeatability proof for that lane `K2.7c`
 
 Relevant verified commits:
 
@@ -35,6 +38,10 @@ Relevant verified commits:
 - `52a7175`
 - `adc593a`
 - `abd1d3f`
+- `7c3bce7`
+- `21d7a3d`
+- `0b2b8c3`
+- `ef100dd`
 
 ## Candidate free corridor
 
@@ -55,6 +62,12 @@ Allowed:
 - no structural rewrite
 - no fallback overwrite outside the anchor
 
+Currently free only when all of these stay true:
+
+- target stays inside docs/helper-style paths
+- target is not itself a governance or policy document
+- replacement is exact and local
+
 ### C. Single-file code-adjacent low-risk runtime edits
 
 Allowed:
@@ -65,11 +78,14 @@ Allowed:
 - no product-semantics expansion
 - no additional touched files
 
-Proven examples so far:
+Controlled-push examples so far:
 
 - log cleanup in `server/src/routes/health.ts`
 - root guard hardening in `server/src/routes/health.ts`
 - whitespace validation hardening in `server/src/routes/numerology.ts`
+
+These runtime edits are proven in the controlled corridor, but not yet adopted
+as part of the free subset.
 
 ## Corridor preconditions
 
@@ -112,11 +128,11 @@ Stop free-corridor use immediately if any of these appear:
 
 ## Recommended immediate use
 
-If this corridor is adopted, the safest first free Builder subset is:
+The currently adopted free Builder subset is:
 
 1. exact single-file docs/helper edits
-2. exact single-file anchored replacements
-3. single-file low-risk runtime cleanup/validation/guard fixes
+2. exact non-governance single-file anchored replacements inside docs/helper
+   paths
 
 Do **not** start free operation with:
 
@@ -125,12 +141,14 @@ Do **not** start free operation with:
 - builder-core
 - secrets/deploy/auth
 - multi-file consistency work
+- governance/policy docs as anchored-replacement targets
+- free code-adjacent runtime edits before a separate widening decision
 
 ## Decision output
 
-The narrow credible statement after `K2.6g` is:
+The narrow credible statement after `K2.7c` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
-> exact single-file docs/helper edits, exact anchored single-file replacements,
-> and single-file low-risk code-adjacent runtime cleanup/validation/guard fixes,
-> while all broader work remains outside free autonomy.
+> exact single-file docs/helper edits and exact non-governance anchored
+> single-file replacements inside docs/helper paths, while code-adjacent runtime
+> work and all broader categories remain outside free autonomy.

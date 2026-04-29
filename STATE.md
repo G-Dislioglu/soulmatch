@@ -11,17 +11,17 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `9c7de67`
-- `last_verified_origin_main`: `9c7de67`
-- `last_live_runtime_head`: `abd1d3f`
+- `current_repo_head`: `ef100dd`
+- `last_verified_origin_main`: `ef100dd`
+- `last_live_runtime_head`: `ef100dd`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-29`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die Builder-Autonomie-Linie ist jetzt ueber K2.7a in den ersten echten freien class_1-Subset vorgestossen. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten Scope-, Provider- und Judge-Lane; `0738700`, `df13183` und `3b0236a` schlossen den engen K2.6c-Docs-/Helper-Corridor; `427235a`, `52a7175`, `adc593a` und `abd1d3f` belegten danach den code-adjacent Cleanup-/Guard-/Validation-Korridor. Darauf aufbauend landete jetzt `7c3bce7` als erster echter freier class_1-Append-Task auf `docs/archive/push-test.md`, und `21d7a3d` landete als freier expliziter create-target helper task auf `docs/archive/k27a-free-class1-smoke.txt`, jeweils scope-clean und ohne Zusatzdateien. Der dritte freie K2.7a-Versuch auf `docs/BUILDER-K2.6-CLASS1-RELEASE-CORRIDOR.md` wurde bewusst nicht erzwungen: dieselbe single-file anchored replacement blieb bei `taskClass=class_1`, wurde aber von workflow simulation mit `require_review` und `pushBlockedReason=Claim anchoring is incomplete for winner claims (1).` gestoppt. Damit ist der freie Korridor fuer exakte Docs-/Helper-Landings repo-sichtbar gruen, aber anchored replacements auf Governance-Dokumenten sind noch nicht frei bestaetigt.`
-- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein breiterer Autonomie-Sprung, sondern eine enge K2.7b-Nachstufe: zuerst die freie class_1-Lane fuer exakte Docs-/Helper-Edits als operativen Minimal-Korridor festziehen, dann die Repeatability der ersten fail-closed Runner-Nondeterministik haerten und erst danach einen nicht-governanceartigen single-file anchored-replacement-Fall testen. Kein Multi-File, kein Builder-Core, keine class_2/class_3-Freigabe.`
+- `last_completed_block`: `Die Builder-Autonomie-Linie ist jetzt ueber K2.7c im freien Docs-/Helper-class_1-Korridor belastbarer belegt. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten Scope-, Provider- und Judge-Lane; `0738700`, `df13183` und `3b0236a` schlossen den engen K2.6c-Docs-/Helper-Corridor; `427235a`, `52a7175`, `adc593a` und `abd1d3f` belegten danach den code-adjacent Cleanup-/Guard-/Validation-Korridor. Darauf landeten `7c3bce7` als freier class_1-Append-Task und `21d7a3d` als freier expliziter create-target helper task, jeweils scope-clean und ohne Zusatzdateien. `0b2b8c3` zeigte danach, dass ein nicht-governanceartiger single-file anchored replacement im Helper-Pfad bereits landen kann, aber die Lane meldete noch false-negative Push-Wahrheit (`empty_staged_diff`). Die enge Hardening-Kette `fab0d97` und `1ea46d7` reparierte genau diese Patch-Fallback-Naht, und `ef100dd` bestaetigte anschliessend dieselbe freie non-governance Anchored-Replacement-Lane sauber mit `status=success`, `taskClass=class_1`, `executionPolicy=allow_push`, genau einer geaenderten Datei `docs/archive/k27a-free-class1-smoke.txt` und Remote-Head-Match. Damit ist der freie Korridor fuer exakte Docs-/Helper-Landings plus nicht-governanceartige anchored replacements repo-sichtbar gruen; Governance-Dokumente bleiben fuer anchored replacements weiter review-gebunden.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein breiterer Autonomie-Sprung, sondern eine enge K2.7d-Nachstufe: die jetzt belegte freie Docs-/Helper-class_1-Lane operativ festziehen und dann genau einen freien single-file code-adjacent low-risk runtime case pruefen. Kein Multi-File, kein Builder-Core, keine class_2/class_3-Freigabe und keine freien Anchored-Replacements auf Governance-/Policy-Dokumenten.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
