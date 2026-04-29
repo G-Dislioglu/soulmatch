@@ -40,6 +40,43 @@ import { resolve } from 'path';
 const router = Router();
 const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
 
+function getLocalOpusBridgeUrl(endpoint: string): string {
+  const port = process.env.PORT || 10000;
+  const token = process.env.OPUS_BRIDGE_SECRET || '';
+  const sep = endpoint.includes('?') ? '&' : '?';
+  return `http://localhost:${port}/api/builder/opus-bridge${endpoint}${sep}opus_token=${encodeURIComponent(token)}`;
+}
+
+async function proxyOpusBridgeRequest<T = unknown>(
+  endpoint: string,
+  init: RequestInit = {},
+): Promise<{ ok: boolean; status: number; result: T | { status: number } }> {
+  const token = process.env.OPUS_BRIDGE_SECRET;
+  if (!token) {
+    return {
+      ok: false,
+      status: 500,
+      result: { status: 500 },
+    };
+  }
+
+  const response = await fetch(getLocalOpusBridgeUrl(endpoint), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(init.headers || {}),
+    },
+  });
+
+  const result = await response.json().catch(() => ({ status: response.status }));
+  return {
+    ok: response.ok,
+    status: response.status,
+    result: result as T | { status: number },
+  };
+}
+
 // GET /api/builder/preview/:taskId — prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
   try {
@@ -71,6 +108,61 @@ router.get('/preview/:taskId', async (req: Request, res: Response) => {
 });
 
 router.use(requireDevToken);
+
+router.get('/render/status', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/status');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/status error:', err);
+    res.status(500).json({ error: 'Render status proxy failed' });
+  }
+});
+
+router.get('/render/service', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/service');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/service error:', err);
+    res.status(500).json({ error: 'Render service proxy failed' });
+  }
+});
+
+router.get('/render/env', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/env');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/env error:', err);
+    res.status(500).json({ error: 'Render env proxy failed' });
+  }
+});
+
+router.get('/render/logs/build', async (req: Request, res: Response) => {
+  try {
+    const rawLimit = typeof req.query.limit === 'string' ? req.query.limit : '50';
+    const proxied = await proxyOpusBridgeRequest(`/render/logs/build?limit=${encodeURIComponent(rawLimit)}`);
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/logs/build error:', err);
+    res.status(500).json({ error: 'Render build logs proxy failed' });
+  }
+});
+
+router.post('/render/redeploy', async (req: Request, res: Response) => {
+  try {
+    const { clearCache, commitId } = req.body as { clearCache?: boolean; commitId?: string };
+    const proxied = await proxyOpusBridgeRequest('/render/redeploy', {
+      method: 'POST',
+      body: JSON.stringify({ clearCache, commitId }),
+    });
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] POST /render/redeploy error:', err);
+    res.status(500).json({ error: 'Render redeploy proxy failed' });
+  }
+});
 
 // POST /api/builder/chat — natural language chat with Gemini
 router.post('/chat', async (req: Request, res: Response) => {

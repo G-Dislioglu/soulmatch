@@ -1,0 +1,96 @@
+name: Render Incident Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL of the live service
+        required: true
+        default: https://soulmatch-1.onrender.com
+      build_log_limit:
+        description: Number of build log lines/items to request
+        required: false
+        default: "50"
+      trigger_redeploy:
+        description: Trigger a redeploy through the live Builder proxy
+        required: false
+        type: boolean
+        default: false
+      clear_cache:
+        description: Ask Render API redeploy to clear cache
+        required: false
+        type: boolean
+        default: false
+      commit_id:
+        description: Optional commit SHA for a specific redeploy
+        required: false
+        default: ""
+
+jobs:
+  incident-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Health snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          echo "== /api/health =="
+          curl --fail --show-error --silent "$BASE_URL/api/health" | jq .
+
+      - name: Render status snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+        run: |
+          echo "== /api/builder/render/status =="
+          curl --fail --show-error --silent "$BASE_URL/api/builder/render/status?token=$BUILDER_TOKEN" | jq .
+
+      - name: Render service snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+        run: |
+          echo "== /api/builder/render/service =="
+          curl --fail --show-error --silent "$BASE_URL/api/builder/render/service?token=$BUILDER_TOKEN" | jq .
+
+      - name: Render env keys snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+        run: |
+          echo "== /api/builder/render/env =="
+          curl --fail --show-error --silent "$BASE_URL/api/builder/render/env?token=$BUILDER_TOKEN" | jq .
+
+      - name: Render build logs snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+          BUILD_LOG_LIMIT: ${{ inputs.build_log_limit }}
+        run: |
+          echo "== /api/builder/render/logs/build =="
+          curl --fail --show-error --silent "$BASE_URL/api/builder/render/logs/build?token=$BUILDER_TOKEN&limit=$BUILD_LOG_LIMIT" | jq .
+
+      - name: Trigger render redeploy
+        if: ${{ inputs.trigger_redeploy }}
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
+          CLEAR_CACHE: ${{ inputs.clear_cache }}
+          COMMIT_ID: ${{ inputs.commit_id }}
+        run: |
+          echo "== POST /api/builder/render/redeploy =="
+          jq -n \
+            --arg clearCache "$CLEAR_CACHE" \
+            --arg commitId "$COMMIT_ID" \
+            '{
+              clearCache: ($clearCache == "true"),
+              commitId: ($commitId | if . == "" then null else . end)
+            }' \
+            > body.json
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data @body.json \
+            "$BASE_URL/api/builder/render/redeploy?token=$BUILDER_TOKEN" | jq .
