@@ -37,6 +37,11 @@
    - live env now includes `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`
    - redeploy still failed immediately
 
+7. `builder-executor` was not failing on patch, typecheck, build, commit, or push.
+   - the failing `execute` run for `427235a` pushed successfully on the first attempt
+   - its only red condition was waiting 420s for the live Render commit that never arrived
+   - this means the strict red lane was deploy verification, not Builder execution correctness
+
 ## Current reading
 
 This is no longer primarily a Builder scope/judge/autonomy defect.
@@ -66,6 +71,13 @@ Added capabilities:
 - retrieve recent build logs
 - trigger redeploy with `clearCache`
 - trigger redeploy for a specific `commitId`
+
+The branch also decouples `builder-executor` success from strict live deploy verification.
+
+- once a Builder task has patched, built, committed, and pushed successfully, the
+  executor no longer stays red solely because the same Render incident prevented
+  the new commit from becoming live
+- strict live verification remains in the dedicated `Render Deploy` lane
 
 ## Constraint
 
