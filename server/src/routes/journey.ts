@@ -239,11 +239,14 @@ function calculate(req: JourneyRequest): JourneyResponse {
 journeyRouter.post('/optimal-dates', (req: Request, res: Response) => {
   try {
     const body = req.body as JourneyRequest;
-    if(!body.eventType||!body.startDate||!body.endDate||!body.birthDate) {
+    const startDate = (body.startDate ?? '').trim();
+    const endDate = (body.endDate ?? '').trim();
+    const birthDate = (body.birthDate ?? '').trim();
+    if(!body.eventType||!startDate||!endDate||!birthDate) {
       res.status(400).json({error:'invalid_request', message:'eventType, startDate, endDate, birthDate required'});
       return;
     }
-    const result = calculate(body);
+    const result = calculate({...body, startDate, endDate, birthDate});
     res.json(result);
   } catch(e) {
     res.status(500).json({error:'calculation_failed', message:String(e)});
