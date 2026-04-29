@@ -3,8 +3,10 @@
  * Keine Beschränkungen: jede Datei, jeder Pfad, jede Größe.
  */
 
+import { readFile as fsReadFile } from 'node:fs/promises';
+import path from 'node:path';
 import { decideChangeMode } from './opusChangeRouter.js';
-import { applyPatch, PatchEdit } from './opusPatchMode.js';
+import { applyPatch, applyPatches, PatchEdit } from './opusPatchMode.js';
 import { getAuthUrl } from './opusBridgeConfig.js';
 import { waitForPushResult } from './pushResultWaiter.js';
 import { outboundFetch } from './outboundHttp.js';
@@ -45,6 +47,30 @@ interface SmartPushOptions {
   acceptanceSmoke?: boolean;
   sourceAsyncJobId?: string;
   sideEffects?: BuilderSideEffectsContract;
+}
+
+async function buildOverwriteFromPatch(file: string, patches: PatchEdit[]): Promise<string> {
+  const candidatePaths = [
+    path.resolve(process.cwd(), file),
+    path.resolve(process.cwd(), '..', file),
+  ];
+
+  let currentContent: string | null = null;
+
+  for (const candidatePath of candidatePaths) {
+    try {
+      currentContent = await fsReadFile(candidatePath, 'utf8');
+      break;
+    } catch {
+      // Try next candidate path.
+    }
+  }
+
+  if (currentContent === null) {
+    throw new Error(`patch fallback could not read ${file}`);
+  }
+
+  return applyPatches(currentContent, patches);
 }
 
 export async function smartPush(
@@ -116,13 +142,13 @@ export async function smartPush(
   for (const job of patchJobs) {
     if (!ghToken) {
       asyncDispatch = true;
-      // Fallback: convert patches to overwrite search/replace via /push
+      // Fallback: resolve the replacement locally and send a deterministic
+      // full-file overwrite instead of brittle search/replace payloads.
       try {
-        const pushFiles = job.patches.map(p => ({
+        const pushFiles = [{
           file: job.file,
-          search: p.search,
-          replace: p.replace,
-        }));
+          content: await buildOverwriteFromPatch(job.file, job.patches),
+        }];
         const res = await outboundFetch(getAuthUrl('/push'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
