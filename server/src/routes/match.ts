@@ -719,7 +719,9 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
     const request: MatchCalculationRequest = req.body;
     
     // Validation
-    if (!request.aProfileId || !request.bProfileId) {
+    const aProfileId = (request.aProfileId ?? '').trim();
+    const bProfileId = (request.bProfileId ?? '').trim();
+    if (!aProfileId || !bProfileId) {
       return res.status(400).json({ 
         error: 'aProfileId and bProfileId are required' 
       });
@@ -737,10 +739,10 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
       });
     }
 
-    const result = calculateMatch(request);
+    const result = calculateMatch({ ...request, aProfileId, bProfileId });
     devLogger.info('api', 'Match calculated', { 
-      aProfileId: request.aProfileId,
-      bProfileId: request.bProfileId,
+      aProfileId,
+      bProfileId,
       matchOverall: result.matchOverall,
       astroAvailable: !result.meta.warnings?.includes('astro_unavailable_using_numerology_only')
     });
