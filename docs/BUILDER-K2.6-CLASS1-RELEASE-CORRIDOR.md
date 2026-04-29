@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `free_docs_helper_plus_runtime_validation_subset_repeatable_x3`
+- status: `free_class1_corridor_operational_narrow_green`
 - basis: `repo_visible_plus_runtime_probe`
 - scope: `narrow_free_class_1_only`
 - not included: `class_2`, `class_3`, multi-file, protected, builder-core
@@ -31,6 +31,8 @@ The current corridor is based on:
 - first free code-adjacent runtime validation proof `K2.7d`
 - second free code-adjacent runtime validation proof `K2.7e`
 - third free code-adjacent runtime validation proof `K2.7f`
+- first operational free-corridor boundary probe `K2.8a`
+- first narrowed operational free subset `K2.8b`
 
 Relevant verified commits:
 
@@ -48,6 +50,9 @@ Relevant verified commits:
 - `1512f95`
 - `b6b85d0`
 - `0702adc`
+- `2dbab36`
+- `2ee184b`
+- `10d4e13`
 
 ## Candidate free corridor
 
@@ -152,6 +157,8 @@ The currently adopted free Builder subset is:
 2. exact non-governance single-file anchored replacements inside docs/helper
    paths
 3. exact single-file public-route validation/guard fixes with direct live proof
+4. tiny helper append inside docs/helper paths
+5. explicit single-line helper create-targets
 
 Do **not** start free operation with:
 
@@ -161,16 +168,19 @@ Do **not** start free operation with:
 - secrets/deploy/auth
 - multi-file consistency work
 - governance/policy docs as anchored-replacement targets
+- broader helper/docs operations such as larger-file append or multi-line
+  create-targets before separate hardening
 - broader free code-adjacent runtime edits before a second narrow repeatability
   proof
 
 ## Decision output
 
-The narrow credible statement after `K2.7f` is:
+The narrow credible statement after `K2.8b` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
 > exact single-file docs/helper edits and exact non-governance anchored
-> single-file replacements inside docs/helper paths, plus exact single-file
-> public-route validation/guard fixes with direct live proof and repeatability
-> across multiple route families, while broader runtime work and all other
-> categories remain outside free autonomy.
+> single-file replacements inside docs/helper paths, tiny helper append and
+> explicit single-line helper create-targets, plus exact single-file public-route
+> validation/guard fixes with direct live proof and repeatability across
+> multiple route families, while broader helper/docs operations, broader runtime
+> work and all other categories remain outside free autonomy.
