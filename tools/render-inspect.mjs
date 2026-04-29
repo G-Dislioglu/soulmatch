@@ -86,7 +86,7 @@ async function listEnvKeys() {
 
 async function listBuildLogs(limit = 50) {
   const service = await getService();
-  const ownerId = service?.owner?.id;
+  const ownerId = service?.ownerId ?? service?.owner?.id;
   if (!ownerId) {
     throw new Error('owner id unavailable for build logs');
   }
