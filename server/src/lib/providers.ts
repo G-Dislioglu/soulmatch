@@ -32,6 +32,14 @@ type ProviderDegradedState = {
 
 const providerDegradedState = new Map<string, ProviderDegradedState>();
 
+function buildProviderDegradedKey(provider: string, model: string): string {
+  return `${provider}:${model}`;
+}
+
+function buildProviderLabel(provider: string, model: string): string {
+  return `${provider}/${model}`;
+}
+
 function shouldDisableOpenRouterReasoning(model: string): boolean {
   return model.startsWith('qwen/') || model.startsWith('z-ai/glm-');
 }
@@ -78,29 +86,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function readProviderDegradedState(provider: string): ProviderDegradedState | undefined {
-  const state = providerDegradedState.get(provider);
+function readProviderDegradedState(provider: string, model: string): ProviderDegradedState | undefined {
+  const state = providerDegradedState.get(buildProviderDegradedKey(provider, model));
   if (!state) {
     return undefined;
   }
 
   if (state.until <= Date.now()) {
-    providerDegradedState.delete(provider);
+    providerDegradedState.delete(buildProviderDegradedKey(provider, model));
     return undefined;
   }
 
   return state;
 }
 
-function markProviderDegraded(provider: string, reason: string): void {
-  providerDegradedState.set(provider, {
+function markProviderDegraded(provider: string, model: string, reason: string): void {
+  providerDegradedState.set(buildProviderDegradedKey(provider, model), {
     reason,
     until: Date.now() + PROVIDER_DEGRADED_TTL_MS,
   });
 }
 
-function clearProviderDegraded(provider: string): void {
-  providerDegradedState.delete(provider);
+function clearProviderDegraded(provider: string, model: string): void {
+  providerDegradedState.delete(buildProviderDegradedKey(provider, model));
 }
 
 function isRetryableTransportError(error: unknown): boolean {
@@ -108,10 +116,11 @@ function isRetryableTransportError(error: unknown): boolean {
   return /wsasend|forcibly closed|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|EAI_FAIL|EAI_AGAIN|ENOTFOUND|unreachable|network|fetch failed|unavailable|dns/i.test(message);
 }
 
-async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: string): Promise<OutboundFetchResponse> {
-  const degraded = readProviderDegradedState(provider);
+async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: string, model: string): Promise<OutboundFetchResponse> {
+  const providerLabel = buildProviderLabel(provider, model);
+  const degraded = readProviderDegradedState(provider, model);
   if (degraded) {
-    throw new Error(`${provider} temporarily degraded: ${degraded.reason}`);
+    throw new Error(`${providerLabel} temporarily degraded: ${degraded.reason}`);
   }
 
   const maxAttempts = RETRY_DELAY_MS.length + 1;
@@ -126,17 +135,17 @@ async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: 
       });
       if (RETRYABLE_HTTP_STATUS.has(response.status) && attempt < maxAttempts) {
         const delayMs = RETRY_DELAY_MS[attempt - 1] ?? RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1] ?? 250;
-        console.warn(`[providers] ${provider} transient HTTP ${response.status}, retrying`, { attempt, maxAttempts, delayMs });
+        console.warn(`[providers] ${providerLabel} transient HTTP ${response.status}, retrying`, { attempt, maxAttempts, delayMs });
         await sleep(delayMs);
         continue;
       }
-      clearProviderDegraded(provider);
+      clearProviderDegraded(provider, model);
       return response;
     } catch (error) {
       lastError = error;
       if (attempt < maxAttempts && isRetryableTransportError(error)) {
         const delayMs = RETRY_DELAY_MS[attempt - 1] ?? RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1] ?? 250;
-        console.warn(`[providers] ${provider} transport error, retrying`, {
+        console.warn(`[providers] ${providerLabel} transport error, retrying`, {
           attempt,
           maxAttempts,
           delayMs,
@@ -148,6 +157,7 @@ async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: 
       if (isRetryableTransportError(error)) {
         markProviderDegraded(
           provider,
+          model,
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -213,7 +223,7 @@ export async function callProvider(
           temperature: params.temperature ?? 0.85,
         },
       }),
-    }, 'gemini');
+    }, 'gemini', model);
 
     if (!resp.ok) {
       const errText = await resp.text();
@@ -266,7 +276,7 @@ export async function callProvider(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-    }, 'anthropic');
+    }, 'anthropic', model);
 
     if (!resp.ok) {
       const errText = await resp.text();
@@ -340,7 +350,7 @@ export async function callProvider(
               : {}),
           },
     ),
-  }, provider);
+  }, provider, model);
 
   if (!resp.ok) {
     const errText = await resp.text();
