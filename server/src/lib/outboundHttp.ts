@@ -26,6 +26,7 @@ const dnsLookupCache = new Map<string, DnsLookupCacheEntry>();
 
 const DNS_ROTATION_ERROR_CODES = new Set([
   'EAI_AGAIN',
+  'EAI_FAIL',
   'ENOTFOUND',
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
