@@ -67,7 +67,19 @@ async function buildOverwriteFromPatch(file: string, patches: PatchEdit[]): Prom
   }
 
   if (currentContent === null) {
-    throw new Error(`patch fallback could not read ${file}`);
+    const remoteUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${file}`;
+    try {
+      const response = await outboundFetch(remoteUrl);
+      if (response.ok) {
+        currentContent = await response.text();
+      }
+    } catch {
+      // Keep currentContent null and fail below.
+    }
+  }
+
+  if (currentContent === null) {
+    throw new Error(`patch fallback could not read ${file} locally or from origin/main`);
   }
 
   return applyPatches(currentContent, patches);
