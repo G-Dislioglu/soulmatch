@@ -1,0 +1,1 @@
+K2.6c create-target tiny helper smoke
