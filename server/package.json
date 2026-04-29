@@ -13,6 +13,7 @@
     "builder:k26e": "tsx scripts/builder-k26e-push-runner.ts",
     "builder:k26f": "tsx scripts/builder-k26f-push-runner.ts",
     "builder:k26g": "tsx scripts/builder-k26g-push-runner.ts",
+    "builder:k27a": "tsx scripts/builder-k27a-free-class1-runner.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",

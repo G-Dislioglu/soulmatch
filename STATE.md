@@ -11,8 +11,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `abd1d3f`
-- `last_verified_origin_main`: `abd1d3f`
+- `current_repo_head`: `21d7a3d`
+- `last_verified_origin_main`: `21d7a3d`
 - `last_live_runtime_head`: `abd1d3f`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-29`
@@ -20,8 +20,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie ist jetzt auch ueber den engeren K2.6g-Fall live gruen weitergezogen. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten Scope-, Provider- und Judge-Lane; `0738700`, `df13183` und `3b0236a` schlossen den engen K2.6c-Docs-/Helper-Corridor; `427235a` lieferte den ersten code-adjacent K2.6d-Smoke-Marker-Push; `52a7175` zog K2.6e als engeren Operational-Cleanup-Push in `server/src/routes/health.ts` nach; `adc593a` schloss danach die absolute-Pfad-Luecke im token-geschuetzten `read-file`-Pfad. Mit `abd1d3f` landete jetzt K2.6g als erster enger code-adjacent class_1-Push mit echter Input-Validation-Haertung in einem oeffentlich pruefbaren Runtime-Pfad: In `server/src/routes/numerology.ts` werden whitespace-only `profileId`, `name` und `birthDate` nun lokal getrimmt und vor der Berechnung hart validiert; dieselbe Invalid-Probe, die vor dem Task noch `200` lieferte, wurde live danach korrekt zu `400 profileId, name, birthDate, and system are required`, waehrend der gueltige Probe-Body weiter `200` blieb, erneut ohne weitere geaenderte Dateien und ohne Scope-Drift.`
-- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt nicht zwingend sofort ein weiterer enger Runtime-Patch, sondern zuerst eine explizite class_1-Freigabeentscheidung auf Basis von K2.6c bis K2.6g. Der enge Draft dafuer liegt in `docs/BUILDER-K2.6-CLASS1-RELEASE-CORRIDOR.md`. Wenn weiter technisch erweitert werden soll, dann nur als enger K2.6h-Nachfolger: wieder single-file, code-adjacent, non-protected und klar live verifizierbar.`
+- `last_completed_block`: `Die Builder-Autonomie-Linie ist jetzt ueber K2.7a in den ersten echten freien class_1-Subset vorgestossen. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten Scope-, Provider- und Judge-Lane; `0738700`, `df13183` und `3b0236a` schlossen den engen K2.6c-Docs-/Helper-Corridor; `427235a`, `52a7175`, `adc593a` und `abd1d3f` belegten danach den code-adjacent Cleanup-/Guard-/Validation-Korridor. Darauf aufbauend landete jetzt `7c3bce7` als erster echter freier class_1-Append-Task auf `docs/archive/push-test.md`, und `21d7a3d` landete als freier expliziter create-target helper task auf `docs/archive/k27a-free-class1-smoke.txt`, jeweils scope-clean und ohne Zusatzdateien. Der dritte freie K2.7a-Versuch auf `docs/BUILDER-K2.6-CLASS1-RELEASE-CORRIDOR.md` wurde bewusst nicht erzwungen: dieselbe single-file anchored replacement blieb bei `taskClass=class_1`, wurde aber von workflow simulation mit `require_review` und `pushBlockedReason=Claim anchoring is incomplete for winner claims (1).` gestoppt. Damit ist der freie Korridor fuer exakte Docs-/Helper-Landings repo-sichtbar gruen, aber anchored replacements auf Governance-Dokumenten sind noch nicht frei bestaetigt.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein breiterer Autonomie-Sprung, sondern eine enge K2.7b-Nachstufe: zuerst die freie class_1-Lane fuer exakte Docs-/Helper-Edits als operativen Minimal-Korridor festziehen, dann die Repeatability der ersten fail-closed Runner-Nondeterministik haerten und erst danach einen nicht-governanceartigen single-file anchored-replacement-Fall testen. Kein Multi-File, kein Builder-Core, keine class_2/class_3-Freigabe.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
