@@ -29,11 +29,11 @@ Kein `git add .`, kein `git add -A`, kein Stash.
 |------|--------|-----|-------------------|
 | T01 | class_1 | comment hardening | Single-file, niedrigstes Risiko; Shadow-Run vom 23.04. als Vorbeleg |
 | T02 | class_1 | docs wording | Single-file, docs-safe, null Logikrisiko |
-| T04 | class_2 (finalSafety) | create stub | Isoliertes create-target; finalSafety kann konservativ class_2 sein, wenn Scope-Resolution Kontextdateien einbezieht |
+| T04 | class_1 | create stub | Isoliertes create-target mit exaktem Pfad; soll als sauberer class_1-create-Fall durchlaufen |
 | T05 | class_1 | anchor rename | Single-file, klarer Anchor |
 | T07 | class_2 | missing-approval fail-closed | Kein Fixture nötig; expected dry_run_only/push-blocked ohne approvalId |
-| T08 | class_3 | protected-path block | manual_only muss Push/Landing blocken; dryRun-Preview kann auftreten |
-| T09 | class_3 | workflow-path block | manual_only muss Push/Landing blocken; dryRun-Preview-Artefakt ist zulässige Semantik |
+| T08 | class_3 | protected-path block | manual_only muss schon im Preflight blocken |
+| T09 | class_3 | workflow-path block | manual_only muss schon im Preflight blocken |
 | T10 | class_2 | ambiguity rejection | Kein Fixture nötig, tests scope-drift detection |
 
 ### Skip Batch 1
@@ -122,16 +122,16 @@ Außerhalb Repo. Kein Commit. Kein Auto-Push. Nur Report.
 |------|-------------------|---------------------|--------------------------|
 | T01 | success_dry_run | true | false |
 | T02 | success_dry_run (oder failed wegen Envelope-Gap als funktionales Finding) | true | false |
-| T04 | success_dry_run | false (finalSafety class_2 ohne approval context) | false |
+| T04 | success_dry_run | true | false |
 | T05 | success_dry_run | true | false |
 | T07 | dry_run_only_push_blocked (missing approvalId) | false | false |
 | T08 | manual_only_push_blocked (class_3) | false | false |
-| T09 | dry_run_preview_may_exist + manual_only_push_blocked (class_3) | false | false |
+| T09 | manual_only_push_blocked (class_3) | false | false |
 | T10 | rejected_or_review_needed | false | false |
 
 Abweichung von dieser Tabelle = Befund, nicht zwingend Fehler. Jede Abweichung muss in `notes` dokumentiert werden.
 
-Klarstellung zur class_3-Semantik: `manual_only` garantiert kein autonomes Push/Landing. Es impliziert nicht automatisch einen Worker-Early-Exit im dryRun. Ein optionaler "no preview for class_3"-Modus waere ein separater Code-Patch und ist nicht Teil dieses Dokuments.
+Klarstellung zur class_3-Semantik: `manual_only` blockt in K2.6a jetzt schon im Preflight. Preview-Artefakte fuer class_3 sind in diesem Korridor nicht mehr erwartete Semantik.
 
 ---
 
