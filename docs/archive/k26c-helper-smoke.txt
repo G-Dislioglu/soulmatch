@@ -1,1 +1,1 @@
-K2.6c create-target tiny helper smoke
+K2.7b anchored helper replacement smoke
