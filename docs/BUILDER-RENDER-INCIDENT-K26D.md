@@ -79,17 +79,22 @@ The branch also decouples `builder-executor` success from strict live deploy ver
   the new commit from becoming live
 - strict live verification remains in the dedicated `Render Deploy` lane
 
-## Constraint
+## Updated incident tooling
 
-GitHub Actions currently has:
+GitHub Actions now has repo-visible access to:
 
 - `RENDER_DEPLOY_HOOK_URL`
 - `BUILDER_SECRET`
+- `RENDER_API_KEY`
+- `RENDER_SERVICE_ID`
 
-but not a repo-visible `RENDER_API_KEY` secret.
+That enables two tighter incident lanes:
 
-That means GitHub-side fallback can trigger hook deploys, but cannot yet do a true
-Render API `clearCache` deploy on its own.
+1. `Render Deploy` can inspect the direct Render deploy state after a hook trigger
+   and fail early on `build_failed` instead of waiting only on live health lag.
+2. `Render Incident Check` can query Render service details, deploy history,
+   env keys, build logs, and targeted redeploys without depending on a newer app
+   runtime becoming live first.
 
 ## Recommended next step
 
@@ -97,6 +102,6 @@ Do not widen the autonomy corridor yet.
 
 Next useful action should be one of:
 
-1. use the new Render API bridge on a matching live runtime, or
-2. provide Render API-level diagnostics outside the app runtime, or
-3. explicitly test a `clearCache` deploy once the new bridge path is live
+1. run the direct Render API incident workflow against the current failing lane,
+2. capture the first concrete `build_failed` reason from deploy/log output, and
+3. fix only the minimal deploy blocker before resuming autonomy-corridor work
