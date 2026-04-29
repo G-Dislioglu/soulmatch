@@ -11,8 +11,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `ef100dd`
-- `last_verified_origin_main`: `ef100dd`
+- `current_repo_head`: `b828cda`
+- `last_verified_origin_main`: `b828cda`
 - `last_live_runtime_head`: `ef100dd`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-29`
