@@ -11,7 +11,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `73cf30b`
+- `current_repo_head`: `1275c63`
 - `last_verified_origin_main`: `c98c8e7`
 - `last_live_runtime_head`: `ed27349`
 - `current_branch`: `builder-k26-next`
@@ -20,8 +20,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die branch-sichtige Builder-Linie reicht jetzt bis `73cf30b`: Nach dem abgeschlossenen H3-Async-Hardening (`307fa3d`, `ed27349`) traegt die Architect-/Control-Plane-Kette Team-Koordination und aktive Regeln repo-sichtbar bis in Dispatch, Observation und Orchestrator (`be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658`, `3f08301`); `741c8ab` zieht dazu den branch-sichtigen Builder-UI-Slice fuer Deep Patrol und Architect State nach, `332000c` richtet die Routine-Patrol-Flaeche ehrlich auf den vorhandenen Server-Contract aus, `c258913` zieht den K2.6a-Batch-1-Harness repo-sichtig ein, `7984db6` haertet den degraded-provider-Pfad und `73cf30b` macht die Judge-Lane gegen degradierten `gpt` robuster und korrigiert den T02-Benchmark-Corpus auf echte Repo-Wahrheit. Der lokale K2.6a-DryRun-Korridor steht damit wieder bei 8/8 Passes, obwohl `gpt` transportseitig degradiert bleibt.`
-- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein weiterer lokaler Patrol- oder UI-Schnitt, sondern ein bewusst kleines K2.6b-Live-DryRun-Subset innerhalb des bereits gruennen class_1-Korridors. Dabei soll keine neue Produktachse aufgemacht werden; Ziel ist nur, den lokalen Autonomie-Beleg gegen echte Live-Runtime-Wahrheit zu halten, waehrend `gpt`-Degradation weiter als nicht-blockierender, aber beobachteter Restpunkt markiert bleibt.`
+- `last_completed_block`: `Die branch-sichtige Builder-Linie reicht jetzt bis `1275c63`: Nach dem abgeschlossenen H3-Async-Hardening (`307fa3d`, `ed27349`) traegt die Architect-/Control-Plane-Kette Team-Koordination und aktive Regeln repo-sichtbar bis in Dispatch, Observation und Orchestrator (`be952a7`, `8fab1e6`, `451a3a8`, `d0ec9ee`, `adf3658`, `3f08301`); `741c8ab` zieht dazu den branch-sichtigen Builder-UI-Slice fuer Deep Patrol und Architect State nach, `332000c` richtet die Routine-Patrol-Flaeche ehrlich auf den vorhandenen Server-Contract aus, `c258913` zieht den K2.6a-Batch-1-Harness repo-sichtig ein, `7984db6` haertet den degraded-provider-Pfad, `73cf30b` macht die Judge-Lane gegen degradierten `gpt` robuster und `1275c63` fuehrt den K2.6b-Live-DryRun-Runner mit resolvergestuetztem Live-Pfad ein. K2.6a bleibt lokal gruen bei 8/8 Passes; K2.6b lief gegen Live `ed27349` mit 3/5 Passes und isolierte die verbleibende Luecke als Live-Lag auf `class_3`-Preflight und dem Ambiguitaetsfall, nicht als neuen Runner- oder Governance-Bruch.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein weiterer lokaler Patrol- oder UI-Schnitt, sondern ein enger Live-Sync-Schritt fuer den aktuellen Autonomie-Korridor. Ziel ist, die branch-sichtige Builder-Haertung auf eine passende Live-Runtime zu bringen und danach denselben kleinen K2.6b-Live-DryRun-Subset erneut gegen einen matching Head zu fahren. Provider-Unabhaengigkeit bleibt dabei beobachteter Restpunkt, aber die jetzt sichtbare Hauptluecke ist Live-Lag, nicht neue Scope-Drift.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
