@@ -11,17 +11,17 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `67fa75c`
-- `last_verified_origin_main`: `67fa75c`
-- `last_live_runtime_head`: `67fa75c`
+- `current_repo_head`: `52a7175`
+- `last_verified_origin_main`: `52a7175`
+- `last_live_runtime_head`: `52a7175`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-29`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie ist jetzt auch ueber den ersten code-adjacent K2.6d-Fall live gruen geschlossen. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten fail-closed Scope-Klassifikation, degraded-provider-Verhalten, Judge-Lane und den K2.6b-Live-Korridor; `0738700`, `df13183` und `3b0236a` landeten danach als kompletter enger K2.6c-Docs-/Helper-Corridor gruen. Mit `427235a` folgte der erste code-adjacent single-file class_1-Push in `server/src/lib/pipelineTestMarker.ts`; `f21d035` entkoppelte Builder-Executor-Erfolg von demselben externen Deploy-Wait; `ba50da4` fuehrte direkte Render-API-Inspektion fuer Deploy- und Incident-Lane ein; `67fa75c` reparierte danach den Build-Log-Owner-Lookup. Der eigentliche Root Cause des ausstehenden Live-Catchups war kein Builder-Governance-Fehler, sondern ein Render-Pipeline-Minuten-Spend-Limit auf Starter. Nach Aufhebung dieses Caps lief der manuell ausgeloeste `Render Deploy`-Run `#207` fuer `67fa75c` komplett gruen, und `/api/health` zog live auf `commit=67fa75cd8c00665c9b715f73990f12426a575a98` nach.`
-- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein weiterer Deploy-Incident-Schnitt und auch keine zu breite Generalfreigabe, sondern ein enger K2.6e-Nachfolger: ein etwas realerer, aber weiter single-file und nicht-protected code-adjacent class_1-Controlled-Push ausserhalb des reinen Smoke-Markers. Dabei sollten Render-API-Diagnosepfad und Spend-Limit als operative Randbedingungen bestehen bleiben. Erst wenn auch dieser naechste engere Korridor live gruen bleibt, ist eine bewusst formulierte Freigabe fuer freie class_1-Familien ausserhalb des Docs-/Helper- und Smoke-Marker-Segments belastbar genug.`
+- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie ist jetzt auch ueber den naechsten engeren K2.6e-Fall live gruen weitergezogen. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767` und `9f978e6` haerten Scope-, Provider- und Judge-Lane; `0738700`, `df13183` und `3b0236a` schlossen den engen K2.6c-Docs-/Helper-Corridor; `427235a` lieferte den ersten code-adjacent K2.6d-Smoke-Marker-Push; `f21d035`, `ba50da4` und `67fa75c` isolierten danach den Render-Incident bis zum echten Root Cause `pipeline spend limit` und stellten den Live-Catchup wieder her. Mit `52a7175` landete jetzt K2.6e als erster enger code-adjacent class_1-Push mit realem Operator-Nutzen: In `server/src/routes/health.ts` wurden die zwei `/api/health`-Logzeilen von Emoji-Prefixen auf stabile ASCII-Prefixe `[health] ...` bereinigt, ohne weitere geaenderte Dateien, erneut `taskClass=class_1`, `executionPolicy=allow_push`, `pushAllowed=true`, `landed=true`, ohne Scope-Drift und live bestaetigt auf `commit=52a7175f3818f6c52b715bdf137df49aef678a82`.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein neuer Deploy-Incident-Schnitt und noch immer keine breite Generalfreigabe, sondern ein enger K2.6f-Nachfolger: wieder single-file, code-adjacent und non-protected, aber etwas realer als ein Log-Cleanup, zum Beispiel ein kleiner Helper-/Guard-/Format-Fix in einem low-risk Runtime-Nebenpfad. Erst wenn auch dieser naechste engere Korridor live gruen bleibt, ist eine bewusst formulierte Freigabe fuer freie class_1-Familien ausserhalb des Docs-/Helper- und Marker-/Cleanup-Segments belastbar genug.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
