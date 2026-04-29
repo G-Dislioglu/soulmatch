@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `free_docs_helper_subset_active`
+- status: `free_docs_helper_plus_runtime_validation_subset_active`
 - basis: `repo_visible_plus_runtime_probe`
 - scope: `narrow_free_class_1_only`
 - not included: `class_2`, `class_3`, multi-file, protected, builder-core
@@ -28,6 +28,7 @@ The current corridor is based on:
 - first free docs/helper subset `K2.7a`
 - first free non-governance anchored replacement landing `K2.7b`
 - first clean repeatability proof for that lane `K2.7c`
+- first free code-adjacent runtime validation proof `K2.7d`
 
 Relevant verified commits:
 
@@ -42,6 +43,7 @@ Relevant verified commits:
 - `21d7a3d`
 - `0b2b8c3`
 - `ef100dd`
+- `1512f95`
 
 ## Candidate free corridor
 
@@ -84,8 +86,18 @@ Controlled-push examples so far:
 - root guard hardening in `server/src/routes/health.ts`
 - whitespace validation hardening in `server/src/routes/numerology.ts`
 
-These runtime edits are proven in the controlled corridor, but not yet adopted
-as part of the free subset.
+Free adoption is currently narrower than the controlled examples above.
+
+Currently free only when all of these stay true:
+
+- one exact existing public route file
+- one local validation or guard hardening only
+- no route-shape expansion
+- direct live probe exists before and after the landing
+
+First free proof so far:
+
+- whitespace-only `profileId` rejection in `server/src/routes/astro.ts`
 
 ## Corridor preconditions
 
@@ -133,6 +145,7 @@ The currently adopted free Builder subset is:
 1. exact single-file docs/helper edits
 2. exact non-governance single-file anchored replacements inside docs/helper
    paths
+3. exact single-file public-route validation/guard fixes with direct live proof
 
 Do **not** start free operation with:
 
@@ -142,13 +155,15 @@ Do **not** start free operation with:
 - secrets/deploy/auth
 - multi-file consistency work
 - governance/policy docs as anchored-replacement targets
-- free code-adjacent runtime edits before a separate widening decision
+- broader free code-adjacent runtime edits before a second narrow repeatability
+  proof
 
 ## Decision output
 
-The narrow credible statement after `K2.7c` is:
+The narrow credible statement after `K2.7d` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
 > exact single-file docs/helper edits and exact non-governance anchored
-> single-file replacements inside docs/helper paths, while code-adjacent runtime
-> work and all broader categories remain outside free autonomy.
+> single-file replacements inside docs/helper paths, plus exact single-file
+> public-route validation/guard fixes with direct live proof, while broader
+> runtime work and all other categories remain outside free autonomy.

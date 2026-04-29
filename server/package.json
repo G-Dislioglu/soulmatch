@@ -16,6 +16,7 @@
     "builder:k27a": "tsx scripts/builder-k27a-free-class1-runner.ts",
     "builder:k27b": "tsx scripts/builder-k27b-free-anchored-runner.ts",
     "builder:k27c": "tsx scripts/builder-k27c-free-anchored-runner.ts",
+    "builder:k27d": "tsx scripts/builder-k27d-free-runtime-runner.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",
