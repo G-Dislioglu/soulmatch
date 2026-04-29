@@ -1,10 +1,10 @@
 # Builder Benchmark K2.6b Live Subset Report
 
 **Date:** 2026-04-29  
-**Runner head under test:** `fb6b767`  
-**Live runtime under test:** `96fc618b88b57730fe55cd5d2bff2332ef9f101d`  
+**Runner head under test:** `9f978e6`  
+**Live runtime under test:** `9f978e66039a0ab325c9b4ecd9acc43a1a343b70`  
 **Mode:** live dry-run subset via `/api/health/opus-task-async`  
-**External live report file:** `C:/Users/guerc/OneDrive/Desktop/soulmatch/k26b-live-results-postsync-v2.json`
+**External live report file:** `C:/Users/guerc/OneDrive/Desktop/soulmatch/k26b-live-results-post-provider-model-scope.json`
 
 ---
 
@@ -39,7 +39,7 @@ Summary from the external live report:
 - `totalTasks`: `5`
 - `passCount`: `5`
 - `deviationCount`: `0`
-- `liveCommit`: `96fc618b88b57730fe55cd5d2bff2332ef9f101d`
+- `liveCommit`: `9f978e66039a0ab325c9b4ecd9acc43a1a343b70`
 
 Task outcomes:
 
@@ -67,13 +67,16 @@ Task outcomes:
 3. The small T07 runner update in `fb6b767` was a benchmark-contract fix, not a
    governance change: the corridor is allowed to report an honest `failed`
    class_2 gate there, as long as the fail-closed semantics are correct.
+4. `9f978e6` narrows degraded-state tracking from provider-wide to
+   provider+model scope. That keeps a single noisy multi-model lane from
+   poisoning sibling models on the same upstream provider.
 
 ---
 
 ## Useful Runtime Notes
 
-- `K26B-T01` and `K26B-T07` still recorded `kimi` timeout noise in
-  `workerErrors`, but the run converged cleanly through the surviving lane.
+- The post-`9f978e6` live rerun completed without recorded `workerErrors` in
+  this subset.
 - `judgeLane` remained `grok` for the cases that reached judge.
 - The remaining autonomy limit is therefore no longer the K2.6b live subset
   itself, but broader provider independence and degraded-path resilience.
@@ -87,14 +90,16 @@ K2.6b is now green enough to support a tighter operational statement:
 - Builder is still **not** a general autonomous feature autopilot.
 - But the current live Builder corridor is stronger than before and no longer
   blocked by the previous `T08` / `T10` live mismatch.
-- The next sensible Builder block is no longer "sync branch semantics to live";
-  that part is now done for this subset.
+- The next sensible Builder block is no longer "sync branch semantics to live"
+  or "tighten degraded-state blast radius"; those parts are now done for this
+  subset.
 
 The next step should be:
 
-- provider degraded-path hardening for the `gpt`/OpenAI lane
-- then a deliberately small K2.6c release corridor for explicit free
-  `class_1` task families
+- a deliberately small K2.6c release corridor for explicit free `class_1`
+  task families
+- with provider independence kept as an observed reliability theme, not as a
+  reason to reopen UI or Patrol work
 
 Not recommended next:
 
