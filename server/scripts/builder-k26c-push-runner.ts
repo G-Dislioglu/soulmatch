@@ -12,12 +12,13 @@ import { outboundFetch } from '../src/lib/outboundHttp.js';
 const execFileAsync = promisify(execFile);
 
 type PushTaskSpec = {
-  taskId: 'K26C-T01';
+  taskId: 'K26C-T01' | 'K26C-T02' | 'K26C-T03';
   title: string;
   instruction: string;
   scope: string[];
   expectedTaskClass: 'class_1';
   expectedChangedFiles: string[];
+  preflight: (currentContent: string) => string | null;
 };
 
 type PushTaskReport = {
@@ -53,16 +54,58 @@ type PushBatchReport = {
   task?: PushTaskReport;
 };
 
-const PUSH_TASK: PushTaskSpec = {
-  taskId: 'K26C-T01',
-  title: 'controlled class_1 docs marker push',
-  instruction: 'In `docs/archive/push-test.md`, append exactly one new line at the end: `K2.6c controlled class_1 push smoke marker`. Do not modify any other file.',
-  scope: ['docs/archive/push-test.md'],
-  expectedTaskClass: 'class_1',
-  expectedChangedFiles: ['docs/archive/push-test.md'],
-};
-
 const PUSH_TASK_MARKER = 'K2.6c controlled class_1 push smoke marker';
+const PUSH_TASK_ANCHORED_SEARCH = 'K2.5 class_1 smoke marker';
+const PUSH_TASK_ANCHORED_REPLACE = 'K2.5 class_1 smoke marker.';
+const PUSH_TASK_CREATE_TARGET = 'docs/archive/k26c-helper-smoke.txt';
+const PUSH_TASK_CREATE_CONTENT = 'K2.6c create-target tiny helper smoke';
+
+const PUSH_TASKS: Record<string, PushTaskSpec> = {
+  'K26C-T01': {
+    taskId: 'K26C-T01',
+    title: 'controlled class_1 docs marker push',
+    instruction: 'In `docs/archive/push-test.md`, append exactly one new line at the end: `K2.6c controlled class_1 push smoke marker`. Do not modify any other file.',
+    scope: ['docs/archive/push-test.md'],
+    expectedTaskClass: 'class_1',
+    expectedChangedFiles: ['docs/archive/push-test.md'],
+    preflight(currentContent) {
+      return currentContent.includes(PUSH_TASK_MARKER)
+        ? `K26C-T01 already landed on the current repo truth (${this.expectedChangedFiles[0]} already contains the marker). Clone this runner for the next audited corridor task instead of rerunning it.`
+        : null;
+    },
+  },
+  'K26C-T02': {
+    taskId: 'K26C-T02',
+    title: 'controlled class_1 anchored replacement push',
+    instruction: 'In `docs/archive/push-test.md`, replace exactly `K2.5 class_1 smoke marker` with `K2.5 class_1 smoke marker.` Do not modify any other file.',
+    scope: ['docs/archive/push-test.md'],
+    expectedTaskClass: 'class_1',
+    expectedChangedFiles: ['docs/archive/push-test.md'],
+    preflight(currentContent) {
+      if (currentContent.includes(PUSH_TASK_ANCHORED_REPLACE)) {
+        return `K26C-T02 already landed on the current repo truth (${this.expectedChangedFiles[0]} already contains the anchored replacement target).`;
+      }
+      if (!currentContent.includes(PUSH_TASK_ANCHORED_SEARCH)) {
+        return `K26C-T02 cannot run because the exact anchor string is missing from ${this.expectedChangedFiles[0]}.`;
+      }
+      return null;
+    },
+  },
+  'K26C-T03': {
+    taskId: 'K26C-T03',
+    title: 'controlled class_1 create-target push',
+    instruction: 'Create exactly one new file `docs/archive/k26c-helper-smoke.txt` containing exactly `K2.6c create-target tiny helper smoke`. Do not modify any other file.',
+    scope: [PUSH_TASK_CREATE_TARGET],
+    expectedTaskClass: 'class_1',
+    expectedChangedFiles: [PUSH_TASK_CREATE_TARGET],
+    preflight(currentContent) {
+      if (currentContent.trim().length > 0) {
+        return `K26C-T03 already landed on the current repo truth (${PUSH_TASK_CREATE_TARGET} already exists).`;
+      }
+      return null;
+    },
+  },
+};
 
 function getRepoRoot(): string {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -132,7 +175,24 @@ async function getRemoteMainHead(repoRoot: string): Promise<string> {
   return sha;
 }
 
+async function ensureCommitAvailable(repoRoot: string, commitSha: string): Promise<void> {
+  try {
+    await execFileAsync('git', ['cat-file', '-e', `${commitSha}^{commit}`], {
+      cwd: repoRoot,
+    });
+    return;
+  } catch {
+    await execFileAsync('git', ['fetch', 'origin', 'refs/heads/main'], {
+      cwd: repoRoot,
+    });
+    await execFileAsync('git', ['cat-file', '-e', `${commitSha}^{commit}`], {
+      cwd: repoRoot,
+    });
+  }
+}
+
 async function getCommitChangedFiles(repoRoot: string, commitSha: string): Promise<string[]> {
+  await ensureCommitAvailable(repoRoot, commitSha);
   const { stdout } = await execFileAsync('git', ['show', '--pretty=', '--name-only', commitSha], {
     cwd: repoRoot,
   });
@@ -144,7 +204,14 @@ async function getCommitChangedFiles(repoRoot: string, commitSha: string): Promi
 
 async function readRepoFile(repoRoot: string, relativePath: string): Promise<string> {
   const absolutePath = path.join(repoRoot, relativePath);
-  return readFile(absolutePath, 'utf8');
+  try {
+    return await readFile(absolutePath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return '';
+    }
+    throw error;
+  }
 }
 
 function normalizePaths(paths: string[]): string[] {
@@ -168,6 +235,7 @@ function parseArgs(argv: string[]) {
 
   return {
     output: args.get('output'),
+    task: args.get('task') ?? 'K26C-T01',
   };
 }
 
@@ -175,6 +243,10 @@ async function main() {
   const repoRoot = getRepoRoot();
   loadRunnerEnv(repoRoot);
   const args = parseArgs(process.argv.slice(2));
+  const selectedTask = PUSH_TASKS[args.task];
+  if (!selectedTask) {
+    throw new Error(`Unknown K26C task: ${args.task}`);
+  }
   const token = process.env.OPUS_BRIDGE_SECRET;
   if (!token) {
     throw new Error('OPUS_BRIDGE_SECRET missing for K2.6c runner');
@@ -184,9 +256,10 @@ async function main() {
   const resolveIp = process.env.K26C_RESOLVE_IP ?? process.env.DEPLOY_RESOLVE_IP;
   const dispatcher = createResolveDispatcher(baseUrl, resolveIp);
   const outputFile = path.resolve(args.output ?? getDefaultOutputPath(repoRoot));
-  const existingTarget = await readRepoFile(repoRoot, PUSH_TASK.expectedChangedFiles[0]);
-  if (existingTarget.includes(PUSH_TASK_MARKER)) {
-    throw new Error(`K26C-T01 already landed on the current repo truth (${PUSH_TASK.expectedChangedFiles[0]} already contains the marker). Clone this runner for the next audited corridor task instead of rerunning it.`);
+  const existingTarget = await readRepoFile(repoRoot, selectedTask.expectedChangedFiles[0]);
+  const preflightFailure = selectedTask.preflight(existingTarget);
+  if (preflightFailure) {
+    throw new Error(preflightFailure);
   }
   const headBefore = await getRemoteMainHead(repoRoot);
 
@@ -198,7 +271,7 @@ async function main() {
     headBefore,
     environment: {
       outputFile,
-      task: PUSH_TASK.taskId,
+      task: selectedTask.taskId,
     },
   };
 
@@ -207,12 +280,12 @@ async function main() {
   const result = await fetchJson(`${baseUrl}/api/builder/opus-bridge/opus-task?opus_token=${encodeURIComponent(token)}`, dispatcher, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      instruction: PUSH_TASK.instruction,
+      body: JSON.stringify({
+      instruction: selectedTask.instruction,
       dryRun: false,
       skipDeploy: false,
       skipInlinePostPushChecks: false,
-      scope: PUSH_TASK.scope,
+      scope: selectedTask.scope,
       acceptanceSmoke: true,
       sideEffects: { mode: 'none' },
     }),
@@ -236,8 +309,8 @@ async function main() {
   if (status !== 'success') {
     assessmentReasons.push(`expected status success, got ${status}`);
   }
-  if (taskClass !== PUSH_TASK.expectedTaskClass) {
-    assessmentReasons.push(`expected taskClass ${PUSH_TASK.expectedTaskClass}, got ${taskClass}`);
+  if (taskClass !== selectedTask.expectedTaskClass) {
+    assessmentReasons.push(`expected taskClass ${selectedTask.expectedTaskClass}, got ${taskClass}`);
   }
   if (executionPolicy !== 'allow_push') {
     assessmentReasons.push(`expected executionPolicy allow_push, got ${executionPolicy}`);
@@ -251,8 +324,8 @@ async function main() {
   if (!verifiedCommit) {
     assessmentReasons.push('missing verifiedCommit');
   }
-  if (JSON.stringify(changedFiles) !== JSON.stringify(PUSH_TASK.expectedChangedFiles)) {
-    assessmentReasons.push(`expected changedFiles ${PUSH_TASK.expectedChangedFiles.join(', ')}, got ${changedFiles.join(', ') || 'none'}`);
+  if (JSON.stringify(changedFiles) !== JSON.stringify(selectedTask.expectedChangedFiles)) {
+    assessmentReasons.push(`expected changedFiles ${selectedTask.expectedChangedFiles.join(', ')}, got ${changedFiles.join(', ') || 'none'}`);
   }
   if (headAfter !== verifiedCommit) {
     assessmentReasons.push(`remote head after 90s is ${headAfter}, expected verifiedCommit ${verifiedCommit ?? 'missing'}`);
@@ -261,8 +334,8 @@ async function main() {
   report.headAfter = headAfter;
   report.remoteStableAfter90s = verifiedCommit ? headAfter === verifiedCommit : false;
   report.task = {
-    taskId: PUSH_TASK.taskId,
-    title: PUSH_TASK.title,
+    taskId: selectedTask.taskId,
+    title: selectedTask.title,
     status,
     summary: typeof result.summary === 'string' ? result.summary : '',
     taskClass,
@@ -271,7 +344,7 @@ async function main() {
     landed,
     verifiedCommit,
     changedFiles,
-    scopeClean: changedFiles.every((filePath) => PUSH_TASK.expectedChangedFiles.includes(filePath)),
+    scopeClean: changedFiles.every((filePath) => selectedTask.expectedChangedFiles.includes(filePath)),
     followUpCommitAfter90s: verifiedCommit ? headAfter !== verifiedCommit : true,
     followUpHead: headAfter,
     assessment: assessmentReasons.length === 0 ? 'pass' : 'deviation',
