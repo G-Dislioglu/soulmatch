@@ -11,8 +11,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `9f978e6`
-- `last_verified_origin_main`: `9f978e6`
+- `current_repo_head`: `0738700`
+- `last_verified_origin_main`: `0738700`
 - `last_live_runtime_head`: `9f978e6`
 - `current_branch`: `main`
 - `last_verified_against_code`: `2026-04-29`
@@ -20,8 +20,8 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie reicht repo-sichtbar und live bis `9f978e6`: `1761f3e`, `4e4c72b` und `1272ccd` ziehen fail-closed Scope-Klassifikation, degraded-provider-Hardening und eine resiliente Judge-Fallback-Lane auf `main`; `96fc618` fuehrt den K2.6b-Live-DryRun-Runner fuer den echten Async-HTTP-Pfad ein; `fb6b767` richtet den T07-Runner-Contract auf ehrliches class_2 fail-closed aus; `9f978e6` engt danach den degraded-state auf Provider+Model ein, damit ein einzelner Lane-Ausfall nicht mehr ganze Mehrmodell-Provider unnoetig mitvergiftet. Gegen die matching Live-Runtime `9f978e6` lief K2.6b weiterhin gruen mit 5/5 Passes fuer `T01`, `T04`, `T07`, `T08` und `T10`.`
-- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein weiterer Infra- oder UI-Schnitt, sondern ein enger K2.6c-Release-Korridor fuer explizite freie class_1-Familien. Die Live-Sync-Luecke fuer den K2.6b-Subset ist geschlossen; offen bleibt jetzt die bewusste Freigabegrenze und weiter beobachtete Provider-Unabhaengigkeit ausserhalb dieses engen Subsets.`
+- `last_completed_block`: `Die aktuelle Builder-Autonomie-Linie reicht repo-sichtbar bis `0738700` und live-code-seitig bis `9f978e6`: `1761f3e`, `4e4c72b` und `1272ccd` ziehen fail-closed Scope-Klassifikation, degraded-provider-Hardening und eine resiliente Judge-Fallback-Lane auf `main`; `96fc618` fuehrt den K2.6b-Live-DryRun-Runner fuer den echten Async-HTTP-Pfad ein; `fb6b767` richtet den T07-Runner-Contract auf ehrliches class_2 fail-closed aus; `9f978e6` engt danach den degraded-state auf Provider+Model ein, damit ein einzelner Lane-Ausfall nicht mehr ganze Mehrmodell-Provider unnoetig mitvergiftet. Gegen die matching Live-Runtime `9f978e6` lief K2.6b weiterhin gruen mit 5/5 Passes fuer `T01`, `T04`, `T07`, `T08` und `T10`. Danach landete mit `0738700` der erste enge K2.6c-Controlled-Push gruen: ein exakter single-file docs append auf `docs/archive/push-test.md`, `taskClass=class_1`, `executionPolicy=allow_push`, `pushAllowed=true`, `landed=true`, ohne Scope-Drift und ohne Folgecommit-Drift.`
+- `next_recommended_block`: `Der naechste sinnvolle Builder-Block ist jetzt kein weiterer Infra-, UI- oder breiter Feature-Schnitt, sondern genau ein zweiter auditiert enger K2.6c-Push aus derselben Corridor-Familie: entweder ein exakter single-file anchored replacement oder ein exakter single create-target tiny helper file. Erst wenn eine zweite Familie gruen landet, ist eine engere Freigabe fuer freie class_1-Arbeit belastbar genug; provider independence ausserhalb dieses Subsets bleibt weiter Beobachtungsthema.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
