@@ -145,27 +145,34 @@ export const numerologyRouter = Router();
 // POST /api/numerology/calc
 numerologyRouter.post('/calc', (req: Request, res: Response) => {
   try {
-    const request: NumerologyRequest = req.body;
+    const raw = req.body as NumerologyRequest;
     
+    // Trim whitespace-only values early
+    const profileId = typeof raw.profileId === 'string' ? raw.profileId.trim() : '';
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    const birthDate = typeof raw.birthDate === 'string' ? raw.birthDate.trim() : '';
+    const system = raw.system;
+
     // Validation
-    if (!request.profileId || !request.name || !request.birthDate || !request.system) {
+    if (!profileId || !name || !birthDate || !system) {
       return res.status(400).json({ 
         error: 'profileId, name, birthDate, and system are required' 
       });
     }
 
-    if (request.system !== 'pythagorean') {
+    if (system !== 'pythagorean') {
       return res.status(400).json({ error: 'Only pythagorean system is supported' });
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(request.birthDate)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
       return res.status(400).json({ error: 'birthDate must be in YYYY-MM-DD format' });
     }
 
-    const result = calculateNumerology(request);
+    const normalizedRequest: NumerologyRequest = { profileId, name, birthDate, system };
+    const result = calculateNumerology(normalizedRequest);
     devLogger.info('api', 'Numerology calculated', { 
-      profileId: request.profileId, 
-      system: request.system,
+      profileId, 
+      system,
       lifePath: result.numbers.lifePath 
     });
     
