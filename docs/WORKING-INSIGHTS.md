@@ -44,6 +44,21 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - K2.8i bestaetigt beide frueheren Restformen mit frischen non-dry Targets
+
+- Kontext: Gezielter Repeatability-Block nach `K2.8g` und `K2.8h` auf dem
+  gehaerteten Live-Head.
+- Befund: `K2.8i` lief 2/2 gruen. `beab7c7` landete einen weiteren exakten
+  Docs-Append auf `docs/archive/push-test.md`; `99d8360` landete einen
+  weiteren mehrzeiligen helper create-target auf
+  `docs/archive/k28i-free-class1-ops-smoke.txt`. In beiden Faellen stimmten
+  `verifiedCommit`, changed-files, Scope-Cleanliness und Runtime-Head ueberein.
+- Relevanz: Die fruehere K2.8a-Restoffenheit ist nicht nur punktuell geloest,
+  sondern auf frischen Targets operativ wiederholt.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt nicht mehr dieselben
+  Formen re-validieren, sondern nur ueber einen neuen engen class_1-Kandidaten
+  oder ueber einen bewusst getrennten Produkt-/Runtime-Block weitergehen.
+
 ### 2026-04-30 - Preview-Hardening ist live und schliesst beide K2.8a-Restformen
 
 - Kontext: Repo-/Live-Nachzug nach `7f95aac` plus enger non-dry-Folgeschnitt

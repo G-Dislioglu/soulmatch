@@ -39,6 +39,7 @@ The current corridor is based on:
 - live T03 repeatability recheck on the hardened head `K2.8f`
 - live non-dry landing for the former T03 create-target `K2.8g`
 - live non-dry landing for the former T01 docs append `K2.8h`
+- live non-dry repeatability proof for both former rest shapes on fresh targets `K2.8i`
 
 Relevant verified commits:
 
@@ -63,6 +64,8 @@ Relevant verified commits:
 - `7f95aac`
 - `88e2d5a`
 - `6e1ea41`
+- `beab7c7`
+- `99d8360`
 
 ## Candidate free corridor
 
@@ -202,4 +205,11 @@ Hardening and landing addendum after `K2.8d` to `K2.8h`:
 > problems on the old head. `7f95aac` landed the narrow preview hardening,
 > `K2.8f` re-approved T03 on the hardened live head, and `K2.8g` plus
 > `K2.8h` then landed both former rest cases non-dry, scope-clean and
+> runtime-matching.
+
+Repeatability addendum after `K2.8i`:
+
+> The same two formerly brittle single-file shapes were then repeated on fresh
+> targets. `beab7c7` landed another exact docs append, and `99d8360` landed
+> another exact three-line helper create-target, both scope-clean and
 > runtime-matching.

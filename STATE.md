@@ -11,9 +11,9 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `391f001`
-- `last_verified_origin_main`: `6e1ea41`
-- `last_live_runtime_head`: `6e1ea41`
+- `current_repo_head`: `99d8360`
+- `last_verified_origin_main`: `99d8360`
+- `last_live_runtime_head`: `99d8360`
 - `current_branch`: `builder-k26b-live-sync`
 - `last_verified_against_code`: `2026-04-30`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
@@ -22,6 +22,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
 - `last_completed_block`: `Die K2.8a-Restoffenheit ist jetzt geschlossen und als belastbare Repo-/Live-Wahrheit materialisiert. `7f95aac` haertete den Judge-/Snapshot-Evidence-Pfad in `opusJudge.ts` und `opusEnvelopeValidator.ts` repo-sichtbar. Auf diesem gehärteten Live-Head approvte `K2.8f` den mehrzeiligen helper create-target reproduzierbar als Dry-Run; `K2.8g` landete danach denselben T03-Fall non-dry scope-clean auf `88e2d5a` mit exakt einem neuen File `docs/archive/k28a-free-class1-ops-smoke.txt` und matching Runtime-Head; `K2.8h` landete anschliessend auch den frueheren groesseren Docs-Append non-dry scope-clean auf `6e1ea41` mit exakt einem geaenderten File `docs/archive/push-test.md` und matching Runtime-Head. Damit ist der freie class_1-Korridor jetzt repo- und live-sichtbar gruen fuer exakte single-file docs/helper edits inklusive groesserem Docs-Append und mehrzeiligem helper create-target, nicht-governanceartige anchored replacements in Docs-/Helper-Pfaden, tiny helper append, single-line helper create-targets und vier enge public-route validation/guard cases. Weiterhin ausserhalb bleiben Multi-File-Arbeit, Governance-/Policy-Ziele, Builder-Core, Secrets/Deploy/Provider-Core sowie class_2/class_3.`
 - `next_recommended_block`: `Es gibt innerhalb der alten K2.8a-Restfrage keinen offenen Pflichtblock mehr. Wenn der Builder-Benchmark weitergefuehrt wird, dann nur ueber genau einen neuen engen single-file class_1-Kandidaten oder ueber explizite Repeatability-Nachweise auf dem nun gehaerteten Live-Head. Kein Multi-File, keine Governance-/Policy-Ziele, kein Builder-Core, keine Secrets-/Deploy-/Provider-Core-Ziele und keine class_2/class_3-Ausweitung ohne neuen separaten Entscheid.`
+- `last_completed_block_addendum_2026_04_30`: `K2.8i` bestaetigte die beiden frueher bruechigen single-file-Formen erneut auf frischen non-dry Targets: `beab7c7` landete einen weiteren exakten Docs-Append auf `docs/archive/push-test.md`, `99d8360` einen weiteren mehrzeiligen helper create-target auf `docs/archive/k28i-free-class1-ops-smoke.txt`, jeweils scope-clean und runtime-matching.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
