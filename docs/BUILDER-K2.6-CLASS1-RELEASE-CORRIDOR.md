@@ -33,6 +33,8 @@ The current corridor is based on:
 - third free code-adjacent runtime validation proof `K2.7f`
 - first operational free-corridor boundary probe `K2.8a`
 - first narrowed operational free subset `K2.8b`
+- first real operational free runtime run inside that subset `K2.8c`
+- local builder-core hardening rerun for the two `K2.8a` fail-closed forms `K2.8d`
 
 Relevant verified commits:
 
@@ -53,6 +55,7 @@ Relevant verified commits:
 - `2dbab36`
 - `2ee184b`
 - `10d4e13`
+- `385cf22`
 
 ## Candidate free corridor
 
@@ -109,6 +112,7 @@ First free proof so far:
 - whitespace-only `profileId` rejection in `server/src/routes/astro.ts`
 - whitespace-only `aProfileId` rejection in `server/src/routes/match.ts`
 - whitespace-only `profileId` rejection in `server/src/routes/scoring.ts`
+- whitespace-only `startDate` rejection in `server/src/routes/journey.ts`
 
 ## Corridor preconditions
 
@@ -175,12 +179,30 @@ Do **not** start free operation with:
 
 ## Decision output
 
-The narrow credible statement after `K2.8b` is:
+The narrow credible statement after `K2.8c` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
 > exact single-file docs/helper edits and exact non-governance anchored
 > single-file replacements inside docs/helper paths, tiny helper append and
 > explicit single-line helper create-targets, plus exact single-file public-route
 > validation/guard fixes with direct live proof and repeatability across
-> multiple route families, while broader helper/docs operations, broader runtime
-> work and all other categories remain outside free autonomy.
+> multiple route families including a real operational runtime run in
+> `server/src/routes/journey.ts`, while broader helper/docs operations, broader
+> runtime work and all other categories remain outside free autonomy.
+
+Local hardening addendum after `K2.8d`:
+
+> The current local builder core now strongly suggests that the earlier
+> `K2.8a` fail-closed cases for larger docs append and multi-line helper
+> create-target were blocked by judge/snapshot evidence presentation, not by
+> scope or claim semantics. This is useful hardening evidence, but it is not
+> yet a live- or `main`-visible corridor widening.
+
+Repeatability addendum after the 2026-04-30 T03 recheck:
+
+> Identical live dry-runs for the same multi-line helper create-target
+> diverged on the still-old live head `385cf22` between old single-line preview
+> block and later dry-run approval. This narrows the open question further:
+> the remaining instability is currently best explained by oscillating
+> judge-evidence on the un-hardened live head, not by a separate non-dry
+> execution branch.

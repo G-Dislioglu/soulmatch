@@ -314,7 +314,12 @@ function countExactOccurrences(source: string, search: string): number {
 }
 
 function compactDiffPreview(value: string): string {
-  return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+  const visible = value
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n')
+    .trim();
+  return visible.length > 160 ? `${visible.slice(0, 157)}...` : visible;
 }
 
 function normalizeInstructionSectionAnchor(instruction: string): string | null {

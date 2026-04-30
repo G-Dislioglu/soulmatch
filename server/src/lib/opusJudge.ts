@@ -44,17 +44,28 @@ function estimateEditSize(envelope: EditEnvelope): number {
   }, 0);
 }
 
-function previewEdit(envelope: EditEnvelope): string {
+const CREATE_PREVIEW_MAX_LENGTH = 200;
+const PATCH_PREVIEW_MAX_LENGTH = 240;
+
+function formatPreviewSnippet(value: string, maxLength = 160): string {
+  const visible = value
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n');
+  return visible.length > maxLength
+    ? `${visible.slice(0, Math.max(0, maxLength - 3))}...`
+    : visible;
+}
+
+export function previewEditForJudge(envelope: EditEnvelope): string {
   return envelope.edits.slice(0, 3).map((edit) => {
     if (edit.mode === 'patch') {
       const patchPreview = (edit.patches ?? []).slice(0, 2)
-        .map((patch) => `${patch.search.slice(0, 60)} => ${patch.replace.slice(0, 60)}`)
+        .map((patch) => `${formatPreviewSnippet(patch.search, PATCH_PREVIEW_MAX_LENGTH)} => ${formatPreviewSnippet(patch.replace, PATCH_PREVIEW_MAX_LENGTH)}`)
         .join(' | ');
       return `- ${edit.path} [patch] ${patchPreview}`;
     }
-    const contentPreview = (edit.content ?? '')
-      .replace(/\s+/g, ' ')
-      .slice(0, 120);
+    const contentPreview = formatPreviewSnippet(edit.content ?? '', CREATE_PREVIEW_MAX_LENGTH);
     return `- ${edit.path} [${edit.mode}] ${contentPreview}`;
   }).join('\n');
 }
@@ -201,7 +212,7 @@ export async function judgeValidCandidates(
   );
 
   const comparison = assessments.map((assessment, i) =>
-    `=== Candidate ${i + 1}: ${assessment.worker} ===\nFiles: ${assessment.editedPaths.join(', ')}\nSummary: ${assessment.envelope.summary}\nChars: ${estimateEditSize(assessment.envelope)}\nBlocking: ${assessment.blockingIssues.length > 0 ? assessment.blockingIssues.join('; ') : 'none'}\nWarnings: ${assessment.warnings.length > 0 ? assessment.warnings.join('; ') : 'none'}\nPreview:\n${previewEdit(assessment.envelope)}`
+    `=== Candidate ${i + 1}: ${assessment.worker} ===\nFiles: ${assessment.editedPaths.join(', ')}\nSummary: ${assessment.envelope.summary}\nChars: ${estimateEditSize(assessment.envelope)}\nBlocking: ${assessment.blockingIssues.length > 0 ? assessment.blockingIssues.join('; ') : 'none'}\nWarnings: ${assessment.warnings.length > 0 ? assessment.warnings.join('; ') : 'none'}\nPreview:\n${previewEditForJudge(assessment.envelope)}`
   ).join('\n\n');
 
   for (const judgeWorker of judgeWorkers) {
