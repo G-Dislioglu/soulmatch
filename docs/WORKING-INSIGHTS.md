@@ -44,6 +44,22 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - Render crash family in studio.ts was invalid-provider dereference, not deploy drift
+
+- Kontext: Render zeigte wiederholte `Instance failed`-Events rund um
+  `0d12a4a`, waehrend der `8e2488f`-Deploy noch nicht live war.
+- Befund: Die Crash-Logs zeigten einen ungefangenen `TypeError` in
+  `resolveApiKey(...)`, weil mehrere Studio-Routen `PROVIDER_CONFIGS[provider]`
+  ohne vorgelagerten `if (!config)`-Guard dereferenzierten. Nach `7e43e4c`
+  fuer `/weekly-insight` und `52dbd20` fuer `/soul-portrait`,
+  `/monthly-horoscope` und `/compatibility-story` liefern diese Pfade fuer
+  bogus oder whitespace-only `provider` live `400` statt Prozessabsturz.
+- Relevanz: Das war kein Builder-Runner- oder Deploy-Hook-Problem, sondern ein
+  echter Runtime-Crashpfad in derselben grossen `studio.ts`-Datei.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt wieder auf neue
+  Confidence- oder Boundary-Faelle gehen, nicht mehr auf dieselbe
+  Unknown-Provider-Crashklasse.
+
 ### 2026-04-30 - K2.8s upgrades the studio.ts closure from one-off fix to second confidence proof
 
 - Kontext: Builder-Confidence-Block direkt nach dem repo-sichtigen SmartPush-
