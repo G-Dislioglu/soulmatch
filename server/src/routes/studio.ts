@@ -1968,6 +1968,10 @@ studioRouter.post('/oracle', async (req: Request, res: Response) => {
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} on server or provide key in Settings.` });
