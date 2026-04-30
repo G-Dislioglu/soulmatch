@@ -1733,6 +1733,10 @@ studioRouter.post('/soul-portrait', async (req: Request, res: Response) => {
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} or provide key in Settings.` });
@@ -1857,6 +1861,10 @@ studioRouter.post('/monthly-horoscope', async (req: Request, res: Response) => {
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) { res.status(500).json({ error: `No API key for ${providerName}.` }); return; }
 
@@ -1917,6 +1925,10 @@ studioRouter.post('/compatibility-story', async (req: Request, res: Response) =>
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}.` });
