@@ -348,7 +348,8 @@ interface StudioRequestBody {
 }
 
 function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | undefined {
-  return process.env[PROVIDER_CONFIGS[provider].envKey] || clientApiKey || undefined;
+  const envKey = PROVIDER_CONFIGS[provider]?.envKey;
+  return (envKey ? process.env[envKey] : undefined) || clientApiKey || undefined;
 }
 
 async function callOpenAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
@@ -451,7 +452,10 @@ async function callChatCompletions(
 studioRouter.post('/studio', async (req: Request, res: Response) => {
   const body = req.body as StudioRequestBody;
 
-  if (!body.studioRequest?.userMessage) {
+  if (
+    typeof body.studioRequest?.userMessage !== 'string'
+    || body.studioRequest.userMessage.trim().length === 0
+  ) {
     res.status(400).json({ error: 'Missing studioRequest.userMessage' });
     return;
   }
