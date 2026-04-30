@@ -44,6 +44,23 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - K2.8s upgrades the studio.ts closure from one-off fix to second confidence proof
+
+- Kontext: Builder-Confidence-Block direkt nach dem repo-sichtigen SmartPush-
+  Closure-Commit fuer `K2.8r`.
+- Befund: `POST /api/oracle` in `server/src/routes/studio.ts` hatte fuer
+  whitespace-only und bogus `provider` noch keinen expliziten Guard und fiel
+  deshalb live in `502`. `0d12a4a` landete danach scope-clean exakt dieselbe
+  Route-Datei mit einem Unknown-Provider-Guard; beide invaliden Probes liefern
+  jetzt `400`, und der gueltige Kontrollprobe-Body antwortete in der direkten
+  Nachpruefung wieder `200`.
+- Relevanz: Der grosse `studio.ts`-Landing-Pfad steht damit nicht mehr nur auf
+  einem einzelnen reparierten `question`-Fall, sondern auf einem zweiten engen
+  Validation-Beleg nach derselben SmartPush-Haertung.
+- Naechster Nutzen: Weitere Builder-Arbeit muss jetzt keinen bekannten
+  Kernrest mehr flicken; die naechste Bewegung kann bewusst als neuer
+  Boundary- oder Confidence-Block gewaehlt werden.
+
 ### 2026-04-30 - SmartPush payload hardening closes the last studio.ts pipeline rest
 
 - Kontext: Builder-Nacharbeit nach `K2.8q`, nachdem Approval bereits ueber

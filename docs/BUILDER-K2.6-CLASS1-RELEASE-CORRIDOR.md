@@ -43,6 +43,7 @@ The current corridor is based on:
 - fifth free runtime validation family on `POST /api/guide` `K2.8j`
 - free-corridor boundary recheck on `studio.ts` plus three class widening probes `K2.8k` to `K2.8n`
 - smartPush payload hardening plus successful `studio.ts` landing rerun `K2.8r`
+- second large-file `studio.ts` validation proof on `/api/oracle` `K2.8s`
 
 Relevant verified commits:
 
@@ -71,6 +72,7 @@ Relevant verified commits:
 - `99d8360`
 - `bdfce38`
 - `0d43164`
+- `0d12a4a`
 
 ## Candidate free corridor
 
@@ -129,6 +131,7 @@ First free proof so far:
 - whitespace-only `profileId` rejection in `server/src/routes/scoring.ts`
 - whitespace-only `startDate` rejection in `server/src/routes/journey.ts`
 - whitespace-only `question` rejection in `server/src/routes/studio.ts`
+- unknown or whitespace-only `provider` rejection in `server/src/routes/studio.ts`
 
 ## Corridor preconditions
 
@@ -262,3 +265,13 @@ Closing addendum after `K2.8r`:
 > file, live `400` for whitespace-only `question`, and live `200` for the valid
 > control probe. The former `studio.ts` landing fragility is therefore no longer
 > a known free-corridor blocker.
+
+Confidence addendum after `K2.8s`:
+
+> `0d12a4a` carried a second narrow `/api/oracle` validation hardening across
+> the same large `server/src/routes/studio.ts` file after the SmartPush fix.
+> The new explicit unknown-provider guard moved whitespace-only and bogus
+> `provider` probes from live `502` to live `400`, while a direct follow-up
+> valid probe returned `200`. This upgrades the earlier `studio.ts` closure
+> from a one-off landing into a second confidence proof on the hardened large-
+> file path.
