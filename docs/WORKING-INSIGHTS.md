@@ -44,6 +44,25 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - SmartPush payload hardening closes the last studio.ts pipeline rest
+
+- Kontext: Builder-Nacharbeit nach `K2.8q`, nachdem Approval bereits ueber
+  `K2.8o` und `K2.8p` live beantwortet war.
+- Befund: Die eigentliche Ursache fuer den `studio.ts`-Rest lag nicht im
+  Classing, sondern im SmartPush-Fallback: `server/src/routes/studio.ts` ist
+  als Full-File-Overwrite zu gross fuer den `/push`-Single-Patch-Dispatch,
+  waehrend derselbe exakte `search/replace`-Payload klein genug bleibt.
+  `bdfce38` haertete deshalb `server/src/lib/opusSmartPush.ts`, und der
+  direkte `K2.8q`-Rerun landete danach `server/src/routes/studio.ts`
+  scope-clean auf `0d43164`.
+- Relevanz: Der zuvor letzte meaningful Builder-Rest ist damit geschlossen. Die
+  Pipeline ist fuer den bisher belegten freien class_1-Korridor, den
+  approval-backed class_2-Pfad und den grossdatei-nahen `studio.ts`-Fall
+  operativ gruen.
+- Naechster Nutzen: Weitere Builder-Arbeit muss jetzt nicht mehr ein bekanntes
+  Leck reparieren, sondern bewusst einen neuen Confidence- oder Boundary-Block
+  waehlen.
+
 ### 2026-04-30 - Class_2 approval is live; studio.ts remains the last meaningful pipeline rest
 
 - Kontext: Builder-Pfad nach der geschaerften freien Korridorgrenze aus `K2.8k`

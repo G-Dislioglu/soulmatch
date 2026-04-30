@@ -42,6 +42,7 @@ The current corridor is based on:
 - live non-dry repeatability proof for both former rest shapes on fresh targets `K2.8i`
 - fifth free runtime validation family on `POST /api/guide` `K2.8j`
 - free-corridor boundary recheck on `studio.ts` plus three class widening probes `K2.8k` to `K2.8n`
+- smartPush payload hardening plus successful `studio.ts` landing rerun `K2.8r`
 
 Relevant verified commits:
 
@@ -68,6 +69,8 @@ Relevant verified commits:
 - `6e1ea41`
 - `beab7c7`
 - `99d8360`
+- `bdfce38`
+- `0d43164`
 
 ## Candidate free corridor
 
@@ -125,6 +128,7 @@ First free proof so far:
 - whitespace-only `aProfileId` rejection in `server/src/routes/match.ts`
 - whitespace-only `profileId` rejection in `server/src/routes/scoring.ts`
 - whitespace-only `startDate` rejection in `server/src/routes/journey.ts`
+- whitespace-only `question` rejection in `server/src/routes/studio.ts`
 
 ## Corridor preconditions
 
@@ -248,3 +252,13 @@ Studio rest addendum after `K2.8q`:
 > `server/src/routes/studio.ts` landing path. `/api/oracle` still exposes a real
 > whitespace-only input gap, stays `class_1` with `allow_push`, and yet fails
 > before commit at `patch-via-push`, even after an exact-line rerun.
+
+Closing addendum after `K2.8r`:
+
+> `bdfce38` hardened the SmartPush fallback so large single-file patch jobs no
+> longer inflate into oversize `/push` overwrite payloads when a compact
+> `search/replace` dispatch is sufficient. On that head the same `K2.8q` 
+> `/api/oracle` rerun then landed cleanly on `0d43164`, with exactly one changed
+> file, live `400` for whitespace-only `question`, and live `200` for the valid
+> control probe. The former `studio.ts` landing fragility is therefore no longer
+> a known free-corridor blocker.

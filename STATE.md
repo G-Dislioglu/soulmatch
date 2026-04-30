@@ -11,9 +11,9 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `c737ba7`
-- `last_verified_origin_main`: `c737ba7`
-- `last_live_runtime_head`: `c737ba7`
+- `current_repo_head`: `0d43164`
+- `last_verified_origin_main`: `0d43164`
+- `last_live_runtime_head`: `0d43164`
 - `current_branch`: `codex/k28j-truth-sync`
 - `last_verified_against_code`: `2026-04-30`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
@@ -26,6 +26,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `last_completed_block_addendum_2026_04_30_b`: `K2.8j` erweiterte den freien Runtime-Korridor um einen fuenften public-route validation case: `b2fcc3a` haertete `server/src/routes/guide.ts`, sodass whitespace-only `systemPrompt` und `userMessage` live von `200` auf `400` kippten, waehrend der gueltige Kontrollprobe-Body weiter `200` blieb.`
 - `last_completed_block_addendum_2026_04_30_c`: `K2.8k` bis `K2.8n` haben die aktuelle freie Korridorgrenze geschaerft. `K2.8k` hielt einen echten `/api/oracle`-Whitespace-Gap in `server/src/routes/studio.ts` weiter als `class_1`, scheiterte aber vor jeder Commit-Landung an `patch-via-push`. `K2.8l` (`POST /api/profile`), `K2.8m` (`POST /api/match/single`) und `K2.8n` (`POST /api/journey/optimal-dates`) zeigten jeweils reale Live-Input-Gaps, wurden aber alle drei vom Workflow-Simulation-Gate als `class_2` fail-closed auf `dry_run_only` gezogen. Die freie Linie generalisiert damit aktuell noch nicht auf grosse `studio.ts`-Push-Pfade, DB-backed create routes oder computation-driving Validation-Faelle.`
 - `last_completed_block_addendum_2026_04_30_d`: `K2.8o` und `K2.8p` haben den approval-backed class_2-Pfad live geschlossen. `5784528` landete den `match.ts`-Fix, `c737ba7` den `journey.ts`-Fix, jeweils mit gueltigem approval ticket, `taskClass=class_2`, `executionPolicy=allow_push`, scope-cleanem Einzeldatei-Landing und runtime-matching Head. Der verbleibende operative Rest ist damit enger: `K2.8q` bestaetigte erneut, dass der `/api/oracle`-Fix in `server/src/routes/studio.ts` zwar `class_1` + `allow_push` bleibt, aber weiter vor Commit an `patch-via-push` scheitert.`
+- `last_completed_block_addendum_2026_04_30_e`: `bdfce38` haertete den grossdatei-sensitiven SmartPush-Fallback in `server/src/lib/opusSmartPush.ts`; auf diesem Head landete der erneute `K2.8q`-Rerun danach exakt `server/src/routes/studio.ts` auf `0d43164`, live mit `400` fuer whitespace-only `question` und weiter `200` fuer den gueltigen Kontrollprobe-Body.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
