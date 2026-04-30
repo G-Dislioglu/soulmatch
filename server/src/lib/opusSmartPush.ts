@@ -49,6 +49,39 @@ interface SmartPushOptions {
   sideEffects?: BuilderSideEffectsContract;
 }
 
+type PushDispatchFile =
+  | { file: string; content: string }
+  | { file: string; search: string; replace: string };
+
+const PUSH_SINGLE_PATCH_LIMIT_BYTES = 50_000;
+
+function getJsonSize(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+export function buildPatchViaPushFiles(
+  file: string,
+  patches: PatchEdit[],
+  overwriteContent: string,
+): PushDispatchFile[] {
+  const overwriteFiles: PushDispatchFile[] = [{ file, content: overwriteContent }];
+  if (getJsonSize(overwriteFiles) < PUSH_SINGLE_PATCH_LIMIT_BYTES) {
+    return overwriteFiles;
+  }
+
+  const replaceFiles: PushDispatchFile[] = patches.map((patch) => ({
+    file,
+    search: patch.search,
+    replace: patch.replace,
+  }));
+  const oversizedReplace = replaceFiles.some((patch) => getJsonSize([patch]) >= PUSH_SINGLE_PATCH_LIMIT_BYTES);
+  if (!oversizedReplace) {
+    return replaceFiles;
+  }
+
+  return overwriteFiles;
+}
+
 async function buildOverwriteFromPatch(file: string, patches: PatchEdit[]): Promise<string> {
   const candidatePaths = [
     path.resolve(process.cwd(), file),
@@ -154,13 +187,13 @@ export async function smartPush(
   for (const job of patchJobs) {
     if (!ghToken) {
       asyncDispatch = true;
-      // Fallback: resolve the replacement locally and send a deterministic
-      // full-file overwrite instead of brittle search/replace payloads.
+      // Fallback: resolve the replacement locally. Small files go as
+      // deterministic full-file overwrites; large files stay as explicit
+      // search/replace payloads so the /push dispatcher stays under its
+      // single-patch size ceiling.
       try {
-        const pushFiles = [{
-          file: job.file,
-          content: await buildOverwriteFromPatch(job.file, job.patches),
-        }];
+        const overwriteContent = await buildOverwriteFromPatch(job.file, job.patches);
+        const pushFiles = buildPatchViaPushFiles(job.file, job.patches, overwriteContent);
         const res = await outboundFetch(getAuthUrl('/push'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -174,7 +207,10 @@ export async function smartPush(
         });
         const data = await res.json() as Record<string, unknown>;
         if (!data.triggered) {
-          errors.push(`patch-via-push failed for ${job.file}`);
+          const detail = typeof data.error === 'string' && data.error.length > 0
+            ? data.error
+            : JSON.stringify(data);
+          errors.push(`patch-via-push failed for ${job.file}: ${detail}`);
         } else if (typeof data.taskId === 'string' && data.taskId.length > 0) {
           dispatchedTaskIds.push(data.taskId);
         } else {
