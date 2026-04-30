@@ -44,6 +44,25 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - K2.8k to K2.8n sharpen the current free-corridor edge
+
+- Kontext: Neue freie Runtime-Kandidaten nach dem gruenen `K2.8j`-Landing auf
+  Live `7744905`.
+- Befund: `K2.8k` hielt den `/api/oracle`-Whitespace-Fix in `studio.ts`
+  weiterhin als `class_1` + `allow_push`, scheiterte aber vor jedem Commit an
+  `patch-via-push failed`. `K2.8l` (`profile.ts` create route), `K2.8m`
+  (`match.ts` single route) und `K2.8n` (`journey.ts` eventType route) waren
+  live jeweils echte Input-Gaps, wurden aber alle drei vom Workflow-Simulation-
+  Gate als `class_2` auf `dry_run_only` gezogen.
+- Relevanz: Der freie Builder-Korridor ist derzeit enger als "jede schmale
+  single-file Validation". Grosse `studio.ts`-Push-Pfade bleiben landing-
+  fragil, DB-backed create routes bleiben ausserhalb, und computation-driving
+  Validation-Faelle widen aktuell auf `class_2`.
+- Naechster Nutzen: Weitere freie Grenzarbeit sollte nicht blind weitere
+  Kandidaten nachschieben. Erstens die neue Grenze repo-sichtbar halten;
+  zweitens nur noch Kandidaten aus einer bereits belegten `class_1`-Familie
+  schneiden oder bewusst einen separaten `class_2`-Track mit Approval fahren.
+
 ### 2026-04-30 - K2.8j erweitert den freien Runtime-Korridor auf guide prompt validation
 
 - Kontext: Neuer enger single-file class_1-Kandidat nach Abschluss von

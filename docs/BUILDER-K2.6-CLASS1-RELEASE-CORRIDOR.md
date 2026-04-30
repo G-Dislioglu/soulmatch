@@ -41,6 +41,7 @@ The current corridor is based on:
 - live non-dry landing for the former T01 docs append `K2.8h`
 - live non-dry repeatability proof for both former rest shapes on fresh targets `K2.8i`
 - fifth free runtime validation family on `POST /api/guide` `K2.8j`
+- free-corridor boundary recheck on `studio.ts` plus three class widening probes `K2.8k` to `K2.8n`
 
 Relevant verified commits:
 
@@ -221,3 +222,14 @@ Runtime addendum after `K2.8j`:
 > Live `/api/guide` had accepted whitespace-only `systemPrompt` and
 > `userMessage` with `200` before the change; afterwards both invalid probes
 > returned `400`, while the valid control probe stayed `200`.
+
+Boundary addendum after `K2.8k` to `K2.8n`:
+
+> `K2.8k` showed that a still-open `/api/oracle` whitespace gap in the large
+> `server/src/routes/studio.ts` file can remain `class_1` in theory yet still
+> fail before commit at `patch-via-push`. `K2.8l` on the DB-backed
+> `POST /api/profile`, `K2.8m` on `POST /api/match/single`, and `K2.8n` on
+> `POST /api/journey/optimal-dates` each exposed real live input gaps, but all
+> three widened to `class_2` and stopped at `dry_run_only`. The current free
+> corridor therefore still does not generalize to large `studio.ts` landing
+> paths, DB-backed create routes, or computation-driving validation fixes.
