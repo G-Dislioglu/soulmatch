@@ -44,6 +44,23 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - Class_2 approval is live; studio.ts remains the last meaningful pipeline rest
+
+- Kontext: Builder-Pfad nach der geschaerften freien Korridorgrenze aus `K2.8k`
+  bis `K2.8n`.
+- Befund: `K2.8o` landete den `match.ts`-Fix mit echtem approval ticket auf
+  `5784528`; `K2.8p` bestaetigte denselben approval-backed `class_2`-Pfad auf
+  `journey.ts` mit einem zweiten Landing auf `c737ba7`, nachdem die
+  Worker-Instruktion dort auf exakte Zielzeilen geschaerft wurde. `K2.8q`
+  zeigte danach erneut, dass `/api/oracle` in `studio.ts` trotz `class_1` und
+  `allow_push` weiter vor Commit an `patch-via-push` scheitert.
+- Relevanz: Der Builder ist nicht mehr an fehlender `class_2`-Approval-
+  Operationalitaet blockiert. Der verbleibende Pipeline-Rest ist jetzt enger
+  und konkreter: `studio.ts`-Landing-Faelle auf dem grossen File.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt nicht mehr Approval als
+  Hauptfrage behandeln, sondern die `studio.ts`-Patch-/Executor-Fragilitaet
+  isolieren oder einen bewusst noch kleineren grossfile-nahen Rerun schneiden.
+
 ### 2026-04-30 - K2.8k to K2.8n sharpen the current free-corridor edge
 
 - Kontext: Neue freie Runtime-Kandidaten nach dem gruenen `K2.8j`-Landing auf

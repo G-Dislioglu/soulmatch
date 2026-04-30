@@ -233,3 +233,18 @@ Boundary addendum after `K2.8k` to `K2.8n`:
 > three widened to `class_2` and stopped at `dry_run_only`. The current free
 > corridor therefore still does not generalize to large `studio.ts` landing
 > paths, DB-backed create routes, or computation-driving validation fixes.
+
+Approved-path addendum after `K2.8o` and `K2.8p`:
+
+> The non-free `class_2` approval lane is now live-proven. `5784528` landed the
+> approval-backed `match.ts` fix, and `c737ba7` landed the approval-backed
+> `journey.ts` fix on a second route family with runtime-matching heads. This
+> does not widen the free corridor, but it removes approval-lane uncertainty as
+> the main blocker.
+
+Studio rest addendum after `K2.8q`:
+
+> The remaining meaningful pipeline rest is currently the large
+> `server/src/routes/studio.ts` landing path. `/api/oracle` still exposes a real
+> whitespace-only input gap, stays `class_1` with `allow_push`, and yet fails
+> before commit at `patch-via-push`, even after an exact-line rerun.
