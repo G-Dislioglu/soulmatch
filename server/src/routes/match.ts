@@ -809,12 +809,14 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
 matchRouter.post('/single', async (req: Request, res: Response) => {
   try {
     const request = req.body as MatchSingleRequest;
-    if (!request?.profileA?.birthDate || !request?.profileB?.birthDate) {
+    const profileABirthDate = (request?.profileA?.birthDate ?? '').trim();
+    const profileBBirthDate = (request?.profileB?.birthDate ?? '').trim();
+    if (!profileABirthDate || !profileBBirthDate) {
       return res.status(400).json({ error: 'profileA.birthDate and profileB.birthDate are required' });
     }
 
-    const numerologyA = deriveNumerologyFromBirthDate(request.profileA.birthDate);
-    const numerologyB = deriveNumerologyFromBirthDate(request.profileB.birthDate);
+    const numerologyA = deriveNumerologyFromBirthDate(profileABirthDate);
+    const numerologyB = deriveNumerologyFromBirthDate(profileBBirthDate);
 
     const requestWarnings: string[] = [];
     const timezoneA = request.profileA.birthLocation?.timezone?.trim();
@@ -831,14 +833,14 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
         const [astroResultA, astroResultB] = await Promise.all([
           calculateAstrologyForMatch({
             profileId: request.profileA.id ?? 'profile-a',
-            birthDate: request.profileA.birthDate,
+            birthDate: profileABirthDate,
             birthTime: request.profileA.birthTime,
             timezone: timezoneA!,
             location: request.profileA.birthLocation,
           }),
           calculateAstrologyForMatch({
             profileId: request.profileB.id ?? 'profile-b',
-            birthDate: request.profileB.birthDate,
+            birthDate: profileBBirthDate,
             birthTime: request.profileB.birthTime,
             timezone: timezoneB!,
             location: request.profileB.birthLocation,
