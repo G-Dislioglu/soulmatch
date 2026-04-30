@@ -11,9 +11,9 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `52dbd20`
-- `last_verified_origin_main`: `52dbd20`
-- `last_live_runtime_head`: `52dbd20`
+- `current_repo_head`: `06409f0`
+- `last_verified_origin_main`: `06409f0`
+- `last_live_runtime_head`: `06409f0`
 - `current_branch`: `codex/k28j-truth-sync`
 - `last_verified_against_code`: `2026-04-30`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
@@ -29,6 +29,7 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 - `last_completed_block_addendum_2026_04_30_e`: `bdfce38` haertete den grossdatei-sensitiven SmartPush-Fallback in `server/src/lib/opusSmartPush.ts`; auf diesem Head landete der erneute `K2.8q`-Rerun danach exakt `server/src/routes/studio.ts` auf `0d43164`, live mit `400` fuer whitespace-only `question` und weiter `200` fuer den gueltigen Kontrollprobe-Body.`
 - `last_completed_block_addendum_2026_04_30_f`: `K2.8s` bestaetigte den nun gehaerteten grossen `studio.ts`-Landing-Pfad mit einem zweiten engen `/api/oracle`-Validation-Fall. `0d12a4a` fuegte den expliziten Unknown-Provider-Guard hinzu; whitespace-only und bogus `provider` kippen live von `502` auf `400`, der validierte Kontrollprobe-Body antwortete in der direkten Nachpruefung wieder `200`, und der Landing blieb scope-clean auf genau `server/src/routes/studio.ts`.`
 - `last_completed_block_addendum_2026_04_30_g`: `7e43e4c` und `52dbd20` schlossen danach die verbleibende identische Crash-Familie in `server/src/routes/studio.ts`: zuerst `/weekly-insight`, dann `/soul-portrait`, `/monthly-horoscope` und `/compatibility-story`. Die Render-Logs belegten ungefangene `TypeError`-Crashes in `resolveApiKey(...)` fuer ungueltige `provider`-Werte; live liefern diese Routen jetzt fuer bogus oder whitespace-only `provider` fail-closed `400` statt Prozessabsturz, waehrend gueltige Kontrollbodys weiter `200` liefern.`
+- `last_completed_block_addendum_2026_04_30_h`: `06409f0` haertete danach dieselbe `studio.ts`-Routefamilie gegen whitespace-only Pflichtfelder. Live kippen jetzt whitespace-only `name` in `/weekly-insight`, whitespace-only `sunSign` oder `name` in `/monthly-horoscope`, whitespace-only `name` oder `birthDate` in `/soul-portrait` sowie whitespace-only `nameA` oder `nameB` in `/compatibility-story` jeweils von `200` auf `400`, waehrend der gueltige Kontrollbody weiter `200` liefert.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag

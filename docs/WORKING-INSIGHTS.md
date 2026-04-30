@@ -44,6 +44,22 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - studio.ts validation hardening moved from crash closure to input-trim closure
+
+- Kontext: Nach dem Unknown-Provider-Crash-Sweep auf denselben grossen
+  Studio-Routen.
+- Befund: Mehrere Pflichtfelder in `/weekly-insight`,
+  `/monthly-horoscope`, `/soul-portrait` und
+  `/compatibility-story` akzeptierten whitespace-only Eingaben noch als `200`.
+  `06409f0` stellte die Pflichtfeldpruefungen dort auf trim-basierte Guards
+  um; die frueher gruenen whitespace-only Probes liefern live jetzt `400`.
+- Relevanz: Die grosse `studio.ts`-Landing-Lane ist damit nicht nur gegen
+  Unknown-Provider-Crashes, sondern auch gegen eine zweite sichtbare
+  Input-Validation-Familie gehaertet.
+- Naechster Nutzen: Weitere Builder-/Runtime-Arbeit in `studio.ts` kann jetzt
+  bewusster auf neue Routefamilien oder echte Boundary-Faelle gehen statt auf
+  dieselbe simple Pflichtfeldklasse.
+
 ### 2026-04-30 - Render crash family in studio.ts was invalid-provider dereference, not deploy drift
 
 - Kontext: Render zeigte wiederholte `Instance failed`-Events rund um
