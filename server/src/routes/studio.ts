@@ -1726,7 +1726,12 @@ interface SoulPortraitRequestBody {
 
 studioRouter.post('/soul-portrait', async (req: Request, res: Response) => {
   const body = req.body as SoulPortraitRequestBody;
-  if (!body.name || !body.birthDate) {
+  if (
+    typeof body.name !== 'string'
+    || body.name.trim().length === 0
+    || typeof body.birthDate !== 'string'
+    || body.birthDate.trim().length === 0
+  ) {
     res.status(400).json({ error: 'name and birthDate required' });
     return;
   }
@@ -1790,7 +1795,7 @@ interface WeeklyInsightRequestBody {
 
 studioRouter.post('/weekly-insight', async (req: Request, res: Response) => {
   const body = req.body as WeeklyInsightRequestBody;
-  if (!body.name || !body.lifePath) {
+  if (typeof body.name !== 'string' || body.name.trim().length === 0 || !body.lifePath) {
     res.status(400).json({ error: 'name and lifePath required' });
     return;
   }
@@ -1854,7 +1859,12 @@ interface MonthlyHoroRequestBody {
 
 studioRouter.post('/monthly-horoscope', async (req: Request, res: Response) => {
   const body = req.body as MonthlyHoroRequestBody;
-  if (!body.sunSign || !body.name) {
+  if (
+    typeof body.sunSign !== 'string'
+    || body.sunSign.trim().length === 0
+    || typeof body.name !== 'string'
+    || body.name.trim().length === 0
+  ) {
     res.status(400).json({ error: 'sunSign and name required' });
     return;
   }
@@ -1918,7 +1928,12 @@ interface CompatStoryRequestBody {
 
 studioRouter.post('/compatibility-story', async (req: Request, res: Response) => {
   const body = req.body as CompatStoryRequestBody;
-  if (!body.nameA || !body.nameB) {
+  if (
+    typeof body.nameA !== 'string'
+    || body.nameA.trim().length === 0
+    || typeof body.nameB !== 'string'
+    || body.nameB.trim().length === 0
+  ) {
     res.status(400).json({ error: 'nameA and nameB required' });
     return;
   }
