@@ -1960,7 +1960,8 @@ interface OracleRequestBody {
 
 studioRouter.post('/oracle', async (req: Request, res: Response) => {
   const body = req.body as OracleRequestBody;
-  if (!body.question) {
+  const question = typeof body.question === 'string' ? body.question.trim() : '';
+  if (!question) {
     res.status(400).json({ error: 'question required (purpose | soulperson | turning_point)' });
     return;
   }
@@ -1974,7 +1975,7 @@ studioRouter.post('/oracle', async (req: Request, res: Response) => {
   }
 
   const model = body.model || config.defaultModel;
-  const { system, user } = buildOraclePrompt(body.question, body.profileExcerpt ?? '');
+  const { system, user } = buildOraclePrompt(question as OracleQuestionType, body.profileExcerpt ?? '');
 
   try {
     let parsed: Record<string, unknown>;
@@ -1984,7 +1985,7 @@ studioRouter.post('/oracle', async (req: Request, res: Response) => {
       parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
     }
     const answer = typeof parsed.answer === 'string' ? parsed.answer : JSON.stringify(parsed);
-    res.json({ question: body.question, answer });
+    res.json({ question, answer });
   } catch (err) {
     res.status(500).json({ error: `Oracle-Aufruf fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
   }
