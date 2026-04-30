@@ -36,6 +36,7 @@
     "builder:k28o": "tsx scripts/builder-k28o-class2-approved-runner.ts",
     "builder:k28p": "tsx scripts/builder-k28o-class2-approved-runner.ts --task K28O-T02",
     "builder:k28q": "tsx scripts/builder-k28q-studio-rerun-runner.ts",
+    "builder:k28s": "tsx scripts/builder-k28s-oracle-provider-runner.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",
