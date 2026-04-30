@@ -64,7 +64,7 @@ jobs:
           fi
 
           echo "Checking direct Render deploy state for $DEPLOY_ID"
-          if node tools/render-inspect.mjs wait "$DEPLOY_ID" 180 10; then
+          if node tools/render-inspect.mjs wait "$DEPLOY_ID" 480 10; then
             exit 0
           fi
 
