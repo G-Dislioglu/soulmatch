@@ -40,6 +40,7 @@ The current corridor is based on:
 - live non-dry landing for the former T03 create-target `K2.8g`
 - live non-dry landing for the former T01 docs append `K2.8h`
 - live non-dry repeatability proof for both former rest shapes on fresh targets `K2.8i`
+- fifth free runtime validation family on `POST /api/guide` `K2.8j`
 
 Relevant verified commits:
 
@@ -213,3 +214,10 @@ Repeatability addendum after `K2.8i`:
 > targets. `beab7c7` landed another exact docs append, and `99d8360` landed
 > another exact three-line helper create-target, both scope-clean and
 > runtime-matching.
+
+Runtime addendum after `K2.8j`:
+
+> `b2fcc3a` added trimmed prompt validation to `server/src/routes/guide.ts`.
+> Live `/api/guide` had accepted whitespace-only `systemPrompt` and
+> `userMessage` with `200` before the change; afterwards both invalid probes
+> returned `400`, while the valid control probe stayed `200`.

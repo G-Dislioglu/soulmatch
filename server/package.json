@@ -28,6 +28,7 @@
     "builder:k28g": "tsx scripts/builder-k28g-live-t03-landing-runner.ts",
     "builder:k28h": "tsx scripts/builder-k28h-live-t01-landing-runner.ts",
     "builder:k28i": "tsx scripts/builder-k28i-live-repeatability-runner.ts",
+    "builder:k28j": "tsx scripts/builder-k28j-free-runtime-runner.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",

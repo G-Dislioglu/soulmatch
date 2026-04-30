@@ -44,6 +44,23 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - K2.8j erweitert den freien Runtime-Korridor auf guide prompt validation
+
+- Kontext: Neuer enger single-file class_1-Kandidat nach Abschluss von
+  `K2.8g` bis `K2.8i`.
+- Befund: Live `/api/guide` liess whitespace-only `systemPrompt` und
+  whitespace-only `userMessage` davor jeweils mit `200` durch. `K2.8j`
+  landete auf `b2fcc3a` eine scope-cleane Einzeldatei-Aenderung in
+  `server/src/routes/guide.ts`; danach kippten beide Invalid-Probes auf `400`,
+  waehrend der gueltige Kontrollprobe-Body weiter `200` mit normalem
+  Text-Response lieferte.
+- Relevanz: Der freie class_1-Korridor ist jetzt nicht nur fuer docs/helper
+  und vier fruehere Runtime-Validation-Familien belastbar, sondern auch fuer
+  einen provider-backed Prompt-Validation-Fall.
+- Naechster Nutzen: Weitere Builder-Grenzarbeit sollte wieder nur ueber genau
+  einen neuen engen Kandidaten laufen, nicht ueber kuenstliches Widening aus
+  diesem Einzelbefund.
+
 ### 2026-04-30 - K2.8i bestaetigt beide frueheren Restformen mit frischen non-dry Targets
 
 - Kontext: Gezielter Repeatability-Block nach `K2.8g` und `K2.8h` auf dem
