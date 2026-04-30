@@ -1150,7 +1150,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'Maximal 6 Personas pro Diskussion' });
     return;
   }
-  if (!body.message) {
+  if (typeof body.message !== 'string' || body.message.trim().length === 0) {
     res.status(400).json({ error: 'message required' });
     return;
   }
