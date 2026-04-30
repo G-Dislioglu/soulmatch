@@ -44,6 +44,21 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - discuss message trimming is a separate studio.ts confidence proof
+
+- Kontext: Neuer Boundary-Block nach der gehaerteten Studio-Pflichtfeld- und
+  Provider-Guard-Familie.
+- Befund: `/api/discuss` behandelte whitespace-only `message` noch als gueltig
+  und erzeugte live echte Antworten mit `200`. `a9a0587` stellte die Guard-
+  Bedingung dort auf `trim().length === 0`; derselbe Probe-Body liefert live
+  jetzt `400`, waehrend der gueltige Kontrollbody weiter `200` liefert.
+- Relevanz: Das ist ein neuer Route-Fall ausserhalb der zuvor gehaerteten
+  `soul-portrait`-/`weekly-insight`-/`monthly-horoscope`-/`compatibility-story`
+  Pflichtfeldfamilie.
+- Naechster Nutzen: Weitere Builder-Arbeit kann jetzt noch gezielter auf
+  frische Studio-/Discuss-Inputgrenzen oder wieder auf andere Routefamilien
+  wechseln.
+
 ### 2026-04-30 - studio.ts validation hardening moved from crash closure to input-trim closure
 
 - Kontext: Nach dem Unknown-Provider-Crash-Sweep auf denselben grossen
