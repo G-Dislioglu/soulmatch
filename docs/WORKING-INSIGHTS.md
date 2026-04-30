@@ -44,6 +44,22 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - /api/studio now matches the stricter trim semantics and fail-safe provider lookup
+
+- Kontext: Konsistenzhärtung nach `/api/discuss` und den gehärteten
+  `studio.ts`-Schwesterpfaden.
+- Befund: `/api/studio` akzeptierte whitespace-only
+  `studioRequest.userMessage` noch und lief dann in unnötige Providerarbeit.
+  `4d791de` stellte den Guard dort auf trim-basierte Prüfung um und machte
+  zugleich `resolveApiKey(...)` fail-safe gegen unbekannte Provider-Keys.
+  Live liefert der whitespace-only-Body jetzt `400`, ein gültiger Minimalbody
+  weiter `200`.
+- Relevanz: Die zentrale Studio-Einstiegsroute ist damit nicht mehr lockerer
+  als die bereits gehärteten Schwesterpfade.
+- Naechster Nutzen: Der nächste Konsistenzblock kann jetzt auf neue
+  Inputgrenzen oder wieder auf eine andere Routefamilie zielen statt auf
+  dieselbe Trim-/Provider-Klasse.
+
 ### 2026-04-30 - discuss message trimming is a separate studio.ts confidence proof
 
 - Kontext: Neuer Boundary-Block nach der gehaerteten Studio-Pflichtfeld- und
