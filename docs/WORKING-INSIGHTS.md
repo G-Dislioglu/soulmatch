@@ -44,6 +44,24 @@ Wenn ja:
 
 ## Eintraege
 
+### 2026-04-30 - Preview-Hardening ist live und schliesst beide K2.8a-Restformen
+
+- Kontext: Repo-/Live-Nachzug nach `7f95aac` plus enger non-dry-Folgeschnitt
+  fuer T03 und T01.
+- Befund: Die gehärtete Judge-/Snapshot-Preview ist jetzt live. Auf dieser
+  Basis landete `K2.8g` den frueheren T03-Fall scope-clean auf `88e2d5a` mit
+  exakt einem neuen File `docs/archive/k28a-free-class1-ops-smoke.txt`;
+  direkt danach landete `K2.8h` den frueheren T01-Fall scope-clean auf
+  `6e1ea41` mit exakt einem Append in `docs/archive/push-test.md`. In beiden
+  Faellen matchten `verifiedCommit`, Remote-Head und Runtime-Head.
+- Relevanz: Die alte K2.8a-Restfrage ist damit nicht nur erklaert, sondern
+  operativ geschlossen. Der relevante Unterschied war die Evidence-
+  Praesentation des alten Heads, nicht eine grundsaetzliche Sperre gegen diese
+  single-file class_1-Formen.
+- Naechster Nutzen: Weitere Builder-Grenzarbeit sollte nicht mehr auf T03/T01
+  herumreiten, sondern nur ueber einen neuen engen Kandidaten oder ueber
+  explizite Repeatability-Nachweise auf dem nun gehärteten Live-Head laufen.
+
 ### 2026-04-30 - T03-Diskrepanz ist alte Live-Preview-Fragilitaet, nicht der non-dry-Zweig
 
 - Kontext: Repo-/Live-Truth-Recheck zu Beginn des naechsten Chats plus gezielte

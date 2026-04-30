@@ -2,7 +2,7 @@
 
 ## Status
 
-- status: `free_class1_corridor_operational_narrow_green`
+- status: `free_class1_corridor_operational_single_file_green`
 - basis: `repo_visible_plus_runtime_probe`
 - scope: `narrow_free_class_1_only`
 - not included: `class_2`, `class_3`, multi-file, protected, builder-core
@@ -35,6 +35,10 @@ The current corridor is based on:
 - first narrowed operational free subset `K2.8b`
 - first real operational free runtime run inside that subset `K2.8c`
 - local builder-core hardening rerun for the two `K2.8a` fail-closed forms `K2.8d`
+- live dry-run approve proof for those two former fail-closed forms `K2.8e`
+- live T03 repeatability recheck on the hardened head `K2.8f`
+- live non-dry landing for the former T03 create-target `K2.8g`
+- live non-dry landing for the former T01 docs append `K2.8h`
 
 Relevant verified commits:
 
@@ -56,6 +60,9 @@ Relevant verified commits:
 - `2ee184b`
 - `10d4e13`
 - `385cf22`
+- `7f95aac`
+- `88e2d5a`
+- `6e1ea41`
 
 ## Candidate free corridor
 
@@ -161,8 +168,8 @@ The currently adopted free Builder subset is:
 2. exact non-governance single-file anchored replacements inside docs/helper
    paths
 3. exact single-file public-route validation/guard fixes with direct live proof
-4. tiny helper append inside docs/helper paths
-5. explicit single-line helper create-targets
+4. tiny or larger exact docs append inside docs/helper paths
+5. explicit single-line or exact multi-line helper create-targets
 
 Do **not** start free operation with:
 
@@ -172,8 +179,6 @@ Do **not** start free operation with:
 - secrets/deploy/auth
 - multi-file consistency work
 - governance/policy docs as anchored-replacement targets
-- broader helper/docs operations such as larger-file append or multi-line
-  create-targets before separate hardening
 - broader free code-adjacent runtime edits before a second narrow repeatability
   proof
 
@@ -182,27 +187,19 @@ Do **not** start free operation with:
 The narrow credible statement after `K2.8c` is:
 
 > Builder may freely execute a very narrow audited `class_1` corridor covering
-> exact single-file docs/helper edits and exact non-governance anchored
-> single-file replacements inside docs/helper paths, tiny helper append and
-> explicit single-line helper create-targets, plus exact single-file public-route
+> exact single-file docs/helper edits including larger-file append and explicit
+> multi-line helper create-targets, exact non-governance anchored single-file
+> replacements inside docs/helper paths, plus exact single-file public-route
 > validation/guard fixes with direct live proof and repeatability across
 > multiple route families including a real operational runtime run in
-> `server/src/routes/journey.ts`, while broader helper/docs operations, broader
-> runtime work and all other categories remain outside free autonomy.
+> `server/src/routes/journey.ts`, while multi-file work, broader runtime work
+> and all other categories remain outside free autonomy.
 
-Local hardening addendum after `K2.8d`:
+Hardening and landing addendum after `K2.8d` to `K2.8h`:
 
-> The current local builder core now strongly suggests that the earlier
-> `K2.8a` fail-closed cases for larger docs append and multi-line helper
-> create-target were blocked by judge/snapshot evidence presentation, not by
-> scope or claim semantics. This is useful hardening evidence, but it is not
-> yet a live- or `main`-visible corridor widening.
-
-Repeatability addendum after the 2026-04-30 T03 recheck:
-
-> Identical live dry-runs for the same multi-line helper create-target
-> diverged on the still-old live head `385cf22` between old single-line preview
-> block and later dry-run approval. This narrows the open question further:
-> the remaining instability is currently best explained by oscillating
-> judge-evidence on the un-hardened live head, not by a separate non-dry
-> execution branch.
+> The earlier `K2.8a` fail-closed cases for larger docs append and multi-line
+> helper create-target were in fact judge/snapshot evidence presentation
+> problems on the old head. `7f95aac` landed the narrow preview hardening,
+> `K2.8f` re-approved T03 on the hardened live head, and `K2.8g` plus
+> `K2.8h` then landed both former rest cases non-dry, scope-clean and
+> runtime-matching.

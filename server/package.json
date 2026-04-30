@@ -25,6 +25,8 @@
     "builder:k28d": "tsx scripts/builder-k28d-local-hardening-runner.ts",
     "builder:k28e": "tsx scripts/builder-k28e-live-hardening-dryrun-runner.ts",
     "builder:k28f": "tsx scripts/builder-k28f-live-t03-repeatability-runner.ts",
+    "builder:k28g": "tsx scripts/builder-k28g-live-t03-landing-runner.ts",
+    "builder:k28h": "tsx scripts/builder-k28h-live-t01-landing-runner.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",
