@@ -22,6 +22,9 @@ Temporary alternative:
 
 The long-term goal is a human-readable branch that is not tied to one agent name.
 
+Before you start in Render, make sure this branch actually exists on GitHub.
+If it does not exist yet, create it from the current Tribune branch first.
+
 ## Render dashboard steps
 
 ### 1. Create a second web service
@@ -61,15 +64,28 @@ node server/dist/index.js
 ### Must be different from production
 
 - `DATABASE_URL`
-- `OPENAI_API_KEY` if available
-- `GEMINI_API_KEY` if available
+- `OPENAI_API_KEY` if used
+- `GEMINI_API_KEY` if used
 - `DEEPSEEK_API_KEY` if used
 - `XAI_API_KEY` if used
+- `OPENROUTER_API_KEY` if Builder worker families use OpenRouter-backed models
+- `ANTHROPIC_API_KEY` if Builder architect / judge paths use Anthropic-backed lanes
+- `OPUS_BRIDGE_SECRET` as the canonical Builder / Opus bridge token
+
+Optional but recommended:
+
+- `BUILDER_SECRET` if you want a separate dev-gate token from `OPUS_BRIDGE_SECRET`
+- `DEV_TOKEN` if `/api/dev/*` should stay available in sandbox
 
 ### Must be set for sandbox identity
 
 - `APP_ENV=sandbox`
 - `APP_ENV_LABEL=Sandbox / Nicht live`
+
+Note:
+
+- `APP_ENV` is normalized case-insensitively by the app
+- recommended value is still the exact lowercase string `sandbox`
 
 ### Recommended sandbox safety defaults
 
@@ -122,6 +138,9 @@ Expected:
 - `appEnv = "sandbox"`
 - `appEnvLabel = "Sandbox / Nicht live"`
 
+If either endpoint still looks like production, stop and fix env configuration
+before using the sandbox further.
+
 ## Builder-specific verification
 
 On first sandbox boot with empty builder tables, the synthetic Builder seed should
@@ -149,6 +168,9 @@ cd server
 pnpm sandbox:seed-builder
 ```
 
+This command is intended for the Render service shell after deploy, not for
+your local workstation unless you explicitly want to seed a local sandbox DB.
+
 ## Promotion rule
 
 Sandbox deploy is for review only.
@@ -160,3 +182,15 @@ Promotion stays:
 3. production deploy through the existing workflow
 
 Sandbox must never become an alternate hidden production path.
+
+## Repo-truth notes
+
+The variable names above are aligned with the current codebase:
+
+- Builder / Opus auth centers on `OPUS_BRIDGE_SECRET`
+- Builder dev gating can also accept `BUILDER_SECRET`
+- provider routing currently knows `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+  `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, and
+  `ANTHROPIC_API_KEY`
+- sandbox zimage refusal is controlled by `APP_ENV` plus optional
+  `SANDBOX_FAL_ENABLED=true`
