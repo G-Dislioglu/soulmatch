@@ -703,6 +703,9 @@ astrologyRouter.get('/probe', async (req: Request, res: Response) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    res.status(500).json(errorResponse('probe_failed', message));
+    const code = message.includes('birthDate') || message.includes('birthTime')
+      ? 'invalid_request'
+      : 'probe_failed';
+    res.status(code === 'invalid_request' ? 400 : 500).json(errorResponse(code, message));
   }
 });
