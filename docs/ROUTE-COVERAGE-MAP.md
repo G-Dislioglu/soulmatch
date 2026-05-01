@@ -1,8 +1,8 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `f35d7ee`
-Live head at verification: `5ad0a85f71e740cf6f9927290abbbbd56e9950a5`
+Repo head: `84e2c60`
+Live head at verification: `f35d7eef8197e2198a3567028c49ba80e238c1b7`
 
 ## Purpose
 
@@ -18,7 +18,6 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 - `live-verified`: recently probed against production and behavior confirmed
 - `runtime-verified`: verified through a real runtime side-effect path
 - `code-read`: route family read from repo, but not freshly live-probed in this map
-- `repo-landed-live-pending`: fix or contract improvement is already on `main`, but live runtime had not yet advanced to that head at verification time
 - `historical-only`: known from older builder work, but not freshly re-probed here
 - `protected/internal`: token-gated or builder-only; not part of normal product smoke coverage
 
@@ -55,7 +54,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/scoring/calc` | `live-verified` | 2026-05-01: whitespace-only `profileId` -> `400`; valid minimal numerology payload -> `200` | Pure local scoring; no provider call | Current contract boundary is already green |
 | `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
 | `/api/geo/autocomplete` | `live-verified` | 2026-05-01: `q='i'` -> `200` with `[]`; `q=' ist '` -> `200` with `Istanbul, TR` first; `q='zz'` -> `200` with `[]` | Static city corpus + in-process cache/throttle; no external API | Low urgency; current normalize/trim/min-length behavior is behaving consistently |
-| `/api/arcana/*` | `live-verified` + `repo-landed-live-pending` | 2026-05-01 live on `5ad0a85`: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; non-system lookup with `?userId=test-user` no longer fails on missing query parsing, but now exposes a second boundary gap: invalid non-system `:id` still -> `500 internal_server_error` on `GET`, `PUT`, and `DELETE`. Repo head `f35d7ee` now normalizes those invalid non-system ids to `404 not_found` before the DB layer | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, UUID-vs-system-id boundary, optional TTS preview/provider path | Re-probe invalid non-system `:id` on `GET`/`PUT`/`DELETE` after live catches up to confirm `500 -> 404` |
+| `/api/arcana/*` | `live-verified` | 2026-05-01 live on `f35d7ee`: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; invalid non-system `:id` now -> `404 not_found` on `GET`, `PUT`, and `DELETE` when `userId` is otherwise present | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, UUID-vs-system-id boundary, optional TTS preview/provider path | Low urgency; current cheap route-contract edges are green |
 
 ## Internal / Protected Families
 
@@ -81,8 +80,7 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
    - a route with external-service degradation risk that is not already covered by the current provider/memory caveats
    - a policy/operating-boundary clarification instead of another route fix
 
-4. The one active must-reprobe follow-up is now narrow:
-   re-check invalid non-system Arcana persona ids after live catches up to repo head `f35d7ee`.
+4. No active must-reprobe follow-up remains in the currently covered cheap-boundary set.
 
 ## Immediate Conclusion
 
