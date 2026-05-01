@@ -124,6 +124,16 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `next_recommended_step`: Phase A nicht mehr als Hypothese behandeln. Phase B nur als bewusst separaten Proposal-/Migrationsblock schneiden.
 - `evidence`: `server/src/lib/memoryService.ts`, `server/migrations/0003_session_memories_phase_a.sql`, `docs/SESSION-MEMORIES-DIAGNOSIS.md`, `docs/PHASE-A-LIVE-VERIFICATION.md`, `docs/PHASE-A-FRONTEND-FLOW-VERIFICATION.md`.
 
+### Arcana persona API
+
+- `status`: `active`
+- `truth_basis`: `repo_visible`
+- `last_checked`: `2026-05-01`
+- `quality`: `cheap_boundary_contract_hardened`
+- `known_gap`: Die billigen Arcana-Routevertraege fuer system personas, Query-gebundene non-system lookups und invalid non-system IDs sind jetzt live fail-closed, aber TTS-preview, echte user-created persona lifecycles und Preset-/Moderationspfade sind damit noch nicht tief verifiziert.
+- `next_recommended_step`: Wenn Arcana weiter geprueft wird, dann nicht mehr auf denselben ID-/Query-Kanten, sondern auf echter user-created persona creation/update semantics oder TTS-preview degradation.
+- `evidence`: `server/src/routes/arcana.ts`; `5ad0a85` akzeptiert `userId` auf `GET /api/arcana/personas/:id` auch aus der Query, `f35d7ee` normalisiert invalid non-system `:id` auf `404 not_found` statt `500`, live verifiziert ueber `docs/ROUTE-COVERAGE-MAP.md`.
+
 ### Context Broker fuer Claude / Builder-Kontext
 
 - `status`: `active`
