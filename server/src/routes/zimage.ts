@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isSandboxEnv, isSandboxFalEnabled } from '../lib/appEnv.js';
 
 export const zimageRouter = Router();
 
@@ -75,6 +76,10 @@ portrait composition, NOT photorealistic`,
 
 // ── POST /api/zimage/generate ─────────────────────────────────────────────────
 zimageRouter.post('/zimage/generate', async (req, res) => {
+  if (isSandboxEnv() && !isSandboxFalEnabled()) {
+    return res.status(503).json({ error: 'zimage disabled in sandbox by default' });
+  }
+
   const FAL_KEY = process.env.FAL_KEY;
   if (!FAL_KEY) {
     return res.status(400).json({ error: 'FAL_KEY not configured' });
@@ -135,6 +140,10 @@ zimageRouter.post('/zimage/generate', async (req, res) => {
 // ── POST /api/zimage/batch ────────────────────────────────────────────────────
 // Generiert alle Räume oder alle Personas auf einmal
 zimageRouter.post('/zimage/batch', async (req, res) => {
+  if (isSandboxEnv() && !isSandboxFalEnabled()) {
+    return res.status(503).json({ error: 'zimage disabled in sandbox by default' });
+  }
+
   const FAL_KEY = process.env.FAL_KEY;
   if (!FAL_KEY) {
     return res.status(400).json({ error: 'FAL_KEY not configured' });

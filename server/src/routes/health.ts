@@ -15,6 +15,7 @@ import { getDb } from '../db.js';
 import { asyncJobs as asyncJobsTable } from '../schema/builder.js';
 import fs from 'fs';
 import path from 'path';
+import { getAppEnv, getAppEnvLabel } from '../lib/appEnv.js';
 
 export const healthRouter = Router();
 
@@ -172,6 +173,8 @@ healthRouter.get('/', (_req: Request, res: Response) => {
     status: 'ok',
     commit: process.env.RENDER_GIT_COMMIT || 'unknown',
     timestamp: new Date().toISOString(),
+    env: getAppEnv(),
+    envLabel: getAppEnvLabel(),
     sweph: swephProbe.available,
     swephError: swephProbe.error,
     runtime: swephProbe.runtime,

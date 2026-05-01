@@ -41,6 +41,7 @@
     "builder:k29a": "tsx scripts/builder-k29a-observer-trial-runner.ts",
     "builder:k29b": "tsx scripts/builder-k29b-observer-runtime-runner.ts",
     "builder:k29c": "tsx scripts/builder-k29c-class2-approved-runner.ts",
+    "sandbox:seed-builder": "tsx scripts/seed-builder-sandbox.ts",
     "astro:probe": "node scripts/astro-probe-check.mjs",
     "astro:contract:probe": "node scripts/astro-contract-probe-check.mjs",
     "geo:probe": "node scripts/geo-probe-check.mjs",
