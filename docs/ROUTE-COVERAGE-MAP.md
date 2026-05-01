@@ -1,7 +1,7 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `458153c`
+Repo head: `5ad0a85`
 Live head at verification: `233ea55e6780b21139f35b28450f76836fcdbe24`
 
 ## Purpose
@@ -18,6 +18,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 - `live-verified`: recently probed against production and behavior confirmed
 - `runtime-verified`: verified through a real runtime side-effect path
 - `code-read`: route family read from repo, but not freshly live-probed in this map
+- `repo-landed-live-pending`: fix or contract improvement is already on `main`, but live runtime had not yet advanced to that head at verification time
 - `historical-only`: known from older builder work, but not freshly re-probed here
 - `protected/internal`: token-gated or builder-only; not part of normal product smoke coverage
 
@@ -54,7 +55,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/scoring/calc` | `live-verified` | 2026-05-01: whitespace-only `profileId` -> `400`; valid minimal numerology payload -> `200` | Pure local scoring; no provider call | Current contract boundary is already green |
 | `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
 | `/api/geo/autocomplete` | `live-verified` | 2026-05-01: `q='i'` -> `200` with `[]`; `q=' ist '` -> `200` with `Istanbul, TR` first; `q='zz'` -> `200` with `[]` | Static city corpus + in-process cache/throttle; no external API | Low urgency; current normalize/trim/min-length behavior is behaving consistently |
-| `/api/arcana/*` | `code-read` | No fresh live probe in this map | Persona-definition DB tables, TTS, voice catalogs, moderation-ish config payloads | Separate family; not a tight follow-up to recent memory/validation work |
+| `/api/arcana/*` | `live-verified` + `repo-landed-live-pending` | 2026-05-01 live: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; live single-persona lookup for a non-system id with `?userId=test-user` still -> `400 userId is required`. Repo head `5ad0a85` now accepts `userId` from query on `GET /api/arcana/personas/:id`, so that stale live `400` should disappear after deploy | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, optional TTS preview/provider path | Re-probe non-system single-persona lookup after live catches up to confirm `400 userId is required -> 404 not_found` |
 
 ## Internal / Protected Families
 
@@ -80,7 +81,8 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
    - a route with external-service degradation risk that is not already covered by the current provider/memory caveats
    - a policy/operating-boundary clarification instead of another route fix
 
-4. No active must-reprobe follow-up remains in the currently covered cheap-boundary set.
+4. The one active must-reprobe follow-up is now narrow:
+   re-check non-system `GET /api/arcana/personas/:id?userId=...` after live catches up to repo head `5ad0a85`.
 
 ## Immediate Conclusion
 
