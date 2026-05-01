@@ -100,16 +100,17 @@ Ein guter Soulmatch-Kandidat:
 
 ### Kandidat - Builder Gate Boundary vs Direct Repo Hotfix
 
-- `status`: `active`
-- `truth_class`: `derived_from_review`
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
 - `source_type`: `review_followup`
-- `next_gate`: `proposal`
-- `why_not_now`: `Die Frage ist strukturell wichtig, aber kein akuter Produktblock. Sie braucht eine bewusste Arbeitsentscheidung statt stiller Regelableitung aus Einzelfaellen.`
-- `non_scope`: neuer Builder-Core-Umbau, nachtraegliche Umdeutung aller frueheren K2.8-Klassifikationen oder pauschale Freigabe fuer breite direkte Hotfixes.
-- `risk`: mittel; `POST /api/profile` war in `K2.8l` frueher als builderseitiger `class_2` fail-closed-Befund dokumentiert, waehrend der spaetere direkte Repo-Hotfix als enger Single-File-Persistenzschnitt sauber landete. Ohne explizite Grenzziehung kann daraus spaeter eine unklare Hintertuer-Lesart entstehen.`
+- `next_gate`: `archive`
+- `absorbed_into`: `docs/BUILDER-GATE-BOUNDARY-DECISION.md`, `AGENTS.md`, `STATE.md`
+- `why_not_now`: `none`
+- `non_scope`: neuer Builder-Core-Umbau, rueckwirkende Umdeutung alter K2.8-Klassifikationen, pauschale Freigabe fuer breite direkte Hotfixes oder stilles class_2/class_3-Widening.
+- `risk`: reduziert; die Frage ist jetzt als explizite Operating-Boundary entschieden statt als implizite Hintertuer offen zu bleiben.`
 - `betroffene_bereiche`: `AGENTS.md`, `STATE.md`, `RADAR.md`, Builder-Arbeitsvertrag
-- `kurzurteil`: Nicht als Fehler, sondern als Policy-Grenzfrage behandeln. Builder-Gates und direkte Repo-Arbeit sind aktuell nicht automatisch dasselbe System; die erlaubte Schnittmenge sollte explizit gemacht werden, bevor schwierigere class_2/class_3-Faelle auftauchen.
-- `evidence`: Historischer Builder-Befund `K2.8l` in `STATE.md`/`RADAR.md`; spaeterer direkter Repo-Fix `7c2bf7b`; Review-Hinweis aus dem 2026-05-01-Claude-Check.
+- `kurzurteil`: Builder-Gates bleiben bindend fuer Builder-Laeufe, direkte Repo-Hotfixes bleiben ein separater Pfad unter harten Bedingungen. Solche Hotfixes duerfen nie als freie Builder-Evidence verkauft werden.
+- `evidence`: Historischer Builder-Befund `K2.8l` in `docs/BUILDER-BENCHMARK-K2.8L-FREE-RUNTIME-REPORT.md`; spaeterer direkter Repo-Fix `7c2bf7b`; formalisierte Entscheidung in `docs/BUILDER-GATE-BOUNDARY-DECISION.md` und AGENTS-Regel vom 2026-05-01.
 
 ### Kandidat - Being Habitat Phase B
 

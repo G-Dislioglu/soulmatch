@@ -199,6 +199,39 @@ Regel:
 - Live-Verifikation, falls relevant
 - Stop-Punkt, falls erreicht
 
+## Builder-Gate vs Direct-Repo-Hotfix
+
+Builder-Gate-Klassifikationen sind bindend fuer Builder-executed runs.
+
+Sie sind nicht automatisch ein globales Verbot fuer jede andere direkte
+Repo-Arbeit.
+
+Regel:
+
+- Builder-Gates steuern, was Builder selbst pushen darf
+- direkte Repo-Hotfixes bleiben ein separater Pfad
+- ein direkter Repo-Hotfix darf niemals still als Builder-Corridor-Widening
+  ausgegeben werden
+
+Ein direkter Repo-Hotfix nach einem frueheren Builder-Block ist nur legitim,
+wenn alles davon gilt:
+
+1. aktiver Block ist normale Produkt-/Runtime-Reparatur, nicht Builder-Proof
+2. enger Single-File-Schnitt
+3. kein Builder-Core, kein Policy-/Governance-Ziel, kein Workflow/Deploy, keine
+   Auth-/Protected-Pfade, keine Schema-/Migrationsarbeit
+4. realer repo- oder live-sichtbarer Defekt
+5. direkte Vorher-/Nachher-Verifikation moeglich
+6. fruehere Builder-Klassifikation wird im Bericht explizit als Boundary-Datum
+   genannt
+
+Nicht erlaubt:
+
+- aus einem direkten Hotfix freie Builder-Erlaubnis abzuleiten
+- mehrere solche Faelle still zu einem neuen Korridor zu kumulieren
+- einen frueheren Builder-`class_2`/`class_3`-Befund nachtraeglich einfach als
+  "eigentlich class_1" umzudeuten ohne neue Builder-Evidence
+
 ## Soulmatch-spezifische Guardrails
 
 - `client/src/app/App.tsx` ist aktuell die Hauptschaltstelle. Nicht nebenbei eine neue globale State-Architektur behaupten.
