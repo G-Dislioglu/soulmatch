@@ -44,6 +44,7 @@ The current corridor is based on:
 - free-corridor boundary recheck on `studio.ts` plus three class widening probes `K2.8k` to `K2.8n`
 - smartPush payload hardening plus successful `studio.ts` landing rerun `K2.8r`
 - second large-file `studio.ts` validation proof on `/api/oracle` `K2.8s`
+- first supervised observer pilot with positive and negative controls `K2.9a`
 
 Relevant verified commits:
 
@@ -73,6 +74,8 @@ Relevant verified commits:
 - `bdfce38`
 - `0d43164`
 - `0d12a4a`
+- `8d6470a`
+- `db1aa81`
 
 ## Candidate free corridor
 
@@ -275,3 +278,13 @@ Confidence addendum after `K2.8s`:
 > valid probe returned `200`. This upgrades the earlier `studio.ts` closure
 > from a one-off landing into a second confidence proof on the hardened large-
 > file path.
+
+Observer addendum after `K2.9a`:
+
+> `K2.9a` did not widen the corridor, but it did newly prove that the released
+> free single-file lane behaves usefully under direct observer supervision:
+> two exact positive controls landed scope-clean as `class_1` / `allow_push`
+> on `8d6470a` and `db1aa81`, while an intentional two-file ask widened to
+> `class_2`, stayed `dry_run_only`, and produced no commit. That is evidence
+> for supervised free operation inside the existing lane, not for broad Builder
+> freedom.
