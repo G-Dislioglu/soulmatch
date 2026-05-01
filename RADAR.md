@@ -84,6 +84,19 @@ Ein guter Soulmatch-Kandidat:
 
 ## Aktuell relevante Radar-Eintraege
 
+### Kandidat - Builder Tribune Live Rollout and Render Env Label Drift
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `merge_followup`
+- `next_gate`: `implementation`
+- `why_not_now`: `Die Tribuene ist jetzt live und oeffentlich pruefbar; offen ist nur noch der kleine Konfigurationsrest, dass Render keinen expliziten `APP_ENV` setzt und die Runtime deshalb `development`/`Local / Development` meldet.`
+- `non_scope`: weitere Tribune-Redesign-Slices, neue Sandbox-Infrastruktur, Builder-Core-Umbauten, neue Patrol- oder Timeline-Features ohne echte Live-Sichtung.
+- `risk`: niedrig bis moderat; Produktoberflaeche ist live, aber die neue Env-Metadatenwahrheit ist nicht produktionssauber etikettiert und koennte spaeter Operatoren oder externe Probes irrefuehren.
+- `betroffene_bereiche`: `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`, `client/src/modules/M16_builder/ui/PatrolConsole.tsx`, `server/src/routes/health.ts`, `server/src/routes/meta.ts`, Render Service Environment
+- `kurzurteil`: Die Builder-Tribuene ist als Produktsurface jetzt auf `main` und live. Der naechste ehrliche Schritt ist keine neue UI-Idee, sondern erst echte visuelle Nutzung auf `/builder` plus ein kleiner Render-Konfigurationsblock, falls `APP_ENV=production` / `APP_ENV_LABEL=Live` explizit gesetzt werden sollen.
+- `evidence`: Merge-Head `f8482ac`; live `GET /api/health` und `GET /api/meta` zeigen denselben Build-Hash; `GET /builder` liefert `200`. Live-Befund: `env=development`, `envLabel=Local / Development`.
+
 ### Kandidat - Profile Persistenz Hardening
 
 - `status`: `adopted`
