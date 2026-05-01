@@ -85,6 +85,10 @@ function normalizeUserId(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function normalizeText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
@@ -315,6 +319,10 @@ arcanaRouter.get('/arcana/personas/:id', async (req: Request, res: Response) => 
       return res.json(buildSystemPersona(id));
     }
 
+    if (!isUuidLike(id)) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+
     const userId = normalizeUserId(
       (req.query as { userId?: string } | undefined)?.userId
       ?? (req.body as { userId?: string } | undefined)?.userId,
@@ -355,6 +363,10 @@ arcanaRouter.put('/arcana/personas/:id', async (req: Request, res: Response) => 
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+
+    if (!isUuidLike(id)) {
+      return res.status(404).json({ error: 'not_found' });
     }
 
     if (body.status !== undefined) {
@@ -417,6 +429,10 @@ arcanaRouter.delete('/arcana/personas/:id', async (req: Request, res: Response) 
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+
+    if (!isUuidLike(id)) {
+      return res.status(404).json({ error: 'not_found' });
     }
 
     const existing = await db
