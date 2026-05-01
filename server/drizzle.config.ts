@@ -7,6 +7,7 @@ export default defineConfig({
     './src/schema/arcana.ts',
     './src/schema/builder.ts',
     './src/schema/personaMemories.ts',
+    './src/schema/sessionMemories.ts',
   ],
   out: './migrations',
   dbCredentials: {
