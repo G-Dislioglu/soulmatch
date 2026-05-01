@@ -500,6 +500,70 @@ function BuilderPanel(props: { title: string; subtitle?: string; children: React
   );
 }
 
+interface ExecutionStateSummary {
+  label: string;
+  detail: string;
+  accent: string;
+}
+
+function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidencePack | null): ExecutionStateSummary {
+  if (!task) {
+    return {
+      label: 'Keine Task aktiv',
+      detail: 'Waehle eine Task, um den laufenden Builder-Zustand und die aktuelle Workflow-Lage zu sehen.',
+      accent: TOKENS.text3,
+    };
+  }
+
+  const runtimeFailures = (evidence?.runtime_results ?? []).filter((result) => result.result !== 'pass').length;
+  const runtimeSummary = evidence
+    ? `${evidence.runtime_results.length} Runtime-Checks, ${runtimeFailures} nicht gruen`
+    : 'Noch kein Evidence Pack verfuegbar';
+  const counterexampleSummary = evidence
+    ? `${evidence.counterexamples_passed}/${evidence.counterexamples_tested} Gegenbeispiele bestanden`
+    : 'Keine Counterexample-Werte verfuegbar';
+
+  switch (task.status) {
+    case 'queued':
+      return { label: 'Eingereiht', detail: 'Die Task ist angelegt und wartet darauf, dass der Builder den Auftrag aufgreift.', accent: TOKENS.text2 };
+    case 'classifying':
+    case 'planning':
+      return { label: 'Versteht den Auftrag', detail: 'Der Builder schneidet Scope, Risiko und naechsten Arbeitsweg zu.', accent: TOKENS.cyan };
+    case 'prototyping':
+      return { label: 'Baut einen Prototyp', detail: 'Die Route laeuft noch nicht in den finalen Codepfad, sondern in einen bewussten Vorstufen-Bau.', accent: TOKENS.purple };
+    case 'prototype_review':
+      return { label: 'Wartet auf Prototype-Entscheidung', detail: 'Ein Vorschau-Ergebnis liegt vor und braucht eine explizite Freigabe, Ueberarbeitung oder Verwerfung.', accent: TOKENS.gold };
+    case 'applying':
+      return { label: 'Wendet Aenderungen an', detail: 'Der Builder setzt den ausgewaehlten Patch gerade in den Arbeitsstand um.', accent: TOKENS.cyan };
+    case 'checking':
+    case 'testing':
+    case 'reviewing':
+    case 'counterexampling':
+      return { label: 'Prueft die Aenderungen', detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: TOKENS.green };
+    case 'push_candidate':
+      return { label: 'Bereit zum Landen', detail: `${runtimeSummary}. Der Task ist ueber die reine Bauphase hinaus und wartet auf den letzten Landing-Schritt.`, accent: TOKENS.green };
+    case 'needs_human_review':
+    case 'review_needed':
+      return { label: 'Braucht menschliche Pruefung', detail: `${runtimeSummary}. Der Builder meldet, dass vor dem Landen ein menschlicher Blick oder eine Entscheidung noetig ist.`, accent: TOKENS.gold };
+    case 'blocked':
+      return { label: 'Blockiert', detail: 'Der Workflow ist bewusst gestoppt worden und kann nicht still weiterlaufen, bis der Blocker geklaert ist.', accent: '#ef4444' };
+    case 'done':
+      if (evidence?.false_success_detected) {
+        return { label: 'Formal fertig, aber fraglich', detail: 'Der Task steht auf done, aber das Evidence Pack markiert moeglichen False Success. Dieser Stand braucht Nachpruefung.', accent: '#ef4444' };
+      }
+      if (task.commitHash) {
+        return { label: 'Gelanded', detail: `${runtimeSummary}. Commit ${task.commitHash.slice(0, 7)} ist am Task hinterlegt.`, accent: TOKENS.green };
+      }
+      return { label: 'Als fertig markiert', detail: `${runtimeSummary}. Der Task steht auf done, aber es ist kein Commit-Hash sichtbar.`, accent: TOKENS.green };
+    case 'reverted':
+      return { label: 'Zurueckgenommen', detail: 'Der zuvor gelandete Stand wurde bewusst rueckgaengig gemacht.', accent: TOKENS.rose };
+    case 'discarded':
+      return { label: 'Verworfen', detail: 'Der Task oder sein Zwischenstand wurde bewusst verworfen und wird nicht weiterverfolgt.', accent: TOKENS.rose };
+    default:
+      return { label: task.status, detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: STATUS_COLORS[task.status] ?? TOKENS.text2 };
+  }
+}
+
 function poolScore(ids: string[]) {
   if (ids.length === 0) {
     return 0;
@@ -1060,6 +1124,7 @@ export function BuilderStudioPage() {
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
+  const executionState = useMemo(() => deriveExecutionState(activeTask, evidencePack), [activeTask, evidencePack]);
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -2565,6 +2630,26 @@ export function BuilderStudioPage() {
                       <BuilderConfigPanel token={token} ctx={mayaCtx} />
                     </div>
                   )}
+                  <div
+                    style={{
+                      borderRadius: 18,
+                      border: `1.5px solid ${executionState.accent}44`,
+                      background: `${executionState.accent}14`,
+                      padding: '12px 14px',
+                      display: 'grid',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: executionState.accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                      Jetzt gerade
+                    </div>
+                    <div style={{ fontSize: 19, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                      {executionState.label}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                      {executionState.detail}
+                    </div>
+                  </div>
                   <div
                     style={{
                       fontFamily: TOKENS.font.display,
