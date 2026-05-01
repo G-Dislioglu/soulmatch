@@ -450,6 +450,12 @@ interface MatchNarrativeBuildResult {
   usedAnchorIds: string[];
 }
 
+function normalizeNarrativeName(value: string | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function buildMatchNarrativePayload(request: MatchNarrativeRequest): MatchNarrativeBuildResult {
   const anchorsProvided = Array.isArray(request.anchorsProvided) ? request.anchorsProvided : [];
   const aspectHighlight = extractTopAspectHighlight(anchorsProvided);
@@ -758,11 +764,25 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
 matchRouter.post('/narrative', (req: Request, res: Response) => {
   try {
     const request = req.body as MatchNarrativeRequest;
-    const anchorsProvided = normalizeAnchorIds(request.anchorsProvided);
-    const reportedAnchors = normalizeAnchorIds(request.anchorsUsed);
+    const nameA = normalizeNarrativeName(request.profileA?.name);
+    const nameB = normalizeNarrativeName(request.profileB?.name);
+
+    if (!nameA || !nameB) {
+      res.status(400).json({ error: 'profileA.name and profileB.name are required' });
+      return;
+    }
+
+    const normalizedRequest: MatchNarrativeRequest = {
+      ...request,
+      profileA: { ...request.profileA, name: nameA },
+      profileB: { ...request.profileB, name: nameB },
+    };
+
+    const anchorsProvided = normalizeAnchorIds(normalizedRequest.anchorsProvided);
+    const reportedAnchors = normalizeAnchorIds(normalizedRequest.anchorsUsed);
     const anchorsUsed = reportedAnchors.length > 0 ? reportedAnchors : anchorsProvided.slice(0, 2);
 
-    const { payload, usedAnchorIds } = buildMatchNarrativePayload(request);
+    const { payload, usedAnchorIds } = buildMatchNarrativePayload(normalizedRequest);
     for (const id of usedAnchorIds) {
       if (!anchorsUsed.includes(id)) anchorsUsed.push(id);
     }
@@ -788,14 +808,14 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
       narrative: gated.output,
       qualityDebug: gated.qualityDebug,
       anchorsProvided,
-      anchorsUsed,
-      meta: {
-        engine: 'match_narrative',
-        engineVersion: 'v1',
-        scoringEngineVersion: request.scoringEngineVersion,
-        computedAt: new Date().toISOString(),
-        warnings,
-      },
+        anchorsUsed,
+        meta: {
+          engine: 'match_narrative',
+          engineVersion: 'v1',
+          scoringEngineVersion: normalizedRequest.scoringEngineVersion,
+          computedAt: new Date().toISOString(),
+          warnings,
+        },
     };
 
     res.json(response);
