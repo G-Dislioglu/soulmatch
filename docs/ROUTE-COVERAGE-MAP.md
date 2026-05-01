@@ -1,7 +1,7 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `025ee8b`
+Repo head: `233ea55`
 Live head at verification: `7c2bf7bab4e019a02722787230ebb7f3ab9e42a7`
 
 ## Purpose
@@ -19,6 +19,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 - `runtime-verified`: verified through a real runtime side-effect path
 - `code-read`: route family read from repo, but not freshly live-probed in this map
 - `historical-only`: known from older builder work, but not freshly re-probed here
+- `repo-landed-live-pending`: fix or change is already on `main`, but live runtime had not yet advanced to that head at verification time
 - `protected/internal`: token-gated or builder-only; not part of normal product smoke coverage
 
 ## Probe Caveats
@@ -35,6 +36,9 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 4. DB-backed create/update routes can look narrow at the HTTP layer but widen quickly into `class_2`.
    Treat `/api/profile` and similar persistence routes accordingly.
 
+5. Live runtime can lag behind `main`.
+   Before classifying a still-failing probe as "unfixed", compare `/api/health` against the repo head.
+
 ## Product Route Families
 
 | Route family | Current status | Recent evidence | Dependency notes | Next useful probe |
@@ -46,11 +50,11 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/match/calc` | `code-read` | No fresh live probe in this map | Local scoring fusion; depends on numerology payload and optional astro-derived inputs | Probe only if a scoring regression or input-shape bug is suspected |
 | `/api/match/single` | `live-verified` | 2026-05-01: whitespace-only `profileA.birthDate` -> `400`; valid numerology-only control body -> `200` | Numerology + astrology fusion, nested profile inputs, optional timezone/time-driven astrology branch | Current required-birthDate boundary is already green |
 | `/api/journey/optimal-dates` | `live-verified` | 2026-05-01: whitespace-only `eventType` -> `400`; valid control body -> `200` | Swiss Ephemeris fallback path, deterministic fallback logic, date-range handling | Current required-field trim boundary is already green |
-| `/api/astro/*` | `code-read` | `/api/health` reports `sweph: true` on 2026-05-01 | Swiss Ephemeris native dependency; request validity can fail on date/time/location format | Probe if astrology-specific runtime truth is needed, not as a generic filler test |
+| `/api/astro/*` | `live-verified` + `repo-landed-live-pending` | 2026-05-01: `/api/astro/today` -> `200`; `/api/astro/probe?date=1990-01-01` -> `200`; invalid `birthTime` on `/api/astro/calc` -> `400`; invalid `date` on `/api/astro/probe` still -> `500` on live, while repo head `233ea55` now normalizes that case to `400` once runtime catches up | Swiss Ephemeris native dependency; route family has both public feature paths and a quick probe path with stricter contract expectations than a one-off smoke test suggests | Re-probe `/api/astro/probe` after live head advances to confirm `500 -> 400` |
 | `/api/numerology/calc` | `live-verified` | 2026-05-01: whitespace-only required fields -> `400`; valid minimal body -> `200` | Pure local deterministic calculation | Current empty/trim boundary is already green |
 | `/api/scoring/calc` | `live-verified` | 2026-05-01: whitespace-only `profileId` -> `400`; valid minimal numerology payload -> `200` | Pure local scoring; no provider call | Current contract boundary is already green |
 | `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
-| `/api/geo/autocomplete` | `code-read` | No fresh live probe in this map | Static city corpus + in-process cache/throttle; no external API | Cheap functional probe available, but currently lower value than persistence routes |
+| `/api/geo/autocomplete` | `live-verified` | 2026-05-01: `q='i'` -> `200` with `[]`; `q=' ist '` -> `200` with `Istanbul, TR` first; `q='zz'` -> `200` with `[]` | Static city corpus + in-process cache/throttle; no external API | Low urgency; current normalize/trim/min-length behavior is behaving consistently |
 | `/api/arcana/*` | `code-read` | No fresh live probe in this map | Persona-definition DB tables, TTS, voice catalogs, moderation-ish config payloads | Separate family; not a tight follow-up to recent memory/validation work |
 
 ## Internal / Protected Families
@@ -76,6 +80,9 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
    - a fresh profile-contract question beyond trimmed required fields
    - a route with external-service degradation risk that is not already covered by the current provider/memory caveats
    - a policy/operating-boundary clarification instead of another route fix
+
+4. The one active runtime follow-up already prepared is narrow:
+   re-check `/api/astro/probe` after live catches up to repo head `233ea55`.
 
 ## Immediate Conclusion
 
