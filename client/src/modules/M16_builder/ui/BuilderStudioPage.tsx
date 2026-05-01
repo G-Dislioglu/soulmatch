@@ -526,6 +526,15 @@ interface TribuneTimelineEntry {
   state: 'done' | 'current' | 'pending' | 'waiting' | 'blocked';
 }
 
+interface TribunePhaseDetail {
+  title: string;
+  summary: string;
+  source: string;
+  lines: string[];
+  note?: string;
+  notRequired?: boolean;
+}
+
 const TRIBUNE_PHASE_ORDER: TribunePhaseKey[] = [
   'created',
   'planning',
@@ -832,6 +841,172 @@ function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
   }
 
   return `Diese Task braucht vor dem naechsten Landing-Schritt deinen Blick oder deine Zustimmung.${tail}`;
+}
+
+function matchObservationSignals(
+  observation: BuilderTaskObservation | null,
+  patterns: string[],
+) {
+  if (!observation) {
+    return [];
+  }
+
+  const loweredPatterns = patterns.map((pattern) => pattern.toLowerCase());
+  return observation.chatPool.filter((entry) => {
+    const haystack = `${entry.phase} ${entry.actor} ${entry.content}`.toLowerCase();
+    return loweredPatterns.some((pattern) => haystack.includes(pattern));
+  });
+}
+
+function deriveTribunePhaseDetail(
+  phase: TribunePhaseKey,
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+  timeline: TribuneTimelineEntry[],
+): TribunePhaseDetail | null {
+  if (!task) {
+    return null;
+  }
+
+  const timelineEntry = timeline.find((entry) => entry.key === phase);
+  const currentPhase = deriveTribuneCurrentPhase(task, evidence, observation);
+  const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
+  const phaseIndex = TRIBUNE_PHASE_ORDER.indexOf(phase);
+  const beforeCurrent = phaseIndex < currentIndex;
+  const afterCurrent = phaseIndex > currentIndex;
+  const isManualReviewLane = USER_ATTENTION_STATUSES.has(task.status);
+
+  switch (phase) {
+    case 'created':
+      return {
+        title: 'Task wurde angelegt',
+        summary: 'Hier beginnt der Builder-Lauf. Scope, Risiko und Ziel sind registriert, aber noch nicht aktiv bearbeitet.',
+        source: 'task',
+        lines: [
+          `Titel: ${task.title}`,
+          `Risk: ${task.risk ?? '—'} · Status: ${task.status}`,
+          `Erstellt: ${formatDate(task.createdAt)} · Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
+        ],
+      };
+    case 'planning': {
+      const planningSignals = matchObservationSignals(observation, ['architect', 'scope', 'plan', 'classify']);
+      return {
+        title: 'Planung und Zuschnitt',
+        summary: beforeCurrent || currentPhase === 'planning'
+          ? 'Der Builder schneidet hier Scope, Risiko und den kuerzesten Arbeitsweg fuer diese Task zu.'
+          : 'Diese Planungsphase ist vorbei; die folgenden Schritte bauen auf diesem Zuschnitt auf.',
+        source: 'observe',
+        lines: planningSignals.length > 0
+          ? planningSignals.slice(-3).map((entry) => `${entry.actor} · ${entry.phase} · ${shortenGuideLabel(entry.content, 96)}`)
+          : [
+              'Keine explizite einzelne Planungszeile im aktuellen Observe-Feed sichtbar.',
+              timelineEntry?.meta ?? `Status ${task.status}`,
+            ],
+      };
+    }
+    case 'building': {
+      const buildSignals = matchObservationSignals(observation, ['roundtable', 'worker', 'distiller', 'scout', 'swarm', 'patch']);
+      return {
+        title: 'Bauphase',
+        summary: currentPhase === 'building'
+          ? 'Hier arbeiten Worker, Council und Distiller am konkreten Patch.'
+          : 'Diese Phase beschreibt den eigentlichen Bau- und Worker-Abschnitt der Task.',
+        source: 'observe',
+        lines: [
+          summarizeWorkerModels(observation),
+          ...(buildSignals.length > 0
+            ? buildSignals.slice(-3).map((entry) => `${entry.actor} · ${entry.phase} · ${shortenGuideLabel(entry.content, 96)}`)
+            : [timelineEntry?.meta ?? 'Noch keine sichtbaren Worker-Signale.']),
+        ],
+      };
+    }
+    case 'checking':
+      return {
+        title: 'Pruefphase',
+        summary: evidence
+          ? 'Hier verdichtet der Builder Build-, Runtime- und Review-Signale.'
+          : afterCurrent
+            ? 'Diese Phase ist noch nicht erreicht.'
+            : 'Noch kein Evidence Pack sichtbar; die Pruefphase hat noch nichts Verdichtetes geschrieben.',
+        source: 'evidence',
+        lines: evidence
+          ? [
+              `TSC: ${evidence.checks.tsc} · Build: ${evidence.checks.build}`,
+              `Runtime: ${evidence.runtime_results.length} Signale, ${evidence.runtime_results.filter((result) => result.result !== 'pass').length} nicht gruen`,
+              `Counterexamples: ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`,
+              `Agreement: ${evidence.agreement_level ?? '—'}`,
+            ]
+          : [timelineEntry?.detail ?? 'Noch keine Check-Signale sichtbar.'],
+      };
+    case 'review':
+      return {
+        title: 'Menschliche Entscheidung',
+        summary: isManualReviewLane
+          ? 'Diese Task darf ohne menschlichen Entscheid nicht still weiterlaufen.'
+          : 'Diese Phase war fuer diese Task nicht erforderlich.',
+        source: isManualReviewLane ? 'task + evidence' : 'task',
+        lines: isManualReviewLane
+          ? [
+              `Aktueller Status: ${task.status}`,
+              task.status === 'prototype_review'
+                ? 'Prototype liegt sichtbar vor und wartet auf Freigabe, Revision oder Verwerfung.'
+                : 'Builder meldet eine Review- oder Approval-Pflicht vor dem naechsten Landing-Schritt.',
+            ]
+          : [
+              'Diese Task konnte ohne manuelle Review-Phase weiterlaufen.',
+              timelineEntry?.state === 'done' ? 'Der sichtbare Pfad hat Review hier bewusst uebersprungen.' : 'Noch kein manueller Review-Bedarf sichtbar.',
+            ],
+        notRequired: !isManualReviewLane,
+      };
+    case 'landed':
+      return {
+        title: 'Landing',
+        summary: task.commitHash
+          ? 'Der Builder hat einen konkreten gelandeten Commit sichtbar gemacht.'
+          : afterCurrent
+            ? 'Diese Phase ist noch nicht erreicht.'
+            : 'Noch kein Commit-Hash sichtbar; Landing steht noch aus oder wurde nicht hinterlegt.',
+        source: task.commitHash ? 'task + observe' : 'task',
+        lines: task.commitHash
+          ? [
+              `Commit: ${task.commitHash}`,
+              `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
+              timelineEntry?.meta ?? 'Landing-Signal sichtbar.',
+            ]
+          : [timelineEntry?.detail ?? 'Noch kein Landing-Signal sichtbar.'],
+      };
+    case 'live':
+      return {
+        title: 'Live-Verifikation',
+        summary: task.commitHash && evidence?.runtime_results.length
+          ? 'Live wird aktuell aus Landing plus Runtime-Signalen zusammengesetzt; es gibt noch keinen einzelnen kanonischen Live-Event.'
+          : 'Diese Phase ist noch nicht als harter Live-Nachweis sichtbar.',
+        source: task.commitHash && evidence?.runtime_results.length ? 'task + evidence' : 'derived',
+        lines: task.commitHash && evidence?.runtime_results.length
+          ? [
+              `Commit sichtbar: ${task.commitHash.slice(0, 7)}`,
+              `Runtime-Signale: ${evidence.runtime_results.length}`,
+              `Evidence erstellt: ${formatDate(evidence.created_at)}`,
+            ]
+          : ['Noch kein eigenstaendiger Live-Verifikationsbeleg im Primarsurface.'],
+        note: 'Saubere Loesung in vNext: eigener backend-seitiger Live-Verification-Status statt zusammengesetzter Frontend-Heuristik.',
+      };
+    case 'stopped':
+      return {
+        title: 'Fail-closed / gestoppt',
+        summary: currentPhase === 'stopped'
+          ? 'Der Workflow wurde bewusst gestoppt oder rueckgaengig gemacht.'
+          : 'Diese Phase wurde fuer die aktuelle Task nicht benoetigt.',
+        source: 'task',
+        lines: currentPhase === 'stopped'
+          ? [`Status: ${task.status}`, `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`]
+          : ['Kein Stop-Signal fuer diese Task sichtbar.'],
+        notRequired: currentPhase !== 'stopped',
+      };
+    default:
+      return null;
+  }
 }
 
 function poolScore(ids: string[]) {
@@ -1319,6 +1494,7 @@ export function BuilderStudioPage() {
   const [dialogActions, setDialogActions] = useState<BuilderAction[]>([]);
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
   const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
+  const [selectedTribunePhase, setSelectedTribunePhase] = useState<TribunePhaseKey | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1409,6 +1585,13 @@ export function BuilderStudioPage() {
   const currentTribuneEntry = useMemo(
     () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
     [tribuneTimeline],
+  );
+  const effectiveTribunePhase = selectedTribunePhase ?? currentTribuneEntry?.key ?? null;
+  const tribunePhaseDetail = useMemo(
+    () => effectiveTribunePhase
+      ? deriveTribunePhaseDetail(effectiveTribunePhase, activeTask, evidencePack, taskObservation, tribuneTimeline)
+      : null,
+    [activeTask, effectiveTribunePhase, evidencePack, taskObservation, tribuneTimeline],
   );
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
@@ -1504,6 +1687,10 @@ export function BuilderStudioPage() {
       confirmDeleteTimer.current = null;
     }
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    setSelectedTribunePhase(currentTribuneEntry?.key ?? null);
+  }, [currentTribuneEntry?.key, selectedTaskId]);
 
   const refreshTasks = useCallback(async () => {
     const nextTasks = await getBuilderTasks();
@@ -3158,17 +3345,21 @@ export function BuilderStudioPage() {
                         const style = stateStyles[entry.state];
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={entry.key}
+                            onClick={() => setSelectedTribunePhase(entry.key)}
                             style={{
                               borderRadius: 14,
-                              border: `1.5px solid ${style.border}`,
-                              background: style.background,
+                              border: `1.5px solid ${effectiveTribunePhase === entry.key ? entry.accent : style.border}`,
+                              background: effectiveTribunePhase === entry.key ? `${entry.accent}18` : style.background,
                               padding: '10px 8px',
                               display: 'grid',
                               gap: 6,
                               minHeight: 78,
                               alignContent: 'start',
+                              cursor: 'pointer',
+                              textAlign: 'left',
                             }}
                           >
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.dot, boxShadow: entry.state === 'current' ? `0 0 10px ${style.dot}66` : 'none', display: 'inline-block' }} />
@@ -3178,7 +3369,7 @@ export function BuilderStudioPage() {
                             <div style={{ fontSize: 10.5, color: TOKENS.text3, lineHeight: 1.45 }}>
                               {entry.state === 'waiting' ? 'Wartet auf dich' : entry.state === 'current' ? 'Aktiv' : entry.state === 'done' ? 'Durchlaufen' : entry.state === 'blocked' ? 'Gestoppt' : 'Ausstehend'}
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -3205,6 +3396,42 @@ export function BuilderStudioPage() {
                       </div>
                     ) : null}
                   </div>
+
+                  {tribunePhaseDetail ? (
+                    <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                        <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                          Phase im Detail
+                        </div>
+                        <div style={{ fontSize: 11, color: tribunePhaseDetail.notRequired ? TOKENS.text3 : TOKENS.cyan, fontWeight: 700 }}>
+                          Quelle: {tribunePhaseDetail.source}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                        {tribunePhaseDetail.title}
+                      </div>
+                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                        {tribunePhaseDetail.summary}
+                      </div>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        {tribunePhaseDetail.lines.map((line, index) => (
+                          <div key={`${tribunePhaseDetail.title}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 11px', fontSize: 12, color: TOKENS.text2, lineHeight: 1.55 }}>
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                      {tribunePhaseDetail.notRequired ? (
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                          Diese Phase war fuer die aktuelle Task nicht erforderlich und ist deshalb bewusst nicht weiter ausgefaltet.
+                        </div>
+                      ) : null}
+                      {tribunePhaseDetail.note ? (
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
+                          {tribunePhaseDetail.note}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: TOKENS.text2 }}>
