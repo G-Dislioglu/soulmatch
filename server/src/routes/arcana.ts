@@ -315,7 +315,10 @@ arcanaRouter.get('/arcana/personas/:id', async (req: Request, res: Response) => 
       return res.json(buildSystemPersona(id));
     }
 
-    const userId = normalizeUserId((req.body as { userId?: string } | undefined)?.userId);
+    const userId = normalizeUserId(
+      (req.query as { userId?: string } | undefined)?.userId
+      ?? (req.body as { userId?: string } | undefined)?.userId,
+    );
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
