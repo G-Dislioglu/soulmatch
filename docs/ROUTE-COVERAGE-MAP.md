@@ -1,8 +1,8 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `84e2c60`
-Live head at verification: `f35d7eef8197e2198a3567028c49ba80e238c1b7`
+Repo head: `2bbc232`
+Live head at verification: `2bbc232a4825e541bd8f2ef6fabe8d0214b7837f`
 
 ## Purpose
 
@@ -55,7 +55,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
 | `/api/geo/autocomplete` | `live-verified` | 2026-05-01: `q='i'` -> `200` with `[]`; `q=' ist '` -> `200` with `Istanbul, TR` first; `q='zz'` -> `200` with `[]` | Static city corpus + in-process cache/throttle; no external API | Low urgency; current normalize/trim/min-length behavior is behaving consistently |
 | `/api/arcana/*` | `live-verified` | 2026-05-01 live on `f35d7ee`: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; invalid non-system `:id` now -> `404 not_found` on `GET`, `PUT`, and `DELETE` when `userId` is otherwise present | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, UUID-vs-system-id boundary, optional TTS preview/provider path | Low urgency; current cheap route-contract edges are green |
-| `/api/zimage/*` | `live-verified` | 2026-05-01: `/api/zimage/prompts` -> `200`; `POST /api/zimage/generate` with `{"type":"bogus","id":"maya"}` -> `200` plus real fal-hosted image URL; supervised Builder trial `K2.9b` then widened the exact single-file guard ask to `class_2` / `dry_run_only` without landing | External fal.ai image generation, direct cost surface, provider-coupled output, route family contains both cheap prompt-list reads and expensive generate/batch writes | If product correctness matters, decide between approval-backed Builder lane or direct hotfix; do not treat this family as free-corridor-ready |
+| `/api/zimage/*` | `live-verified` | 2026-05-01: `/api/zimage/prompts` -> `200`; invalid `POST /api/zimage/generate` body `{"type":"bogus","id":"maya"}` moved from live `200` plus real fal URL before `K2.9c` to live `400 {"error":"Unknown type: bogus"}` after approval-backed Builder landing `2bbc232` | External fal.ai image generation, direct cost surface, provider-coupled output, route family contains both cheap prompt-list reads and expensive generate/batch writes | If revisited, prefer `batch` or deeper generation-contract semantics; this family is no longer an open bug, but it still should not be treated as free-corridor evidence |
 
 ## Internal / Protected Families
 
@@ -81,11 +81,12 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
    - a route with external-service degradation risk that is not already covered by the current provider/memory caveats
    - a policy/operating-boundary clarification instead of another route fix
 
-4. `zimage` is now a known fresh-family counterexample:
-   - real product bug present
-   - single-file fix plausible by human reading
-   - but Builder still widened it to `class_2`
-   - therefore this family should not be used as evidence for free Builder autonomy
+4. `zimage` remains the most useful fresh-family Builder boundary marker:
+   - `K2.9b` proved the family does not stay in the free lane
+   - `K2.9c` proved the same exact single-file fix lands cleanly through the
+     approval-backed `class_2` lane
+   - therefore this family is now evidence for approved Builder operation, not
+     for free Builder autonomy
 
 5. No active must-reprobe follow-up remains in the currently covered cheap-boundary set.
 

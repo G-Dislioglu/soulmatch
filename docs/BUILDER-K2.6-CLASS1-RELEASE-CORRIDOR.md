@@ -46,6 +46,8 @@ The current corridor is based on:
 - second large-file `studio.ts` validation proof on `/api/oracle` `K2.8s`
 - first supervised observer pilot with positive and negative controls `K2.9a`
 - first fresh-family observer runtime probe that widened to `class_2` `K2.9b`
+- first approval-backed fresh-family runtime landing on that widened seam
+  `K2.9c`
 
 Relevant verified commits:
 
@@ -299,3 +301,14 @@ Fresh-family boundary addendum after `K2.9b`:
 > and produced no commit. This is strong evidence that the current free
 > corridor does not yet generalize from cheap route guards to provider-backed
 > image-generation seams.
+
+Approved fresh-family addendum after `K2.9c`:
+
+> `K2.9c` then reran that exact `zimage` fix through the explicit approval lane.
+> With a valid approval ticket, Builder classified the task as `class_2`,
+> switched to `allow_push`, landed `2bbc232` on exactly
+> `server/src/routes/zimage.ts`, and the live invalid-type probe moved from
+> `200` plus real fal output to `400 Unknown type: bogus` while
+> `/api/zimage/prompts` stayed `200`. This does not widen the free corridor,
+> but it does newly prove that the approval-backed `class_2` lane works on a
+> fresh provider-/cost-backed public route family.
