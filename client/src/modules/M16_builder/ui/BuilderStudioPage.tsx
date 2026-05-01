@@ -1592,6 +1592,16 @@ export function BuilderStudioPage() {
     [tribuneTimeline],
   );
   const effectiveTribunePhase = selectedTribunePhase ?? currentTribuneEntry?.key ?? null;
+  const tribuneHeroTitle = activeTask
+    ? `Maya arbeitet gerade an: ${activeTask.title}`
+    : 'Im Moment laeuft keine Task.';
+  const tribuneHeroPhaseLabel = currentTribuneEntry?.label ?? executionState.label;
+  const tribuneHeroPhaseTone = currentTribuneEntry?.accent ?? executionState.accent;
+  const tribuneHeroSummary = attentionTask && attentionTask.id === activeTask?.id
+    ? `${tribuneHeroPhaseLabel}. Maya wartet gerade bewusst auf deine Entscheidung.`
+    : activeTask
+      ? `${tribuneHeroPhaseLabel}. ${executionState.detail}`
+      : 'Maya wartet auf die naechste sinnvolle Aufgabe.';
   const tribunePhaseDetail = useMemo(
     () => effectiveTribunePhase
       ? deriveTribunePhaseDetail(effectiveTribunePhase, activeTask, evidencePack, taskObservation, tribuneTimeline)
@@ -2585,7 +2595,7 @@ export function BuilderStudioPage() {
           style={{
             display: 'grid',
             gap: 18,
-            gridTemplateColumns: compact ? '1fr' : '280px minmax(0, 1fr) 340px',
+            gridTemplateColumns: compact ? '1fr' : '260px minmax(0, 1.25fr) 320px',
             alignItems: 'start',
           }}
         >
@@ -2763,8 +2773,223 @@ export function BuilderStudioPage() {
             </BuilderPanel>
           </div>
 
-          <div data-maya-target="dialog-viewer">
-            <BuilderPanel title="Dialog Viewer" subtitle="BDL oder Textansicht mit Bubble-Gruppierung pro Akteur und Runde." accent={TOKENS.gold}>
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div data-maya-target="tribune-main">
+              <BuilderPanel title="Live Tribune" subtitle="Was passiert gerade, warum und wartet Maya auf dich oder nicht?" accent={TOKENS.purple}>
+                {activeTask ? (
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div
+                      style={{
+                        borderRadius: 22,
+                        border: `1.5px solid ${tribuneHeroPhaseTone}55`,
+                        background: `linear-gradient(135deg, ${tribuneHeroPhaseTone}16, rgba(255,255,255,0.03))`,
+                        padding: compact ? '16px 16px' : '18px 20px',
+                        display: 'grid',
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: tribuneHeroPhaseTone, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700 }}>
+                        First Cognition
+                      </div>
+                      <div style={{ fontSize: compact ? 24 : 30, color: TOKENS.text, fontFamily: TOKENS.font.display, lineHeight: 1.2 }}>
+                        {tribuneHeroTitle}
+                      </div>
+                      <div style={{ fontSize: 15, color: TOKENS.text2, lineHeight: 1.7, maxWidth: 920 }}>
+                        {tribuneHeroSummary}
+                      </div>
+                    </div>
+
+                    {attentionTask && attentionDetail ? (
+                      <div
+                        style={{
+                          borderRadius: 18,
+                          border: `1.5px solid ${TOKENS.gold}66`,
+                          background: 'rgba(212,175,55,0.12)',
+                          padding: '14px 16px',
+                          display: 'grid',
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                              Maya braucht dich kurz
+                            </div>
+                            <div style={{ fontSize: 18, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                              {attentionTask.title}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: `${TOKENS.gold}22`, border: `1px solid ${TOKENS.gold}55`, display: 'grid', placeItems: 'center', color: TOKENS.gold, fontWeight: 700 }}>
+                            M
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                          {attentionDetail}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3, fontFamily: TOKENS.font.body }}>
+                          {attentionTask.status === 'prototype_review'
+                            ? 'Ich habe einen sichtbaren Zwischenstand vorbereitet. Bitte entscheide jetzt bewusst.'
+                            : 'Ich bin an einem Punkt, an dem ich nicht still weiterlanden sollte.'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={handleOpenAttentionTask}
+                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.16)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            {attentionTask.id === activeTask.id ? 'Zum Entscheidungsblock' : 'Zu dieser Task'}
+                          </button>
+                          {attentionTask.id === activeTask.id && attentionTask.status === 'prototype_review' ? (
+                            <button
+                              type="button"
+                              onClick={() => { void handleApprovePrototype(); }}
+                              disabled={isBusy || !selectedTaskId}
+                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
+                            >
+                              Prototype freigeben
+                            </button>
+                          ) : null}
+                          {attentionTask.id === activeTask.id && attentionTask.status !== 'prototype_review' ? (
+                            <button
+                              type="button"
+                              onClick={() => { void handleApproveTask(); }}
+                              disabled={isBusy || !selectedTaskId}
+                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
+                            >
+                              Freigeben
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        Sichtbarer Task-Pfad
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                        {tribuneTimeline.map((entry, index) => {
+                          const stateStyles: Record<TribuneTimelineEntry['state'], { border: string; background: string; dot: string; text: string; badge: string }> = {
+                            done: { border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', dot: TOKENS.green, text: TOKENS.text, badge: 'Durchlaufen' },
+                            current: { border: `${entry.accent}66`, background: `${entry.accent}16`, dot: entry.accent, text: TOKENS.text, badge: 'Aktiv' },
+                            pending: { border: TOKENS.b3, background: 'rgba(255,255,255,0.02)', dot: TOKENS.text3, text: TOKENS.text2, badge: 'Ausstehend' },
+                            waiting: { border: `${TOKENS.gold}66`, background: 'rgba(212,175,55,0.12)', dot: TOKENS.gold, text: TOKENS.text, badge: 'Wartet auf dich' },
+                            blocked: { border: `${TOKENS.rose}66`, background: 'rgba(244,114,182,0.12)', dot: TOKENS.rose, text: TOKENS.text, badge: 'Gestoppt' },
+                          };
+                          const style = stateStyles[entry.state];
+
+                          return (
+                            <button
+                              type="button"
+                              key={entry.key}
+                              onClick={() => setSelectedTribunePhase(entry.key)}
+                              style={{
+                                borderRadius: 16,
+                                border: `1.5px solid ${effectiveTribunePhase === entry.key ? entry.accent : style.border}`,
+                                background: effectiveTribunePhase === entry.key ? `${entry.accent}18` : style.background,
+                                padding: '12px 12px 13px',
+                                display: 'grid',
+                                gap: 8,
+                                minHeight: compact ? 92 : 108,
+                                alignContent: 'start',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: style.dot, boxShadow: entry.state === 'current' ? `0 0 12px ${style.dot}66` : 'none', display: 'inline-block', flexShrink: 0 }} />
+                                <span style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                  Schritt {index + 1}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 14, color: style.text, fontWeight: 700, lineHeight: 1.35 }}>
+                                {entry.label}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked' ? style.text : TOKENS.text3, lineHeight: 1.5 }}>
+                                {style.badge}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 8 }}>
+                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        Maya sagt gerade
+                      </div>
+                      <div style={{ fontSize: 15, color: TOKENS.text, lineHeight: 1.75 }}>
+                        {mayaTribuneSentence}
+                      </div>
+                      {currentTribuneEntry ? (
+                        <div style={{ display: 'grid', gap: 4, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
+                          <div style={{ fontSize: 13, color: currentTribuneEntry.accent, fontWeight: 700 }}>
+                            {currentTribuneEntry.label}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                            {currentTribuneEntry.detail}
+                          </div>
+                          <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                            {currentTribuneEntry.meta}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {tribunePhaseDetail ? (
+                      <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                            Phase im Detail
+                          </div>
+                          <div style={{ fontSize: 11, color: tribunePhaseDetail.notRequired ? TOKENS.text3 : TOKENS.cyan, fontWeight: 700 }}>
+                            Quelle: {tribunePhaseDetail.source}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                          {tribunePhaseDetail.title}
+                        </div>
+                        <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                          {tribunePhaseDetail.summary}
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          {tribunePhaseDetail.lines.map((line, index) => (
+                            <div key={`${tribunePhaseDetail.title}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 11px', fontSize: 12, color: TOKENS.text2, lineHeight: 1.55 }}>
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                        {tribunePhaseDetail.notRequired ? (
+                          <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                            Diese Phase war fuer die aktuelle Task nicht erforderlich und ist deshalb bewusst nicht weiter ausgefaltet.
+                          </div>
+                        ) : null}
+                        {tribunePhaseDetail.note ? (
+                          <div style={{ fontSize: 11.5, color: TOKENS.text3, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
+                            {tribunePhaseDetail.note}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                      First Cognition
+                    </div>
+                    <div style={{ fontSize: 22, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                      {tribuneHeroTitle}
+                    </div>
+                    <div style={{ fontSize: 14, color: TOKENS.text2, lineHeight: 1.7 }}>
+                      Maya wartet auf deine naechste klare Aufgabe. Sobald eine Task aktiv ist, wird hier zuerst sichtbar, was gerade passiert und warum.
+                    </div>
+                  </div>
+                )}
+              </BuilderPanel>
+            </div>
+
+            <div data-maya-target="dialog-viewer">
+            <BuilderPanel title="Dialog Viewer" subtitle="Rueckfragen, Begruendungen und Builder-Dialoge. Sekundaer zur Tribune, aber weiter voll nutzbar." accent={TOKENS.gold}>
               <div
                 data-maya-target="maya-chat"
               style={{
@@ -3129,10 +3354,11 @@ export function BuilderStudioPage() {
             </div>
             </BuilderPanel>
           </div>
+          </div>
 
           <div style={{ display: 'grid', gap: 18 }}>
             <div data-maya-target="task-detail">
-              <BuilderPanel title="Task Detail" subtitle="Erstellen, starten und final markieren." accent={TOKENS.green}>
+              <BuilderPanel title="Task Detail" subtitle="Steuerung und Aktionen fuer die gewaehlte Task. Nicht die Hauptbuehne." accent={TOKENS.green}>
                 <div style={{ display: 'grid', gap: 14 }}>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Task-Titel" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
@@ -3263,189 +3489,11 @@ export function BuilderStudioPage() {
               </BuilderPanel>
             </div>
 
-            <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
+            <BuilderPanel title="Context" subtitle="Continuity Notes und Memory-Episoden fuer Maya. Hilfreich, aber nicht fuer den ersten Blick." accent={TOKENS.gold}>
               <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
             </BuilderPanel>
 
-            <BuilderPanel title="Live Tribune" subtitle="Die Task als beobachtbarer Ablauf statt als verteilter Expertenfeed." accent={TOKENS.purple}>
-              {activeTask ? (
-                <div style={{ display: 'grid', gap: 12 }}>
-                  {attentionTask && attentionDetail ? (
-                    <div
-                      style={{
-                        borderRadius: 18,
-                        border: `1.5px solid ${TOKENS.gold}66`,
-                        background: 'rgba(212,175,55,0.12)',
-                        padding: '14px 16px',
-                        display: 'grid',
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                            Maya braucht dich kurz
-                          </div>
-                          <div style={{ fontSize: 18, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                            {attentionTask.title}
-                          </div>
-                        </div>
-                        <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: `${TOKENS.gold}22`, border: `1px solid ${TOKENS.gold}55`, display: 'grid', placeItems: 'center', color: TOKENS.gold, fontWeight: 700 }}>
-                          M
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                        {attentionDetail}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: TOKENS.text3, fontFamily: TOKENS.font.body }}>
-                        {attentionTask.status === 'prototype_review'
-                          ? 'Ich habe einen sichtbaren Zwischenstand vorbereitet. Bitte entscheide jetzt bewusst.'
-                          : 'Ich bin an einem Punkt, an dem ich nicht still weiterlanden sollte.'}
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={handleOpenAttentionTask}
-                          style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.16)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          {attentionTask.id === activeTask.id ? 'Zum Entscheidungsblock' : 'Zu dieser Task'}
-                        </button>
-                        {attentionTask.id === activeTask.id && attentionTask.status === 'prototype_review' ? (
-                          <button
-                            type="button"
-                            onClick={() => { void handleApprovePrototype(); }}
-                            disabled={isBusy || !selectedTaskId}
-                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
-                          >
-                            Prototype freigeben
-                          </button>
-                        ) : null}
-                        {attentionTask.id === activeTask.id && attentionTask.status !== 'prototype_review' ? (
-                          <button
-                            type="button"
-                            onClick={() => { void handleApproveTask(); }}
-                            disabled={isBusy || !selectedTaskId}
-                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
-                          >
-                            Freigeben
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                      Sichtbarer Task-Pfad
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tribuneTimeline.length}, minmax(0, 1fr))`, gap: 8 }}>
-                      {tribuneTimeline.map((entry) => {
-                        const stateStyles: Record<TribuneTimelineEntry['state'], { border: string; background: string; dot: string; text: string }> = {
-                          done: { border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', dot: TOKENS.green, text: TOKENS.text },
-                          current: { border: `${entry.accent}66`, background: `${entry.accent}16`, dot: entry.accent, text: TOKENS.text },
-                          pending: { border: TOKENS.b3, background: 'rgba(255,255,255,0.02)', dot: TOKENS.text3, text: TOKENS.text2 },
-                          waiting: { border: `${TOKENS.gold}66`, background: 'rgba(212,175,55,0.12)', dot: TOKENS.gold, text: TOKENS.text },
-                          blocked: { border: `${TOKENS.rose}66`, background: 'rgba(244,114,182,0.12)', dot: TOKENS.rose, text: TOKENS.text },
-                        };
-                        const style = stateStyles[entry.state];
-
-                        return (
-                          <button
-                            type="button"
-                            key={entry.key}
-                            onClick={() => setSelectedTribunePhase(entry.key)}
-                            style={{
-                              borderRadius: 14,
-                              border: `1.5px solid ${effectiveTribunePhase === entry.key ? entry.accent : style.border}`,
-                              background: effectiveTribunePhase === entry.key ? `${entry.accent}18` : style.background,
-                              padding: '10px 8px',
-                              display: 'grid',
-                              gap: 6,
-                              minHeight: 78,
-                              alignContent: 'start',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                            }}
-                          >
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.dot, boxShadow: entry.state === 'current' ? `0 0 10px ${style.dot}66` : 'none', display: 'inline-block' }} />
-                            <div style={{ fontSize: 12, color: style.text, fontWeight: 700, lineHeight: 1.3 }}>
-                              {entry.label}
-                            </div>
-                            <div style={{ fontSize: 10.5, color: TOKENS.text3, lineHeight: 1.45 }}>
-                              {entry.state === 'waiting' ? 'Wartet auf dich' : entry.state === 'current' ? 'Aktiv' : entry.state === 'done' ? 'Durchlaufen' : entry.state === 'blocked' ? 'Gestoppt' : 'Ausstehend'}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                      Maya sagt gerade
-                    </div>
-                    <div style={{ fontSize: 14, color: TOKENS.text, lineHeight: 1.7 }}>
-                      {mayaTribuneSentence}
-                    </div>
-                    {currentTribuneEntry ? (
-                      <div style={{ display: 'grid', gap: 4, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
-                        <div style={{ fontSize: 12.5, color: currentTribuneEntry.accent, fontWeight: 700 }}>
-                          {currentTribuneEntry.label}
-                        </div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {currentTribuneEntry.detail}
-                        </div>
-                        <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                          {currentTribuneEntry.meta}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {tribunePhaseDetail ? (
-                    <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                        <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                          Phase im Detail
-                        </div>
-                        <div style={{ fontSize: 11, color: tribunePhaseDetail.notRequired ? TOKENS.text3 : TOKENS.cyan, fontWeight: 700 }}>
-                          Quelle: {tribunePhaseDetail.source}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                        {tribunePhaseDetail.title}
-                      </div>
-                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                        {tribunePhaseDetail.summary}
-                      </div>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {tribunePhaseDetail.lines.map((line, index) => (
-                          <div key={`${tribunePhaseDetail.title}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 11px', fontSize: 12, color: TOKENS.text2, lineHeight: 1.55 }}>
-                            {line}
-                          </div>
-                        ))}
-                      </div>
-                      {tribunePhaseDetail.notRequired ? (
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                          Diese Phase war fuer die aktuelle Task nicht erforderlich und ist deshalb bewusst nicht weiter ausgefaltet.
-                        </div>
-                      ) : null}
-                      {tribunePhaseDetail.note ? (
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
-                          {tribunePhaseDetail.note}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: TOKENS.text2 }}>
-                  Waehle eine Task, dann zeigt die Tribuene, was der Builder gerade tut, warum und ob er auf dich wartet.
-                </div>
-              )}
-            </BuilderPanel>
-
-            <BuilderPanel title="Check Results" subtitle="Runtime- und Build-Befunde aus dem aktuellen Evidence Pack." accent={TOKENS.cyan}>
+            <BuilderPanel title="Pruefstand" subtitle="Build- und Runtime-Befunde. Wichtig fuer Operatoren, aber bewusst nicht die Hauptbuehne." accent={TOKENS.cyan}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
@@ -3472,7 +3520,7 @@ export function BuilderStudioPage() {
               </div>
             </BuilderPanel>
 
-            <BuilderPanel title="Evidence Pack" subtitle="Verdichteter Review-, Check- und Diff-Stand des gewählten Tasks." accent={TOKENS.rose}>
+            <BuilderPanel title="Technische Details" subtitle="Review-, Diff- und Rohdaten zum aktuellen Task. Nur bei Bedarf vertiefen." accent={TOKENS.rose}>
               {evidencePack ? (
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Final Status: <strong style={{ color: STATUS_COLORS[evidencePack.final_status] ?? TOKENS.text }}>{evidencePack.final_status}</strong></div>
@@ -3490,9 +3538,14 @@ export function BuilderStudioPage() {
                       ))}
                     </div>
                   </div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.7, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 280, overflowY: 'auto' }}>
-                    {JSON.stringify(evidencePack, null, 2)}
-                  </pre>
+                  <details style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
+                    <summary style={{ cursor: 'pointer', color: TOKENS.text, fontSize: 12.5, fontWeight: 700 }}>
+                      Rohdaten anzeigen
+                    </summary>
+                    <pre style={{ margin: '10px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.7, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 280, overflowY: 'auto' }}>
+                      {JSON.stringify(evidencePack, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: TOKENS.text2 }}>Für diese Task liegt noch kein Evidence Pack vor.</div>
