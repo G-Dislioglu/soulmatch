@@ -537,6 +537,8 @@ const TRIBUNE_PHASE_ORDER: TribunePhaseKey[] = [
   'stopped',
 ];
 
+const USER_ATTENTION_STATUSES = new Set(['prototype_review', 'review_needed', 'needs_human_review']);
+
 function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidencePack | null): ExecutionStateSummary {
   if (!task) {
     return {
@@ -595,6 +597,10 @@ function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidenc
   }
 }
 
+function needsUserAttention(task: BuilderTask | null) {
+  return Boolean(task && USER_ATTENTION_STATUSES.has(task.status));
+}
+
 function formatObservationMeta(observation: BuilderTaskObservation | null) {
   if (!observation) {
     return 'Noch keine Live-Signale geladen.';
@@ -644,7 +650,6 @@ function deriveTribuneCurrentPhase(
   observation: BuilderTaskObservation | null,
 ): TribunePhaseKey {
   const status = task.status;
-  const reviewStatuses = new Set(['prototype_review', 'review_needed', 'needs_human_review']);
   const stoppedStatuses = new Set(['blocked', 'reverted', 'discarded', 'cancelled']);
   const hasEvidence = Boolean(evidence);
   const hasLiveSignals = Boolean(observation && (observation.chatPool.length > 0 || observation.actions.length > 0 || observation.opusLogs.length > 0));
@@ -661,7 +666,7 @@ function deriveTribuneCurrentPhase(
     return 'landed';
   }
 
-  if (reviewStatuses.has(status)) {
+  if (USER_ATTENTION_STATUSES.has(status)) {
     return 'review';
   }
 
@@ -779,6 +784,54 @@ function deriveTribuneTimeline(
       state,
     };
   });
+}
+
+function deriveMayaTribuneSentence(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+) {
+  if (!task) {
+    return 'Waehle eine Task, dann erklaere ich dir den laufenden Builder-Ablauf in normaler Sprache.';
+  }
+
+  if (task.status === 'prototype_review') {
+    return 'Ich habe einen Prototype vorbereitet und brauche jetzt deine Freigabe, Ueberarbeitung oder Verwerfung.';
+  }
+
+  if (task.status === 'review_needed' || task.status === 'needs_human_review') {
+    return 'Ich habe den Fix soweit vorbereitet, dass jetzt ein menschlicher Entscheid noetig ist, bevor ich weiterlande.';
+  }
+
+  if (task.commitHash && evidence?.runtime_results.length) {
+    return `Ich bin mit dieser Task durch; Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Runtime-Signale sehen gruen aus.`;
+  }
+
+  const latestChat = observation?.chatPool[observation.chatPool.length - 1];
+  if (latestChat) {
+    return `Ich arbeite gerade in ${latestChat.phase} und der letzte sichtbare Beitrag kam von ${latestChat.actor}.`;
+  }
+
+  if (evidence) {
+    return `Ich pruefe gerade die Wirkung des letzten Patches; bisher sehe ich ${evidence.runtime_results.length} Runtime-Signale im Evidence Pack.`;
+  }
+
+  return 'Ich schneide gerade den naechsten Builder-Schritt zu und sammele noch die ersten Live-Signale.';
+}
+
+function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
+  if (!task) {
+    return null;
+  }
+
+  const moreCount = Math.max(0, waitingCount - 1);
+  const tail = moreCount > 0 ? ` Dazu kommen noch ${moreCount} weitere wartende Tasks.` : '';
+
+  if (task.status === 'prototype_review') {
+    return `Diese Task wartet bewusst auf eine Prototype-Entscheidung. Ohne dein Signal lande ich hier nichts.${tail}`;
+  }
+
+  return `Diese Task braucht vor dem naechsten Landing-Schritt deinen Blick oder deine Zustimmung.${tail}`;
 }
 
 function poolScore(ids: string[]) {
@@ -1344,6 +1397,19 @@ export function BuilderStudioPage() {
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
   const executionState = useMemo(() => deriveExecutionState(activeTask, evidencePack), [activeTask, evidencePack]);
   const tribuneTimeline = useMemo(() => deriveTribuneTimeline(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
+  const waitingTasks = useMemo(() => tasks.filter((task) => needsUserAttention(task)), [tasks]);
+  const attentionTask = useMemo(() => {
+    if (needsUserAttention(activeTask)) {
+      return activeTask;
+    }
+    return waitingTasks[0] ?? null;
+  }, [activeTask, waitingTasks]);
+  const mayaTribuneSentence = useMemo(() => deriveMayaTribuneSentence(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
+  const attentionDetail = useMemo(() => deriveAttentionDetail(attentionTask, waitingTasks.length), [attentionTask, waitingTasks.length]);
+  const currentTribuneEntry = useMemo(
+    () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
+    [tribuneTimeline],
+  );
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -1687,6 +1753,24 @@ export function BuilderStudioPage() {
   const handleTogglePool = useCallback((pool: PoolType) => {
     setOpenPool((current) => current === pool ? null : pool);
   }, []);
+
+  const focusTaskDetail = useCallback(() => {
+    const target = document.querySelector('[data-maya-target="task-detail"]');
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  const handleOpenAttentionTask = useCallback(() => {
+    if (!attentionTask) {
+      return;
+    }
+
+    setSelectedTaskId(attentionTask.id);
+    window.setTimeout(() => {
+      focusTaskDetail();
+    }, 80);
+  }, [attentionTask, focusTaskDetail]);
 
   const handleTogglePoolModel = useCallback((pool: PoolType, modelId: string) => {
     setPools((current) => {
@@ -2994,46 +3078,133 @@ export function BuilderStudioPage() {
             <BuilderPanel title="Live Tribune" subtitle="Die Task als beobachtbarer Ablauf statt als verteilter Expertenfeed." accent={TOKENS.purple}>
               {activeTask ? (
                 <div style={{ display: 'grid', gap: 12 }}>
-                  {tribuneTimeline.map((entry) => {
-                    const statusStyles: Record<TribuneTimelineEntry['state'], { dot: string; border: string; background: string; label: string }> = {
-                      done: { dot: TOKENS.green, border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', label: 'abgeschlossen' },
-                      current: { dot: entry.accent, border: `${entry.accent}66`, background: `${entry.accent}14`, label: 'jetzt gerade' },
-                      pending: { dot: TOKENS.text3, border: `${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', label: 'spaeter' },
-                      waiting: { dot: TOKENS.gold, border: `${TOKENS.gold}55`, background: 'rgba(212,175,55,0.10)', label: 'wartet auf dich' },
-                      blocked: { dot: TOKENS.rose, border: `${TOKENS.rose}55`, background: 'rgba(244,114,182,0.10)', label: 'fail-closed' },
-                    };
-                    const style = statusStyles[entry.state];
-
-                    return (
-                      <div
-                        key={entry.key}
-                        style={{
-                          borderRadius: 18,
-                          border: `1.5px solid ${style.border}`,
-                          background: style.background,
-                          padding: '12px 14px',
-                          display: 'grid',
-                          gap: 6,
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: style.dot, boxShadow: `0 0 12px ${style.dot}44`, display: 'inline-block' }} />
-                            <span style={{ fontSize: 14, color: TOKENS.text, fontWeight: 600 }}>{entry.label}</span>
+                  {attentionTask && attentionDetail ? (
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        border: `1.5px solid ${TOKENS.gold}66`,
+                        background: 'rgba(212,175,55,0.12)',
+                        padding: '14px 16px',
+                        display: 'grid',
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                            Maya braucht dich kurz
                           </div>
-                          <span style={{ fontSize: 10.5, color: entry.state === 'pending' ? TOKENS.text3 : entry.accent, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
-                            {style.label}
-                          </span>
+                          <div style={{ fontSize: 18, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                            {attentionTask.title}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {entry.detail}
-                        </div>
-                        <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                          {entry.meta}
+                        <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: `${TOKENS.gold}22`, border: `1px solid ${TOKENS.gold}55`, display: 'grid', placeItems: 'center', color: TOKENS.gold, fontWeight: 700 }}>
+                          M
                         </div>
                       </div>
-                    );
-                  })}
+                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                        {attentionDetail}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: TOKENS.text3, fontFamily: TOKENS.font.body }}>
+                        {attentionTask.status === 'prototype_review'
+                          ? 'Ich habe einen sichtbaren Zwischenstand vorbereitet. Bitte entscheide jetzt bewusst.'
+                          : 'Ich bin an einem Punkt, an dem ich nicht still weiterlanden sollte.'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={handleOpenAttentionTask}
+                          style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.16)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          {attentionTask.id === activeTask.id ? 'Zum Entscheidungsblock' : 'Zu dieser Task'}
+                        </button>
+                        {attentionTask.id === activeTask.id && attentionTask.status === 'prototype_review' ? (
+                          <button
+                            type="button"
+                            onClick={() => { void handleApprovePrototype(); }}
+                            disabled={isBusy || !selectedTaskId}
+                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
+                          >
+                            Prototype freigeben
+                          </button>
+                        ) : null}
+                        {attentionTask.id === activeTask.id && attentionTask.status !== 'prototype_review' ? (
+                          <button
+                            type="button"
+                            onClick={() => { void handleApproveTask(); }}
+                            disabled={isBusy || !selectedTaskId}
+                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
+                          >
+                            Freigeben
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                      Sichtbarer Task-Pfad
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tribuneTimeline.length}, minmax(0, 1fr))`, gap: 8 }}>
+                      {tribuneTimeline.map((entry) => {
+                        const stateStyles: Record<TribuneTimelineEntry['state'], { border: string; background: string; dot: string; text: string }> = {
+                          done: { border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', dot: TOKENS.green, text: TOKENS.text },
+                          current: { border: `${entry.accent}66`, background: `${entry.accent}16`, dot: entry.accent, text: TOKENS.text },
+                          pending: { border: TOKENS.b3, background: 'rgba(255,255,255,0.02)', dot: TOKENS.text3, text: TOKENS.text2 },
+                          waiting: { border: `${TOKENS.gold}66`, background: 'rgba(212,175,55,0.12)', dot: TOKENS.gold, text: TOKENS.text },
+                          blocked: { border: `${TOKENS.rose}66`, background: 'rgba(244,114,182,0.12)', dot: TOKENS.rose, text: TOKENS.text },
+                        };
+                        const style = stateStyles[entry.state];
+
+                        return (
+                          <div
+                            key={entry.key}
+                            style={{
+                              borderRadius: 14,
+                              border: `1.5px solid ${style.border}`,
+                              background: style.background,
+                              padding: '10px 8px',
+                              display: 'grid',
+                              gap: 6,
+                              minHeight: 78,
+                              alignContent: 'start',
+                            }}
+                          >
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.dot, boxShadow: entry.state === 'current' ? `0 0 10px ${style.dot}66` : 'none', display: 'inline-block' }} />
+                            <div style={{ fontSize: 12, color: style.text, fontWeight: 700, lineHeight: 1.3 }}>
+                              {entry.label}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: TOKENS.text3, lineHeight: 1.45 }}>
+                              {entry.state === 'waiting' ? 'Wartet auf dich' : entry.state === 'current' ? 'Aktiv' : entry.state === 'done' ? 'Durchlaufen' : entry.state === 'blocked' ? 'Gestoppt' : 'Ausstehend'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                      Maya sagt gerade
+                    </div>
+                    <div style={{ fontSize: 14, color: TOKENS.text, lineHeight: 1.7 }}>
+                      {mayaTribuneSentence}
+                    </div>
+                    {currentTribuneEntry ? (
+                      <div style={{ display: 'grid', gap: 4, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
+                        <div style={{ fontSize: 12.5, color: currentTribuneEntry.accent, fontWeight: 700 }}>
+                          {currentTribuneEntry.label}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          {currentTribuneEntry.detail}
+                        </div>
+                        <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                          {currentTribuneEntry.meta}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: TOKENS.text2 }}>
