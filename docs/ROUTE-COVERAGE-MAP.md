@@ -1,8 +1,8 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `5ad0a85`
-Live head at verification: `233ea55e6780b21139f35b28450f76836fcdbe24`
+Repo head: `f35d7ee`
+Live head at verification: `5ad0a85f71e740cf6f9927290abbbbd56e9950a5`
 
 ## Purpose
 
@@ -55,7 +55,7 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/scoring/calc` | `live-verified` | 2026-05-01: whitespace-only `profileId` -> `400`; valid minimal numerology payload -> `200` | Pure local scoring; no provider call | Current contract boundary is already green |
 | `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
 | `/api/geo/autocomplete` | `live-verified` | 2026-05-01: `q='i'` -> `200` with `[]`; `q=' ist '` -> `200` with `Istanbul, TR` first; `q='zz'` -> `200` with `[]` | Static city corpus + in-process cache/throttle; no external API | Low urgency; current normalize/trim/min-length behavior is behaving consistently |
-| `/api/arcana/*` | `live-verified` + `repo-landed-live-pending` | 2026-05-01 live: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; live single-persona lookup for a non-system id with `?userId=test-user` still -> `400 userId is required`. Repo head `5ad0a85` now accepts `userId` from query on `GET /api/arcana/personas/:id`, so that stale live `400` should disappear after deploy | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, optional TTS preview/provider path | Re-probe non-system single-persona lookup after live catches up to confirm `400 userId is required -> 404 not_found` |
+| `/api/arcana/*` | `live-verified` + `repo-landed-live-pending` | 2026-05-01 live on `5ad0a85`: `/api/arcana/personas` -> `200`; `/api/arcana/personas/maya` -> `200`; `/api/arcana/voices` -> `200`; `/api/arcana/accents` -> `200`; non-system lookup with `?userId=test-user` no longer fails on missing query parsing, but now exposes a second boundary gap: invalid non-system `:id` still -> `500 internal_server_error` on `GET`, `PUT`, and `DELETE`. Repo head `f35d7ee` now normalizes those invalid non-system ids to `404 not_found` before the DB layer | Persona-definition DB tables, system persona fallbacks, user-owned persona lookup, UUID-vs-system-id boundary, optional TTS preview/provider path | Re-probe invalid non-system `:id` on `GET`/`PUT`/`DELETE` after live catches up to confirm `500 -> 404` |
 
 ## Internal / Protected Families
 
@@ -82,7 +82,7 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
    - a policy/operating-boundary clarification instead of another route fix
 
 4. The one active must-reprobe follow-up is now narrow:
-   re-check non-system `GET /api/arcana/personas/:id?userId=...` after live catches up to repo head `5ad0a85`.
+   re-check invalid non-system Arcana persona ids after live catches up to repo head `f35d7ee`.
 
 ## Immediate Conclusion
 
