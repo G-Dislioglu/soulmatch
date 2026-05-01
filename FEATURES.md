@@ -68,11 +68,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
-- `quality`: `usable`
-- `known_gap`: Doku vereinfacht die Persistenz teilweise zu stark und blendet weitere DB-Tabellen aus.
-- `next_recommended_step`: Doku und Persistenzrealitaet synchron halten; spaeter Nutzungsgrad von Zusatz-Tabellen auditieren.
-- `evidence`: `server/src/routes/profile.ts`, `server/src/db.ts`, `migration.sql`.
+- `last_checked`: `2026-05-01`
+- `quality`: `hardened_for_trimmed_required_fields`
+- `known_gap`: Persistenz ist fuer getrimmte Pflichtfelder jetzt fail-closed, aber birthDate-Formatpolitik und breitere Profilschema-Haertung bleiben bewusst ausserhalb dieses engen Fix-Blocks.
+- `next_recommended_step`: Nur bei echtem Bedarf den naechsten engen Persistence-Kandidaten schneiden; kein stiller Schema-/Format-Drift nebenbei.
+- `evidence`: `server/src/routes/profile.ts` trimmt und validiert seit `7c2bf7b` `name` und `birthDate` auf `POST /api/profile` und `PUT /api/profile/:id`; live verifiziert in `docs/PROFILE-COVERAGE-DIAGNOSIS.md`.
 
 ### Studio / Multi-provider LLM orchestration
 
@@ -118,11 +118,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
-- `quality`: `real_but_under-documented`
-- `known_gap`: Session-Memory ist real im Code, aber in Root-Dokumenten noch nicht sauber als aktive Persistenz erfasst.
-- `next_recommended_step`: Bei naechstem Persistenz-Audit Nutzungsgrenzen und Datenfluss genauer dokumentieren.
-- `evidence`: `server/src/lib/memoryService.ts` schreibt und liest `session_memories`.
+- `last_checked`: `2026-05-01`
+- `quality`: `phase_a_live_and_frontend_shaped_verified`
+- `known_gap`: Phase A ist jetzt schema-seitig, runtime-seitig und ueber den echten Frontend-Request-Shape bestaetigt, aber die spaeteren Habitat-Phasen (`source_kind`, statusgefilterter Read-Pfad, `being_id`) bleiben proposal-only.
+- `next_recommended_step`: Phase A nicht mehr als Hypothese behandeln. Phase B nur als bewusst separaten Proposal-/Migrationsblock schneiden.
+- `evidence`: `server/src/lib/memoryService.ts`, `server/migrations/0003_session_memories_phase_a.sql`, `docs/SESSION-MEMORIES-DIAGNOSIS.md`, `docs/PHASE-A-LIVE-VERIFICATION.md`, `docs/PHASE-A-FRONTEND-FLOW-VERIFICATION.md`.
 
 ### Context Broker fuer Claude / Builder-Kontext
 

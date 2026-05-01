@@ -84,6 +84,46 @@ Ein guter Soulmatch-Kandidat:
 
 ## Aktuell relevante Radar-Eintraege
 
+### Kandidat - Profile Persistenz Hardening
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `runtime_probe`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/routes/profile.ts`, `docs/PROFILE-COVERAGE-DIAGNOSIS.md`, `docs/ROUTE-COVERAGE-MAP.md`
+- `why_not_now`: `none`
+- `non_scope`: birthDate-Formatpolitik, breiter Profilschema-Umbau, neue DB-Tabellen oder Multi-File-Persistenzrefactor.
+- `risk`: reduziert; der fruehere Live-Gap liess whitespace-only `name` und `birthDate` auf `POST /api/profile` als `201` durch und erlaubte dieselbe Degradation auf `PUT /api/profile/:id`.`
+- `betroffene_bereiche`: `server/src/routes/profile.ts`
+- `kurzurteil`: Der enge Single-File-Persistenzfix ist live geschlossen. `7c2bf7b` trimmt und validiert die Pflichtfelder auf Create und Update fail-closed, ohne Format- oder Schema-Scope aufzuziehen.`
+- `evidence`: Vorher live `201` fuer whitespace-only `name` und `birthDate`, dazu `200` fuer whitespace-only Update; nach Deploy auf `7c2bf7b` live `400` fuer beide Create-Probes und `400` fuer whitespace-only Update, bei weiter gruener valid-control `201`. Dokumentiert in `docs/PROFILE-COVERAGE-DIAGNOSIS.md`.
+
+### Kandidat - Builder Gate Boundary vs Direct Repo Hotfix
+
+- `status`: `active`
+- `truth_class`: `derived_from_review`
+- `source_type`: `review_followup`
+- `next_gate`: `proposal`
+- `why_not_now`: `Die Frage ist strukturell wichtig, aber kein akuter Produktblock. Sie braucht eine bewusste Arbeitsentscheidung statt stiller Regelableitung aus Einzelfaellen.`
+- `non_scope`: neuer Builder-Core-Umbau, nachtraegliche Umdeutung aller frueheren K2.8-Klassifikationen oder pauschale Freigabe fuer breite direkte Hotfixes.
+- `risk`: mittel; `POST /api/profile` war in `K2.8l` frueher als builderseitiger `class_2` fail-closed-Befund dokumentiert, waehrend der spaetere direkte Repo-Hotfix als enger Single-File-Persistenzschnitt sauber landete. Ohne explizite Grenzziehung kann daraus spaeter eine unklare Hintertuer-Lesart entstehen.`
+- `betroffene_bereiche`: `AGENTS.md`, `STATE.md`, `RADAR.md`, Builder-Arbeitsvertrag
+- `kurzurteil`: Nicht als Fehler, sondern als Policy-Grenzfrage behandeln. Builder-Gates und direkte Repo-Arbeit sind aktuell nicht automatisch dasselbe System; die erlaubte Schnittmenge sollte explizit gemacht werden, bevor schwierigere class_2/class_3-Faelle auftauchen.
+- `evidence`: Historischer Builder-Befund `K2.8l` in `STATE.md`/`RADAR.md`; spaeterer direkter Repo-Fix `7c2bf7b`; Review-Hinweis aus dem 2026-05-01-Claude-Check.
+
+### Kandidat - Being Habitat Phase B
+
+- `status`: `parked`
+- `truth_class`: `proposal_only`
+- `source_type`: `spec_followup`
+- `next_gate`: `proposal`
+- `why_not_now`: `Phase A ist jetzt live repariert und frontend-shaped verifiziert. Phase B waere absichtlich ein Redesign-/Migrationsthema und darf nicht still in die Reparaturkette hineinrutschen.`
+- `non_scope`: sofortige `persona_id` -> `being_id`-Migration, `source_kind`-Write-Path, Read-Filter-Umbau, Cross-App-Memory-Transfer.
+- `risk`: moderat; das Konzept ist jetzt sauber dokumentiert, aber nicht als gebaut auszugeben. Proposal-only-Material darf nicht still in Produktwahrheit kippen.
+- `betroffene_bereiche`: `aicos-registry/specs/being-habitat-core-v0.2.md`, `aicos-registry/specs/being-habitat-extensions-reserve-v0.2.md`, `docs/SCHEMA-DELTA-FOR-SESSION-MEMORIES-v0.2.md`
+- `kurzurteil`: Die Habitat-Definition ist repo-sichtbar geparkt und bereinigt. Der naechste legitime Schritt waere ein bewusst geschnittener Phase-B-Proposal-/Migration-Block, nicht opportunistische Einzelspaltenarbeit.
+- `evidence`: Commits `4bc6cc9` und `9f898d9`; bereinigte Core-/Reserve-Specs in `aicos-registry/specs/`; bestehende korrigierte Schema-Delta-Referenz in `docs/SCHEMA-DELTA-FOR-SESSION-MEMORIES-v0.2.md`.
+
 ### Kandidat - Pipeline-Pfad-Konsolidierung (Orchestrator vs Council)
 
 - `status`: `adopted`
