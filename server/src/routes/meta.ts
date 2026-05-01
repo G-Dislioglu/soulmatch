@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { createRequire } from 'module';
+import { getAppEnv, getAppEnvLabel } from '../lib/appEnv.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../../package.json') as { version: string };
@@ -19,5 +20,7 @@ metaRouter.get('/', (_req: Request, res: Response) => {
     matchEngineVersion: 'v1',
     buildSha,
     buildAt: process.env.BUILD_AT ?? null,
+    appEnv: getAppEnv(),
+    appEnvLabel: getAppEnvLabel(),
   });
 });
