@@ -25,6 +25,9 @@ interface PatrolStatus {
 
 interface DeepResult {
   model: string;
+  scanned?: number;
+  found?: number;
+  inserted?: number;
   severity?: string;
   analysis?: string;
   verdict?: string;
@@ -36,7 +39,7 @@ interface PatrolModelSlot {
   color: string;
 }
 
-const API = 'https://soulmatch-1.onrender.com/api/builder/opus-bridge';
+const API = '/api/builder/opus-bridge';
 
 const AVAILABLE_MODELS = [
   'GLM-5-Turbo', 'GLM-5.1', 'GLM-5', 'GLM-4.7',
@@ -45,6 +48,15 @@ const AVAILABLE_MODELS = [
   'DeepSeek-R', 'DeepSeek Chat',
   'Kimi', 'Qwen', 'Minimax',
 ];
+
+const DEEP_MODEL_ID_BY_LABEL: Record<string, string> = {
+  'GLM-5-Turbo': 'glm-5-turbo',
+  'GLM-5.1': 'glm-5.1',
+  'GPT-5.4': 'gpt-5.4',
+  'Sonnet 4.6': 'sonnet-4.6',
+  'DeepSeek-R': 'deepseek-r',
+  'Kimi': 'kimi',
+};
 
 const ROUTINE_SCOUT_SLOTS: PatrolModelSlot[] = [
   { role: 'SCOUT #1', model: 'GLM-5-Turbo', color: '#39ff14' },
@@ -299,10 +311,11 @@ interface FindingCardProps {
   onToggle: () => void;
   deepResult: DeepResult[] | null;
   deepLoading: boolean;
+  deepAvailable: boolean;
   onDeepPatrol: () => void;
 }
 
-function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onDeepPatrol }: FindingCardProps) {
+function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, deepAvailable, onDeepPatrol }: FindingCardProps) {
   const cfg = SEV_CONFIG[finding.severity] || SEV_CONFIG.info;
   return (
     <div
@@ -350,19 +363,19 @@ function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onD
           <div style={{ marginBottom: 12 }}>
             <button
               onClick={(e) => { e.stopPropagation(); onDeepPatrol(); }}
-              disabled={deepLoading}
+              disabled={deepLoading || !deepAvailable}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                background: deepLoading ? '#4a4d80' : '#7c6af7',
+                background: deepLoading || !deepAvailable ? '#4a4d80' : '#7c6af7',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 8,
                 padding: '7px 14px',
                 fontSize: 12,
                 fontWeight: 600,
-                cursor: deepLoading ? 'not-allowed' : 'pointer',
+                cursor: deepLoading || !deepAvailable ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -436,23 +449,45 @@ export function PatrolConsole() {
     return response.json() as Promise<T>;
   }, [token]);
 
-  const triggerDeep = useCallback(async (findingId: string) => {
+  const triggerDeep = useCallback(async (finding: PatrolFinding) => {
+    const findingId = finding.id;
+    const files = [...new Set((finding.affectedFiles ?? []).filter((file): file is string => typeof file === 'string' && file.trim().length > 0))];
+    const models = [...new Set(
+      Object.values(deepModels)
+        .map((label) => DEEP_MODEL_ID_BY_LABEL[label])
+        .filter((value): value is string => typeof value === 'string' && value.length > 0),
+    )];
+
+    if (files.length === 0 || models.length === 0) {
+      console.warn('Deep patrol skipped: missing files or supported models', { findingId, files, models });
+      return;
+    }
+
     setDeepLoading((prev) => ({ ...prev, [findingId]: true }));
     try {
       const response = await fetch(`${API}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ findingId }),
+        body: JSON.stringify({ models, files }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json() as DeepResult[];
-      setDeepResults((prev) => ({ ...prev, [findingId]: data }));
+      const data = await response.json() as { results?: Array<{ model: string; scanned: number; found: number; inserted: number }> };
+      const normalized: DeepResult[] = (data.results ?? []).map((entry) => ({
+        model: entry.model,
+        scanned: entry.scanned,
+        found: entry.found,
+        inserted: entry.inserted,
+        severity: entry.inserted > 0 ? 'triaged' : 'clean',
+        verdict: entry.inserted > 0 ? `${entry.inserted} Findings eingetragen` : 'Keine neuen Findings eingetragen',
+        analysis: `${entry.scanned} Dateien gescannt · ${entry.found} Findings gelesen · ${entry.inserted} neu eingetragen`,
+      }));
+      setDeepResults((prev) => ({ ...prev, [findingId]: normalized }));
     } catch (error) {
       console.error('Deep patrol error:', error);
     } finally {
       setDeepLoading((prev) => ({ ...prev, [findingId]: false }));
     }
-  }, [token]);
+  }, [deepModels, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -627,7 +662,8 @@ export function PatrolConsole() {
               onToggle={() => setExpanded(expanded === finding.id ? null : finding.id)}
               deepResult={deepResults[finding.id] ?? null}
               deepLoading={!!deepLoading[finding.id]}
-              onDeepPatrol={() => void triggerDeep(finding.id)}
+              deepAvailable={(finding.affectedFiles ?? []).some((file) => typeof file === 'string' && file.trim().length > 0)}
+              onDeepPatrol={() => void triggerDeep(finding)}
             />
           ))
         )}
