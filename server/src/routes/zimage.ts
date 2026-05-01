@@ -80,7 +80,11 @@ zimageRouter.post('/zimage/generate', async (req, res) => {
     return res.status(400).json({ error: 'FAL_KEY not configured' });
   }
 
-  const { type, id } = req.body as { type: 'room' | 'persona'; id: string };
+  const { type, id } = req.body as { type: string; id: string };
+
+  if (type !== 'room' && type !== 'persona') {
+    return res.status(400).json({ error: `Unknown type: ${type}` });
+  }
 
   const prompts = type === 'room' ? ROOM_PROMPTS : PERSONA_PROMPTS;
   const prompt = prompts[id];
