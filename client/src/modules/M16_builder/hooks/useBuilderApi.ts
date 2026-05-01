@@ -222,6 +222,10 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     const text = await response.text();
     const parsed = text ? JSON.parse(text) as T | { error?: string } : null;
 
+    if (!response.ok && response.status === 500 && window.location.hostname === 'localhost' && text.trim().length === 0) {
+      throw new Error('Builder-Backend nicht erreichbar. Starte den Server mit "cd server" und "pnpm dev" auf Port 3001.');
+    }
+
     if (!response.ok) {
       const message = parsed && typeof parsed === 'object' && 'error' in parsed
         ? parsed.error

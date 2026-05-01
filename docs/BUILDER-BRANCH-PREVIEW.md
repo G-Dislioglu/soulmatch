@@ -28,6 +28,9 @@ This opens two terminals:
 
 Open the client URL in your browser and navigate to the Builder UI.
 
+If the Builder login shows a raw `HTTP 500` on localhost, the most likely cause
+is that the Vite client is up but the server on `localhost:3001` is not.
+
 ## Manual path
 
 Terminal 1:

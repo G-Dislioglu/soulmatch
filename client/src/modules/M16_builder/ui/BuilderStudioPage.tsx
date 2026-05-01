@@ -203,16 +203,21 @@ async function validateBuilderToken(token: string) {
   const response = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  const bodyText = await response.text().catch(() => '');
 
   if (response.status === 401 || response.status === 404) {
     throw new Error('Ungültiger Token');
+  }
+
+  if (!response.ok && response.status === 500 && window.location.hostname === 'localhost' && bodyText.trim().length === 0) {
+    throw new Error('Builder-Backend nicht erreichbar. Starte den Server mit "cd server" und "pnpm dev" auf Port 3001.');
   }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
 
-  const payload = await response.json() as { tasks?: unknown[] };
+  const payload = (bodyText ? JSON.parse(bodyText) : {}) as { tasks?: unknown[] };
   return { canonicalExecutor: '/opus-task', tasks: payload.tasks };
 }
 
