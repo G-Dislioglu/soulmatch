@@ -45,6 +45,7 @@ The current corridor is based on:
 - smartPush payload hardening plus successful `studio.ts` landing rerun `K2.8r`
 - second large-file `studio.ts` validation proof on `/api/oracle` `K2.8s`
 - first supervised observer pilot with positive and negative controls `K2.9a`
+- first fresh-family observer runtime probe that widened to `class_2` `K2.9b`
 
 Relevant verified commits:
 
@@ -288,3 +289,13 @@ Observer addendum after `K2.9a`:
 > `class_2`, stayed `dry_run_only`, and produced no commit. That is evidence
 > for supervised free operation inside the existing lane, not for broad Builder
 > freedom.
+
+Fresh-family boundary addendum after `K2.9b`:
+
+> `K2.9b` probed a fresh public route family with a real external-service
+> contract bug on `POST /api/zimage/generate`: invalid `type='bogus'` still
+> produced a live image response. Builder did not land the exact single-file
+> guard fix freely; it widened the task to `class_2`, stayed `dry_run_only`,
+> and produced no commit. This is strong evidence that the current free
+> corridor does not yet generalize from cheap route guards to provider-backed
+> image-generation seams.
