@@ -1,8 +1,8 @@
 # Route Coverage Map
 
 Last updated: 2026-05-01
-Repo head: `373eb82`
-Live head at verification: `373eb8262e6fa847d9f499db60f2ab5654389893`
+Repo head: `025ee8b`
+Live head at verification: `7c2bf7bab4e019a02722787230ebb7f3ab9e42a7`
 
 ## Purpose
 
@@ -44,12 +44,12 @@ It is not a changelog and not a truth-sync surrogate. Its job is to show:
 | `/api/guide` | `live-verified` | 2026-05-01: bogus provider -> `400`; whitespace-only `systemPrompt`/`userMessage` previously hardened | External LLM provider mapping, API keys | Low urgency; already good narrow guard coverage |
 | `/api/match/narrative` | `live-verified` | 2026-05-01: empty/whitespace names -> `400`; valid names remain `200` | Local narrative payload builder + quality gate; no direct DB dependency | Closed for current empty/whitespace class |
 | `/api/match/calc` | `code-read` | No fresh live probe in this map | Local scoring fusion; depends on numerology payload and optional astro-derived inputs | Probe only if a scoring regression or input-shape bug is suspected |
-| `/api/match/single` | `historical-only` | Earlier builder work flagged input-validation weakness on nested profile fields, but no fresh post-`373eb82` repro in this map | Numerology + astrology fusion, nested profile inputs, likely class shift if hardened | Candidate for a deliberate later block; likely not a free class_1 lane |
-| `/api/journey/optimal-dates` | `historical-only` | Earlier builder work found whitespace/eventType validation pressure; no fresh repro in this map | Swiss Ephemeris fallback path, deterministic fallback logic, date-range handling | Candidate only if returning to route-validation expansion |
+| `/api/match/single` | `live-verified` | 2026-05-01: whitespace-only `profileA.birthDate` -> `400`; valid numerology-only control body -> `200` | Numerology + astrology fusion, nested profile inputs, optional timezone/time-driven astrology branch | Current required-birthDate boundary is already green |
+| `/api/journey/optimal-dates` | `live-verified` | 2026-05-01: whitespace-only `eventType` -> `400`; valid control body -> `200` | Swiss Ephemeris fallback path, deterministic fallback logic, date-range handling | Current required-field trim boundary is already green |
 | `/api/astro/*` | `code-read` | `/api/health` reports `sweph: true` on 2026-05-01 | Swiss Ephemeris native dependency; request validity can fail on date/time/location format | Probe if astrology-specific runtime truth is needed, not as a generic filler test |
 | `/api/numerology/calc` | `live-verified` | 2026-05-01: whitespace-only required fields -> `400`; valid minimal body -> `200` | Pure local deterministic calculation | Current empty/trim boundary is already green |
 | `/api/scoring/calc` | `live-verified` | 2026-05-01: whitespace-only `profileId` -> `400`; valid minimal numerology payload -> `200` | Pure local scoring; no provider call | Current contract boundary is already green |
-| `/api/profile/*` | `code-read` | No fresh live probe in this map | Direct DB writes/reads via `profiles`; validation is still minimal and not uniformly trimmed | Highest-value persistence candidate, but likely a class shift rather than a free narrow pass |
+| `/api/profile/*` | `live-verified` | 2026-05-01: whitespace-only `name` or `birthDate` on `POST` -> `400`; whitespace-only `name`/`birthDate` on `PUT` -> `400`; valid control create -> `201` | Direct DB writes/reads via `profiles`; persistence boundary already tightened for trimmed required fields | Next probe only if a broader profile-contract question appears |
 | `/api/geo/autocomplete` | `code-read` | No fresh live probe in this map | Static city corpus + in-process cache/throttle; no external API | Cheap functional probe available, but currently lower value than persistence routes |
 | `/api/arcana/*` | `code-read` | No fresh live probe in this map | Persona-definition DB tables, TTS, voice catalogs, moderation-ish config payloads | Separate family; not a tight follow-up to recent memory/validation work |
 
@@ -68,19 +68,16 @@ Reason: token gates, builder-core semantics, multi-step side effects, or non-pro
 
 ## Current Read of the Next Candidates
 
-1. `/api/profile/*`
-   Best product-value candidate, because it is persistence-backed and still minimally validated.
-   Tradeoff: this likely widens into a persistence/class boundary, not a free cheap guard block.
+1. No obvious mandatory validation candidate remains in the recently probed public route families.
 
-2. `/api/match/single` or `/api/journey/optimal-dates`
-   Historically interesting, but likely to reopen earlier class-boundary behavior rather than yield a tiny low-risk win.
+2. The next worthwhile route block should come from a genuinely new family or a more semantic contract question, not from repeating already-green trim/required-field cases.
+
+3. If a new candidate is needed, prioritize one of:
+   - a fresh profile-contract question beyond trimmed required fields
+   - a route with external-service degradation risk that is not already covered by the current provider/memory caveats
+   - a policy/operating-boundary clarification instead of another route fix
 
 ## Immediate Conclusion
 
-There is no new mandatory bug-fix block visible right now.
-The map suggests a fork:
-
-- deliberately step into a persistence/class-boundary route: `profile`
-- or revisit a historically wider validation route like `match/single` or `journey/optimal-dates`
-
-That fork is now explicit, instead of being guessed from stale external notes.
+There is no new mandatory bug-fix block visible in the currently probed product route families.
+The practical constraint is no longer missing trim/required-field hardening on these routes, but choosing the next candidate without inventing work or smuggling in a policy decision.
