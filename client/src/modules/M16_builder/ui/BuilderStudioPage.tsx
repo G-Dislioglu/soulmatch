@@ -23,6 +23,7 @@ import {
   type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
   type BuilderEvidencePack,
+  type BuilderTaskObservation,
   type BuilderPatrolFinding,
   type BuilderPatrolSeverity,
   type BuilderPatrolStatus,
@@ -506,6 +507,36 @@ interface ExecutionStateSummary {
   accent: string;
 }
 
+type TribunePhaseKey =
+  | 'created'
+  | 'planning'
+  | 'building'
+  | 'checking'
+  | 'review'
+  | 'landed'
+  | 'live'
+  | 'stopped';
+
+interface TribuneTimelineEntry {
+  key: TribunePhaseKey;
+  label: string;
+  detail: string;
+  meta: string;
+  accent: string;
+  state: 'done' | 'current' | 'pending' | 'waiting' | 'blocked';
+}
+
+const TRIBUNE_PHASE_ORDER: TribunePhaseKey[] = [
+  'created',
+  'planning',
+  'building',
+  'checking',
+  'review',
+  'landed',
+  'live',
+  'stopped',
+];
+
 function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidencePack | null): ExecutionStateSummary {
   if (!task) {
     return {
@@ -552,7 +583,7 @@ function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidenc
         return { label: 'Formal fertig, aber fraglich', detail: 'Der Task steht auf done, aber das Evidence Pack markiert moeglichen False Success. Dieser Stand braucht Nachpruefung.', accent: '#ef4444' };
       }
       if (task.commitHash) {
-        return { label: 'Gelanded', detail: `${runtimeSummary}. Commit ${task.commitHash.slice(0, 7)} ist am Task hinterlegt.`, accent: TOKENS.green };
+        return { label: 'Gelandet', detail: `${runtimeSummary}. Commit ${task.commitHash.slice(0, 7)} ist am Task hinterlegt.`, accent: TOKENS.green };
       }
       return { label: 'Als fertig markiert', detail: `${runtimeSummary}. Der Task steht auf done, aber es ist kein Commit-Hash sichtbar.`, accent: TOKENS.green };
     case 'reverted':
@@ -562,6 +593,192 @@ function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidenc
     default:
       return { label: task.status, detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: STATUS_COLORS[task.status] ?? TOKENS.text2 };
   }
+}
+
+function formatObservationMeta(observation: BuilderTaskObservation | null) {
+  if (!observation) {
+    return 'Noch keine Live-Signale geladen.';
+  }
+
+  const latestChat = observation.chatPool[observation.chatPool.length - 1];
+  if (latestChat) {
+    return `${latestChat.actor} · ${latestChat.phase} · ${formatDate(latestChat.createdAt)}`;
+  }
+
+  const latestAction = observation.actions[observation.actions.length - 1];
+  if (latestAction) {
+    return `${latestAction.actor} · ${latestAction.kind} · ${formatDate(latestAction.createdAt)}`;
+  }
+
+  const latestLog = observation.opusLogs[observation.opusLogs.length - 1];
+  if (latestLog) {
+    return `${latestLog.action} · ${formatDate(latestLog.createdAt)}`;
+  }
+
+  return 'Live-Feed noch ohne einzelne Events.';
+}
+
+function summarizeWorkerModels(observation: BuilderTaskObservation | null) {
+  if (!observation || observation.chatPool.length === 0) {
+    return 'Noch keine Worker- oder Council-Signale im Live-Feed.';
+  }
+
+  const models = [...new Set(
+    observation.chatPool
+      .map((entry) => entry.model?.trim())
+      .filter((entry): entry is string => Boolean(entry) && entry !== 'manual'),
+  )];
+
+  if (models.length === 0) {
+    return 'Live-Feed aktiv, aber noch ohne sichtbare Modellnamen.';
+  }
+
+  const visible = models.slice(0, 6);
+  const hidden = models.length - visible.length;
+  return `${models.length} Modelle aktiv: ${visible.join(', ')}${hidden > 0 ? ` +${hidden}` : ''}`;
+}
+
+function deriveTribuneCurrentPhase(
+  task: BuilderTask,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+): TribunePhaseKey {
+  const status = task.status;
+  const reviewStatuses = new Set(['prototype_review', 'review_needed', 'needs_human_review']);
+  const stoppedStatuses = new Set(['blocked', 'reverted', 'discarded', 'cancelled']);
+  const hasEvidence = Boolean(evidence);
+  const hasLiveSignals = Boolean(observation && (observation.chatPool.length > 0 || observation.actions.length > 0 || observation.opusLogs.length > 0));
+
+  if (stoppedStatuses.has(status)) {
+    return 'stopped';
+  }
+
+  if (task.commitHash && evidence?.runtime_results.length) {
+    return 'live';
+  }
+
+  if (task.commitHash || status === 'done' || status === 'push_candidate') {
+    return 'landed';
+  }
+
+  if (reviewStatuses.has(status)) {
+    return 'review';
+  }
+
+  if (status === 'checking' || status === 'testing' || status === 'reviewing' || status === 'counterexampling' || hasEvidence) {
+    return 'checking';
+  }
+
+  if (status === 'applying' || status === 'prototyping' || hasLiveSignals) {
+    return 'building';
+  }
+
+  if (status === 'classifying' || status === 'planning') {
+    return 'planning';
+  }
+
+  return 'created';
+}
+
+function deriveTribuneTimeline(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+): TribuneTimelineEntry[] {
+  if (!task) {
+    return [];
+  }
+
+  const currentPhase = deriveTribuneCurrentPhase(task, evidence, observation);
+  const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
+  const latestMeta = formatObservationMeta(observation);
+  const runtimePasses = (evidence?.runtime_results ?? []).filter((result) => result.result === 'pass').length;
+  const runtimeFailures = (evidence?.runtime_results ?? []).filter((result) => result.result !== 'pass').length;
+  const reviewHint = task.status === 'prototype_review'
+    ? 'Prototype wartet auf Freigabe, Ueberarbeitung oder Verwerfung.'
+    : 'Der Builder meldet, dass fuer den naechsten Schritt menschliche Zustimmung noetig ist.';
+  const phaseContent: Record<TribunePhaseKey, Omit<TribuneTimelineEntry, 'state'>> = {
+    created: {
+      key: 'created',
+      label: 'Erstellt',
+      detail: `Task angelegt am ${formatDate(task.createdAt)} und im Builder registriert.`,
+      meta: `Status ${task.status} · Updated ${formatDate(task.updatedAt)}`,
+      accent: TOKENS.text2,
+    },
+    planning: {
+      key: 'planning',
+      label: 'Plant',
+      detail: 'Der Builder schneidet gerade Scope, Risiko und den kuerzesten Arbeitsweg fuer diese Task zu.',
+      meta: latestMeta,
+      accent: TOKENS.cyan,
+    },
+    building: {
+      key: 'building',
+      label: 'Baut',
+      detail: summarizeWorkerModels(observation),
+      meta: latestMeta,
+      accent: TOKENS.purple,
+    },
+    checking: {
+      key: 'checking',
+      label: 'Prueft',
+      detail: evidence
+        ? `${evidence.checks.tsc}/${evidence.checks.build} bei TSC/Build · Runtime ${runtimePasses} gruen, ${runtimeFailures} nicht gruen.`
+        : 'Noch kein Evidence Pack sichtbar; Pruefphase laeuft oder hat noch nicht geschrieben.',
+      meta: evidence
+        ? `Agreement ${evidence.agreement_level ?? '—'} · Counterexamples ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`
+        : latestMeta,
+      accent: TOKENS.green,
+    },
+    review: {
+      key: 'review',
+      label: 'Wartet auf Review',
+      detail: reviewHint,
+      meta: task.commitHash ? `Commit-Kandidat ${task.commitHash.slice(0, 7)}` : `Aktueller Status ${task.status}`,
+      accent: TOKENS.gold,
+    },
+    landed: {
+      key: 'landed',
+      label: 'Gelandet',
+      detail: task.commitHash
+        ? `Commit ${task.commitHash.slice(0, 7)} ist am Task sichtbar.`
+        : 'Der Builder meldet einen Landing-Kandidaten, aber noch keinen hinterlegten Commit-Hash.',
+      meta: task.commitHash ? `Updated ${formatDate(task.updatedAt)}` : `Status ${task.status}`,
+      accent: TOKENS.green,
+    },
+    live: {
+      key: 'live',
+      label: 'Live verifiziert',
+      detail: evidence?.runtime_results.length
+        ? `Evidence enthaelt ${evidence.runtime_results.length} Runtime-Signale. Dieser Zustand bleibt zusammengesetzt, bis ein kanonischer Live-Status vorhanden ist.`
+        : 'Noch kein eigener Live-Verifikationsbeleg im Task-Surface sichtbar.',
+      meta: evidence?.created_at ? `Evidence ${formatDate(evidence.created_at)}` : 'Noch kein harter Live-Verifikationszeitpunkt',
+      accent: TOKENS.cyan,
+    },
+    stopped: {
+      key: 'stopped',
+      label: 'Gestoppt',
+      detail: `Der Workflow wurde bewusst fail-closed gestoppt oder rueckgaengig gemacht (${task.status}).`,
+      meta: `Updated ${formatDate(task.updatedAt)}`,
+      accent: TOKENS.rose,
+    },
+  };
+
+  return TRIBUNE_PHASE_ORDER.map((phase, index) => {
+    let state: TribuneTimelineEntry['state'] = 'pending';
+    if (phase === currentPhase) {
+      state = phase === 'review' ? 'waiting' : phase === 'stopped' ? 'blocked' : 'current';
+    } else if (phase === 'stopped') {
+      state = currentPhase === 'stopped' ? 'blocked' : 'pending';
+    } else if (index < currentIndex) {
+      state = 'done';
+    }
+
+    return {
+      ...phaseContent[phase],
+      state,
+    };
+  });
 }
 
 function poolScore(ids: string[]) {
@@ -1048,6 +1265,7 @@ export function BuilderStudioPage() {
   const [dialogFormat, setDialogFormat] = useState<DialogFormat>('dsl');
   const [dialogActions, setDialogActions] = useState<BuilderAction[]>([]);
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
+  const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1125,6 +1343,7 @@ export function BuilderStudioPage() {
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
   const executionState = useMemo(() => deriveExecutionState(activeTask, evidencePack), [activeTask, evidencePack]);
+  const tribuneTimeline = useMemo(() => deriveTribuneTimeline(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -1260,6 +1479,20 @@ export function BuilderStudioPage() {
       throw error;
     }
   }, [getBuilderEvidence]);
+
+  const refreshObservation = useCallback(async (taskId: string) => {
+    try {
+      const nextObservation = await getTaskObservation(taskId);
+      setTaskObservation(nextObservation);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        setTaskObservation(null);
+        return;
+      }
+      throw error;
+    }
+  }, [getTaskObservation]);
 
   const refreshMayaContext = useCallback(async () => {
     const nextContext = await getMayaContext();
@@ -1401,7 +1634,10 @@ export function BuilderStudioPage() {
     void refreshEvidence(selectedTaskId).catch((error) => {
       setPageError(error instanceof Error ? error.message : 'Evidence Pack konnte nicht geladen werden');
     });
-  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence]);
+    void refreshObservation(selectedTaskId).catch((error) => {
+      setPageError(error instanceof Error ? error.message : 'Live-Beobachtung konnte nicht geladen werden');
+    });
+  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence, refreshObservation]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -1416,6 +1652,20 @@ export function BuilderStudioPage() {
 
     return () => window.clearInterval(intervalId);
   }, [authenticated, selectedTaskId, refreshDialog]);
+
+  useEffect(() => {
+    if (!authenticated || !selectedTaskId) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshObservation(selectedTaskId).catch((error) => {
+        setPageError(error instanceof Error ? error.message : 'Live-Beobachtung konnte nicht aktualisiert werden');
+      });
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [authenticated, selectedTaskId, refreshObservation]);
 
   useEffect(() => {
     if (!authenticated || !selectedFilePath) {
@@ -1607,6 +1857,7 @@ export function BuilderStudioPage() {
       setTaskDetail(null);
       setDialogActions([]);
       setEvidencePack(null);
+      setTaskObservation(null);
       await refreshTasks();
     } catch (error) {
       setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelöscht werden');
@@ -1656,6 +1907,7 @@ export function BuilderStudioPage() {
         setTaskDetail(null);
         setDialogActions([]);
         setEvidencePack(null);
+        setTaskObservation(null);
       }
       await refreshTasks();
     } catch (error) {
@@ -2737,6 +2989,57 @@ export function BuilderStudioPage() {
 
             <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
               <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
+            </BuilderPanel>
+
+            <BuilderPanel title="Live Tribune" subtitle="Die Task als beobachtbarer Ablauf statt als verteilter Expertenfeed." accent={TOKENS.purple}>
+              {activeTask ? (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {tribuneTimeline.map((entry) => {
+                    const statusStyles: Record<TribuneTimelineEntry['state'], { dot: string; border: string; background: string; label: string }> = {
+                      done: { dot: TOKENS.green, border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', label: 'abgeschlossen' },
+                      current: { dot: entry.accent, border: `${entry.accent}66`, background: `${entry.accent}14`, label: 'jetzt gerade' },
+                      pending: { dot: TOKENS.text3, border: `${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', label: 'spaeter' },
+                      waiting: { dot: TOKENS.gold, border: `${TOKENS.gold}55`, background: 'rgba(212,175,55,0.10)', label: 'wartet auf dich' },
+                      blocked: { dot: TOKENS.rose, border: `${TOKENS.rose}55`, background: 'rgba(244,114,182,0.10)', label: 'fail-closed' },
+                    };
+                    const style = statusStyles[entry.state];
+
+                    return (
+                      <div
+                        key={entry.key}
+                        style={{
+                          borderRadius: 18,
+                          border: `1.5px solid ${style.border}`,
+                          background: style.background,
+                          padding: '12px 14px',
+                          display: 'grid',
+                          gap: 6,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: style.dot, boxShadow: `0 0 12px ${style.dot}44`, display: 'inline-block' }} />
+                            <span style={{ fontSize: 14, color: TOKENS.text, fontWeight: 600 }}>{entry.label}</span>
+                          </div>
+                          <span style={{ fontSize: 10.5, color: entry.state === 'pending' ? TOKENS.text3 : entry.accent, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                            {style.label}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          {entry.detail}
+                        </div>
+                        <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                          {entry.meta}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: TOKENS.text2 }}>
+                  Waehle eine Task, dann zeigt die Tribuene, was der Builder gerade tut, warum und ob er auf dich wartet.
+                </div>
+              )}
             </BuilderPanel>
 
             <BuilderPanel title="Check Results" subtitle="Runtime- und Build-Befunde aus dem aktuellen Evidence Pack." accent={TOKENS.cyan}>
