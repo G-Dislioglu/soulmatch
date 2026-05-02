@@ -1,6 +1,6 @@
 // Phase 3: Memory CRUD endpoints added 2026-04-12
 import { Router, type Request, type Response } from 'express';
-import { and, eq, desc, asc, sql, inArray } from 'drizzle-orm';
+import { and, eq, desc, asc, sql, inArray, ne } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
   asyncJobs,
@@ -503,6 +503,35 @@ router.get('/tasks/:id/evidence', async (req: Request, res: Response) => {
     res.json(artifact.jsonPayload);
   } catch (err) {
     console.error('[builder] GET /tasks/:id/evidence error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /api/builder/tasks/:id/artifacts — recent stored artifacts except evidence packs
+router.get('/tasks/:id/artifacts', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const artifacts = await db
+      .select({
+        id: builderArtifacts.id,
+        taskId: builderArtifacts.taskId,
+        artifactType: builderArtifacts.artifactType,
+        lane: builderArtifacts.lane,
+        path: builderArtifacts.path,
+        jsonPayload: builderArtifacts.jsonPayload,
+        createdAt: builderArtifacts.createdAt,
+      })
+      .from(builderArtifacts)
+      .where(and(
+        eq(builderArtifacts.taskId, req.params.id),
+        ne(builderArtifacts.artifactType, 'evidence_pack'),
+      ))
+      .orderBy(desc(builderArtifacts.createdAt))
+      .limit(24);
+
+    res.json(artifacts);
+  } catch (err) {
+    console.error('[builder] GET /tasks/:id/artifacts error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });

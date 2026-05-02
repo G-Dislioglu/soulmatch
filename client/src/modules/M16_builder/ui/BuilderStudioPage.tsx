@@ -19,6 +19,7 @@ import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
   useBuilderApi,
   type BuilderAction,
+  type BuilderArtifact,
   type BuilderChatMessage,
   type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
@@ -1243,6 +1244,57 @@ function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
   return `Diese Task braucht vor dem naechsten Schritt deinen Blick oder deine Zustimmung.${tail}`;
 }
 
+function toArtifactPayload(artifact: BuilderArtifact | null | undefined) {
+  if (!artifact?.jsonPayload || typeof artifact.jsonPayload !== 'object') {
+    return null;
+  }
+
+  return artifact.jsonPayload;
+}
+
+function getArtifactPayloadString(artifact: BuilderArtifact | null | undefined, key: string) {
+  const payload = toArtifactPayload(artifact);
+  const value = payload?.[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function getArtifactPreviewText(artifact: BuilderArtifact | null | undefined) {
+  const payload = toArtifactPayload(artifact);
+  if (!payload) {
+    return null;
+  }
+
+  const directFields = ['summary', 'notes', 'html', 'step', 'route', 'kind'] as const;
+  for (const field of directFields) {
+    const value = payload[field];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  const compact = JSON.stringify(payload, null, 2);
+  return compact.length > 1200 ? `${compact.slice(0, 1200).trimEnd()}...` : compact;
+}
+
+function formatArtifactTypeLabel(type: string) {
+  switch (type) {
+    case 'prototype':
+      return 'Prototype';
+    case 'promoted_prototype':
+      return 'Promoted Prototype';
+    case 'browser_screenshot':
+      return 'Browser Screenshot';
+    case 'approval_ticket':
+      return 'Approval Ticket';
+    default:
+      return type.replace(/_/g, ' ');
+  }
+}
+
+function pickLatestArtifact(artifacts: BuilderArtifact[], types: string[]) {
+  return artifacts.find((artifact) => types.includes(artifact.artifactType)) ?? null;
+}
+
 function matchObservationSignals(
   observation: BuilderTaskObservation | null,
   patterns: string[],
@@ -1904,6 +1956,7 @@ export function BuilderStudioPage() {
   const [dialogFormat, setDialogFormat] = useState<DialogFormat>('dsl');
   const [dialogActions, setDialogActions] = useState<BuilderAction[]>([]);
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
+  const [taskArtifacts, setTaskArtifacts] = useState<BuilderArtifact[]>([]);
   const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
   const [selectedTribunePhase, setSelectedTribunePhase] = useState<TribunePhaseKey | null>(null);
   const [taskQueueFilter, setTaskQueueFilter] = useState<TaskQueueFilter>(() => getInitialTaskQueueFilter());
@@ -1958,6 +2011,7 @@ export function BuilderStudioPage() {
     runTask: runBuilderTask,
     getDialog: getBuilderDialog,
     getEvidence: getBuilderEvidence,
+    getArtifacts: getBuilderArtifacts,
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
@@ -2016,6 +2070,43 @@ export function BuilderStudioPage() {
 
     return latest.length > 420 ? `${latest.slice(0, 420).trimEnd()}...` : latest;
   }, [dialogBubbles]);
+  const nonEvidenceArtifacts = useMemo(
+    () => taskArtifacts.filter((artifact) => artifact.artifactType !== 'evidence_pack'),
+    [taskArtifacts],
+  );
+  const latestPrototypeArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['promoted_prototype', 'prototype']),
+    [nonEvidenceArtifacts],
+  );
+  const latestScreenshotArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['browser_screenshot']),
+    [nonEvidenceArtifacts],
+  );
+  const latestApprovalArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['approval_ticket']),
+    [nonEvidenceArtifacts],
+  );
+  const latestStructuredArtifact = useMemo(
+    () => nonEvidenceArtifacts.find((artifact) => {
+      const payload = toArtifactPayload(artifact);
+      if (!payload) {
+        return false;
+      }
+
+      return typeof payload.html !== 'string' && typeof payload.dataBase64 !== 'string';
+    }) ?? null,
+    [nonEvidenceArtifacts],
+  );
+  const screenshotPreviewSrc = useMemo(() => {
+    const payload = toArtifactPayload(latestScreenshotArtifact);
+    const dataBase64 = typeof payload?.dataBase64 === 'string' ? payload.dataBase64 : null;
+    const contentType = typeof payload?.contentType === 'string' ? payload.contentType : 'image/png';
+    return dataBase64 ? `data:${contentType};base64,${dataBase64}` : null;
+  }, [latestScreenshotArtifact]);
+  const deliveryArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter((artifact) => artifact.artifactType !== 'approval_ticket').slice(0, 6),
+    [nonEvidenceArtifacts],
+  );
   const currentTribuneEntry = useMemo(
     () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
     [tribuneTimeline],
@@ -2176,6 +2267,20 @@ export function BuilderStudioPage() {
       throw error;
     }
   }, [getBuilderEvidence]);
+
+  const refreshArtifacts = useCallback(async (taskId: string) => {
+    try {
+      const nextArtifacts = await getBuilderArtifacts(taskId);
+      setTaskArtifacts(Array.isArray(nextArtifacts) ? nextArtifacts : []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        setTaskArtifacts([]);
+        return;
+      }
+      throw error;
+    }
+  }, [getBuilderArtifacts]);
 
   const refreshObservation = useCallback(async (taskId: string) => {
     try {
@@ -2373,10 +2478,13 @@ export function BuilderStudioPage() {
     void refreshEvidence(selectedTaskId).catch((error) => {
       setPageError(error instanceof Error ? error.message : 'Evidence Pack konnte nicht geladen werden');
     });
+    void refreshArtifacts(selectedTaskId).catch((error) => {
+      setPageError(error instanceof Error ? error.message : 'Artefakte konnten nicht geladen werden');
+    });
     void refreshObservation(selectedTaskId).catch((error) => {
       setPageError(error instanceof Error ? error.message : 'Live-Beobachtung konnte nicht geladen werden');
     });
-  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence, refreshObservation]);
+  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence, refreshArtifacts, refreshObservation]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -2391,6 +2499,20 @@ export function BuilderStudioPage() {
 
     return () => window.clearInterval(intervalId);
   }, [authenticated, selectedTaskId, refreshDialog]);
+
+  useEffect(() => {
+    if (!authenticated || !selectedTaskId) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshArtifacts(selectedTaskId).catch((error) => {
+        setPageError(error instanceof Error ? error.message : 'Artefakte konnten nicht aktualisiert werden');
+      });
+    }, 4000);
+
+    return () => window.clearInterval(intervalId);
+  }, [authenticated, selectedTaskId, refreshArtifacts]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -2625,6 +2747,7 @@ export function BuilderStudioPage() {
       setTaskDetail(null);
       setDialogActions([]);
       setEvidencePack(null);
+      setTaskArtifacts([]);
       setTaskObservation(null);
       await refreshTasks();
     } catch (error) {
@@ -2748,6 +2871,7 @@ export function BuilderStudioPage() {
         setTaskDetail(null);
         setDialogActions([]);
         setEvidencePack(null);
+        setTaskArtifacts([]);
         setTaskObservation(null);
       }
       await refreshTasks();
@@ -4246,11 +4370,26 @@ export function BuilderStudioPage() {
                         {activeTask.contract.output.summary}
                       </div>
                     </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
+                        <span key={artifact.id} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
+                          {formatArtifactTypeLabel(artifact.artifactType)} · {artifact.lane}
+                        </span>
+                      )) : (
+                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
+                          Noch keine persistierten Delivery-Artefakte
+                        </span>
+                      )}
+                    </div>
                     {(activeTask.requestedOutputKind === 'html_artifact' || activeTask.requestedOutputKind === 'visual_artifact') ? (
-                      <div data-maya-target="preview-panel" style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
+                      <div data-maya-target="preview-panel" style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 10 }}>
                         <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Preview Surface</div>
                         <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {previewUrl ? 'Das Artefakt ist als sichtbare Vorschau eingebunden und kann direkt beurteilt werden.' : 'Noch keine direkte Vorschau verfuegbar. Die Tribune und der Dialog liefern aktuell den besten Zwischenstand.'}
+                          {latestPrototypeArtifact
+                            ? `Gespeichertes ${formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)} aus der Prototype-Lane ist vorhanden und dient hier als primaere Delivery-Spur.`
+                            : previewUrl
+                              ? 'Die Preview ist verfuegbar, aber noch nicht als eigenstaendiges Artefakt beschrieben.'
+                              : 'Noch keine direkte Vorschau verfuegbar. Die Tribune und der Dialog liefern aktuell den besten Zwischenstand.'}
                         </div>
                         {previewUrl ? (
                           <iframe
@@ -4259,17 +4398,54 @@ export function BuilderStudioPage() {
                             style={{ width: '100%', height: 320, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, background: '#0f0f17' }}
                           />
                         ) : null}
+                        {latestPrototypeArtifact ? (
+                          <div style={{ fontSize: 12, color: TOKENS.text3 }}>
+                            {formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)} · {latestPrototypeArtifact.path ?? 'ohne Pfad'} · {formatDate(latestPrototypeArtifact.createdAt)}
+                          </div>
+                        ) : null}
+                        {screenshotPreviewSrc ? (
+                          <div style={{ display: 'grid', gap: 8 }}>
+                            <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Latest Browser Capture</div>
+                            <img
+                              src={screenshotPreviewSrc}
+                              alt="Latest browser screenshot"
+                              style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: '#0f0f17' }}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                     {activeTask.requestedOutputKind === 'code_artifact' ? (
                       <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
                         <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Code Delivery</div>
                         <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {activeTask.contract.codeLane.summary}
+                          {latestApprovalArtifact
+                            ? 'Es liegt bereits ein persistierter Freigabe- oder Operator-Artefaktpfad vor. Das ist aktuell die belastbarste Delivery-Spur fuer diesen Lauf.'
+                            : deliveryArtifacts.length > 0
+                              ? 'Der Lauf hat persistierte Builder-Artefakte erzeugt. Fuer Code ist die Artefaktspur noch knapper als fuer Preview-Outputs, aber nicht mehr rein dialogbasiert.'
+                              : activeTask.contract.codeLane.summary}
                         </div>
                         <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
                           Geplante Artefakte: {activeTask.contract.output.plannedArtifacts.join(', ') || '—'}
                         </div>
+                        {deliveryArtifacts.length > 0 ? deliveryArtifacts.slice(0, 3).map((artifact) => (
+                          <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 4 }}>
+                            <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                              {formatArtifactTypeLabel(artifact.artifactType)} · {artifact.lane}
+                            </div>
+                            <div style={{ fontSize: 12, color: TOKENS.text2 }}>
+                              {artifact.path ?? 'kein Pfad gespeichert'}
+                            </div>
+                            <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                              {formatDate(artifact.createdAt)}
+                            </div>
+                            {getArtifactPreviewText(artifact) ? (
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 180, overflowY: 'auto' }}>
+                                {getArtifactPreviewText(artifact)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        )) : null}
                         {latestDialogSnippet ? (
                           <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
                             {latestDialogSnippet}
@@ -4283,7 +4459,9 @@ export function BuilderStudioPage() {
                           {activeTask.requestedOutputKind === 'presentation_artifact' ? 'Presentation Surface' : activeTask.requestedOutputKind === 'json_artifact' ? 'Structured Data Surface' : 'Answer Surface'}
                         </div>
                         <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {evidencePack?.intent?.user_outcome || activeTask.goal}
+                          {latestStructuredArtifact
+                            ? 'Die Delivery Surface zeigt hier das zuletzt persistierte Builder-Artefakt statt nur die Zusammenfassung aus Contract oder Dialog.'
+                            : evidencePack?.intent?.user_outcome || activeTask.goal}
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {activeTask.contract.output.plannedArtifacts.map((artifact) => (
@@ -4292,6 +4470,19 @@ export function BuilderStudioPage() {
                             </span>
                           ))}
                         </div>
+                        {latestStructuredArtifact ? (
+                          <div style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 6 }}>
+                            <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                              {formatArtifactTypeLabel(latestStructuredArtifact.artifactType)} · {latestStructuredArtifact.lane}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                              {latestStructuredArtifact.path ?? 'kein Pfad gespeichert'} · {formatDate(latestStructuredArtifact.createdAt)}
+                            </div>
+                            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 260, overflowY: 'auto' }}>
+                              {getArtifactPreviewText(latestStructuredArtifact)}
+                            </pre>
+                          </div>
+                        ) : null}
                         {latestDialogSnippet ? (
                           <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.65, borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
                             {latestDialogSnippet}
@@ -4299,6 +4490,29 @@ export function BuilderStudioPage() {
                         ) : null}
                       </div>
                     ) : null}
+                    <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
+                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Artifact Stream</div>
+                      {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
+                        <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', display: 'grid', gap: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: 12, color: TOKENS.text }}>{formatArtifactTypeLabel(artifact.artifactType)}</strong>
+                            <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: TOKENS.text2 }}>
+                            Lane {artifact.lane} · {artifact.path ?? 'kein Pfad'}
+                          </div>
+                          {getArtifactPayloadString(artifact, 'route') ? (
+                            <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                              Route: {getArtifactPayloadString(artifact, 'route')}
+                            </div>
+                          ) : null}
+                        </div>
+                      )) : (
+                        <div style={{ fontSize: 13, color: TOKENS.text2 }}>
+                          Fuer diese Task liegt noch kein eigener Builder-Artefaktstrom vor.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, color: TOKENS.text2 }}>Waehle eine Task, um die passende Delivery-Ansicht zu sehen.</div>

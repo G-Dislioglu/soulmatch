@@ -123,6 +123,16 @@ export interface BuilderAction {
   text?: string;
 }
 
+export interface BuilderArtifact {
+  id: string;
+  taskId: string;
+  artifactType: string;
+  lane: string;
+  path: string | null;
+  jsonPayload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface BuilderFileContent {
   content: string;
   lines: number;
@@ -401,6 +411,10 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     return requestJson<BuilderEvidencePack>(`/tasks/${encodeURIComponent(taskId)}/evidence`);
   }, [requestJson]);
 
+  const getArtifacts = useCallback((taskId: string) => {
+    return requestJson<BuilderArtifact[]>(`/tasks/${encodeURIComponent(taskId)}/artifacts`);
+  }, [requestJson]);
+
   const getTaskObservation = useCallback((taskId: string) => {
     return requestJson<BuilderTaskObservation>(`/opus-bridge/observe/${encodeURIComponent(taskId)}`, undefined, {
       preferOpusOnly: true,
@@ -474,6 +488,7 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     runTask,
     getDialog,
     getEvidence,
+    getArtifacts,
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
