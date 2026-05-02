@@ -107,11 +107,11 @@ const PATROL_SEVERITY_ORDER: Record<BuilderPatrolSeverity, number> = {
 };
 
 const PATROL_SEVERITY_CONFIG: Record<BuilderPatrolSeverity, { color: string; bg: string; icon: string; label: string }> = {
-  critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: 'â›”', label: 'Kritisch' },
-  high: { color: '#ff8c42', bg: '#ff8c4218', icon: 'ğŸ”´', label: 'Hoch' },
-  medium: { color: '#ffd166', bg: '#ffd16618', icon: 'ğŸŸ¡', label: 'Mittel' },
-  low: { color: '#6ec6ff', bg: '#6ec6ff18', icon: 'ğŸ”µ', label: 'Niedrig' },
-  info: { color: '#8b8fa3', bg: '#8b8fa318', icon: 'âšª', label: 'Info' },
+  critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '!!', label: 'Kritisch' },
+  high: { color: '#ff8c42', bg: '#ff8c4218', icon: '!', label: 'Hoch' },
+  medium: { color: '#ffd166', bg: '#ffd16618', icon: '~', label: 'Mittel' },
+  low: { color: '#6ec6ff', bg: '#6ec6ff18', icon: 'i', label: 'Niedrig' },
+  info: { color: '#8b8fa3', bg: '#8b8fa318', icon: 'o', label: 'Info' },
 };
 
 const PATROL_CATEGORY_LABELS: Record<string, string> = {
@@ -214,7 +214,7 @@ async function validateBuilderToken(token: string) {
   const bodyText = await response.text().catch(() => '');
 
   if (response.status === 401 || response.status === 404) {
-    throw new Error('UngÃ¼ltiger Token');
+    throw new Error('Ungueltiger Token');
   }
 
   if (!response.ok && response.status === 500 && window.location.hostname === 'localhost' && bodyText.trim().length === 0) {
@@ -243,7 +243,7 @@ function useViewportWidth() {
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
-    return 'â€”';
+    return '-';
   }
 
   const date = new Date(value);
@@ -261,10 +261,10 @@ function formatDate(value: string | null | undefined) {
 
 function maskToken(token: string) {
   if (token.length <= 6) {
-    return 'â€¢â€¢â€¢â€¢â€¢â€¢';
+    return '******';
   }
 
-  return `${token.slice(0, 3)}â€¦${token.slice(-2)}`;
+  return `${token.slice(0, 3)}...${token.slice(-2)}`;
 }
 
 function normalizePatrolSeverity(value: string | null | undefined): BuilderPatrolSeverity {
@@ -281,7 +281,7 @@ function shortenGuideLabel(value: string, maxLength = 48) {
     return normalized;
   }
 
-  return `${normalized.slice(0, maxLength - 1).trimEnd()}â€¦`;
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
 function extractNavigationDirective(content: string) {
@@ -358,24 +358,24 @@ function getDirectorRunStatus(thinking: boolean, elapsedMs: number) {
 
   if (thinking) {
     if (elapsedSeconds < 4) {
-      return `Deep scannt Kontext und Scope Â· ${elapsedSeconds}s`;
+      return `Deep scannt Kontext und Scope  -  ${elapsedSeconds}s`;
     }
     if (elapsedSeconds < 10) {
-      return `Deep prueft Tasks, Memory und Toolweg Â· ${elapsedSeconds}s`;
+      return `Deep prueft Tasks, Memory und Toolweg  -  ${elapsedSeconds}s`;
     }
     if (elapsedSeconds < 18) {
-      return `Deep baut den naechsten Builder-Schritt Â· ${elapsedSeconds}s`;
+      return `Deep baut den naechsten Builder-Schritt  -  ${elapsedSeconds}s`;
     }
-    return `Deep verdichtet Antwort und Actions Â· ${elapsedSeconds}s`;
+    return `Deep verdichtet Antwort und Actions  -  ${elapsedSeconds}s`;
   }
 
   if (elapsedSeconds < 3) {
-    return `Fast scannt den Auftrag Â· ${elapsedSeconds}s`;
+    return `Fast scannt den Auftrag  -  ${elapsedSeconds}s`;
   }
   if (elapsedSeconds < 7) {
-    return `Fast waehlt den kuerzesten Toolweg Â· ${elapsedSeconds}s`;
+    return `Fast waehlt den kuerzesten Toolweg  -  ${elapsedSeconds}s`;
   }
-  return `Fast finalisiert Antwort und Actions Â· ${elapsedSeconds}s`;
+  return `Fast finalisiert Antwort und Actions  -  ${elapsedSeconds}s`;
 }
 
 function getDirectorStatusText(
@@ -399,7 +399,7 @@ function getDirectorStatusText(
     return status.message ?? 'Fehler im Maya-Brain-Lauf.';
   }
 
-  return status.tool ? `fertig Â· ${status.tool}` : 'fertig';
+  return status.tool ? `fertig  -  ${status.tool}` : 'fertig';
 }
 
 function getReadFilePreview(action: MayaActionResult): ReadFilePreview | null {
@@ -609,11 +609,11 @@ const UNIVERSAL_PHASE_COLORS: Record<TribunePhaseKey, string> = {
 };
 
 function formatLaneList(lanes: string[]) {
-  return lanes.length > 0 ? lanes.join(' Â· ') : 'Noch keine Lane zugewiesen';
+  return lanes.length > 0 ? lanes.join('  -  ') : 'Noch keine Lane zugewiesen';
 }
 
 function formatInstanceList(instances: string[]) {
-  return instances.length > 0 ? instances.join(' Â· ') : 'Noch kein Team sichtbar';
+  return instances.length > 0 ? instances.join('  -  ') : 'Noch kein Team sichtbar';
 }
 
 function formatArtifacts(list: string[]) {
@@ -644,7 +644,7 @@ function formatExecutionSummary(evidence: BuilderEvidencePack | null) {
 
   const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
   const reason = evidence.execution_summary.last_transition_reason ?? 'kein letzter Grund';
-  return `${channel} Â· ${reason}`;
+  return `${channel}  -  ${reason}`;
 }
 
 function formatExecutionMeta(evidence: BuilderEvidencePack | null) {
@@ -655,7 +655,7 @@ function formatExecutionMeta(evidence: BuilderEvidencePack | null) {
   const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
   const lane = evidence.execution_summary.last_transition_lane ?? 'unknown';
   const reason = evidence.execution_summary.last_transition_reason ?? 'ohne Grund';
-  return `${channel} Â· ${lane} Â· ${reason}`;
+  return `${channel}  -  ${lane}  -  ${reason}`;
 }
 
 function deriveOperatorGuidance(
@@ -676,7 +676,7 @@ function deriveOperatorGuidance(
     return {
       title: 'Prototype braucht Entscheidung',
       summary: 'Dieser Lauf hat bewusst vor dem Weiterbau angehalten, damit du den sichtbaren Zwischenstand freigibst, ueberarbeiten laesst oder verwirfst.',
-      detail: `Modus ${channelLabel} Â· letzter Uebergang ${reason}.${moreWaiting}`,
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.${moreWaiting}`,
       accent: TOKENS.gold,
       actions: [
         { key: 'approve_prototype', label: 'Prototype freigeben', tone: 'primary' },
@@ -690,7 +690,7 @@ function deriveOperatorGuidance(
     return {
       title: 'Maya wartet auf deine Freigabe',
       summary: 'Das Ergebnis liegt bereit, aber dieser Vertrag verlangt vor dem naechsten Schritt eine menschliche Entscheidung.',
-      detail: `Modus ${channelLabel} Â· letzter Uebergang ${reason}.${moreWaiting}`,
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.${moreWaiting}`,
       accent: TOKENS.gold,
       actions: [
         { key: 'approve', label: 'Freigeben', tone: 'primary' },
@@ -719,7 +719,7 @@ function deriveOperatorGuidance(
       summary: channel === 'bridge'
         ? 'Ein externer Bridge- oder Override-Pfad hat den Task in einen gestoppten Zustand gebracht.'
         : 'Der aktuelle Lauf ist nicht mehr aktiv und braucht jetzt eine bewusste Entscheidung.',
-      detail: `Modus ${channelLabel} Â· letzter Uebergang ${reason}.`,
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
       accent: TOKENS.rose,
       actions: [
         { key: 'inspect', label: 'Ursache ansehen', tone: 'neutral' },
@@ -733,7 +733,7 @@ function deriveOperatorGuidance(
     return {
       title: 'Ergebnis ist geliefert',
       summary: 'Maya betrachtet den Stand als lieferbar. Der naechste sinnvolle Schritt ist jetzt Pruefung oder Abschluss.',
-      detail: `Modus ${channelLabel} Â· letzter Uebergang ${reason}.`,
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
       accent: TOKENS.green,
       actions: task.contract.output.needsUserConfirmation
         ? [
@@ -785,7 +785,7 @@ function deriveOperatorGuidance(
   return {
     title: 'Kein Eingriff noetig',
     summary: 'Maya arbeitet aktuell in einem normalen Lauf und hat keinen expliziten Bedienbedarf signalisiert.',
-    detail: `Modus ${channelLabel} Â· letzter Uebergang ${reason}.`,
+    detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
     accent: TOKENS.text3,
     actions: [
       { key: 'inspect', label: 'Task verfolgen', tone: 'neutral' },
@@ -1015,7 +1015,7 @@ function deriveExperienceMode(
 
 function getPipelineReadinessText(pools: PoolState) {
   const connectedModels = Object.values(pools).reduce((sum, entries) => sum + entries.length, 0);
-  return `Pipeline bereit Â· ${connectedModels} Modelle verbunden`;
+  return `Pipeline bereit  -  ${connectedModels} Modelle verbunden`;
 }
 
 function getSpecialistTransparencyLabel(
@@ -1039,17 +1039,17 @@ function formatObservationMeta(observation: BuilderTaskObservation | null) {
 
   const latestChat = observation.chatPool[observation.chatPool.length - 1];
   if (latestChat) {
-    return `${latestChat.actor} Â· ${latestChat.phase} Â· ${formatDate(latestChat.createdAt)}`;
+    return `${latestChat.actor}  -  ${latestChat.phase}  -  ${formatDate(latestChat.createdAt)}`;
   }
 
   const latestAction = observation.actions[observation.actions.length - 1];
   if (latestAction) {
-    return `${latestAction.actor} Â· ${latestAction.kind} Â· ${formatDate(latestAction.createdAt)}`;
+    return `${latestAction.actor}  -  ${latestAction.kind}  -  ${formatDate(latestAction.createdAt)}`;
   }
 
   const latestLog = observation.opusLogs[observation.opusLogs.length - 1];
   if (latestLog) {
-    return `${latestLog.action} Â· ${formatDate(latestLog.createdAt)}`;
+    return `${latestLog.action}  -  ${formatDate(latestLog.createdAt)}`;
   }
 
   return 'Live-Feed noch ohne einzelne Events.';
@@ -1102,7 +1102,7 @@ function deriveTribuneTimeline(
       key: 'requested',
       label: 'Angefragt',
       detail: `Task angelegt am ${formatDate(task.createdAt)} und fuer Maya registriert.`,
-      meta: `Status ${task.status} Â· Updated ${formatDate(task.updatedAt)}`,
+      meta: `Status ${task.status}  -  Updated ${formatDate(task.updatedAt)}`,
       accent: UNIVERSAL_PHASE_COLORS.requested,
     },
     understood: {
@@ -1123,17 +1123,17 @@ function deriveTribuneTimeline(
       key: 'active',
       label: 'Aktiv',
       detail: `${contract.team.summary} ${summarizeWorkerModels(observation)}`,
-      meta: `${contract.codeLane.phase} Â· ${executionMeta}`,
+      meta: `${contract.codeLane.phase}  -  ${executionMeta}`,
       accent: UNIVERSAL_PHASE_COLORS.active,
     },
     synthesizing: {
       key: 'synthesizing',
       label: 'Verdichtet',
       detail: evidence
-        ? `${evidence.checks.tsc}/${evidence.checks.build} bei TSC/Build Â· Runtime ${runtimePasses} gruen, ${runtimeFailures} nicht gruen.`
+        ? `${evidence.checks.tsc}/${evidence.checks.build} bei TSC/Build  -  Runtime ${runtimePasses} gruen, ${runtimeFailures} nicht gruen.`
         : contract.lifecycle.summary,
       meta: evidence
-        ? `Agreement ${evidence.agreement_level ?? 'â€”'} Â· Counterexamples ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`
+        ? `Agreement ${evidence.agreement_level ?? '-'}  -  Counterexamples ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`
         : latestMeta,
       accent: UNIVERSAL_PHASE_COLORS.synthesizing,
     },
@@ -1141,7 +1141,7 @@ function deriveTribuneTimeline(
       key: 'delivered',
       label: 'Bereit',
       detail: contract.output.summary,
-      meta: `${contract.output.format} Â· ${formatArtifacts(contract.output.plannedArtifacts)} Â· ${executionMeta}`,
+      meta: `${contract.output.format}  -  ${formatArtifacts(contract.output.plannedArtifacts)}  -  ${executionMeta}`,
       accent: UNIVERSAL_PHASE_COLORS.delivered,
     },
     confirmed: {
@@ -1325,8 +1325,8 @@ function deriveTribunePhaseDetail(
         source: 'task',
         lines: [
           `Titel: ${task.title}`,
-          `Intent: ${contract.intent.kind} Â· Risk: ${task.risk ?? 'â€”'}`,
-          `Erstellt: ${formatDate(task.createdAt)} Â· Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
+          `Intent: ${contract.intent.kind}  -  Risk: ${task.risk ?? '-'}`,
+          `Erstellt: ${formatDate(task.createdAt)}  -  Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
         ],
       };
     case 'understood': {
@@ -1338,7 +1338,7 @@ function deriveTribunePhaseDetail(
           : 'Diese Verstehensphase ist vorbei; der weitere Lauf baut auf diesem Zuschnitt auf.',
         source: 'observe',
         lines: planningSignals.length > 0
-          ? planningSignals.slice(-3).map((entry) => `${entry.actor} Â· ${entry.phase} Â· ${shortenGuideLabel(entry.content, 96)}`)
+          ? planningSignals.slice(-3).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
           : [
               contract.intent.summary,
               timelineEntry?.meta ?? `Status ${task.status}`,
@@ -1358,7 +1358,7 @@ function deriveTribunePhaseDetail(
           `Team: ${formatInstanceList(contract.team.activeInstances)}`,
           `Execution: ${formatExecutionMeta(evidence)}`,
           ...(routeSignals.length > 0
-            ? routeSignals.slice(-2).map((entry) => `${entry.actor} Â· ${entry.phase} Â· ${shortenGuideLabel(entry.content, 96)}`)
+            ? routeSignals.slice(-2).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
             : [contract.routing.summary]),
         ],
       };
@@ -1372,11 +1372,11 @@ function deriveTribunePhaseDetail(
           : 'Diese Phase beschreibt den konkreten Arbeitsabschnitt der Aufgabe.',
         source: 'observe',
         lines: [
-          `Code-Lane: ${contract.codeLane.phase} Â· ${contract.codeLane.summary}`,
+          `Code-Lane: ${contract.codeLane.phase}  -  ${contract.codeLane.summary}`,
           `Execution: ${formatExecutionMeta(evidence)}`,
           summarizeWorkerModels(observation),
           ...(buildSignals.length > 0
-            ? buildSignals.slice(-3).map((entry) => `${entry.actor} Â· ${entry.phase} Â· ${shortenGuideLabel(entry.content, 96)}`)
+            ? buildSignals.slice(-3).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
             : [timelineEntry?.meta ?? 'Noch keine sichtbaren Worker-Signale.']),
         ],
       };
@@ -1392,11 +1392,11 @@ function deriveTribunePhaseDetail(
         source: 'evidence',
         lines: evidence
           ? [
-              `TSC: ${evidence.checks.tsc} Â· Build: ${evidence.checks.build}`,
+              `TSC: ${evidence.checks.tsc}  -  Build: ${evidence.checks.build}`,
               `Runtime: ${evidence.runtime_results.length} Signale, ${evidence.runtime_results.filter((result) => result.result !== 'pass').length} nicht gruen`,
               `Counterexamples: ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`,
               `Execution: ${formatExecutionMeta(evidence)}`,
-              `Agreement: ${evidence.agreement_level ?? 'â€”'}`,
+              `Agreement: ${evidence.agreement_level ?? '-'}`,
             ]
           : [timelineEntry?.detail ?? 'Noch keine Check-Signale sichtbar.'],
       };
@@ -1408,7 +1408,7 @@ function deriveTribunePhaseDetail(
           : 'Maya betrachtet das Ergebnis als bereit fuer Auslieferung oder Abschluss.',
         source: 'task + contract',
         lines: [
-          `Output: ${contract.output.kind} Â· Format: ${contract.output.format}`,
+          `Output: ${contract.output.kind}  -  Format: ${contract.output.format}`,
           `Artefakte: ${formatArtifacts(contract.output.plannedArtifacts)}`,
           `Execution: ${formatExecutionMeta(evidence)}`,
           ...(isManualReviewLane
@@ -1634,7 +1634,7 @@ function PoolBar(props: {
                         textTransform: 'uppercase',
                       }}
                     >
-                      Live â–¾
+                      Live {'>'}
                     </button>
                     {isChatOpen ? (
                       <div
@@ -1672,7 +1672,7 @@ function PoolBar(props: {
         <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 22, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '16px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: POOL_LABELS[openPool].accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>{POOL_LABELS[openPool].label}</div>
-            <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>âœ•</button>
+            <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>x</button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {(poolConfig?.available[openPool] ?? []).map((modelId) => {
@@ -1757,7 +1757,7 @@ function ContextPanel(props: {
                 <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatDate(note.updatedAt)}</span>{' '}
                 {note.summary}
               </div>
-              {note.id ? <button onClick={() => onDeleteMemory(note.id!)} style={{ border: 'none', background: 'transparent', color: TOKENS.text3, cursor: 'pointer', fontSize: 10 }}>âœ•</button> : null}
+              {note.id ? <button onClick={() => onDeleteMemory(note.id!)} style={{ border: 'none', background: 'transparent', color: TOKENS.text3, cursor: 'pointer', fontSize: 10 }}>x</button> : null}
             </div>
           ))}
           {ctx.continuityNotes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Continuity Notes.</div> : null}
@@ -1877,7 +1877,7 @@ function BuilderAuthGate(props: {
                 transition: 'transform 0.18s ease, filter 0.18s ease, background 0.18s ease',
               }}
             >
-              {tokenVisible ? 'ğŸ™ˆ' : 'ğŸ‘'}
+              {tokenVisible ? 'Hide' : 'Show'}
             </button>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -1917,7 +1917,7 @@ function BuilderAuthGate(props: {
               {loading ? 'Verbinde...' : 'Verbinden'}
             </button>
             <button onClick={onBack} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '11px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              ZurÃ¼ck
+              Zurueck
             </button>
           </div>
         </div>
@@ -2101,8 +2101,8 @@ export function BuilderStudioPage() {
     if (experienceMode === 'pipeline' && activeTask) {
       const activeIndex = Math.max(0, tribuneTimeline.findIndex((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked'));
       return {
-        left: `Pipeline aktiv Â· ${activeTask.title} Â· Phase ${activeIndex + 1} von ${tribuneTimeline.length}`,
-        right: evidencePack ? `${formatExecutionChannelLabel(evidencePack.execution_summary.channel)} Â· ${evidencePack.total_tokens} Tokens` : 'Maya orchestriert gerade',
+        left: `Pipeline aktiv  -  ${activeTask.title}  -  Phase ${activeIndex + 1} von ${tribuneTimeline.length}`,
+        right: evidencePack ? `${formatExecutionChannelLabel(evidencePack.execution_summary.channel)}  -  ${evidencePack.total_tokens} Tokens` : 'Maya orchestriert gerade',
       };
     }
 
@@ -2388,7 +2388,7 @@ export function BuilderStudioPage() {
         bootstrappedTokenRef.current = null;
         setAuthenticated(false);
         const message = error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen';
-        setAuthError(message === 'HTTP 401' ? 'UngÃ¼ltiger Token' : message);
+        setAuthError(message === 'HTTP 401' ? 'Ungueltiger Token' : message);
       } finally {
         if (!cancelled) {
           setAuthLoading(false);
@@ -2690,7 +2690,7 @@ export function BuilderStudioPage() {
       return;
     }
 
-    const notes = window.prompt('Revisionshinweis fÃ¼r den Prototype', 'Bitte Layout oder Flow Ã¼berarbeiten.') ?? undefined;
+    const notes = window.prompt('Revisionshinweis fuer den Prototype', 'Bitte Layout oder Flow ueberarbeiten.') ?? undefined;
 
     setIsBusy(true);
     setPageError(null);
@@ -2762,7 +2762,7 @@ export function BuilderStudioPage() {
       setTaskObservation(null);
       await refreshTasks();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelÃ¶scht werden');
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht geloescht werden');
     } finally {
       setIsBusy(false);
     }
@@ -2887,7 +2887,7 @@ export function BuilderStudioPage() {
       }
       await refreshTasks();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelÃ¶scht werden');
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht geloescht werden');
     } finally {
       setIsBusy(false);
     }
@@ -3032,24 +3032,7 @@ export function BuilderStudioPage() {
   const sidebarWidth = sidebarExpanded && !compact ? 248 : 72;
   const showDrawerColumn = Boolean(drawerView) && !compact;
   const topbarStatus = builderStatus;
-  /* legacy topbar status removed
-  const topbarStatusLegacy = experienceMode === 'pipeline' && activeTask
-    ? {
-        left: `Pipeline aktiv Â· ${activeTask.title}`,
-        right: evidencePack ? `${formatExecutionChannelLabel(evidencePack.execution_summary.channel)} Â· ${evidencePack.total_tokens} Tokens` : 'Maya orchestriert gerade',
-      }
-    : experienceMode === 'single_specialist'
-      ? {
-          left: getPipelineReadinessText(pools),
-          right: getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
-        }
-      : {
-          left: getPipelineReadinessText(pools),
-          right: 'Maya wartet auf deine naechste Aufgabe',
-        };
-  void topbarStatusLegacy;
-  */
-
+  
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text }}>
       <div ref={builderRef} style={{ position: 'relative', maxWidth: 1680, margin: '0 auto', padding: compact ? '18px 16px 28px' : '22px 22px 32px' }}>
@@ -3095,7 +3078,7 @@ export function BuilderStudioPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {sidebarExpanded ? 'âˆ’' : '+'}
+                    {sidebarExpanded ? '-' : '+'}
                   </button>
                   <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.16em', fontFamily: TOKENS.font.body }}>
                     Maya Stage
@@ -3161,69 +3144,7 @@ export function BuilderStudioPage() {
             </div>
           </div>
         </div>
-        {/* legacy header removed
-          style={{
-            border: `1.5px solid ${TOKENS.b2}`,
-            borderRadius: 24,
-            background: TOKENS.card,
-            boxShadow: TOKENS.shadow.card,
-            padding: compact ? 18 : 22,
-            marginBottom: 18,
-            display: 'none',
-          }}
-        >
-          {null}
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: 11, color: TOKENS.text2, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
-              Maya-Centered Universal Builder
-            </div>
-            <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: compact ? 28 : 34, color: TOKENS.text, letterSpacing: '0.05em' }}>
-              Builder Studio
-            </div>
-            <div style={{ marginTop: 8, fontFamily: TOKENS.font.body, fontSize: 13, lineHeight: 1.7, color: TOKENS.text2, maxWidth: 760 }}>
-              Task-Orchestrierung, Dialog-Review und Evidence Packs in einer operativen OberflÃ¤che.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                Zur App
-              </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                Refresh
-              </button>
-              <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                ğŸ§­ Maya Tour
-              </button>
-              <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                {showConfig ? 'Config âœ•' : 'Config'}
-              </button>
-              <a
-                data-maya-target="patrol-console"
-                href="/patrol?opus_token=opus-bridge-2026-geheim"
-                style={{
-                  borderRadius: 999,
-                  border: '1.5px solid #f97316',
-                  background: 'rgba(249,115,22,0.14)',
-                  color: '#f97316',
-                  textDecoration: 'none',
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                ğŸ›¡ï¸ Patrol Console
-              </a>
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text2, fontSize: 12 }}>
-              <span>Token {maskToken(token)}</span>
-              <span>{tasks.length} Tasks</span>
-              <span>{files.length} Files</span>
-            </div>
-          </div>
-        */}
-
+        
         {pageError ? (
           <div style={{ marginBottom: 16, borderRadius: 16, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '12px 14px', fontSize: 13 }}>
             {pageError}
@@ -3272,7 +3193,7 @@ export function BuilderStudioPage() {
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: 12, color: TOKENS.gold, fontWeight: 700, width: 16, flexShrink: 0 }}>{patrolOpen ? 'â–¾' : 'â–¸'}</span>
+              <span style={{ fontSize: 12, color: TOKENS.gold, fontWeight: 700, width: 16, flexShrink: 0 }}>{patrolOpen ? 'v' : '>'}</span>
               <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Session</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionSummary}</span>
             </button>
@@ -3284,7 +3205,7 @@ export function BuilderStudioPage() {
                     <div style={{ fontSize: 11, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Patrol Findings</div>
                     <div style={{ fontSize: 12, color: TOKENS.text2 }}>
                       {patrolStatus
-                        ? `${patrolStatus.totalFindings ?? 0} Findings Â· ${patrolStatus.crossConfirmed ?? 0} cross-confirmed Â· ${patrolStatus.triaged ?? 0} triaged`
+                        ? `${patrolStatus.totalFindings ?? 0} Findings  -  ${patrolStatus.crossConfirmed ?? 0} cross-confirmed  -  ${patrolStatus.triaged ?? 0} triaged`
                         : 'Patrol-Status wird geladen...'}
                     </div>
                   </div>
@@ -3360,7 +3281,7 @@ export function BuilderStudioPage() {
                                 <span>{config.icon}</span>
                                 <span>{config.label}</span>
                               </span>
-                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{expanded ? 'â–¾' : 'â–¸'}</span>
+                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{expanded ? 'v' : '>'}</span>
                             </div>
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finding.title}</div>
@@ -3468,7 +3389,7 @@ export function BuilderStudioPage() {
                         Maya Einstieg
                       </div>
                       <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                        Aufgaben entstehen hier aus dem Dialog mit Maya, nicht aus einem Formular. Beschreibe den nÃ¤chsten Schritt im Chat und Maya routet ihn in die passende Arbeitsform.
+                        Aufgaben entstehen hier aus dem Dialog mit Maya, nicht aus einem Formular. Beschreibe den naechsten Schritt im Chat und Maya routet ihn in die passende Arbeitsform.
                       </div>
                       <button
                         type="button"
@@ -3505,7 +3426,7 @@ export function BuilderStudioPage() {
                           }}
                         >
                           <span style={{ fontSize: 12.5, fontWeight: 700 }}>{task.title}</span>
-                          <span style={{ fontSize: 11.5, color: TOKENS.text3 }}>{deriveTaskQueueSignal(task).label} Â· {task.status}</span>
+                          <span style={{ fontSize: 11.5, color: TOKENS.text3 }}>{deriveTaskQueueSignal(task).label}  -  {task.status}</span>
                         </button>
                       )) : (
                         <div style={{ fontSize: 12.5, color: TOKENS.text3 }}>Noch keine Builder-Tasks vorhanden.</div>
@@ -3536,7 +3457,7 @@ export function BuilderStudioPage() {
                       </div>
                       <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
                         {patrolStatus
-                          ? `${patrolStatus.totalFindings ?? 0} Findings Â· ${patrolStatus.crossConfirmed ?? 0} cross-confirmed`
+                          ? `${patrolStatus.totalFindings ?? 0} Findings  -  ${patrolStatus.crossConfirmed ?? 0} cross-confirmed`
                           : 'Patrol-Status wird geladen oder ist noch nicht geoeffnet.'}
                       </div>
                       <button
@@ -3753,12 +3674,12 @@ export function BuilderStudioPage() {
                               opacity: isBusy ? 0.6 : 1,
                             }}
                           >
-                            Ã—
+                            x
                           </button>
                         ) : null}
                         <button
                           onClick={() => { void handleDeleteInline(task.id); }}
-                          title="Task lÃ¶schen"
+                          title="Task loeschen"
                           disabled={isBusy}
                           style={{
                             width: 34,
@@ -3773,7 +3694,7 @@ export function BuilderStudioPage() {
                             opacity: isBusy ? 0.6 : 1,
                           }}
                         >
-                          ğŸ—‘
+                          x
                         </button>
                       </div>
                     </div>
@@ -3818,7 +3739,7 @@ export function BuilderStudioPage() {
                   ))}
                 </div>
                 <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                  <div style={{ fontSize: 12, color: TOKENS.text3, marginBottom: 8 }}>{selectedFilePath ?? 'Keine Datei gewÃ¤hlt'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text3, marginBottom: 8 }}>{selectedFilePath ?? 'Keine Datei gewaehlt'}</div>
                   <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, lineHeight: 1.55, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                     {selectedFileContent ? toLines(selectedFileContent).join('\n') : 'Dateiinhalt erscheint hier als kurzer Preview-Ausschnitt.'}
                   </pre>
@@ -4210,7 +4131,7 @@ export function BuilderStudioPage() {
                     {directorModel ? 'Mehrstufiger Maya-Brain aktiv' : 'Normaler Builder-Chat aktiv'}
                   </span>
                   <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {activeChatLabel} Â· {activeChatEndpoint}
+                    {activeChatLabel}  -  {activeChatEndpoint}
                   </span>
                 </div>
               </div>
@@ -4228,8 +4149,8 @@ export function BuilderStudioPage() {
                 {chatMessages.length === 0 ? (
                   <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
                     {directorModel
-                      ? 'Beschreibe den naechsten Builder-Schritt â€” Maya Brain kann analysieren, delegieren und Actions ausfuehren.'
-                      : 'Beschreibe was du aendern willst â€” Maya erstellt den Task automatisch.'}
+                      ? 'Beschreibe den naechsten Builder-Schritt - Maya Brain kann analysieren, delegieren und Actions ausfuehren.'
+                      : 'Beschreibe was du aendern willst - Maya erstellt den Task automatisch.'}
                   </div>
                 ) : null}
                 {chatMessages.map((message, index) => {
@@ -4268,7 +4189,7 @@ export function BuilderStudioPage() {
                           }}
                         >
                           <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                            âœ¨ Task erstellt
+                            Task erstellt
                           </div>
                           <div style={{ fontSize: 15, color: '#e2e4f0', fontWeight: 600 }}>
                             {parsedTask.title}
@@ -4318,7 +4239,7 @@ export function BuilderStudioPage() {
                                 }}
                               >
                                 <summary style={{ cursor: 'pointer', color: TOKENS.gold, fontSize: 12, fontWeight: 700 }}>
-                                  read-file Â· {preview.path}
+                                  read-file  -  {preview.path}
                                 </summary>
                                 <pre
                                   style={{
@@ -4441,7 +4362,7 @@ export function BuilderStudioPage() {
               </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div style={{ color: TOKENS.text2, fontSize: 13 }}>
-                Aktiver Task: {activeTask?.title ?? 'â€”'}
+                Aktiver Task: {activeTask?.title ?? '-'}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['dsl', 'text'] as const).map((format) => (
@@ -4481,7 +4402,7 @@ export function BuilderStudioPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
                     <div>
                       <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: ACTOR_COLORS[bubble.actor] ?? TOKENS.text2 }}>{bubble.actor}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: TOKENS.text3 }}>Runde {bubble.roundNumber || 'â€”'} Â· {bubble.role}</div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: TOKENS.text3 }}>Runde {bubble.roundNumber || '-'}  -  {bubble.role}</div>
                     </div>
                     <div style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(bubble.createdAt)}</div>
                   </div>
@@ -4490,7 +4411,7 @@ export function BuilderStudioPage() {
                   </pre>
                 </article>
               ))}
-              {dialogBubbles.length === 0 ? <div style={{ fontSize: 14, color: TOKENS.text2 }}>Noch kein Dialog fÃ¼r den gewÃ¤hlten Task vorhanden.</div> : null}
+              {dialogBubbles.length === 0 ? <div style={{ fontSize: 14, color: TOKENS.text2 }}>Noch kein Dialog fuer den gewaehlten Task vorhanden.</div> : null}
             </div>
             </BuilderPanel>
           </div>
@@ -4555,13 +4476,13 @@ export function BuilderStudioPage() {
                         </div>
                         <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 5 }}>
                           <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                            Was als NÃ¤chstes lieferbar ist
+                            Was als Naechstes lieferbar ist
                           </div>
                           <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
                             {activeTask.contract.output.summary}
                           </div>
                           <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                            Plan: {activeTask.contract.output.plannedArtifacts.join(', ') || 'â€”'}
+                            Plan: {activeTask.contract.output.plannedArtifacts.join(', ') || '-'}
                           </div>
                         </div>
                       </div>
@@ -4602,7 +4523,7 @@ export function BuilderStudioPage() {
                       WebkitBoxOrient: 'vertical',
                     }}
                   >
-                    {activeTask?.title ?? 'Keine Task gewÃ¤hlt'}
+                    {activeTask?.title ?? 'Keine Task gewaehlt'}
                   </div>
                   <div
                     style={{
@@ -4614,21 +4535,21 @@ export function BuilderStudioPage() {
                       overflow: 'hidden',
                     }}
                   >
-                    {activeTask?.goal ?? 'Links eine Task wÃ¤hlen oder oben eine neue erstellen.'}
+                    {activeTask?.goal ?? 'Links eine Task waehlen oder oben eine neue erstellen.'}
                   </div>
                   <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
-                    <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? 'â€”'}</strong></span>
-                    <span>Risk: {activeTask?.risk ?? 'â€”'} Â· Type: {activeTask?.taskType ?? 'â€”'}</span>
-                    <span>Intent: {activeTask?.intentKind ?? 'â€”'} Â· Output: {activeTask?.requestedOutputKind ?? 'â€”'}</span>
-                    <span>Format: {activeTask?.requestedOutputFormat ?? 'â€”'} Â· Phase: {activeTask?.contract.lifecycle.phase ?? 'â€”'}</span>
+                    <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? '-'}</strong></span>
+                    <span>Risk: {activeTask?.risk ?? '-'}  -  Type: {activeTask?.taskType ?? '-'}</span>
+                    <span>Intent: {activeTask?.intentKind ?? '-'}  -  Output: {activeTask?.requestedOutputKind ?? '-'}</span>
+                    <span>Format: {activeTask?.requestedOutputFormat ?? '-'}  -  Phase: {activeTask?.contract.lifecycle.phase ?? '-'}</span>
                     <span>Execution: {formatExecutionSummary(evidencePack)}</span>
-                    <span>Lanes: {activeTask ? activeTask.contract.routing.activeLanes.join(' Â· ') : 'â€”'}</span>
-                    <span>Team: {activeTask ? activeTask.contract.team.activeInstances.join(' Â· ') : 'â€”'}</span>
-                    <span>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : 'â€”'}</span>
-                    <span>Policy: {activeTask?.policyProfile ?? 'â€”'}</span>
+                    <span>Lanes: {activeTask ? activeTask.contract.routing.activeLanes.join('  -  ') : '-'}</span>
+                    <span>Team: {activeTask ? activeTask.contract.team.activeInstances.join('  -  ') : '-'}</span>
+                    <span>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : '-'}</span>
+                    <span>Policy: {activeTask?.policyProfile ?? '-'}</span>
                     <span>Updated: {formatDate(activeTask?.updatedAt)}</span>
                   </div>
-                  <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash fÃ¼r Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
+                  <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash fuer Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
                   <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
                     <button data-maya-target="run-button" onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
                     <button data-maya-target="approve-button" onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
@@ -4651,14 +4572,14 @@ export function BuilderStudioPage() {
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    {confirmDelete ? 'Wirklich lÃ¶schen?' : 'Task lÃ¶schen'}
+                    {confirmDelete ? 'Wirklich loeschen?' : 'Task loeschen'}
                   </button>
                   {isPrototypeReview && previewUrl ? (
                     <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
                       <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
                         <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Prototype Preview</div>
                         <div style={{ marginTop: 6, fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          Der Builder stoppt hier bewusst. Preview prÃ¼fen und dann explizit freigeben, Ã¼berarbeiten lassen oder verwerfen.
+                          Der Builder stoppt hier bewusst. Preview pruefen und dann explizit freigeben, ueberarbeiten lassen oder verwerfen.
                         </div>
                         <iframe
                           title={`Prototype Preview ${activeTask.id}`}
@@ -4746,7 +4667,7 @@ export function BuilderStudioPage() {
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
                         <span key={artifact.id} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
-                          {formatArtifactTypeLabel(artifact.artifactType)} Â· {artifact.lane}
+                          {formatArtifactTypeLabel(artifact.artifactType)}  -  {artifact.lane}
                         </span>
                       )) : (
                         <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
@@ -4773,7 +4694,7 @@ export function BuilderStudioPage() {
                         ) : null}
                         {latestPrototypeArtifact ? (
                           <div style={{ fontSize: 12, color: TOKENS.text3 }}>
-                            {formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)} Â· {latestPrototypeArtifact.path ?? 'ohne Pfad'} Â· {formatDate(latestPrototypeArtifact.createdAt)}
+                            {formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)}  -  {latestPrototypeArtifact.path ?? 'ohne Pfad'}  -  {formatDate(latestPrototypeArtifact.createdAt)}
                           </div>
                         ) : null}
                         {screenshotPreviewSrc ? (
@@ -4799,12 +4720,12 @@ export function BuilderStudioPage() {
                               : activeTask.contract.codeLane.summary}
                         </div>
                         <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                          Geplante Artefakte: {activeTask.contract.output.plannedArtifacts.join(', ') || 'â€”'}
+                          Geplante Artefakte: {activeTask.contract.output.plannedArtifacts.join(', ') || '-'}
                         </div>
                         {deliveryArtifacts.length > 0 ? deliveryArtifacts.slice(0, 3).map((artifact) => (
                           <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 4 }}>
                             <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                              {formatArtifactTypeLabel(artifact.artifactType)} Â· {artifact.lane}
+                              {formatArtifactTypeLabel(artifact.artifactType)}  -  {artifact.lane}
                             </div>
                             <div style={{ fontSize: 12, color: TOKENS.text2 }}>
                               {artifact.path ?? 'kein Pfad gespeichert'}
@@ -4846,10 +4767,10 @@ export function BuilderStudioPage() {
                         {latestStructuredArtifact ? (
                           <div style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 6 }}>
                             <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                              {formatArtifactTypeLabel(latestStructuredArtifact.artifactType)} Â· {latestStructuredArtifact.lane}
+                              {formatArtifactTypeLabel(latestStructuredArtifact.artifactType)}  -  {latestStructuredArtifact.lane}
                             </div>
                             <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                              {latestStructuredArtifact.path ?? 'kein Pfad gespeichert'} Â· {formatDate(latestStructuredArtifact.createdAt)}
+                              {latestStructuredArtifact.path ?? 'kein Pfad gespeichert'}  -  {formatDate(latestStructuredArtifact.createdAt)}
                             </div>
                             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 260, overflowY: 'auto' }}>
                               {getArtifactPreviewText(latestStructuredArtifact)}
@@ -4872,7 +4793,7 @@ export function BuilderStudioPage() {
                             <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
                           </div>
                           <div style={{ fontSize: 12, color: TOKENS.text2 }}>
-                            Lane {artifact.lane} Â· {artifact.path ?? 'kein Pfad'}
+                            Lane {artifact.lane}  -  {artifact.path ?? 'kein Pfad'}
                           </div>
                           {getArtifactPayloadString(artifact, 'route') ? (
                             <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
@@ -4901,11 +4822,11 @@ export function BuilderStudioPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>TSC</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.tsc === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.tsc ?? 'â€”'}</div>
+                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.tsc === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.tsc ?? '-'}</div>
                   </div>
                   <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Build</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.build === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.build ?? 'â€”'}</div>
+                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.build === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.build ?? '-'}</div>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: 8 }}>
@@ -4931,15 +4852,15 @@ export function BuilderStudioPage() {
               {evidencePack ? (
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Final Status: <strong style={{ color: STATUS_COLORS[evidencePack.final_status] ?? TOKENS.text }}>{evidencePack.final_status}</strong></div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Intent: {evidencePack.intent_kind} Â· Output: {evidencePack.requested_output_kind}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Intent: {evidencePack.intent_kind}  -  Output: {evidencePack.requested_output_kind}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Format: {evidencePack.requested_output_format}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Execution Channel: {formatExecutionChannelLabel(evidencePack.execution_summary.channel)} Â· Source: {evidencePack.execution_summary.latest_status_source ?? 'â€”'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Latest Transition: {evidencePack.execution_summary.last_transition_reason ?? 'â€”'} Â· Lane: {evidencePack.execution_summary.last_transition_lane ?? 'â€”'} Â· {formatDate(evidencePack.execution_summary.last_transition_at)}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Execution Channel: {formatExecutionChannelLabel(evidencePack.execution_summary.channel)}  -  Source: {evidencePack.execution_summary.latest_status_source ?? '-'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Latest Transition: {evidencePack.execution_summary.last_transition_reason ?? '-'}  -  Lane: {evidencePack.execution_summary.last_transition_lane ?? '-'}  -  {formatDate(evidencePack.execution_summary.last_transition_at)}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Transition Count: {evidencePack.execution_summary.transition_count}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Contract Phase: {evidencePack.contract_snapshot.lifecycle_phase} Â· Attention: {evidencePack.contract_snapshot.attention_state}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Active Lanes: {evidencePack.contract_snapshot.active_lanes.join(' Â· ') || 'â€”'} Â· Team: {evidencePack.contract_snapshot.team_instances.join(' Â· ') || 'â€”'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Planned Artifacts: {evidencePack.contract_snapshot.planned_artifacts.join(', ') || 'â€”'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Agreement: {evidencePack.agreement_level ?? 'â€”'} Â· Tokens: {evidencePack.total_tokens}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Contract Phase: {evidencePack.contract_snapshot.lifecycle_phase}  -  Attention: {evidencePack.contract_snapshot.attention_state}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Active Lanes: {evidencePack.contract_snapshot.active_lanes.join('  -  ') || '-'}  -  Team: {evidencePack.contract_snapshot.team_instances.join('  -  ') || '-'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Planned Artifacts: {evidencePack.contract_snapshot.planned_artifacts.join(', ') || '-'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Agreement: {evidencePack.agreement_level ?? '-'}  -  Tokens: {evidencePack.total_tokens}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Counterexamples: {evidencePack.counterexamples_passed}/{evidencePack.counterexamples_tested}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>False success detected: {evidencePack.false_success_detected ? 'ja' : 'nein'}</div>
                   <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
@@ -4954,8 +4875,8 @@ export function BuilderStudioPage() {
                         >
                           <strong style={{ color: TOKENS.text }}>{transition.to_status}</strong> via {transition.lane}
                           {transition.from_status ? ` (von ${transition.from_status})` : ''}
-                          {transition.reason ? ` Â· ${transition.reason}` : ''}
-                          {` Â· ${transition.lifecycle_phase}`}
+                          {transition.reason ? `  -  ${transition.reason}` : ''}
+                          {`  -  ${transition.lifecycle_phase}`}
                         </button>
                       )) : <div style={{ fontSize: 12.5, color: TOKENS.text2 }}>Noch keine expliziten Transition-Signale gespeichert.</div>}
                     </div>
@@ -4981,7 +4902,7 @@ export function BuilderStudioPage() {
                   </details>
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: TOKENS.text2 }}>FÃ¼r diese Task liegt noch kein Evidence Pack vor.</div>
+                <div style={{ fontSize: 13, color: TOKENS.text2 }}>Fuer diese Task liegt noch kein Evidence Pack vor.</div>
               )}
             </BuilderPanel>
             </div>
@@ -5012,7 +4933,7 @@ export function BuilderStudioPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  {task.title} Â· {queueSignal.label}
+                  {task.title}  -  {queueSignal.label}
                 </button>
               );
             })}
