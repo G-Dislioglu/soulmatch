@@ -59,8 +59,8 @@ async function decideNextStep(currentResult: OpusTaskResult, nextTask?: ChainTas
   try {
     const patchCount = currentResult.edits?.edits.length ?? 0;
     const blockSummary = currentResult.status === 'failed' ? currentResult.summary.slice(0, 200) : 'none';
-    const response = await callProvider('anthropic', 'claude-opus-4-6', {
-      system: `Du bist der Chain-Controller für eine Task-Kette im Soulmatch Builder.
+    const response = await callProvider('anthropic', 'claude-opus-4-7', {
+      system: `Du bist der Chain-Controller fÃ¼r eine Task-Kette im Soulmatch Builder.
 Entscheide ob die Kette weiterlaufen soll.
 
 Antworte NUR mit JSON (kein Markdown, keine Backticks):
@@ -74,7 +74,7 @@ Status: ${currentResult.status}
 Blocks: ${blockSummary}
 Patches: ${patchCount} Dateien
 
-Nächster geplanter Task: ${nextTask.instruction}
+NÃ¤chster geplanter Task: ${nextTask.instruction}
 
 Entscheide: continue, adjust oder stop?`,
       }],
@@ -169,7 +169,7 @@ export async function runChain(config: ChainConfig): Promise<ChainResult> {
       ? 'error'
       : orchestratorResult.status === 'dry_run'
         ? 'no_consensus'
-        : 'applying'; // success or partial → applying
+        : 'applying'; // success or partial â†’ applying
 
     const taskResult: ChainTaskResult = {
       index,

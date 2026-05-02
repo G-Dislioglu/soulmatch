@@ -51,7 +51,7 @@ import { builderOpusLog, builderTasks } from '../schema/builder.js';
 
 const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
   opus: {
-    actor: 'opus', model: 'claude-opus-4-6', provider: 'anthropic',
+    actor: 'opus', model: 'claude-opus-4-7', provider: 'anthropic',
     strengths: 'Architektur, Systemdesign, komplexe Logik, saubere Abstraktionen',
     maxTokensPerRound: 2500,
   },
@@ -97,22 +97,22 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
   },
 };
 
-// ─── Council Pool → Participants ───
+// â”€â”€â”€ Council Pool â†’ Participants â”€â”€â”€
 // Maps activePools.council to RoundtableParticipant[], using CODE_WRITER_PRESETS for strengths.
 // Each member gets a Denk-Rolle (round-robin): Architekt, Skeptiker, Pragmatiker.
 
 const COUNCIL_ROLES = [
   {
     tag: 'ARCHITEKT',
-    focus: 'Deine Rolle: ARCHITEKT — Bewerte Struktur, Abstraktionen, Erweiterbarkeit. Frage: Ist das langfristig sauber? Passt es zur bestehenden Architektur?',
+    focus: 'Deine Rolle: ARCHITEKT â€” Bewerte Struktur, Abstraktionen, Erweiterbarkeit. Frage: Ist das langfristig sauber? Passt es zur bestehenden Architektur?',
   },
   {
     tag: 'SKEPTIKER',
-    focus: 'Deine Rolle: SKEPTIKER — Suche Risiken, Edge-Cases, versteckte Abhaengigkeiten. Frage: Was kann schiefgehen? Was wurde uebersehen?',
+    focus: 'Deine Rolle: SKEPTIKER â€” Suche Risiken, Edge-Cases, versteckte Abhaengigkeiten. Frage: Was kann schiefgehen? Was wurde uebersehen?',
   },
   {
     tag: 'PRAGMATIKER',
-    focus: 'Deine Rolle: PRAGMATIKER — Finde die schnellste korrekte Loesung. Frage: Geht das einfacher? Gibt es bestehendes Pattern das wiederverwendet werden kann?',
+    focus: 'Deine Rolle: PRAGMATIKER â€” Finde die schnellste korrekte Loesung. Frage: Geht das einfacher? Gibt es bestehendes Pattern das wiederverwendet werden kann?',
   },
 ] as const;
 
@@ -138,7 +138,7 @@ function buildCouncilParticipants(): RoundtableParticipant[] {
   });
 }
 
-// ─── Maya Moderator ───
+// â”€â”€â”€ Maya Moderator â”€â”€â”€
 // After each council round, Maya evaluates and decides: continue / focus / conclude.
 // Uses the Maya pool model (user's chosen chat model).
 const MAYA_MODERATOR_CEILING = 5;
@@ -171,9 +171,9 @@ function createMayaModerator(taskGoal: string): RoundModerator {
         system: `Du bist Maya, die Moderatorin des Council Roundtable.
 Nach jeder Diskussionsrunde entscheidest du:
 
-1. CONTINUE — Die Diskussion laeuft gut, naechste Runde ohne besonderen Fokus
-2. FOCUS — Du hast etwas entdeckt das vertieft werden muss. Gib den Fokus an.
-3. CONCLUDE — Genug diskutiert, Konsens ist klar oder wird nicht besser.
+1. CONTINUE â€” Die Diskussion laeuft gut, naechste Runde ohne besonderen Fokus
+2. FOCUS â€” Du hast etwas entdeckt das vertieft werden muss. Gib den Fokus an.
+3. CONCLUDE â€” Genug diskutiert, Konsens ist klar oder wird nicht besser.
 
 Bewerte:
 - Gibt es ungeklaerte Widersprueche?
@@ -227,7 +227,7 @@ export interface ExecuteInput {
   risk?: string;
   opusHints?: string;
   skipRoundtable?: boolean;
-  useDecomposer?: boolean;  // Skip Roundtable, go direct: Decompose → Swarm → Meister → GitHub
+  useDecomposer?: boolean;  // Skip Roundtable, go direct: Decompose â†’ Swarm â†’ Meister â†’ GitHub
   skipGithub?: boolean;     // If true, produce patches but do NOT push to GitHub
   sideEffects?: BuilderSideEffectsContract;
   codeWriter?: string;
@@ -306,7 +306,7 @@ function toSafeOverwritePayloads(
     // Parse SEARCH/REPLACE from body
     const searchMatch = patch.body.match(/<<<SEARCH\n?([\s\S]*?)\n?===REPLACE\n?([\s\S]*?)\n?>>>/);
     if (!searchMatch) {
-      // Not a SEARCH/REPLACE patch — might be full-file content
+      // Not a SEARCH/REPLACE patch â€” might be full-file content
       if (patch.body.length > original.length * 0.5) {
         results.push({ file: patch.file, action: 'overwrite', content: patch.body });
       } else {
@@ -316,7 +316,7 @@ function toSafeOverwritePayloads(
     }
 
     const searchBlock = searchMatch[1].trim();
-    const replaceBlock = searchMatch[2]; // Don't trim — preserve indentation
+    const replaceBlock = searchMatch[2]; // Don't trim â€” preserve indentation
 
     if (!searchBlock) {
       // Empty SEARCH = new code to add. Try to find insertion point from context.
@@ -334,7 +334,7 @@ function toSafeOverwritePayloads(
 
     // Apply SEARCH/REPLACE in memory
     if (!original.includes(searchBlock)) {
-      // Exact match failed — try fuzzy line matching
+      // Exact match failed â€” try fuzzy line matching
       const fuzzyResult = fuzzyFindBlock(original, searchBlock);
       if (fuzzyResult) {
         console.log(`[toSafeOverwrite] Fuzzy match for ${patch.file}: ${fuzzyResult.score}% confidence (lines ${fuzzyResult.startLine}-${fuzzyResult.endLine})`);
@@ -434,7 +434,7 @@ function fuzzyFindBlock(original: string, searchBlock: string): {
 }
 
 /**
- * TSC Compile Check — applies patches temporarily to disk, runs tsc --noEmit,
+ * TSC Compile Check â€” applies patches temporarily to disk, runs tsc --noEmit,
  * then restores originals. Returns pass/fail + error messages.
  * Runs for server/ if any server files are patched, client/ if any client files are patched.
  */
@@ -469,7 +469,7 @@ function runTscCompileCheck(
     const hasServerFiles = resolved.some((r) => r.file.startsWith('server/'));
     const hasClientFiles = resolved.some((r) => r.file.startsWith('client/'));
 
-    // Filter known deprecation warnings (TS5107, TS5101) that cause exit-code ≠ 0 but aren't real errors
+    // Filter known deprecation warnings (TS5107, TS5101) that cause exit-code â‰  0 but aren't real errors
     const filterDeprecations = (output: string): string => {
       return output
         .split('\n')
@@ -714,7 +714,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
   );
 
   // === DIRECT DECOMPOSER PATH ===
-  // Skips Roundtable entirely: Decompose → Swarm → Meister → GitHub
+  // Skips Roundtable entirely: Decompose â†’ Swarm â†’ Meister â†’ GitHub
   if (input.useDecomposer && normalizedScope.length > 0) {
     console.log(`[decomposer-direct] ${normalizedScope.length} files, goal: ${instruction.slice(0, 80)}`);
 
@@ -756,7 +756,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     consensusType = 'unanimous';
     rounds = 0;
 
-    console.log(`[decomposer-direct] ${decomposition.stats.totalUnits} units → ${patches.length} patches, ${totalTokens} tokens`);
+    console.log(`[decomposer-direct] ${decomposition.stats.totalUnits} units â†’ ${patches.length} patches, ${totalTokens} tokens`);
   }
 
   if (!input.skipRoundtable && !input.useDecomposer) {
@@ -774,7 +774,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         input.roundtableConfig?.consensusThreshold ?? Math.max(2, Math.ceil(participants.length * 0.6)),
     };
 
-    // Maya moderates between rounds — dynamic focus, early conclude
+    // Maya moderates between rounds â€” dynamic focus, early conclude
     const moderator = createMayaModerator(instruction);
     console.log(`[council] Starting roundtable: ${participants.map((p) => p.actor).join(', ')} (${participants.length} members, threshold=${mergedConfig.consensusThreshold})`);
     await updateTaskStatus(task.id, 'council');
@@ -800,7 +800,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
     blocks = roundtableResult.blocks;
     consensusType = roundtableResult.consensusType ?? null;
 
-    // Phase S2: Auto-Decomposer — wenn Patches große Dateien betreffen (>200 Zeilen),
+    // Phase S2: Auto-Decomposer â€” wenn Patches groÃŸe Dateien betreffen (>200 Zeilen),
     // automatisch durch die Decomposer-Pipeline routen statt direkt anwenden.
     // Der Roundtable entscheidet WAS gebaut wird, der Decomposer entscheidet WIE.
     const LARGE_FILE_THRESHOLD = 200;
@@ -863,7 +863,7 @@ export async function executeTask(input: ExecuteInput): Promise<ExecuteResult> {
         patches = decomposerResult.patches;
         reflectionCandidates = decomposerResult.workerResults;
       } else if (patches.length > 0) {
-        // S30: Roundtable-TSC-Fallback — kleine Patches triggern keinen Auto-Decomposer,
+        // S30: Roundtable-TSC-Fallback â€” kleine Patches triggern keinen Auto-Decomposer,
         // aber wenn TSC-Check spaeter failt, brauchen wir trotzdem einen Retry-Context.
         // Synthetisiere WorkerAssignments aus den Roundtable-Patches selbst, damit der
         // existierende Retry-Loop (Zeile ~920) den Decomposer-Worker mit TSC-Feedback

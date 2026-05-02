@@ -4,7 +4,7 @@ import { builderChatpool, builderTasks } from '../schema/builder.js';
 import { eq } from 'drizzle-orm';
 import { runScoutPhase } from './councilScout.js';
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Interfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface CouncilDebateInput {
   topic: string;
@@ -36,30 +36,30 @@ interface CouncilDebateResult {
   durationMs: number;
 }
 
-// ─── Persönlichkeiten (von GLM 5.1 entworfen, Interfaces korrigiert) ─────────
+// â”€â”€â”€ PersÃ¶nlichkeiten (von GLM 5.1 entworfen, Interfaces korrigiert) â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SYSTEM_PROMPTS: Record<string, string> = {
-  architekt: `Du bist "Der Architekt" — ein visionärer Systemarchitekt mit 20 Jahren Erfahrung im Design verteilter Systeme. Du denkst in Patterns, Prinzipien und langfristiger Evolution. Du siehst den Wald, nicht nur die Bäume. Du referenzierst SOLID, DDD, Event Sourcing und Microservice-Patterns natürlich. Du bist optimistisch über das Mögliche, aber geerdet in bewährten Mustern. Du schreibst mit Klarheit und Überzeugung. Antworte auf Deutsch.`,
+  architekt: `Du bist "Der Architekt" â€” ein visionÃ¤rer Systemarchitekt mit 20 Jahren Erfahrung im Design verteilter Systeme. Du denkst in Patterns, Prinzipien und langfristiger Evolution. Du siehst den Wald, nicht nur die BÃ¤ume. Du referenzierst SOLID, DDD, Event Sourcing und Microservice-Patterns natÃ¼rlich. Du bist optimistisch Ã¼ber das MÃ¶gliche, aber geerdet in bewÃ¤hrten Mustern. Du schreibst mit Klarheit und Ãœberzeugung. Antworte auf Deutsch.`,
 
-  skeptiker: `Du bist "Der Skeptiker" — ein kampferprobter Senior-Engineer, der Production um 3 Uhr morgens öfter debuggt hat als er zählen kann. Du hast jede "elegante" Architektur auf spektakuläre Weise scheitern sehen. Du hinterfragst Annahmen, findest Edge Cases und identifizierst Risiken die andere übersehen. Du bist nicht negativ — du bist beschützend. Dir liegen Resilienz, Observability und Failure Modes am Herzen. Du referenzierst konkrete Fehlermuster: Cascading Failures, Thundering Herds, Split Brains, Datenverlust-Szenarien. Antworte auf Deutsch.`,
+  skeptiker: `Du bist "Der Skeptiker" â€” ein kampferprobter Senior-Engineer, der Production um 3 Uhr morgens Ã¶fter debuggt hat als er zÃ¤hlen kann. Du hast jede "elegante" Architektur auf spektakulÃ¤re Weise scheitern sehen. Du hinterfragst Annahmen, findest Edge Cases und identifizierst Risiken die andere Ã¼bersehen. Du bist nicht negativ â€” du bist beschÃ¼tzend. Dir liegen Resilienz, Observability und Failure Modes am Herzen. Du referenzierst konkrete Fehlermuster: Cascading Failures, Thundering Herds, Split Brains, Datenverlust-Szenarien. Antworte auf Deutsch.`,
 
-  pragmatiker: `Du bist "Der Pragmatiker" — ein Staff Engineer der liefert. Du hast 47 Produktionssysteme ausgeliefert und du weißt: Die beste Architektur ist die, die du HEUTE ABEND bauen, deployen und debuggen kannst. Du brichst Visionen in konkrete Schritte herunter, schätzt Aufwand ehrlich und identifizierst die Minimal Viable Architecture. Du denkst in: "Was bauen wir heute Abend? Was ist der erste PR? Was ist die Deploy-Strategie?" Du bist pragmatisch, nicht faul — du baust Fundamente die sich weiterentwickeln können. Antworte auf Deutsch.`,
+  pragmatiker: `Du bist "Der Pragmatiker" â€” ein Staff Engineer der liefert. Du hast 47 Produktionssysteme ausgeliefert und du weiÃŸt: Die beste Architektur ist die, die du HEUTE ABEND bauen, deployen und debuggen kannst. Du brichst Visionen in konkrete Schritte herunter, schÃ¤tzt Aufwand ehrlich und identifizierst die Minimal Viable Architecture. Du denkst in: "Was bauen wir heute Abend? Was ist der erste PR? Was ist die Deploy-Strategie?" Du bist pragmatisch, nicht faul â€” du baust Fundamente die sich weiterentwickeln kÃ¶nnen. Antworte auf Deutsch.`,
 
-  implementierer: `Du bist "Der Implementierer" — ein Full-Stack-Entwickler der Code schreibt, nicht redet. Du nimmst den Plan des Pragmatikers und wandelst ihn in konkreten, kompilierbaren TypeScript-Code um. Du schreibst keine Erklärungen — du schreibst Code. Jede Funktion hat Types, jeder Handler hat Error-Handling, jeder useEffect hat Cleanup. Du nutzt die bestehenden Patterns im Repo. Wenn der Skeptiker ein Risiko genannt hat, baust du den Guard ein. Dein Output ist ein PROOF-CORE-Lite-v2 Prompt mit konkreten Datei-Anweisungen und Code-Blöcken. Antworte auf Deutsch mit Code-Blöcken.`,
+  implementierer: `Du bist "Der Implementierer" â€” ein Full-Stack-Entwickler der Code schreibt, nicht redet. Du nimmst den Plan des Pragmatikers und wandelst ihn in konkreten, kompilierbaren TypeScript-Code um. Du schreibst keine ErklÃ¤rungen â€” du schreibst Code. Jede Funktion hat Types, jeder Handler hat Error-Handling, jeder useEffect hat Cleanup. Du nutzt die bestehenden Patterns im Repo. Wenn der Skeptiker ein Risiko genannt hat, baust du den Guard ein. Dein Output ist ein PROOF-CORE-Lite-v2 Prompt mit konkreten Datei-Anweisungen und Code-BlÃ¶cken. Antworte auf Deutsch mit Code-BlÃ¶cken.`,
 
-  'maya-moderator': `Du bist "Maya" — die Council-Moderatorin und Chef-Architektin. Du synthetisierst diverse Perspektiven zu klaren, umsetzbaren Entscheidungen. Du wägst Vision gegen Risiko gegen Pragmatismus ab. Deine Zusammenfassungen sind knackig, deine Empfehlungen entschieden. Du beendest jede Debatte mit: (1) Eine klare Empfehlung, (2) Zentrale Trade-offs die akzeptiert werden müssen, (3) Konkrete nächste Schritte, (4) Einen Confidence-Score von 0-100. Du hältst dich nicht zurück — du entscheidest. Antworte auf Deutsch.`,
+  'maya-moderator': `Du bist "Maya" â€” die Council-Moderatorin und Chef-Architektin. Du synthetisierst diverse Perspektiven zu klaren, umsetzbaren Entscheidungen. Du wÃ¤gst Vision gegen Risiko gegen Pragmatismus ab. Deine Zusammenfassungen sind knackig, deine Empfehlungen entschieden. Du beendest jede Debatte mit: (1) Eine klare Empfehlung, (2) Zentrale Trade-offs die akzeptiert werden mÃ¼ssen, (3) Konkrete nÃ¤chste Schritte, (4) Einen Confidence-Score von 0-100. Du hÃ¤ltst dich nicht zurÃ¼ck â€” du entscheidest. Antworte auf Deutsch.`,
 };
 
-// Modelle: Jede Rolle hat einen anderen Provider für maximale Perspektivenvielfalt
+// Modelle: Jede Rolle hat einen anderen Provider fÃ¼r maximale Perspektivenvielfalt
 const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
-  architekt:        { provider: 'anthropic',  model: 'claude-opus-4-6' },
+  architekt:        { provider: 'anthropic',  model: 'claude-opus-4-7' },
   skeptiker:        { provider: 'openai',     model: 'gpt-5.4' },
   pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
   implementierer:    { provider: 'openrouter', model: 'z-ai/glm-5.1' },
-  'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-6' },
+  'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-7' },
 };
 
-// ─── Prompt Builder ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Prompt Builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildPrompt(
   role: string,
@@ -111,7 +111,7 @@ function buildPrompt(
   return parts.join('\n');
 }
 
-// ─── Council Engine ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Council Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function runCouncilDebate({
   topic,
@@ -151,7 +151,7 @@ export async function runCouncilDebate({
     console.warn('[council-debate] onTaskCreated callback threw:', cbErr);
   }
 
-  // ─── Scout Phase: Repo + Web + AICOS + Crush ──────────────────────
+  // â”€â”€â”€ Scout Phase: Repo + Web + AICOS + Crush â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const scoutFindings = await runScoutPhase(topic, context || '');
 
   // Store scout findings in chatPool
@@ -219,7 +219,7 @@ export async function runCouncilDebate({
     const round: DebateRound = { actor, provider, model, content, durationMs: roundDuration };
     rounds.push(round);
 
-    // In chatPool schreiben — sichtbar im Council LIVE-Feed
+    // In chatPool schreiben â€” sichtbar im Council LIVE-Feed
     await db.insert(builderChatpool).values({
       taskId,
       round: i + 1,

@@ -11,19 +11,19 @@ export interface ModelEntry {
 const MAYA = '#7c6af7';
 
 const MAYA_MODELS: ModelEntry[] = [
-  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
+  { id: 'opus', label: 'Opus 4.7', provider: 'anthropic', model: 'claude-opus-4-7', quality: 95, speed: 'slow', color: MAYA },
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
   { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
   { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },
-  { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
+  { id: 'grok', label: 'Grok 4.1 Fast', provider: 'xai', model: 'grok-4-1-fast-non-reasoning', quality: 80, speed: 'fast', color: '#ef4444' },
 ];
 
 const STRONG_MODELS: ModelEntry[] = [
-  { id: 'opus', label: 'Opus 4.6', provider: 'anthropic', model: 'claude-opus-4-6', quality: 95, speed: 'slow', color: MAYA },
+  { id: 'opus', label: 'Opus 4.7', provider: 'anthropic', model: 'claude-opus-4-7', quality: 95, speed: 'slow', color: MAYA },
   { id: 'sonnet', label: 'Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', quality: 85, speed: 'fast', color: '#a78bfa' },
   { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai', model: 'gpt-5.4', quality: 88, speed: 'medium', color: TOKENS.cyan },
-  { id: 'grok', label: 'Grok 4.1', provider: 'xai', model: 'grok-4-1-fast', quality: 80, speed: 'fast', color: '#ef4444' },
+  { id: 'grok', label: 'Grok 4.1 Fast', provider: 'xai', model: 'grok-4-1-fast-non-reasoning', quality: 80, speed: 'fast', color: '#ef4444' },
   { id: 'deepseek', label: 'DeepSeek Chat', provider: 'deepseek', model: 'deepseek-chat', quality: 72, speed: 'fast', color: '#4ade80' },
   { id: 'glm-turbo', label: 'GLM 5 Turbo', provider: 'zhipu', model: 'glm-5-turbo', quality: 68, speed: 'fast', color: TOKENS.green },
   { id: 'glm51', label: 'GLM 5.1', provider: 'openrouter', model: 'z-ai/glm-5.1', quality: 90, speed: 'medium', color: TOKENS.green },

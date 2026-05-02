@@ -54,6 +54,8 @@ export interface PatrolEvent {
 }
 
 // ── Model Registry ──
+// Patrol keeps its own roster on purpose. It may move faster than the Builder-core
+// pool registry, but only within already supported provider/model families.
 export const ROUTINE_MODELS: PatrolModel[] = [
 	{ id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', label: 'GLM 4.7 FlashX', tier: 'routine', priceIn: 0.07, priceOut: 0.40 },
 	{ id: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', label: 'DeepSeek Chat', tier: 'routine', priceIn: 0.28, priceOut: 0.42 },

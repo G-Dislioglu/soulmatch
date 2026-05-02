@@ -1,12 +1,12 @@
 /**
- * poolState.ts — Shared pool configuration with DB persistence (S33/F7)
+ * poolState.ts â€” Shared pool configuration with DB persistence (S33/F7)
  *
  * Central source of truth for which models are active in each pool.
  * Updated by POST /maya/pools from the frontend.
  * Read by Scout, Distiller, Council, and Worker pipeline modules.
  *
  * Persistence (F7, 2026-04-19):
- *  - On server start, call `initializePoolState()` — it ensures the pool_state
+ *  - On server start, call `initializePoolState()` â€” it ensures the pool_state
  *    table exists and loads any persisted config from DB into activePools.
  *  - `updatePools()` still updates the in-memory state synchronously, then
  *    fires an async write-back to the DB (fire-and-forget, does not block
@@ -22,7 +22,7 @@ import { getDb } from '../db.js';
 import { poolState as poolStateTable } from '../schema/builder.js';
 
 export const POOL_MODEL_MAP: Record<string, { provider: string; model: string }> = {
-  opus: { provider: 'anthropic', model: 'claude-opus-4-6' },
+  opus: { provider: 'anthropic', model: 'claude-opus-4-7' },
   sonnet: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   'gpt-5.4': { provider: 'openai', model: 'gpt-5.4' },
   grok: { provider: 'xai', model: 'grok-4-1-fast' },
@@ -34,7 +34,7 @@ export const POOL_MODEL_MAP: Record<string, { provider: string; model: string }>
   qwen: { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
   'glm-flash': { provider: 'zhipu', model: 'glm-4.7-flashx' },
   'gemini-flash': { provider: 'gemini', model: 'gemini-3-flash-preview' },
-  'gemini-flash-lite': { provider: 'gemini', model: 'gemini-3.1-flash-lite-preview' },  // Added 19.04.2026 for Scout-gestützter Maya-Vergleichstest
+  'gemini-flash-lite': { provider: 'gemini', model: 'gemini-3.1-flash-lite-preview' },  // Added 19.04.2026 for Scout-gestÃ¼tzter Maya-Vergleichstest
   'deepseek-scout': { provider: 'deepseek', model: 'deepseek-chat' },
   'qwen-scout': { provider: 'openrouter', model: 'qwen/qwen3.6-plus' },
 };
@@ -60,7 +60,7 @@ let persistenceInitialized = false;
 /**
  * Call once at server start. Creates the pool_state table if missing,
  * then loads any persisted config into activePools. Safe to call multiple
- * times — subsequent calls are no-ops.
+ * times â€” subsequent calls are no-ops.
  */
 export async function initializePoolState(): Promise<void> {
   if (persistenceInitialized) return;
@@ -68,7 +68,7 @@ export async function initializePoolState(): Promise<void> {
   try {
     const db = getDb();
 
-    // Ensure table exists (idempotent — matches schema/builder.ts definition).
+    // Ensure table exists (idempotent â€” matches schema/builder.ts definition).
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS pool_state (
         id INTEGER PRIMARY KEY,

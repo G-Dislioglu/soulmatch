@@ -111,7 +111,7 @@ async function proxyOpusBridgeRequest<T = unknown>(
   };
 }
 
-// GET /api/builder/preview/:taskId — prototype preview without dev token
+// GET /api/builder/preview/:taskId â€” prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -198,7 +198,7 @@ router.post('/render/redeploy', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/chat — natural language chat with Gemini
+// POST /api/builder/chat â€” natural language chat with Gemini
 router.post('/chat', async (req: Request, res: Response) => {
   try {
     const { message, history } = req.body as {
@@ -220,7 +220,7 @@ router.post('/chat', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/canary — current canary config and promotion status
+// GET /api/builder/canary â€” current canary config and promotion status
 router.get('/canary', async (_req: Request, res: Response) => {
   try {
     const current = getCurrentCanaryStage();
@@ -238,7 +238,7 @@ router.get('/canary', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/files — list repo files or a subdirectory
+// GET /api/builder/files â€” list repo files or a subdirectory
 router.get('/files', async (req: Request, res: Response) => {
   try {
     const repoRoot = getRepoRoot();
@@ -252,7 +252,7 @@ router.get('/files', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/files/* — read a repo file as text
+// GET /api/builder/files/* â€” read a repo file as text
 router.get('/files/*', async (req: Request, res: Response) => {
   try {
     const repoRoot = getRepoRoot();
@@ -270,7 +270,7 @@ router.get('/files/*', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks — list all tasks, optional ?status= filter
+// GET /api/builder/tasks â€” list all tasks, optional ?status= filter
 router.get('/tasks', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -296,7 +296,7 @@ router.get('/tasks', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks — create a new task
+// POST /api/builder/tasks â€” create a new task
 router.post('/tasks', async (req: Request, res: Response) => {
   try {
     const { title, goal, risk, taskType, intentKind, requestedOutputKind, requestedOutputFormat } = req.body as {
@@ -348,7 +348,7 @@ router.post('/tasks', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks/:id — task by ID
+// GET /api/builder/tasks/:id â€” task by ID
 router.get('/tasks/:id', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -369,7 +369,7 @@ router.get('/tasks/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/builder/tasks/:id — cascade delete task and all related records
+// DELETE /api/builder/tasks/:id â€” cascade delete task and all related records
 router.delete('/tasks/:id', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -400,7 +400,7 @@ router.delete('/tasks/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks/:id/run — set status to classifying
+// POST /api/builder/tasks/:id/run â€” set status to classifying
 router.post('/tasks/:id/run', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -448,7 +448,7 @@ router.post('/tasks/:id/run', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks/:id/dialog — raw or text-only dialog history
+// GET /api/builder/tasks/:id/dialog â€” raw or text-only dialog history
 router.get('/tasks/:id/dialog', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -481,7 +481,7 @@ router.get('/tasks/:id/dialog', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks/:id/evidence — latest evidence pack
+// GET /api/builder/tasks/:id/evidence â€” latest evidence pack
 router.get('/tasks/:id/evidence', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -507,7 +507,7 @@ router.get('/tasks/:id/evidence', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks/:id/artifacts — recent stored artifacts except evidence packs
+// GET /api/builder/tasks/:id/artifacts â€” recent stored artifacts except evidence packs
 router.get('/tasks/:id/artifacts', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -536,7 +536,7 @@ router.get('/tasks/:id/artifacts', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks/:id/audit — canary audit summary for a task
+// GET /api/builder/tasks/:id/audit â€” canary audit summary for a task
 router.get('/tasks/:id/audit', async (req: Request, res: Response) => {
   try {
     const audit = await buildTaskAudit(req.params.id);
@@ -553,7 +553,7 @@ router.get('/tasks/:id/audit', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks/:id/approve — set status to done, store commitHash
+// POST /api/builder/tasks/:id/approve â€” set status to done, store commitHash
 router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
   try {
     const { commitHash } = req.body as { commitHash?: string };
@@ -603,7 +603,7 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks/:id/approve-prototype — promote preview and continue code lane
+// POST /api/builder/tasks/:id/approve-prototype â€” promote preview and continue code lane
 router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -658,7 +658,7 @@ router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) 
   }
 });
 
-// POST /api/builder/tasks/:id/revise-prototype — send task back to prototype lane
+// POST /api/builder/tasks/:id/revise-prototype â€” send task back to prototype lane
 router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) => {
   try {
     const { notes } = req.body as { notes?: string };
@@ -709,7 +709,7 @@ router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) =
   }
 });
 
-// POST /api/builder/tasks/:id/discard — discard a prototype under review
+// POST /api/builder/tasks/:id/discard â€” discard a prototype under review
 router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -756,7 +756,7 @@ router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks/:id/revert — set status to reverted
+// POST /api/builder/tasks/:id/revert â€” set status to reverted
 router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -803,7 +803,7 @@ router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/builder/tasks/:id — delete a task and its related data
+// DELETE /api/builder/tasks/:id â€” delete a task and its related data
 router.delete('/tasks/:id', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -832,7 +832,7 @@ router.delete('/tasks/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/tasks/:id/execution-result — GitHub Actions callback
+// POST /api/builder/tasks/:id/execution-result â€” GitHub Actions callback
 router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request, res: Response) => {
   try {
     const { tsc, build, diff, run_id, run_url, commit_hash, committed, reason } = req.body;
@@ -900,8 +900,8 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
     } else if (committed === false) {
       // Terminaler Fehler-Callback aus dem Workflow (empty_staged_diff,
       // checks_failed, push_conflict_after_3_retries). Der Workflow-Exit
-      // kann trotzdem 0 sein (Legacy-Pfad); für die Bridge-Semantik
-      // zählt allein dieses Signal.
+      // kann trotzdem 0 sein (Legacy-Pfad); fÃ¼r die Bridge-Semantik
+      // zÃ¤hlt allein dieses Signal.
       await db
         .update(builderTasks)
         .set({ status: 'review_needed', updatedAt: new Date() })
@@ -930,7 +930,7 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
       });
     } else if (tsc === 'true' && build === 'true') {
       // Erster Callback nach erfolgreichem Build, Push steht noch aus.
-      // Kein Signal — der zweite Callback mit committed:true|false folgt.
+      // Kein Signal â€” der zweite Callback mit committed:true|false folgt.
       await db
         .update(builderTasks)
         .set({
@@ -958,11 +958,11 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
 });
 
 
-// ────────────────────────────────────────────────
-// MAYA COMMAND CENTER — Phase 1 Endpoints
-// ────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// MAYA COMMAND CENTER â€” Phase 1 Endpoints
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/builder/maya/context — aggregated dashboard snapshot
+// GET /api/builder/maya/context â€” aggregated dashboard snapshot
 router.get('/maya/context', async (_req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -1025,7 +1025,7 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/maya/chat — Maya command center chat
+// POST /api/builder/maya/chat â€” Maya command center chat
 router.post('/maya/director', async (req: Request, res: Response) => {
   try {
     const { message, directorModel, thinking = false, conversationHistory = [] } = req.body as {
@@ -1052,7 +1052,7 @@ router.post('/maya/director', async (req: Request, res: Response) => {
         case 'opus':
           return {
             provider: 'anthropic',
-            model: 'claude-opus-4-6',
+            model: 'claude-opus-4-7',
             maxTokens: 100000,
             anthropicThinking: thinking ? { type: 'enabled' as const, budget_tokens: 50000 } : undefined,
           };
@@ -1138,7 +1138,7 @@ router.post('/maya/director', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/maya/chat — Maya command center chat
+// POST /api/builder/maya/chat â€” Maya command center chat
 router.post('/maya/chat', async (req: Request, res: Response) => {
   try {
     const { message, history = [], file } = req.body as {
@@ -1209,10 +1209,10 @@ router.post('/maya/chat', async (req: Request, res: Response) => {
 
     // Build compact worker summary for system prompt
     const workerSummary = WORKER_PROFILES.map(w =>
-      `• ${w.id} (${w.costTier}/${w.speedTier}) — ${w.role}: ${w.bestFor.slice(0, 3).join(', ')}. Qualität: ${w.codeQuality}/100`
+      `â€¢ ${w.id} (${w.costTier}/${w.speedTier}) â€” ${w.role}: ${w.bestFor.slice(0, 3).join(', ')}. QualitÃ¤t: ${w.codeQuality}/100`
     ).join('\n');
 
-    const systemPrompt = `Du bist Maya — die zentrale Steuereinheit des Opus-Bridge Builder-Systems im Soulmatch-Projekt. Du sprichst Deutsch.
+    const systemPrompt = `Du bist Maya â€” die zentrale Steuereinheit des Opus-Bridge Builder-Systems im Soulmatch-Projekt. Du sprichst Deutsch.
 
 DEIN LIVE-KONTEXT:
 Continuity (letzte Session): ${lastNote}
@@ -1220,7 +1220,7 @@ Continuity (letzte Session): ${lastNote}
 Aktive Tasks (mit IDs):
 ${taskSummary || 'Keine Tasks.'}
 
-WORKER-POOL (wähle den besten für jede Aufgabe):
+WORKER-POOL (wÃ¤hle den besten fÃ¼r jede Aufgabe):
 ${workerSummary}
 
 AKTIVE POOL-ZUSAMMENSETZUNG:
@@ -1234,58 +1234,58 @@ Du kannst die Pools per Action-Block aendern:
 pools: { maya: ["opus"], council: ["opus", "sonnet"], distiller: ["glm-flash", "deepseek-scout"], worker: ["glm-turbo", "kimi"], scout: ["glm-flash", "gemini-flash"] }
 [/ACTION]
 
-DEINE FÄHIGKEITEN:
-- /build — Code-Änderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
-- /repo-query — Fragen an den Code beantworten
-- /git-push — Dateien direkt auf GitHub pushen (main oder staging Branch)
-- /push — Code deployen (mit branch Parameter für staging)
-- /render/redeploy — Render neu deployen
-- /memory — Dein Gedächtnis abrufen
-- /task-history — Vergangene Tasks einsehen
-- /worker-stats — Worker Performance vergleichen
-- /self-test — System Health prüfen
-- /tasks/:id — Task löschen (method: DELETE)
-- /maya/memory — Continuity/Episode Note erstellen (POST, body: { layer, key, summary })
-- /maya/memory/:id — Note bearbeiten (PUT) oder löschen (DELETE)
-- /batch-delete-tasks — Mehrere Tasks auf einmal löschen (POST, body: { ids: string[] })
+DEINE FÃ„HIGKEITEN:
+- /build â€” Code-Ã„nderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
+- /repo-query â€” Fragen an den Code beantworten
+- /git-push â€” Dateien direkt auf GitHub pushen (main oder staging Branch)
+- /push â€” Code deployen (mit branch Parameter fÃ¼r staging)
+- /render/redeploy â€” Render neu deployen
+- /memory â€” Dein GedÃ¤chtnis abrufen
+- /task-history â€” Vergangene Tasks einsehen
+- /worker-stats â€” Worker Performance vergleichen
+- /self-test â€” System Health prÃ¼fen
+- /tasks/:id â€” Task lÃ¶schen (method: DELETE)
+- /maya/memory â€” Continuity/Episode Note erstellen (POST, body: { layer, key, summary })
+- /maya/memory/:id â€” Note bearbeiten (PUT) oder lÃ¶schen (DELETE)
+- /batch-delete-tasks â€” Mehrere Tasks auf einmal lÃ¶schen (POST, body: { ids: string[] })
 
 REGELN:
 - Sei direkt, kritisch, keine Floskeln
-- Erkläre in Alltagssprache mit Metaphern
-- Bewerte Ideen auf 0-100% Skala mit Schwächen zuerst
+- ErklÃ¤re in Alltagssprache mit Metaphern
+- Bewerte Ideen auf 0-100% Skala mit SchwÃ¤chen zuerst
 - Du bist Partnerin und Architektin, nicht Tool
-- Bei klaren Aufträgen ("fix den Bug", "build Feature X") handle SOFORT mit Action-Blöcken — frag nicht nach Bestätigung für safe/staging Aktionen
-- Wähle den Worker basierend auf Task-Typ (siehe WORKER-POOL oben)
-- Für Task-Details: Nutze /tasks/:id/dialog und /tasks/:id/evidence
+- Bei klaren AuftrÃ¤gen ("fix den Bug", "build Feature X") handle SOFORT mit Action-BlÃ¶cken â€” frag nicht nach BestÃ¤tigung fÃ¼r safe/staging Aktionen
+- WÃ¤hle den Worker basierend auf Task-Typ (siehe WORKER-POOL oben)
+- FÃ¼r Task-Details: Nutze /tasks/:id/dialog und /tasks/:id/evidence
 
-VERFÜGBARE AKTIONEN:
+VERFÃœGBARE AKTIONEN:
 
-VERFÜGBARE AKTIONEN:
-Wenn du eine Builder-Aktion ausführen willst, antworte mit einem Action-Block:
+VERFÃœGBARE AKTIONEN:
+Wenn du eine Builder-Aktion ausfÃ¼hren willst, antworte mit einem Action-Block:
 [ACTION: endpoint=/build, branch=staging, worker=glm-turbo, risk=safe]
 Beschreibung was passieren wird
 [/ACTION]
 
-Für destruktive Aktionen (push main, deploy, revert):
+FÃ¼r destruktive Aktionen (push main, deploy, revert):
 [ACTION: endpoint=/push, branch=main, risk=destructive]
 Beschreibung
 [/ACTION]
 
 PROAKTIVES HANDELN:
-- Bei "fix Bug X" → sofort /build Action-Block mit passendem Worker
-- Bei "was macht Task X" → direkt die Details abrufen und zusammenfassen
-- Bei "deploy" → /push + /render/redeploy Action-Blöcke
-- Bei "zeig Worker" → Tabelle mit allen Workern und ihrer Performance
+- Bei "fix Bug X" â†’ sofort /build Action-Block mit passendem Worker
+- Bei "was macht Task X" â†’ direkt die Details abrufen und zusammenfassen
+- Bei "deploy" â†’ /push + /render/redeploy Action-BlÃ¶cke
+- Bei "zeig Worker" â†’ Tabelle mit allen Workern und ihrer Performance
 
 ${MAYA_NAVIGATION_GUIDANCE}`;
 
     // Route to Opus for complex reasoning, cheaper model for simple status queries
-    // If file attached → always use Gemini (multimodal)
+    // If file attached â†’ always use Gemini (multimodal)
     const hasFile = !!file?.data;
-    const isSimpleQuery = !hasFile && /^(status|was läuft|health|wie viele|zeig|list)/i.test(message.trim());
+    const isSimpleQuery = !hasFile && /^(status|was lÃ¤uft|health|wie viele|zeig|list)/i.test(message.trim());
 
     if (hasFile && file.mime.startsWith('image/')) {
-      // Multimodal path → Gemini with inline image
+      // Multimodal path â†’ Gemini with inline image
       const geminiApiKey = process.env.GEMINI_API_KEY;
       if (!geminiApiKey) { res.status(500).json({ error: 'GEMINI_API_KEY not set' }); return; }
 
@@ -1330,14 +1330,14 @@ ${MAYA_NAVIGATION_GUIDANCE}`;
       return;
     }
 
-    // Non-image file → append content as text
+    // Non-image file â†’ append content as text
     let userContent = message;
     if (hasFile && !file.mime.startsWith('image/')) {
       try {
         const decoded = Buffer.from(file.data, 'base64').toString('utf-8');
         userContent = `[Datei: ${file.name}]\n\`\`\`\n${decoded.slice(0, 8000)}\n\`\`\`\n\n${message}`;
       } catch {
-        userContent = `[Datei: ${file.name} — konnte nicht gelesen werden]\n\n${message}`;
+        userContent = `[Datei: ${file.name} â€” konnte nicht gelesen werden]\n\n${message}`;
       }
     }
 
@@ -1346,7 +1346,7 @@ ${MAYA_NAVIGATION_GUIDANCE}`;
       : (pickFromPool('maya', true)?.provider ?? 'anthropic');
     const model = isSimpleQuery
       ? (pickFromPool('scout', false)?.model ?? 'glm-4.7-flashx')
-      : (pickFromPool('maya', true)?.model ?? 'claude-opus-4-6');
+      : (pickFromPool('maya', true)?.model ?? 'claude-opus-4-7');
     const modelLabel = isSimpleQuery
       ? (pickFromPool('scout', false)?.id ?? 'flash')
       : (pickFromPool('maya', true)?.id ?? 'opus');
@@ -1375,7 +1375,7 @@ ${MAYA_NAVIGATION_GUIDANCE}`;
   }
 });
 
-// POST /api/builder/maya/action — execute a builder action Maya suggested
+// POST /api/builder/maya/action â€” execute a builder action Maya suggested
 router.post('/maya/action', async (req: Request, res: Response) => {
   try {
     const { action, confirmed } = req.body as {
@@ -1409,7 +1409,7 @@ router.post('/maya/action', async (req: Request, res: Response) => {
         needsConfirmation: true,
         risk,
         endpoint: action.endpoint,
-        message: `⚠️ ${action.endpoint} (${action.branch || 'main'}) ist destruktiv. Bestätige mit confirmed:true.`,
+        message: `âš ï¸ ${action.endpoint} (${action.branch || 'main'}) ist destruktiv. BestÃ¤tige mit confirmed:true.`,
       });
       return;
     }
@@ -1449,7 +1449,7 @@ router.post('/maya/action', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/maya/memory — create a memory entry
+// POST /api/builder/maya/memory â€” create a memory entry
 router.post('/maya/memory', async (req: Request, res: Response) => {
   try {
     const { layer, key, summary } = req.body as { layer?: string; key?: string; summary?: string };
@@ -1462,7 +1462,7 @@ router.post('/maya/memory', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/builder/maya/memory/:id — update a memory entry
+// PUT /api/builder/maya/memory/:id â€” update a memory entry
 router.put('/maya/memory/:id', async (req: Request, res: Response) => {
   try {
     const { summary } = req.body as { summary?: string };
@@ -1479,7 +1479,7 @@ router.put('/maya/memory/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/builder/maya/memory/:id — delete a memory entry
+// DELETE /api/builder/maya/memory/:id â€” delete a memory entry
 router.delete('/maya/memory/:id', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -1490,7 +1490,7 @@ router.delete('/maya/memory/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/batch-delete-tasks — delete multiple tasks at once
+// POST /api/builder/batch-delete-tasks â€” delete multiple tasks at once
 router.post('/batch-delete-tasks', async (req: Request, res: Response) => {
   try {
     const { ids } = req.body as { ids?: string[] };
@@ -1512,7 +1512,7 @@ router.post('/batch-delete-tasks', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/maya/workers — worker profiles for Maya's selection
+// GET /api/builder/maya/workers â€” worker profiles for Maya's selection
 router.get('/maya/workers', (_req: Request, res: Response) => {
   res.json(WORKER_PROFILES.map(w => ({
     id: w.id, provider: w.provider, model: w.model, role: w.role,
@@ -1523,7 +1523,7 @@ router.get('/maya/workers', (_req: Request, res: Response) => {
   })));
 });
 
-// POST /api/builder/maya/pick-worker — Maya asks for best worker for a task
+// POST /api/builder/maya/pick-worker â€” Maya asks for best worker for a task
 router.post('/maya/pick-worker', (req: Request, res: Response) => {
   const { description } = req.body as { description?: string };
   if (!description) { res.status(400).json({ error: 'description required' }); return; }
@@ -1531,7 +1531,7 @@ router.post('/maya/pick-worker', (req: Request, res: Response) => {
   res.json({ recommended: worker });
 });
 
-// POST /api/builder/maya/brief — compile an active brief for a task
+// POST /api/builder/maya/brief â€” compile an active brief for a task
 router.post('/maya/brief', async (req: Request, res: Response) => {
   try {
     const { taskGoal } = req.body as { taskGoal?: string };
@@ -1564,7 +1564,7 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/builder/maya/pools — receive pool configuration from frontend
+// POST /api/builder/maya/pools â€” receive pool configuration from frontend
 router.post('/maya/pools', (req: Request, res: Response) => {
   const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; distiller?: string[]; worker?: string[]; scout?: string[] } };
   if (!pools) { res.status(400).json({ error: 'pools required' }); return; }

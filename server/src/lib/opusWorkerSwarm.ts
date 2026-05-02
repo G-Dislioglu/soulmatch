@@ -74,7 +74,7 @@ const WORKER_PRESETS: Record<string, WorkerPreset> = {
   glm51: { actor: 'glm51', provider: 'openrouter', model: 'z-ai/glm-5.1', maxTokens: 100000 },
   'glm-flash': { actor: 'glm-flash', provider: 'openrouter', model: 'z-ai/glm-4.7-flash', maxTokens: 16000 },
   grok: { actor: 'grok', provider: 'xai', model: 'grok-4-1-fast', maxTokens: 16000 },
-  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 16000 },
+  opus: { actor: 'opus', provider: 'anthropic', model: 'claude-opus-4-7', maxTokens: 16000 },
   minimax: { actor: 'minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 16000 },
   qwen: { actor: 'qwen', provider: 'openrouter', model: 'qwen/qwen3.6-plus', maxTokens: 16000 },
   kimi: { actor: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', maxTokens: 16000 },
@@ -85,7 +85,7 @@ const WORKER_PRESETS: Record<string, WorkerPreset> = {
 };
 
 const MEISTER_COUNCIL: MeisterCouncilMember[] = [
-  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-6', maxTokens: 100000 },
+  { actor: 'meister-opus', provider: 'anthropic', model: 'claude-opus-4-7', maxTokens: 100000 },
   { actor: 'meister-gpt', provider: 'openai', model: 'gpt-5.4', maxTokens: 100000 },
   { actor: 'meister-glm51', provider: 'openrouter', model: 'z-ai/glm-5.1', maxTokens: 100000 },
   { actor: 'meister-minimax', provider: 'openrouter', model: 'minimax/minimax-m2.7', maxTokens: 100000 },
@@ -126,7 +126,7 @@ function extractRelevantScope(fileContent: string, hints: string): string {
   addRange(totalLines - 10, totalLines - 1);
 
   // 1. Zeilennummern aus hints ("Zeile 150", "line 150-160")
-  const lineRx = /(?:Zeile|line|Line)\s*(\d+)(?:\s*[-–]\s*(\d+))?/gi;
+  const lineRx = /(?:Zeile|line|Line)\s*(\d+)(?:\s*[-â€“]\s*(\d+))?/gi;
   let m: RegExpExecArray | null;
   while ((m = lineRx.exec(hints)) !== null) {
     const start = parseInt(m[1], 10) - 1;
@@ -134,7 +134,7 @@ function extractRelevantScope(fileContent: string, hints: string): string {
     addRange(start - 30, end + 30);
   }
 
-  // 2. Code-Identifier (camelCase/PascalCase — require mixed case to filter natural language)
+  // 2. Code-Identifier (camelCase/PascalCase â€” require mixed case to filter natural language)
   const identRx = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b|\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/g;
   const identifiers: string[] = [...(hints.match(identRx) || [])];
 
@@ -167,7 +167,7 @@ function extractRelevantScope(fileContent: string, hints: string): string {
     }
   }
 
-  // Fallback: nur Imports+Exports gefunden → zeige 60+40
+  // Fallback: nur Imports+Exports gefunden â†’ zeige 60+40
   if (merged.length === 2 && merged[0][1] <= 19 && merged[1][0] >= totalLines - 10) {
     return [
       '=== AKTUELLER DATEI-INHALT (gekuerzt, kein Scope-Match) ===',
@@ -579,7 +579,7 @@ async function runSingleWorker(
   const startedAt = Date.now();
 
   try {
-    // Memory-Bus: Error Cards + Council-Begründung für diese Datei
+    // Memory-Bus: Error Cards + Council-BegrÃ¼ndung fÃ¼r diese Datei
     let memoryContext: string | undefined;
     try {
       memoryContext = await buildWorkerContext([assignment.file], assignment.reason);
@@ -697,7 +697,7 @@ export function parseAssignments(commands: BdlCommand[]): WorkerAssignment[] {
     }));
 }
 
-// ─── Worker Pool Remapping ───
+// â”€â”€â”€ Worker Pool Remapping â”€â”€â”€
 // Ensures all worker assignments use models from the active worker pool.
 // If an assigned writer is not in the pool, remap to a pool worker (round-robin).
 function remapWorkersToPool(assignments: WorkerAssignment[]): WorkerAssignment[] {
@@ -723,10 +723,10 @@ function remapWorkersToPool(assignments: WorkerAssignment[]): WorkerAssignment[]
       return { ...assignment, writer: poolAlias };
     }
 
-    // Writer not in pool — remap via round-robin
+    // Writer not in pool â€” remap via round-robin
     const replacement = poolModels[roundRobinIndex % poolModels.length]!;
     roundRobinIndex += 1;
-    console.log(`[worker-swarm] Remapped writer '${assignment.writer}' → '${replacement.id}' (not in active pool)`);
+    console.log(`[worker-swarm] Remapped writer '${assignment.writer}' â†’ '${replacement.id}' (not in active pool)`);
     return { ...assignment, writer: replacement.id };
   });
 }
@@ -737,7 +737,7 @@ export async function runWorkerSwarm(
   taskGoal: string,
   fileContents?: Record<string, string>,
 ): Promise<WorkerResult[]> {
-  // Remap workers to active pool — ensures only pool-selected models are used
+  // Remap workers to active pool â€” ensures only pool-selected models are used
   const pooledAssignments = remapWorkersToPool(assignments);
   const independentAssignments = pooledAssignments.filter((assignment) => !assignment.dependsOn);
   const dependentAssignments = pooledAssignments.filter((assignment) => assignment.dependsOn);

@@ -1,25 +1,14 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { devLogger } from '../devLogger.js';
+import { callProvider } from '../lib/providers.js';
 
 export const guideRouter = Router();
 
 type ProviderName = 'openai' | 'deepseek' | 'xai';
 
-const CHAT_URLS: Record<ProviderName, string> = {
-  openai: 'https://api.openai.com/v1/chat/completions',
-  deepseek: 'https://api.deepseek.com/chat/completions',
-  xai: 'https://api.x.ai/v1/chat/completions',
-};
-
-const ENV_KEYS: Record<ProviderName, string> = {
-  openai: 'OPENAI_API_KEY',
-  deepseek: 'DEEPSEEK_API_KEY',
-  xai: 'XAI_API_KEY',
-};
-
 const DEFAULT_MODELS: Record<ProviderName, string> = {
-  openai: 'gpt-4.1-nano',
+  openai: 'gpt-5-nano',
   deepseek: 'deepseek-chat',
   xai: 'grok-4-1-fast-non-reasoning',
 };
@@ -46,15 +35,8 @@ guideRouter.post('/guide', async (req: Request, res: Response) => {
   }
 
   const provider: ProviderName = (body.provider as ProviderName) ?? 'openai';
-  const apiUrl = CHAT_URLS[provider];
-  if (!apiUrl) {
+  if (!DEFAULT_MODELS[provider]) {
     res.status(400).json({ error: `Unknown provider: ${provider}` });
-    return;
-  }
-
-  const apiKey = process.env[ENV_KEYS[provider]] || body.clientApiKey;
-  if (!apiKey) {
-    res.status(500).json({ error: `No API key for ${provider}` });
     return;
   }
 
@@ -64,35 +46,20 @@ guideRouter.post('/guide', async (req: Request, res: Response) => {
   try {
     devLogger.info('api', `Guide LLM call: ${provider}/${model}`, { provider, model });
 
-    const resp = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
+    const text = await callProvider(
+      provider,
+      model,
+      {
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        ...(provider === 'openai'
-          ? { max_completion_tokens: body.maxTokens ?? 100 }
-          : { max_tokens: body.maxTokens ?? 100, temperature: body.temperature ?? 0.7 }),
-      }),
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      throw new Error(`${provider} API ${resp.status}: ${errText}`);
-    }
-
-    const data = await resp.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error('No content in response');
+        maxTokens: body.maxTokens ?? 100,
+        temperature: body.temperature ?? 0.7,
+        forceJsonObject: false,
+      },
+      body.clientApiKey,
+    );
 
     const durationMs = Date.now() - startTime;
     devLogger.info('api', `Guide LLM responded in ${durationMs}ms`, { provider, model, durationMs });

@@ -1,5 +1,5 @@
 /**
- * Meister-Plan Phase — Opus-Bridge v4
+ * Meister-Plan Phase â€” Opus-Bridge v4
  *
  * Opus plans the decomposition, GPT-5.4 critiques it, Opus finalizes.
  * Produces a build plan with independent sub-tasks for parallel workers.
@@ -8,7 +8,7 @@
 import { callProvider } from './providers.js';
 import type { BuildOrder, ScoutReport } from './opusVordenker.js';
 
-// ─── Interfaces ───
+// â”€â”€â”€ Interfaces â”€â”€â”€
 
 export interface SubTask {
   id: string;
@@ -31,14 +31,14 @@ export interface BuildPlan {
   rounds: Array<{ role: string; durationMs: number }>;
 }
 
-// ─── Constants ───
+// â”€â”€â”€ Constants â”€â”€â”€
 
-const PLANNER = { provider: 'anthropic', model: 'claude-opus-4-6' };
+const PLANNER = { provider: 'anthropic', model: 'claude-opus-4-7' };
 const CRITIC  = { provider: 'openai',    model: 'gpt-5.4' };
 
 const AVAILABLE_WORKERS = ['glm', 'minimax', 'qwen', 'kimi'];
 
-// ─── Prompts ───
+// â”€â”€â”€ Prompts â”€â”€â”€
 
 function plannerPrompt(buildOrder: BuildOrder, scout: ScoutReport): string {
   return `You are the Meister (Architect). Decompose this feature into independent sub-tasks for parallel workers.
@@ -59,7 +59,7 @@ AVAILABLE WORKERS: ${AVAILABLE_WORKERS.join(', ')}
 Worker strengths: glm=API/routing+business logic, minimax=frontend, qwen=complex functions, kimi=utilities
 
 CRITICAL RULES:
-1. Each sub-task MUST be independent — no worker waits for another
+1. Each sub-task MUST be independent â€” no worker waits for another
 2. Define shared interfaces BEFORE assigning tasks (workers implement them)
 3. Use patterns from the scout report (Reuse-First rule)
 4. Assign workers based on their strengths
@@ -125,7 +125,7 @@ If the critic approved, return the original plan unchanged.
 Respond ONLY with the final JSON plan (same format as original).`;
 }
 
-// ─── Implementation ───
+// â”€â”€â”€ Implementation â”€â”€â”€
 
 async function callMeister(
   provider: string, model: string, system: string, prompt: string
@@ -155,7 +155,7 @@ function parsePlan(raw: string): Omit<BuildPlan, 'durationMs' | 'rounds'> | null
 }
 
 /**
- * Runs the Meister-Plan phase (3 rounds: Plan → Critique → Finalize).
+ * Runs the Meister-Plan phase (3 rounds: Plan â†’ Critique â†’ Finalize).
  *
  * @param buildOrder - From the CoThinker
  * @param scoutReport - From the Vordenker
