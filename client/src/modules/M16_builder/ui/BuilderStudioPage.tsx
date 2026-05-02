@@ -4,15 +4,8 @@ import { useLocation } from 'wouter';
 import { TOKENS } from '../../../design/tokens';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import './maya-highlight.css';
-import {
-  BuilderConfigPanel,
-  loadPools,
-  savePools,
-  syncPoolsToServer,
-  type PoolState,
-  type PoolType,
-} from './BuilderConfigPanel';
-import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext } from '../hooks/useMayaApi';
+import { BuilderConfigPanel } from './BuilderConfigPanel';
+import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType } from '../hooks/useMayaApi';
 import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
 import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
@@ -91,35 +84,10 @@ const ACTOR_COLORS: Record<string, string> = {
   system: TOKENS.rose,
 };
 
-const POOL_MODEL_META: Record<string, { label: string; quality: number }> = {
-  opus: { label: 'Opus 4.7', quality: 95 },
-  sonnet: { label: 'Sonnet 4.6', quality: 85 },
-  'gpt-5.4': { label: 'GPT-5.4', quality: 88 },
-  'glm-turbo': { label: 'GLM 5 Turbo', quality: 68 },
-  glm51: { label: 'GLM 5.1', quality: 90 },
-  grok: { label: 'Grok 4.1', quality: 80 },
-  deepseek: { label: 'DeepSeek Chat', quality: 72 },
-  minimax: { label: 'MiniMax M2.7', quality: 60 },
-  kimi: { label: 'Kimi K2.5', quality: 65 },
-  qwen: { label: 'Qwen 3.6+', quality: 58 },
-  'glm-flash': { label: 'GLM FlashX', quality: 72 },
-  'gemini-flash': { label: 'Gemini Flash', quality: 78 },
-  'deepseek-scout': { label: 'DeepSeek Chat', quality: 70 },
-  'qwen-scout': { label: 'Qwen 3.6+', quality: 55 },
-};
-
 const DIRECTOR_MODEL_META: Record<DirectorModel, { label: string }> = {
   opus: { label: 'Opus 4.7' },
   'gpt5.4': { label: 'GPT 5.4' },
   'glm5.1': { label: 'GLM 5.1' },
-};
-
-const POOL_OPTIONS: Record<PoolType, string[]> = {
-  maya: ['opus', 'sonnet', 'gpt-5.4', 'glm-turbo', 'glm51', 'grok'],
-  council: ['opus', 'sonnet', 'gpt-5.4', 'grok', 'deepseek', 'glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],
-  distiller: ['glm-flash', 'deepseek-scout', 'gemini-flash', 'qwen-scout'],
-  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen', 'deepseek'],
-  scout: ['deepseek-scout', 'glm-flash', 'gemini-flash', 'qwen-scout'],
 };
 
 const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
@@ -162,6 +130,14 @@ const OPUS_TOKEN_STORAGE_KEY = 'builder_opus_token';
 const LEGACY_OPUS_TOKEN_STORAGE_KEY = 'opus-bridge-token';
 const BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY = 'builder_task_queue_filter';
 const BUILDER_TASK_QUEUE_SORT_STORAGE_KEY = 'builder_task_queue_sort';
+
+const EMPTY_POOL_STATE: PoolState = {
+  maya: [],
+  council: [],
+  distiller: [],
+  worker: [],
+  scout: [],
+};
 
 function readStoredValue(keys: string[]) {
   try {
@@ -1044,6 +1020,7 @@ function getPipelineReadinessText(pools: PoolState) {
 
 function getSpecialistTransparencyLabel(
   pools: PoolState,
+  modelMap: Record<string, MayaPoolModel>,
   directorModel: DirectorModel | null,
 ) {
   if (directorModel) {
@@ -1051,7 +1028,7 @@ function getSpecialistTransparencyLabel(
   }
 
   const mayaLead = pools.maya[0];
-  const mayaLabel = mayaLead ? POOL_MODEL_META[mayaLead]?.label ?? mayaLead : 'ein Spezialmodell';
+  const mayaLabel = mayaLead ? modelMap[mayaLead]?.label ?? mayaLead : 'ein Spezialmodell';
   return `Maya nutzt ${mayaLabel}`;
 }
 
@@ -1482,24 +1459,26 @@ function deriveTribunePhaseDetail(
   }
 }
 
-function poolScore(ids: string[]) {
+function poolScore(ids: string[], modelMap: Record<string, MayaPoolModel>) {
   if (ids.length === 0) {
     return 0;
   }
 
-  const scores = ids.map((id) => POOL_MODEL_META[id]?.quality ?? 0);
+  const scores = ids.map((id) => modelMap[id]?.quality ?? 0);
   return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
 }
 
 function PoolBar(props: {
   pools: PoolState;
+  poolConfig: MayaPoolConfig | null;
+  modelMap: Record<string, MayaPoolModel>;
   openPool: PoolType | null;
   onTogglePool: (pool: PoolType) => void;
   onToggleModel: (pool: PoolType, modelId: string) => void;
   taskId: string | null;
   fetchObservation: (taskId: string) => Promise<import('../hooks/useBuilderApi').BuilderTaskObservation>;
 }) {
-  const { pools, openPool, onTogglePool, onToggleModel, taskId, fetchObservation } = props;
+  const { pools, poolConfig, modelMap, openPool, onTogglePool, onToggleModel, taskId, fetchObservation } = props;
   const [openPoolChat, setOpenPoolChat] = useState<OpenPoolChat | null>(null);
   const chatAnchorsRef = useRef<Partial<Record<PoolChatType, HTMLDivElement | null>>>({});
 
@@ -1596,8 +1575,8 @@ function PoolBar(props: {
             const meta = POOL_LABELS[pool];
             const activeIds = pools[pool];
             const leadId = activeIds[0];
-            const leadLabel = leadId ? POOL_MODEL_META[leadId]?.label ?? leadId : 'leer';
-            const score = poolScore(activeIds);
+            const leadLabel = leadId ? modelMap[leadId]?.label ?? leadId : 'leer';
+            const score = poolScore(activeIds, modelMap);
             const supportsChat = pool === 'scout' || pool === 'council' || pool === 'distiller' || pool === 'worker';
             const chatPool = supportsChat ? pool : null;
             const chatConfig = chatPool ? poolChatConfig[chatPool] : null;
@@ -1696,9 +1675,9 @@ function PoolBar(props: {
             <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>âœ•</button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {POOL_OPTIONS[openPool].map((modelId) => {
+            {(poolConfig?.available[openPool] ?? []).map((modelId) => {
               const active = pools[openPool].includes(modelId);
-              const model = POOL_MODEL_META[modelId];
+              const model = modelMap[modelId];
               return (
                 <button
                   key={modelId}
@@ -2025,10 +2004,10 @@ export function BuilderStudioPage() {
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
   } = useBuilderApi(token || null, opusToken || token || null);
-  const { getContext: getMayaContext, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
+  const { getContext: getMayaContext, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
-  const [pools, setPools] = useState<PoolState>(() => loadPools());
+  const [pools, setPools] = useState<PoolState>(EMPTY_POOL_STATE);
   const [openPool, setOpenPool] = useState<PoolType | null>(null);
   const [patrolOpen, setPatrolOpen] = useState(false);
   const [patrolLoading, setPatrolLoading] = useState(false);
@@ -2036,6 +2015,11 @@ export function BuilderStudioPage() {
   const [patrolStatus, setPatrolStatus] = useState<BuilderPatrolStatus | null>(null);
   const [patrolFindings, setPatrolFindings] = useState<BuilderPatrolFinding[]>([]);
   const [expandedPatrolFindingId, setExpandedPatrolFindingId] = useState<string | null>(null);
+  const poolConfig = mayaCtx?.poolConfig ?? null;
+  const poolModelMap = useMemo<Record<string, MayaPoolModel>>(
+    () => Object.fromEntries((poolConfig?.models ?? []).map((model) => [model.id, model])),
+    [poolConfig],
+  );
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -2125,7 +2109,7 @@ export function BuilderStudioPage() {
     if (experienceMode === 'single_specialist') {
       return {
         left: getPipelineReadinessText(pools),
-        right: getSpecialistTransparencyLabel(pools, directorModel),
+        right: getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
       };
     }
 
@@ -2133,7 +2117,7 @@ export function BuilderStudioPage() {
       left: getPipelineReadinessText(pools),
       right: 'Maya wartet auf deine naechste Aufgabe',
     };
-  }, [activeTask, directorModel, evidencePack, experienceMode, pools, tribuneTimeline]);
+  }, [activeTask, directorModel, evidencePack, experienceMode, poolModelMap, pools, tribuneTimeline]);
   const currentTribuneEntry = useMemo(
     () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
     [tribuneTimeline],
@@ -2332,6 +2316,7 @@ export function BuilderStudioPage() {
   const refreshMayaContext = useCallback(async () => {
     const nextContext = await getMayaContext();
     setMayaCtx(nextContext);
+    setPools(nextContext.poolConfig.active);
   }, [getMayaContext]);
 
   const refreshPatrolFeed = useCallback(async () => {
@@ -2617,11 +2602,15 @@ export function BuilderStudioPage() {
           ? current[pool].filter((entry) => entry !== modelId)
           : [...current[pool], modelId];
       const nextPools = { ...current, [pool]: nextIds };
-      savePools(nextPools);
-      void syncPoolsToServer(token, nextPools);
+      void updateMayaPools(nextPools)
+        .then((response) => {
+          setPools(response.poolConfig.active);
+          setMayaCtx((currentContext) => currentContext ? { ...currentContext, poolConfig: response.poolConfig } : currentContext);
+        })
+        .catch(() => {});
       return nextPools;
     });
-  }, [token]);
+  }, [updateMayaPools]);
 
   const handleAddNote = useCallback(async (summary: string) => {
     await createMemory('continuity', `note-${Date.now()}`, summary);
@@ -3045,7 +3034,7 @@ export function BuilderStudioPage() {
     : experienceMode === 'single_specialist'
       ? {
           left: getPipelineReadinessText(pools),
-          right: getSpecialistTransparencyLabel(pools, directorModel),
+          right: getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
         }
       : {
           left: getPipelineReadinessText(pools),
@@ -3241,6 +3230,8 @@ export function BuilderStudioPage() {
         {experienceMode === 'pipeline' || drawerView === 'models' ? (
           <PoolBar
             pools={pools}
+            poolConfig={poolConfig}
+            modelMap={poolModelMap}
             openPool={openPool}
             onTogglePool={handleTogglePool}
             onToggleModel={handleTogglePoolModel}
@@ -4529,7 +4520,15 @@ export function BuilderStudioPage() {
                 <div style={{ borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 14, display: 'grid', gap: 10 }}>
                   {showConfig && (
                     <div style={{ border: `1.5px solid rgba(124,106,247,0.3)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden', marginBottom: 10 }}>
-                      <BuilderConfigPanel token={token} ctx={mayaCtx} />
+                      <BuilderConfigPanel
+                        ctx={mayaCtx}
+                        poolConfig={poolConfig}
+                        pools={pools}
+                        openPool={openPool}
+                        onOpenPool={setOpenPool}
+                        onToggleModel={handleTogglePoolModel}
+                        onSelectModel={(pool, modelId) => handleTogglePoolModel(pool, modelId)}
+                      />
                     </div>
                   )}
                   {activeTask ? (
@@ -4680,18 +4679,40 @@ export function BuilderStudioPage() {
             {drawerView === 'models' || compact ? (
             <BuilderPanel title="Model & Config" subtitle="Pool-Transparenz und Maya-Konfiguration nur bei Bedarf im Drawer." accent={TOKENS.purple}>
               <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'grid', gap: 8, gridTemplateColumns: compact ? '1fr' : 'repeat(2, minmax(0, 1fr))' }}>
+                  <div style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Selection Mode</div>
+                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{poolConfig?.selectionMode === 'manual' ? 'Manuell gesetzt' : 'Maya Auto'}</div>
+                    <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>
+                      {poolConfig?.autoSelectionAvailable ? 'Maya-Autowahl ist architektonisch vorbereitet.' : 'Nur manuelle Auswahl aktiv.'}
+                    </div>
+                  </div>
+                  <div style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Model Catalog</div>
+                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{poolConfig?.models.length ?? 0} verfuegbar</div>
+                    <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>Aktiv und verfuegbar laufen jetzt aus derselben Server-Quelle.</div>
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gap: 8 }}>
                   <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Aktive Pools</div>
                   {(['maya', 'council', 'distiller', 'worker', 'scout'] as PoolType[]).map((pool) => (
                     <div key={pool} style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12.5, color: TOKENS.text }}>{pool}</span>
+                      <span style={{ fontSize: 12.5, color: TOKENS.text }}>{POOL_LABELS[pool].label}</span>
                       <span style={{ fontSize: 11.5, color: TOKENS.text3 }}>{pools[pool].length} aktiv</span>
                     </div>
                   ))}
                 </div>
                 {showConfig ? (
                   <div style={{ border: `2px solid rgba(124,106,247,0.35)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden' }}>
-                    <BuilderConfigPanel token={token} ctx={mayaCtx} />
+                    <BuilderConfigPanel
+                      ctx={mayaCtx}
+                      poolConfig={poolConfig}
+                      pools={pools}
+                      openPool={openPool}
+                      onOpenPool={setOpenPool}
+                      onToggleModel={handleTogglePoolModel}
+                      onSelectModel={(pool, modelId) => handleTogglePoolModel(pool, modelId)}
+                    />
                   </div>
                 ) : (
                   <button

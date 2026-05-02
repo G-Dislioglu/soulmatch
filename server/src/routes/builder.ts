@@ -38,7 +38,7 @@ import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.
 import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
-import { getActivePools, updatePools, pickFromPool } from '../lib/poolState.js';
+import { getActivePools, getPoolConfigSnapshot, updatePools, pickFromPool } from '../lib/poolState.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -1017,6 +1017,7 @@ router.get('/maya/context', async (_req: Request, res: Response) => {
       memory: { episodes },
       continuityNotes: continuity,
       workerStats: workerStats.rows,
+      poolConfig: getPoolConfigSnapshot(),
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -1565,13 +1566,17 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
 });
 
 // POST /api/builder/maya/pools â€” receive pool configuration from frontend
+router.get('/maya/pools', (_req: Request, res: Response) => {
+  res.json(getPoolConfigSnapshot());
+});
+
 router.post('/maya/pools', (req: Request, res: Response) => {
   const { pools } = req.body as { pools?: { maya?: string[]; council?: string[]; distiller?: string[]; worker?: string[]; scout?: string[] } };
   if (!pools) { res.status(400).json({ error: 'pools required' }); return; }
   updatePools(pools);
   const current = getActivePools();
   console.log('[maya] Pools updated:', { maya: current.maya.length, council: current.council.length, distiller: current.distiller.length, worker: current.worker.length, scout: current.scout.length });
-  res.json({ success: true, pools: current });
+  res.json({ success: true, pools: current, poolConfig: getPoolConfigSnapshot() });
 });
 
 export { router as builderRouter };

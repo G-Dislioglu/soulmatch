@@ -1,5 +1,34 @@
 import { useCallback } from 'react';
 
+export type PoolType = 'maya' | 'council' | 'distiller' | 'worker' | 'scout';
+
+export interface PoolState {
+  maya: string[];
+  council: string[];
+  distiller: string[];
+  worker: string[];
+  scout: string[];
+}
+
+export interface MayaPoolModel {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+  quality: number;
+  speed: 'slow' | 'medium' | 'fast';
+  color: string;
+  pools: PoolType[];
+}
+
+export interface MayaPoolConfig {
+  selectionMode: 'manual';
+  autoSelectionAvailable: boolean;
+  active: PoolState;
+  available: Record<PoolType, string[]>;
+  models: MayaPoolModel[];
+}
+
 export interface MayaContext {
   tasks: Array<{
     id: string;
@@ -12,6 +41,7 @@ export interface MayaContext {
   memory: { episodes: Array<{ id?: string; key: string; summary: string; updatedAt: string }> };
   continuityNotes: Array<{ id?: string; key: string; summary: string; updatedAt: string }>;
   workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
+  poolConfig: MayaPoolConfig;
   timestamp: string;
 }
 
@@ -60,6 +90,12 @@ export function useMayaApi(token: string | null) {
   }, [token]);
 
   const getContext = useCallback(() => request<MayaContext>('/maya/context'), [request]);
+  const getPoolConfig = useCallback(() => request<MayaPoolConfig>('/maya/pools'), [request]);
+  const updatePools = useCallback((pools: PoolState) =>
+    request<{ success: boolean; pools: PoolState; poolConfig: MayaPoolConfig }>('/maya/pools', {
+      method: 'POST',
+      body: JSON.stringify({ pools }),
+    }), [request]);
 
   const chat = useCallback((message: string, history: MayaChatMessage[] = []) =>
     request<MayaChatResponse>('/maya/chat', {
@@ -116,5 +152,20 @@ export function useMayaApi(token: string | null) {
   const deleteTask = useCallback((taskId: string) =>
     request<{ deleted: boolean; taskId: string }>(`/tasks/${taskId}`, { method: 'DELETE' }), [request]);
 
-  return { getContext, chat, directorChat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
+  return {
+    getContext,
+    getPoolConfig,
+    updatePools,
+    chat,
+    directorChat,
+    chatWithFile,
+    executeAction,
+    cancelTask,
+    deleteTask,
+    createMemory,
+    updateMemory,
+    deleteMemory,
+    getTaskDialog,
+    getTaskEvidence,
+  };
 }
