@@ -3156,7 +3156,7 @@ export function BuilderStudioPage() {
         >
           <div style={{ display: 'grid', gap: 18 }}>
             <div data-maya-target="tasklist">
-              <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues und Statusfarben." accent={TOKENS.cyan}>
+              <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues, Prioritaetssignale und Statusfarben." accent={TOKENS.cyan}>
                 <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : '1fr 1fr' }}>
