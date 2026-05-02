@@ -20,6 +20,11 @@ import { readFile, listFiles } from '../lib/builderFileIO.js';
 import { getRepoRoot } from '../lib/builderExecutor.js';
 import { extractTextContent } from '../lib/builderBdlParser.js';
 import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from '../lib/builderCanary.js';
+import {
+  buildBuilderTaskContract,
+  deriveTaskCreationDefaults,
+  presentBuilderTask,
+} from '../lib/builderTaskContract.js';
 import { buildDirectorContext } from '../lib/directorContext.js';
 import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAction, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
@@ -39,6 +44,35 @@ import { resolve } from 'path';
 
 const router = Router();
 const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
+
+async function recordBuilderStatusTransition(input: {
+  before: typeof builderTasks.$inferSelect;
+  after: typeof builderTasks.$inferSelect;
+  lane: string;
+  reason: string;
+  actor?: string;
+  extraPayload?: Record<string, unknown>;
+}) {
+  const db = getDb();
+  await db.insert(builderActions).values({
+    taskId: input.after.id,
+    lane: input.lane,
+    kind: 'STATUS_TRANSITION',
+    actor: input.actor ?? 'system',
+    payload: {
+      fromStatus: input.before.status,
+      toStatus: input.after.status,
+      reason: input.reason,
+      contract: buildBuilderTaskContract(input.after),
+      ...(input.extraPayload ?? {}),
+    },
+    result: {
+      status: input.after.status,
+      lifecyclePhase: buildBuilderTaskContract(input.after).lifecycle.phase,
+    },
+    tokenCount: 0,
+  });
+}
 
 function getLocalOpusBridgeUrl(endpoint: string): string {
   const port = process.env.PORT || 10000;
@@ -255,7 +289,7 @@ router.get('/tasks', async (req: Request, res: Response) => {
           .orderBy(desc(builderTasks.createdAt))
           .limit(50);
 
-    res.json(tasks);
+    res.json(tasks.map((task) => presentBuilderTask(task)));
   } catch (err) {
     console.error('[builder] GET /tasks error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -265,11 +299,14 @@ router.get('/tasks', async (req: Request, res: Response) => {
 // POST /api/builder/tasks — create a new task
 router.post('/tasks', async (req: Request, res: Response) => {
   try {
-    const { title, goal, risk, taskType } = req.body as {
+    const { title, goal, risk, taskType, intentKind, requestedOutputKind, requestedOutputFormat } = req.body as {
       title: string;
       goal: string;
       risk?: string;
       taskType: string;
+      intentKind?: string;
+      requestedOutputKind?: string;
+      requestedOutputFormat?: string;
     };
 
     if (!title || !goal || !taskType) {
@@ -278,6 +315,15 @@ router.post('/tasks', async (req: Request, res: Response) => {
     }
 
     const policyProfile = TASK_TYPE_TO_PROFILE[taskType as TaskType] ?? null;
+    const creationDefaults = deriveTaskCreationDefaults({
+      title,
+      goal,
+      taskType,
+      risk: risk ?? 'low',
+      intentKind,
+      requestedOutputKind,
+      requestedOutputFormat,
+    });
 
     const db = getDb();
     const [created] = await db
@@ -287,11 +333,15 @@ router.post('/tasks', async (req: Request, res: Response) => {
         goal,
         risk: risk ?? 'low',
         taskType,
+        intentKind: creationDefaults.intentKind,
+        requestedOutputKind: creationDefaults.requestedOutputKind,
+        requestedOutputFormat: creationDefaults.requestedOutputFormat,
+        requiredLanes: creationDefaults.requiredLanes,
         policyProfile,
       })
       .returning();
 
-    res.status(201).json(created);
+    res.status(201).json(presentBuilderTask(created));
   } catch (err) {
     console.error('[builder] POST /tasks error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -312,7 +362,7 @@ router.get('/tasks/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(task);
+    res.json(presentBuilderTask(task));
   } catch (err) {
     console.error('[builder] GET /tasks/:id error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -379,6 +429,13 @@ router.post('/tasks/:id/run', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
+
+    await recordBuilderStatusTransition({
+      before: task,
+      after: updated,
+      lane: 'code',
+      reason: 'manual_run_requested',
+    });
 
     void runDialogEngine(req.params.id).catch((error) => {
       console.error('[builder] dialog engine error:', error);
@@ -474,7 +531,7 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
 
     const db = getDb();
     const [task] = await db
-      .select({ status: builderTasks.status })
+      .select()
       .from(builderTasks)
       .where(eq(builderTasks.id, req.params.id))
       .limit(1);
@@ -500,9 +557,17 @@ router.post('/tasks/:id/approve', async (req: Request, res: Response) => {
       return;
     }
 
+    await recordBuilderStatusTransition({
+      before: task,
+      after: updated,
+      lane: 'review',
+      reason: 'human_approved',
+      extraPayload: { commitHash: commitHash ?? null },
+    });
+
     await syncBuilderMemoryForTask(req.params.id);
 
-    res.json(updated);
+    res.json(presentBuilderTask(updated));
   } catch (err) {
     console.error('[builder] POST /tasks/:id/approve error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -514,7 +579,7 @@ router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) 
   try {
     const db = getDb();
     const [task] = await db
-      .select({ status: builderTasks.status })
+      .select()
       .from(builderTasks)
       .where(eq(builderTasks.id, req.params.id))
       .limit(1);
@@ -537,6 +602,22 @@ router.post('/tasks/:id/approve-prototype', async (req: Request, res: Response) 
       return;
     }
 
+    const [updatedTask] = await db
+      .select()
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (updatedTask) {
+      await recordBuilderStatusTransition({
+        before: task,
+        after: updatedTask,
+        lane: 'prototype',
+        reason: 'prototype_promoted',
+        extraPayload: { approved: approved ?? [], exclude: exclude ?? [] },
+      });
+    }
+
     void runDialogEngine(req.params.id).catch((error) => {
       console.error('[builder] engine error:', error);
     });
@@ -554,7 +635,7 @@ router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) =
     const { notes } = req.body as { notes?: string };
     const db = getDb();
     const [task] = await db
-      .select({ status: builderTasks.status })
+      .select()
       .from(builderTasks)
       .where(eq(builderTasks.id, req.params.id))
       .limit(1);
@@ -580,6 +661,14 @@ router.post('/tasks/:id/revise-prototype', async (req: Request, res: Response) =
       return;
     }
 
+    await recordBuilderStatusTransition({
+      before: task,
+      after: updated,
+      lane: 'prototype',
+      reason: 'prototype_revision_requested',
+      extraPayload: { notes: notes ?? 'Revision requested' },
+    });
+
     void runDialogEngine(req.params.id).catch((error) => {
       console.error('[builder] engine error:', error);
     });
@@ -596,7 +685,7 @@ router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
   try {
     const db = getDb();
     const [task] = await db
-      .select({ status: builderTasks.status })
+      .select()
       .from(builderTasks)
       .where(eq(builderTasks.id, req.params.id))
       .limit(1);
@@ -622,9 +711,16 @@ router.post('/tasks/:id/discard', async (req: Request, res: Response) => {
       return;
     }
 
+    await recordBuilderStatusTransition({
+      before: task,
+      after: updated,
+      lane: 'prototype',
+      reason: 'prototype_discarded',
+    });
+
     await syncBuilderMemoryForTask(req.params.id);
 
-    res.json(updated);
+    res.json(presentBuilderTask(updated));
   } catch (err) {
     console.error('[builder] POST /tasks/:id/discard error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -636,7 +732,7 @@ router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
   try {
     const db = getDb();
     const [task] = await db
-      .select({ status: builderTasks.status })
+      .select()
       .from(builderTasks)
       .where(eq(builderTasks.id, req.params.id))
       .limit(1);
@@ -662,9 +758,16 @@ router.post('/tasks/:id/revert', async (req: Request, res: Response) => {
       return;
     }
 
+    await recordBuilderStatusTransition({
+      before: task,
+      after: updated,
+      lane: 'review',
+      reason: 'human_reverted',
+    });
+
     await syncBuilderMemoryForTask(req.params.id);
 
-    res.json(updated);
+    res.json(presentBuilderTask(updated));
   } catch (err) {
     console.error('[builder] POST /tasks/:id/revert error:', err);
     res.status(500).json({ error: 'Database error' });

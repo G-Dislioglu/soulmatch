@@ -36,6 +36,10 @@ import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
 import { outboundFetch } from '../lib/outboundHttp.js';
 import repoFileRouter from './repoFile.js';
 import {
+  buildBuilderTaskContract,
+  deriveTaskCreationDefaults,
+} from '../lib/builderTaskContract.js';
+import {
   builderActions,
   builderArtifacts,
   builderChatpool,
@@ -52,6 +56,36 @@ export const opusBridgeRouter = Router();
 
 const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
 const ACCEPTANCE_SMOKE_SCOPE = 'docs/archive/push-test.md';
+
+async function recordBuilderStatusTransition(input: {
+  before: typeof builderTasks.$inferSelect;
+  after: typeof builderTasks.$inferSelect;
+  lane: string;
+  reason: string;
+  actor?: string;
+  extraPayload?: Record<string, unknown>;
+}) {
+  const db = getDb();
+  const contract = buildBuilderTaskContract(input.after);
+  await db.insert(builderActions).values({
+    taskId: input.after.id,
+    lane: input.lane,
+    kind: 'STATUS_TRANSITION',
+    actor: input.actor ?? 'system',
+    payload: {
+      fromStatus: input.before.status,
+      toStatus: input.after.status,
+      reason: input.reason,
+      contract,
+      ...(input.extraPayload ?? {}),
+    },
+    result: {
+      status: input.after.status,
+      lifecyclePhase: contract.lifecycle.phase,
+    },
+    tokenCount: 0,
+  });
+}
 
 opusBridgeRouter.use(requireOpusToken);
 opusBridgeRouter.use(repoFileRouter);
@@ -395,33 +429,71 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
       if (allPatches.length > 0) {
         const ghResult = await triggerGithubAction(taskId, allPatches);
         newStatus = ghResult.triggered ? 'applying' : 'error';
-        await db
+        const [updatedTask] = await db
           .update(builderTasks)
           .set({ status: newStatus, updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+          .where(eq(builderTasks.id, taskId))
+          .returning();
+        if (updatedTask) {
+          await recordBuilderStatusTransition({
+            before: task,
+            after: updatedTask,
+            lane: 'code',
+            reason: 'opus_override_approved',
+            extraPayload: { githubTriggered: ghResult.triggered, githubError: ghResult.error ?? null },
+          });
+        }
       } else {
         newStatus = 'done';
-        await db
+        const [updatedTask] = await db
           .update(builderTasks)
           .set({ status: newStatus, updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+          .where(eq(builderTasks.id, taskId))
+          .returning();
+        if (updatedTask) {
+          await recordBuilderStatusTransition({
+            before: task,
+            after: updatedTask,
+            lane: 'review',
+            reason: 'opus_override_approved_without_patches',
+          });
+        }
       }
     }
 
     if (action === 'block') {
       newStatus = 'blocked';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_blocked',
+        });
+      }
     }
 
     if (action === 'retry') {
       newStatus = 'queued';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_retry',
+          extraPayload: { retryHints: retryHints ?? null },
+        });
+      }
 
       if (retryHints) {
         await addChatPoolMessage({
@@ -439,10 +511,19 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
 
     if (action === 'cancel') {
       newStatus = 'cancelled';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_cancelled',
+        });
+      }
     }
 
     if (action === 'delete') {
@@ -849,6 +930,15 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
     }
 
     const db = getDb();
+    const swarmDefaults = deriveTaskCreationDefaults({
+      title: goal.slice(0, 100),
+      goal,
+      taskType: 'C',
+      risk: 'low',
+      intentKind: 'code_change',
+      requestedOutputKind: 'code_artifact',
+      requestedOutputFormat: 'code',
+    });
     const [task] = await db
       .insert(builderTasks)
       .values({
@@ -856,10 +946,22 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
         goal,
         scope: assignments.map((assignment: { file: string }) => assignment.file),
         risk: 'low',
+        taskType: 'C',
+        intentKind: swarmDefaults.intentKind,
+        requestedOutputKind: swarmDefaults.requestedOutputKind,
+        requestedOutputFormat: swarmDefaults.requestedOutputFormat,
+        requiredLanes: swarmDefaults.requiredLanes,
         status: 'swarm',
       })
       .returning();
     const id = task.id;
+
+    await recordBuilderStatusTransition({
+      before: { ...task, status: 'queued' },
+      after: task,
+      lane: 'code',
+      reason: 'opus_swarm_task_created',
+    });
 
     const autoFileContents = new Map<string, string>();
     if (fileContents) {
@@ -905,10 +1007,20 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
         patches.map((patch) => ({ kind: 'PATCH', params: { file: patch.file }, body: patch.body, raw: patch.body })),
       );
       githubAction = await triggerGithubAction(id, patchPayloads);
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: githubAction.triggered ? 'applying' : 'error' })
-        .where(eq(builderTasks.id, id));
+        .where(eq(builderTasks.id, id))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'code',
+          reason: 'opus_swarm_dispatched',
+          extraPayload: { githubTriggered: githubAction.triggered, githubError: githubAction.error ?? null },
+        });
+      }
     }
 
     res.json({
@@ -1058,6 +1170,15 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     const baseGoal = `${message || 'Direct file push via /push endpoint'}${controlledAcceptanceSmoke ? ` ${ACCEPTANCE_SMOKE_MARKER}` : ''}`;
 
     const db = getDb();
+    const pushDefaults = deriveTaskCreationDefaults({
+      title: (message || 'direct push').slice(0, 100),
+      goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
+      taskType: 'C',
+      risk: 'low',
+      intentKind: 'code_change',
+      requestedOutputKind: 'code_artifact',
+      requestedOutputFormat: 'code',
+    });
     const [task] = await db
       .insert(builderTasks)
       .values({
@@ -1065,6 +1186,11 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
         goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
         scope: files.map((f) => f.file),
         risk: 'low',
+        taskType: 'C',
+        intentKind: pushDefaults.intentKind,
+        requestedOutputKind: pushDefaults.requestedOutputKind,
+        requestedOutputFormat: pushDefaults.requestedOutputFormat,
+        requiredLanes: pushDefaults.requiredLanes,
         sourceAsyncJobId: typeof sourceAsyncJobId === 'string' && sourceAsyncJobId.length > 0
           ? sourceAsyncJobId
           : null,
@@ -1072,10 +1198,26 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       })
       .returning();
 
+    await recordBuilderStatusTransition({
+      before: { ...task, status: 'queued' },
+      after: task,
+      lane: 'code',
+      reason: 'opus_direct_push_task_created',
+    });
+
     const result = await triggerGithubActionChunked(task.id, patches, branch);
 
     if (!result.triggered) {
-      await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id));
+      const [updatedTask] = await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id)).returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'code',
+          reason: 'opus_direct_push_failed_to_dispatch',
+          extraPayload: { error: result.error ?? null },
+        });
+      }
     }
 
     res.json({

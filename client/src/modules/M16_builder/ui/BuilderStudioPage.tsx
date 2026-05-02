@@ -23,11 +23,15 @@ import {
   type BuilderChatPoolEntry,
   type BuilderCreateTaskInput,
   type BuilderEvidencePack,
+  type BuilderOutputFormat,
+  type BuilderOutputKind,
   type BuilderTaskObservation,
   type BuilderPatrolFinding,
   type BuilderPatrolSeverity,
   type BuilderPatrolStatus,
   type BuilderTask,
+  type BuilderTaskIntentKind,
+  type BuilderUniversalLifecyclePhase,
 } from '../hooks/useBuilderApi';
 import { MayaFigure } from './MayaFigure';
 import { PoolChatWindow } from './PoolChatWindow';
@@ -156,10 +160,44 @@ const PATROL_CATEGORY_LABELS: Record<string, string> = {
   'stale-comment': 'Veralteter Kommentar',
 };
 
+const INTENT_OPTIONS: Array<{ value: BuilderTaskIntentKind; label: string }> = [
+  { value: 'app_build', label: 'App Build' },
+  { value: 'code_change', label: 'Code Change' },
+  { value: 'debug', label: 'Debug' },
+  { value: 'technical_review', label: 'Technical Review' },
+  { value: 'analysis', label: 'Analysis' },
+  { value: 'clarification', label: 'Clarification' },
+  { value: 'strategy', label: 'Strategy' },
+  { value: 'research', label: 'Research' },
+  { value: 'general', label: 'General' },
+];
+
+const OUTPUT_KIND_OPTIONS: Array<{ value: BuilderOutputKind; label: string }> = [
+  { value: 'code_artifact', label: 'Code Artifact' },
+  { value: 'html_artifact', label: 'HTML Artifact' },
+  { value: 'markdown_artifact', label: 'Markdown Artifact' },
+  { value: 'structured_answer', label: 'Structured Answer' },
+  { value: 'chat_answer', label: 'Chat Answer' },
+  { value: 'json_artifact', label: 'JSON Artifact' },
+  { value: 'presentation_artifact', label: 'Presentation' },
+  { value: 'visual_artifact', label: 'Visual Artifact' },
+];
+
+const OUTPUT_FORMAT_OPTIONS: Array<{ value: BuilderOutputFormat; label: string }> = [
+  { value: 'code', label: 'Code' },
+  { value: 'html', label: 'HTML' },
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'chat', label: 'Chat' },
+  { value: 'json', label: 'JSON' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
 const BUILDER_TOKEN_STORAGE_KEY = 'builder_token';
 const LEGACY_BUILDER_TOKEN_STORAGE_KEY = 'maya-token';
 const OPUS_TOKEN_STORAGE_KEY = 'builder_opus_token';
 const LEGACY_OPUS_TOKEN_STORAGE_KEY = 'opus-bridge-token';
+const BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY = 'builder_task_queue_filter';
+const BUILDER_TASK_QUEUE_SORT_STORAGE_KEY = 'builder_task_queue_sort';
 
 function readStoredValue(keys: string[]) {
   try {
@@ -197,6 +235,36 @@ function getInitialOpusToken() {
 
   const legacyOpusToken = readStoredValue([LEGACY_OPUS_TOKEN_STORAGE_KEY]);
   return legacyOpusToken && legacyOpusToken !== storedBuilderToken ? legacyOpusToken : '';
+}
+
+function getInitialTaskQueueFilter(): TaskQueueFilter {
+  const params = new URLSearchParams(window.location.search);
+  const urlValue = params.get('queue');
+  if (urlValue === 'attention' || urlValue === 'active' || urlValue === 'ready' || urlValue === 'delivered' || urlValue === 'done') {
+    return urlValue;
+  }
+
+  const stored = readStoredValue([BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY]);
+  return stored === 'attention' || stored === 'active' || stored === 'ready' || stored === 'delivered' || stored === 'done'
+    ? stored
+    : 'all';
+}
+
+function getInitialTaskQueueSort(): TaskQueueSort {
+  const params = new URLSearchParams(window.location.search);
+  const urlValue = params.get('queue_sort');
+  if (urlValue === 'updated' || urlValue === 'title' || urlValue === 'priority') {
+    return urlValue;
+  }
+
+  const stored = readStoredValue([BUILDER_TASK_QUEUE_SORT_STORAGE_KEY]);
+  return stored === 'updated' || stored === 'title' ? stored : 'priority';
+}
+
+function getInitialSelectedTaskId() {
+  const params = new URLSearchParams(window.location.search);
+  const taskId = params.get('task');
+  return taskId && taskId.trim().length > 0 ? taskId.trim() : null;
 }
 
 async function validateBuilderToken(token: string) {
@@ -513,14 +581,7 @@ interface ExecutionStateSummary {
 }
 
 type TribunePhaseKey =
-  | 'created'
-  | 'planning'
-  | 'building'
-  | 'checking'
-  | 'review'
-  | 'landed'
-  | 'live'
-  | 'stopped';
+  BuilderUniversalLifecyclePhase;
 
 interface TribuneTimelineEntry {
   key: TribunePhaseKey;
@@ -540,18 +601,391 @@ interface TribunePhaseDetail {
   notRequired?: boolean;
 }
 
+type OperatorActionKey =
+  | 'run'
+  | 'approve'
+  | 'approve_prototype'
+  | 'revise_prototype'
+  | 'revert'
+  | 'inspect';
+
+interface OperatorActionSuggestion {
+  key: OperatorActionKey;
+  label: string;
+  tone: 'primary' | 'warning' | 'neutral' | 'danger';
+}
+
+interface OperatorGuidance {
+  title: string;
+  summary: string;
+  detail: string;
+  accent: string;
+  actions: OperatorActionSuggestion[];
+}
+
+interface TaskQueueSignal {
+  label: string;
+  summary: string;
+  accent: string;
+  priority: 'attention' | 'active' | 'ready' | 'delivered' | 'done';
+}
+
+type TaskQueueFilter = 'all' | TaskQueueSignal['priority'];
+type TaskQueueSort = 'priority' | 'updated' | 'title';
+
+interface TaskCardTone {
+  border: string;
+  background: string;
+  glow: string;
+  chipBg: string;
+}
+
 const TRIBUNE_PHASE_ORDER: TribunePhaseKey[] = [
-  'created',
-  'planning',
-  'building',
-  'checking',
-  'review',
-  'landed',
-  'live',
+  'requested',
+  'understood',
+  'routed',
+  'active',
+  'synthesizing',
+  'delivered',
+  'confirmed',
   'stopped',
 ];
 
-const USER_ATTENTION_STATUSES = new Set(['prototype_review', 'review_needed', 'needs_human_review']);
+const UNIVERSAL_PHASE_COLORS: Record<TribunePhaseKey, string> = {
+  requested: TOKENS.text2,
+  understood: TOKENS.cyan,
+  routed: '#8b5cf6',
+  active: TOKENS.purple,
+  synthesizing: TOKENS.green,
+  delivered: TOKENS.gold,
+  confirmed: TOKENS.green,
+  stopped: TOKENS.rose,
+};
+
+function formatLaneList(lanes: string[]) {
+  return lanes.length > 0 ? lanes.join(' · ') : 'Noch keine Lane zugewiesen';
+}
+
+function formatInstanceList(instances: string[]) {
+  return instances.length > 0 ? instances.join(' · ') : 'Noch kein Team sichtbar';
+}
+
+function formatArtifacts(list: string[]) {
+  return list.length > 0 ? list.join(', ') : 'Noch keine geplanten Artefakte';
+}
+
+function formatExecutionChannelLabel(channel: string | null | undefined) {
+  switch (channel) {
+    case 'dialog':
+      return 'Dialog';
+    case 'quick':
+      return 'Quick';
+    case 'pipeline':
+      return 'Pipeline';
+    case 'bridge':
+      return 'Opus Bridge';
+    case 'manual':
+      return 'Manual';
+    default:
+      return 'Unknown';
+  }
+}
+
+function formatExecutionSummary(evidence: BuilderEvidencePack | null) {
+  if (!evidence) {
+    return 'Noch keine Execution-Spur verfuegbar';
+  }
+
+  const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+  const reason = evidence.execution_summary.last_transition_reason ?? 'kein letzter Grund';
+  return `${channel} · ${reason}`;
+}
+
+function formatExecutionMeta(evidence: BuilderEvidencePack | null) {
+  if (!evidence) {
+    return 'Noch keine sichtbare Transition';
+  }
+
+  const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+  const lane = evidence.execution_summary.last_transition_lane ?? 'unknown';
+  const reason = evidence.execution_summary.last_transition_reason ?? 'ohne Grund';
+  return `${channel} · ${lane} · ${reason}`;
+}
+
+function deriveOperatorGuidance(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  waitingCount: number,
+): OperatorGuidance | null {
+  if (!task) {
+    return null;
+  }
+
+  const channel = evidence?.execution_summary.channel ?? 'unknown';
+  const channelLabel = formatExecutionChannelLabel(channel);
+  const reason = evidence?.execution_summary.last_transition_reason ?? 'ohne klaren Uebergangsgrund';
+  const moreWaiting = waitingCount > 1 ? ` Es warten noch ${waitingCount - 1} weitere Tasks.` : '';
+
+  if (task.status === 'prototype_review') {
+    return {
+      title: 'Prototype braucht Entscheidung',
+      summary: 'Dieser Lauf hat bewusst vor dem Weiterbau angehalten, damit du den sichtbaren Zwischenstand freigibst, ueberarbeiten laesst oder verwirfst.',
+      detail: `Modus ${channelLabel} · letzter Uebergang ${reason}.${moreWaiting}`,
+      accent: TOKENS.gold,
+      actions: [
+        { key: 'approve_prototype', label: 'Prototype freigeben', tone: 'primary' },
+        { key: 'revise_prototype', label: 'Revision anfordern', tone: 'warning' },
+        { key: 'revert', label: 'Prototype verwerfen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return {
+      title: 'Maya wartet auf deine Freigabe',
+      summary: 'Das Ergebnis liegt bereit, aber dieser Vertrag verlangt vor dem naechsten Schritt eine menschliche Entscheidung.',
+      detail: `Modus ${channelLabel} · letzter Uebergang ${reason}.${moreWaiting}`,
+      accent: TOKENS.gold,
+      actions: [
+        { key: 'approve', label: 'Freigeben', tone: 'primary' },
+        { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+        { key: 'revert', label: 'Zuruecknehmen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.status === 'queued' || task.status === 'classifying' || task.status === 'planning') {
+    return {
+      title: 'Task ist bereit zum Start',
+      summary: 'Der Vertrag ist angelegt, aber der Lauf wurde noch nicht aktiv gestartet.',
+      detail: 'Empfohlener Schritt: Task anwerfen und danach den Routing-Pfad beobachten.',
+      accent: TOKENS.cyan,
+      actions: [
+        { key: 'run', label: 'Task starten', tone: 'primary' },
+        { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+      ],
+    };
+  }
+
+  if (task.status === 'blocked' || task.contract.lifecycle.phase === 'stopped' || task.contract.lifecycle.attentionState === 'blocked') {
+    return {
+      title: channel === 'bridge' ? 'Bridge-Pfad ist angehalten' : 'Lauf ist angehalten',
+      summary: channel === 'bridge'
+        ? 'Ein externer Bridge- oder Override-Pfad hat den Task in einen gestoppten Zustand gebracht.'
+        : 'Der aktuelle Lauf ist nicht mehr aktiv und braucht jetzt eine bewusste Entscheidung.',
+      detail: `Modus ${channelLabel} · letzter Uebergang ${reason}.`,
+      accent: TOKENS.rose,
+      actions: [
+        { key: 'inspect', label: 'Ursache ansehen', tone: 'neutral' },
+        { key: 'run', label: 'Erneut starten', tone: 'warning' },
+        { key: 'revert', label: 'Zuruecknehmen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'delivered') {
+    return {
+      title: 'Ergebnis ist geliefert',
+      summary: 'Maya betrachtet den Stand als lieferbar. Der naechste sinnvolle Schritt ist jetzt Pruefung oder Abschluss.',
+      detail: `Modus ${channelLabel} · letzter Uebergang ${reason}.`,
+      accent: TOKENS.green,
+      actions: task.contract.output.needsUserConfirmation
+        ? [
+            { key: 'approve', label: 'Abschliessen', tone: 'primary' },
+            { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+          ]
+        : [
+            { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+          ],
+    };
+  }
+
+  if (channel === 'bridge') {
+    return {
+      title: 'Bridge-Pfad aktiv',
+      summary: 'Dieser Task wird gerade ueber einen externen Bridge-Kontext mitgesteuert. Eingriffe sollten bewusst und sparsam sein.',
+      detail: `Letzter Uebergang ${reason}. Beobachte zuerst die Details, bevor du neu startest oder revertierst.`,
+      accent: '#8b5cf6',
+      actions: [
+        { key: 'inspect', label: 'Bridge-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  if (channel === 'quick') {
+    return {
+      title: 'Quick-Pfad aktiv',
+      summary: 'Maya versucht hier einen kurzen, direkten Durchlauf statt eines schweren Multi-Lane-Baums.',
+      detail: `Letzter Uebergang ${reason}. Solange nichts blockiert ist, ist Beobachten sinnvoller als Eingreifen.`,
+      accent: TOKENS.cyan,
+      actions: [
+        { key: 'inspect', label: 'Quick-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  if (channel === 'pipeline') {
+    return {
+      title: 'Pipeline-Pfad aktiv',
+      summary: 'Diese Task laeuft ueber einen mehrstufigen Ausfuehrungspfad. Der relevante Operator-Schritt ist meist Kontrolle statt Soforteingriff.',
+      detail: `Letzter Uebergang ${reason}.`,
+      accent: TOKENS.purple,
+      actions: [
+        { key: 'inspect', label: 'Pipeline-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  return {
+    title: 'Kein Eingriff noetig',
+    summary: 'Maya arbeitet aktuell in einem normalen Lauf und hat keinen expliziten Bedienbedarf signalisiert.',
+    detail: `Modus ${channelLabel} · letzter Uebergang ${reason}.`,
+    accent: TOKENS.text3,
+    actions: [
+      { key: 'inspect', label: 'Task verfolgen', tone: 'neutral' },
+    ],
+  };
+}
+
+function deriveTaskQueueSignal(task: BuilderTask): TaskQueueSignal {
+  if (task.status === 'prototype_review') {
+    return {
+      label: 'Entscheidung',
+      summary: 'Prototype liegt vor und wartet auf Freigabe, Revision oder Verwerfung.',
+      accent: TOKENS.gold,
+      priority: 'attention',
+    };
+  }
+
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return {
+      label: 'Wartet auf dich',
+      summary: 'Der aktuelle Vertrag verlangt vor dem naechsten Schritt eine menschliche Freigabe.',
+      accent: TOKENS.gold,
+      priority: 'attention',
+    };
+  }
+
+  if (task.status === 'queued' || task.status === 'classifying' || task.status === 'planning') {
+    return {
+      label: 'Startklar',
+      summary: 'Task ist angelegt und kann jetzt in den aktiven Lauf geschickt werden.',
+      accent: TOKENS.cyan,
+      priority: 'ready',
+    };
+  }
+
+  if (task.status === 'blocked' || task.contract.lifecycle.phase === 'stopped' || task.contract.lifecycle.attentionState === 'blocked') {
+    return {
+      label: 'Angehalten',
+      summary: 'Der Lauf ist gestoppt und braucht eine bewusste Operator-Entscheidung.',
+      accent: TOKENS.rose,
+      priority: 'attention',
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'delivered') {
+    return {
+      label: 'Bereit',
+      summary: 'Ergebnis ist geliefert und kann jetzt geprueft oder abgeschlossen werden.',
+      accent: TOKENS.green,
+      priority: 'delivered',
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'confirmed' || task.status === 'done') {
+    return {
+      label: 'Abgeschlossen',
+      summary: 'Diese Task ist bestaetigt und braucht aktuell keinen Eingriff.',
+      accent: TOKENS.text3,
+      priority: 'done',
+    };
+  }
+
+  return {
+    label: 'Laeuft',
+    summary: `Maya arbeitet aktiv in der Phase ${task.contract.lifecycle.phase} mit den Lanes ${formatLaneList(task.contract.routing.activeLanes)}.`,
+    accent: TOKENS.purple,
+    priority: 'active',
+  };
+}
+
+function deriveTaskCardTone(task: BuilderTask, selected: boolean): TaskCardTone {
+  const signal = deriveTaskQueueSignal(task);
+  const base = selected ? TOKENS.gold : signal.accent;
+
+  if (signal.priority === 'attention') {
+    return {
+      border: selected ? TOKENS.gold : `${base}88`,
+      background: selected ? 'rgba(212,175,55,0.12)' : `linear-gradient(135deg, ${base}18, rgba(255,255,255,0.03))`,
+      glow: `${base}33`,
+      chipBg: `${base}18`,
+    };
+  }
+
+  if (signal.priority === 'delivered') {
+    return {
+      border: selected ? TOKENS.gold : `${base}66`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}12, rgba(255,255,255,0.03))`,
+      glow: `${base}22`,
+      chipBg: `${base}14`,
+    };
+  }
+
+  if (signal.priority === 'ready') {
+    return {
+      border: selected ? TOKENS.gold : `${base}55`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}10, rgba(255,255,255,0.025))`,
+      glow: `${base}18`,
+      chipBg: `${base}12`,
+    };
+  }
+
+  if (signal.priority === 'active') {
+    return {
+      border: selected ? TOKENS.gold : `${base}44`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}0f, rgba(255,255,255,0.02))`,
+      glow: `${base}18`,
+      chipBg: `${base}10`,
+    };
+  }
+
+  return {
+    border: selected ? TOKENS.gold : TOKENS.b2,
+    background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
+    glow: 'transparent',
+    chipBg: 'rgba(255,255,255,0.04)',
+  };
+}
+
+function sortTaskQueue(tasks: BuilderTask[], sortMode: TaskQueueSort) {
+  const priorityOrder: Record<TaskQueueSignal['priority'], number> = {
+    attention: 0,
+    active: 1,
+    ready: 2,
+    delivered: 3,
+    done: 4,
+  };
+
+  return [...tasks].sort((left, right) => {
+    if (sortMode === 'title') {
+      return left.title.localeCompare(right.title, 'de');
+    }
+
+    if (sortMode === 'updated') {
+      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+    }
+
+    const leftSignal = deriveTaskQueueSignal(left);
+    const rightSignal = deriveTaskQueueSignal(right);
+    const priorityDiff = priorityOrder[leftSignal.priority] - priorityOrder[rightSignal.priority];
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+  });
+}
 
 function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidencePack | null): ExecutionStateSummary {
   if (!task) {
@@ -569,50 +1003,45 @@ function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidenc
   const counterexampleSummary = evidence
     ? `${evidence.counterexamples_passed}/${evidence.counterexamples_tested} Gegenbeispiele bestanden`
     : 'Keine Counterexample-Werte verfuegbar';
+  const { contract } = task;
 
-  switch (task.status) {
-    case 'queued':
-      return { label: 'Eingereiht', detail: 'Die Task ist angelegt und wartet darauf, dass der Builder den Auftrag aufgreift.', accent: TOKENS.text2 };
-    case 'classifying':
-    case 'planning':
-      return { label: 'Versteht den Auftrag', detail: 'Der Builder schneidet Scope, Risiko und naechsten Arbeitsweg zu.', accent: TOKENS.cyan };
-    case 'prototyping':
-      return { label: 'Baut einen Prototyp', detail: 'Die Route laeuft noch nicht in den finalen Codepfad, sondern in einen bewussten Vorstufen-Bau.', accent: TOKENS.purple };
-    case 'prototype_review':
-      return { label: 'Wartet auf Prototype-Entscheidung', detail: 'Ein Vorschau-Ergebnis liegt vor und braucht eine explizite Freigabe, Ueberarbeitung oder Verwerfung.', accent: TOKENS.gold };
-    case 'applying':
-      return { label: 'Wendet Aenderungen an', detail: 'Der Builder setzt den ausgewaehlten Patch gerade in den Arbeitsstand um.', accent: TOKENS.cyan };
-    case 'checking':
-    case 'testing':
-    case 'reviewing':
-    case 'counterexampling':
-      return { label: 'Prueft die Aenderungen', detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: TOKENS.green };
-    case 'push_candidate':
-      return { label: 'Bereit zum Landen', detail: `${runtimeSummary}. Der Task ist ueber die reine Bauphase hinaus und wartet auf den letzten Landing-Schritt.`, accent: TOKENS.green };
-    case 'needs_human_review':
-    case 'review_needed':
-      return { label: 'Braucht menschliche Pruefung', detail: `${runtimeSummary}. Der Builder meldet, dass vor dem Landen ein menschlicher Blick oder eine Entscheidung noetig ist.`, accent: TOKENS.gold };
-    case 'blocked':
-      return { label: 'Blockiert', detail: 'Der Workflow ist bewusst gestoppt worden und kann nicht still weiterlaufen, bis der Blocker geklaert ist.', accent: '#ef4444' };
-    case 'done':
+  switch (contract.lifecycle.phase) {
+    case 'requested':
+      return { label: 'Auftrag eingegangen', detail: contract.lifecycle.summary, accent: UNIVERSAL_PHASE_COLORS.requested };
+    case 'understood':
+      return { label: 'Versteht den Auftrag', detail: `${contract.lifecycle.summary} ${contract.intent.summary}`, accent: UNIVERSAL_PHASE_COLORS.understood };
+    case 'routed':
+      return { label: 'Routet in Lanes', detail: `${contract.routing.summary} Team: ${formatInstanceList(contract.team.activeInstances)}.`, accent: UNIVERSAL_PHASE_COLORS.routed };
+    case 'active':
+      return {
+        label: contract.codeLane.phase === 'prototype_building' ? 'Baut einen Prototyp' : 'Arbeitet aktiv',
+        detail: `${contract.codeLane.summary} ${contract.team.summary}`,
+        accent: UNIVERSAL_PHASE_COLORS.active,
+      };
+    case 'synthesizing':
+      return { label: 'Verdichtet Signale', detail: `${contract.lifecycle.summary} ${runtimeSummary}. ${counterexampleSummary}.`, accent: UNIVERSAL_PHASE_COLORS.synthesizing };
+    case 'delivered':
+      return { label: 'Ergebnis bereit', detail: `${contract.output.summary} ${contract.lifecycle.summary}`, accent: UNIVERSAL_PHASE_COLORS.delivered };
+    case 'confirmed':
       if (evidence?.false_success_detected) {
-        return { label: 'Formal fertig, aber fraglich', detail: 'Der Task steht auf done, aber das Evidence Pack markiert moeglichen False Success. Dieser Stand braucht Nachpruefung.', accent: '#ef4444' };
+        return { label: 'Formal bestaetigt, aber fraglich', detail: 'Der Stand ist bestaetigt, aber das Evidence Pack markiert moeglichen False Success.', accent: '#ef4444' };
       }
-      if (task.commitHash) {
-        return { label: 'Gelandet', detail: `${runtimeSummary}. Commit ${task.commitHash.slice(0, 7)} ist am Task hinterlegt.`, accent: TOKENS.green };
-      }
-      return { label: 'Als fertig markiert', detail: `${runtimeSummary}. Der Task steht auf done, aber es ist kein Commit-Hash sichtbar.`, accent: TOKENS.green };
-    case 'reverted':
-      return { label: 'Zurueckgenommen', detail: 'Der zuvor gelandete Stand wurde bewusst rueckgaengig gemacht.', accent: TOKENS.rose };
-    case 'discarded':
-      return { label: 'Verworfen', detail: 'Der Task oder sein Zwischenstand wurde bewusst verworfen und wird nicht weiterverfolgt.', accent: TOKENS.rose };
+      return {
+        label: task.commitHash ? 'Bestaetigt und verankert' : 'Bestaetigt',
+        detail: task.commitHash
+          ? `${contract.codeLane.summary} Commit ${task.commitHash.slice(0, 7)} ist sichtbar.`
+          : contract.lifecycle.summary,
+        accent: UNIVERSAL_PHASE_COLORS.confirmed,
+      };
+    case 'stopped':
+      return { label: 'Gestoppt', detail: contract.lifecycle.summary, accent: '#ef4444' };
     default:
       return { label: task.status, detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: STATUS_COLORS[task.status] ?? TOKENS.text2 };
   }
 }
 
 function needsUserAttention(task: BuilderTask | null) {
-  return Boolean(task && USER_ATTENTION_STATUSES.has(task.status));
+  return Boolean(task && task.contract.lifecycle.attentionState === 'waiting');
 }
 
 function formatObservationMeta(observation: BuilderTaskObservation | null) {
@@ -660,43 +1089,8 @@ function summarizeWorkerModels(observation: BuilderTaskObservation | null) {
 
 function deriveTribuneCurrentPhase(
   task: BuilderTask,
-  evidence: BuilderEvidencePack | null,
-  observation: BuilderTaskObservation | null,
 ): TribunePhaseKey {
-  const status = task.status;
-  const stoppedStatuses = new Set(['blocked', 'reverted', 'discarded', 'cancelled']);
-  const hasEvidence = Boolean(evidence);
-  const hasLiveSignals = Boolean(observation && (observation.chatPool.length > 0 || observation.actions.length > 0 || observation.opusLogs.length > 0));
-
-  if (stoppedStatuses.has(status)) {
-    return 'stopped';
-  }
-
-  if (task.commitHash && evidence?.runtime_results.length) {
-    return 'live';
-  }
-
-  if (task.commitHash || status === 'done' || status === 'push_candidate') {
-    return 'landed';
-  }
-
-  if (USER_ATTENTION_STATUSES.has(status)) {
-    return 'review';
-  }
-
-  if (status === 'checking' || status === 'testing' || status === 'reviewing' || status === 'counterexampling' || hasEvidence) {
-    return 'checking';
-  }
-
-  if (status === 'applying' || status === 'prototyping' || hasLiveSignals) {
-    return 'building';
-  }
-
-  if (status === 'classifying' || status === 'planning') {
-    return 'planning';
-  }
-
-  return 'created';
+  return task.contract.lifecycle.phase;
 }
 
 function deriveTribuneTimeline(
@@ -708,85 +1102,86 @@ function deriveTribuneTimeline(
     return [];
   }
 
-  const currentPhase = deriveTribuneCurrentPhase(task, evidence, observation);
+  const currentPhase = deriveTribuneCurrentPhase(task);
   const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
   const latestMeta = formatObservationMeta(observation);
+  const executionMeta = formatExecutionMeta(evidence);
   const runtimePasses = (evidence?.runtime_results ?? []).filter((result) => result.result === 'pass').length;
   const runtimeFailures = (evidence?.runtime_results ?? []).filter((result) => result.result !== 'pass').length;
-  const reviewHint = task.status === 'prototype_review'
-    ? 'Prototype wartet auf Freigabe, Ueberarbeitung oder Verwerfung.'
-    : 'Der Builder meldet, dass fuer den naechsten Schritt menschliche Zustimmung noetig ist.';
+  const { contract } = task;
   const phaseContent: Record<TribunePhaseKey, Omit<TribuneTimelineEntry, 'state'>> = {
-    created: {
-      key: 'created',
-      label: 'Erstellt',
-      detail: `Task angelegt am ${formatDate(task.createdAt)} und im Builder registriert.`,
+    requested: {
+      key: 'requested',
+      label: 'Angefragt',
+      detail: `Task angelegt am ${formatDate(task.createdAt)} und fuer Maya registriert.`,
       meta: `Status ${task.status} · Updated ${formatDate(task.updatedAt)}`,
-      accent: TOKENS.text2,
+      accent: UNIVERSAL_PHASE_COLORS.requested,
     },
-    planning: {
-      key: 'planning',
-      label: 'Plant',
-      detail: 'Der Builder schneidet gerade Scope, Risiko und den kuerzesten Arbeitsweg fuer diese Task zu.',
+    understood: {
+      key: 'understood',
+      label: 'Verstanden',
+      detail: contract.intent.summary,
       meta: latestMeta,
-      accent: TOKENS.cyan,
+      accent: UNIVERSAL_PHASE_COLORS.understood,
     },
-    building: {
-      key: 'building',
-      label: 'Baut',
-      detail: summarizeWorkerModels(observation),
-      meta: latestMeta,
-      accent: TOKENS.purple,
+    routed: {
+      key: 'routed',
+      label: 'Geroutet',
+      detail: `${contract.routing.summary} Aktive Lanes: ${formatLaneList(contract.routing.activeLanes)}.`,
+      meta: executionMeta,
+      accent: UNIVERSAL_PHASE_COLORS.routed,
     },
-    checking: {
-      key: 'checking',
-      label: 'Prueft',
+    active: {
+      key: 'active',
+      label: 'Aktiv',
+      detail: `${contract.team.summary} ${summarizeWorkerModels(observation)}`,
+      meta: `${contract.codeLane.phase} · ${executionMeta}`,
+      accent: UNIVERSAL_PHASE_COLORS.active,
+    },
+    synthesizing: {
+      key: 'synthesizing',
+      label: 'Verdichtet',
       detail: evidence
         ? `${evidence.checks.tsc}/${evidence.checks.build} bei TSC/Build · Runtime ${runtimePasses} gruen, ${runtimeFailures} nicht gruen.`
-        : 'Noch kein Evidence Pack sichtbar; Pruefphase laeuft oder hat noch nicht geschrieben.',
+        : contract.lifecycle.summary,
       meta: evidence
         ? `Agreement ${evidence.agreement_level ?? '—'} · Counterexamples ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`
         : latestMeta,
-      accent: TOKENS.green,
+      accent: UNIVERSAL_PHASE_COLORS.synthesizing,
     },
-    review: {
-      key: 'review',
-      label: 'Wartet auf Review',
-      detail: reviewHint,
-      meta: task.commitHash ? `Commit-Kandidat ${task.commitHash.slice(0, 7)}` : `Aktueller Status ${task.status}`,
-      accent: TOKENS.gold,
+    delivered: {
+      key: 'delivered',
+      label: 'Bereit',
+      detail: contract.output.summary,
+      meta: `${contract.output.format} · ${formatArtifacts(contract.output.plannedArtifacts)} · ${executionMeta}`,
+      accent: UNIVERSAL_PHASE_COLORS.delivered,
     },
-    landed: {
-      key: 'landed',
-      label: 'Gelandet',
+    confirmed: {
+      key: 'confirmed',
+      label: 'Bestaetigt',
       detail: task.commitHash
-        ? `Commit ${task.commitHash.slice(0, 7)} ist am Task sichtbar.`
-        : 'Der Builder meldet einen Landing-Kandidaten, aber noch keinen hinterlegten Commit-Hash.',
-      meta: task.commitHash ? `Updated ${formatDate(task.updatedAt)}` : `Status ${task.status}`,
-      accent: TOKENS.green,
-    },
-    live: {
-      key: 'live',
-      label: 'Live verifiziert',
-      detail: evidence?.runtime_results.length
-        ? `Evidence enthaelt ${evidence.runtime_results.length} Runtime-Signale. Dieser Zustand bleibt zusammengesetzt, bis ein kanonischer Live-Status vorhanden ist.`
-        : 'Noch kein eigener Live-Verifikationsbeleg im Task-Surface sichtbar.',
-      meta: evidence?.created_at ? `Evidence ${formatDate(evidence.created_at)}` : 'Noch kein harter Live-Verifikationszeitpunkt',
-      accent: TOKENS.cyan,
+        ? `Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Aufgabe gilt als bestaetigt.`
+        : contract.lifecycle.summary,
+      meta: task.commitHash ? `Updated ${formatDate(task.updatedAt)}` : formatArtifacts(contract.output.plannedArtifacts),
+      accent: UNIVERSAL_PHASE_COLORS.confirmed,
     },
     stopped: {
       key: 'stopped',
       label: 'Gestoppt',
-      detail: `Der Workflow wurde bewusst fail-closed gestoppt oder rueckgaengig gemacht (${task.status}).`,
+      detail: contract.lifecycle.summary,
       meta: `Updated ${formatDate(task.updatedAt)}`,
-      accent: TOKENS.rose,
+      accent: UNIVERSAL_PHASE_COLORS.stopped,
     },
   };
 
   return TRIBUNE_PHASE_ORDER.map((phase, index) => {
     let state: TribuneTimelineEntry['state'] = 'pending';
     if (phase === currentPhase) {
-      state = phase === 'review' ? 'waiting' : phase === 'stopped' ? 'blocked' : 'current';
+      state = contract.lifecycle.attentionState === 'waiting'
+        ? 'waiting'
+        : phase === 'stopped' || contract.lifecycle.attentionState === 'blocked'
+          ? 'blocked'
+          : 'current';
     } else if (phase === 'stopped') {
       state = currentPhase === 'stopped' ? 'blocked' : 'pending';
     } else if (index < currentIndex) {
@@ -809,16 +1204,20 @@ function deriveMayaTribuneSentence(
     return 'Waehle eine Task, dann erklaere ich dir den laufenden Builder-Ablauf in normaler Sprache.';
   }
 
-  if (task.status === 'prototype_review') {
-    return 'Ich habe einen Prototype vorbereitet und brauche jetzt deine Freigabe, Ueberarbeitung oder Verwerfung.';
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return task.contract.output.needsUserConfirmation
+      ? 'Ich habe einen verwertbaren Stand vorbereitet und brauche jetzt deine Entscheidung zum naechsten Schritt.'
+      : 'Ich halte das Ergebnis bereit und warte auf dein Signal fuer den Abschluss.';
   }
 
-  if (task.status === 'review_needed' || task.status === 'needs_human_review') {
-    return 'Ich habe den Fix soweit vorbereitet, dass jetzt ein menschlicher Entscheid noetig ist, bevor ich weiterlande.';
+  if (task.contract.lifecycle.phase === 'confirmed' && task.commitHash && evidence?.runtime_results.length) {
+    return `Ich bin mit dieser Aufgabe durch; Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Runtime-Signale sehen gruen aus.`;
   }
 
-  if (task.commitHash && evidence?.runtime_results.length) {
-    return `Ich bin mit dieser Task durch; Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Runtime-Signale sehen gruen aus.`;
+  if (evidence?.execution_summary.transition_count) {
+    const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+    const reason = evidence.execution_summary.last_transition_reason ?? 'ohne klaren Uebergangsgrund';
+    return `Ich arbeite gerade im ${channel}-Modus; der letzte sichtbare Uebergang war ${reason}.`;
   }
 
   const latestChat = observation?.chatPool[observation.chatPool.length - 1];
@@ -826,11 +1225,7 @@ function deriveMayaTribuneSentence(
     return `Ich arbeite gerade in ${latestChat.phase} und der letzte sichtbare Beitrag kam von ${latestChat.actor}.`;
   }
 
-  if (evidence) {
-    return `Ich pruefe gerade die Wirkung des letzten Patches; bisher sehe ich ${evidence.runtime_results.length} Runtime-Signale im Evidence Pack.`;
-  }
-
-  return 'Ich schneide gerade den naechsten Builder-Schritt zu und sammele noch die ersten Live-Signale.';
+  return task.contract.lifecycle.summary;
 }
 
 function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
@@ -841,11 +1236,11 @@ function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
   const moreCount = Math.max(0, waitingCount - 1);
   const tail = moreCount > 0 ? ` Dazu kommen noch ${moreCount} weitere wartende Tasks.` : '';
 
-  if (task.status === 'prototype_review') {
+  if (task.contract.output.kind === 'html_artifact') {
     return `Diese Task wartet bewusst auf eine Prototype-Entscheidung. Ohne dein Signal lande ich hier nichts.${tail}`;
   }
 
-  return `Diese Task braucht vor dem naechsten Landing-Schritt deinen Blick oder deine Zustimmung.${tail}`;
+  return `Diese Task braucht vor dem naechsten Schritt deinen Blick oder deine Zustimmung.${tail}`;
 }
 
 function matchObservationSignals(
@@ -875,50 +1270,71 @@ function deriveTribunePhaseDetail(
   }
 
   const timelineEntry = timeline.find((entry) => entry.key === phase);
-  const currentPhase = deriveTribuneCurrentPhase(task, evidence, observation);
+  const currentPhase = deriveTribuneCurrentPhase(task);
   const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
   const phaseIndex = TRIBUNE_PHASE_ORDER.indexOf(phase);
   const beforeCurrent = phaseIndex < currentIndex;
   const afterCurrent = phaseIndex > currentIndex;
-  const isManualReviewLane = USER_ATTENTION_STATUSES.has(task.status);
+  const { contract } = task;
+  const isManualReviewLane = contract.lifecycle.attentionState === 'waiting';
 
   switch (phase) {
-    case 'created':
+    case 'requested':
       return {
-        title: 'Task wurde angelegt',
-        summary: 'Hier beginnt der Builder-Lauf. Scope, Risiko und Ziel sind registriert, aber noch nicht aktiv bearbeitet.',
+        title: 'Auftrag wurde angelegt',
+        summary: 'Hier beginnt der Builder-Lauf. Ziel, Intent und Startkontext sind registriert, aber noch nicht vertieft.',
         source: 'task',
         lines: [
           `Titel: ${task.title}`,
-          `Risk: ${task.risk ?? '—'} · Status: ${task.status}`,
+          `Intent: ${contract.intent.kind} · Risk: ${task.risk ?? '—'}`,
           `Erstellt: ${formatDate(task.createdAt)} · Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
         ],
       };
-    case 'planning': {
-      const planningSignals = matchObservationSignals(observation, ['architect', 'scope', 'plan', 'classify']);
+    case 'understood': {
+      const planningSignals = matchObservationSignals(observation, ['architect', 'scope', 'plan', 'classify', 'understand']);
       return {
-        title: 'Planung und Zuschnitt',
-        summary: beforeCurrent || currentPhase === 'planning'
-          ? 'Der Builder schneidet hier Scope, Risiko und den kuerzesten Arbeitsweg fuer diese Task zu.'
-          : 'Diese Planungsphase ist vorbei; die folgenden Schritte bauen auf diesem Zuschnitt auf.',
+        title: 'Maya versteht den Auftrag',
+        summary: beforeCurrent || currentPhase === 'understood'
+          ? 'Maya klaert hier Problemkern, Risiko und die richtige Rahmung fuer die Aufgabe.'
+          : 'Diese Verstehensphase ist vorbei; der weitere Lauf baut auf diesem Zuschnitt auf.',
         source: 'observe',
         lines: planningSignals.length > 0
           ? planningSignals.slice(-3).map((entry) => `${entry.actor} · ${entry.phase} · ${shortenGuideLabel(entry.content, 96)}`)
           : [
-              'Keine explizite einzelne Planungszeile im aktuellen Observe-Feed sichtbar.',
+              contract.intent.summary,
               timelineEntry?.meta ?? `Status ${task.status}`,
             ],
       };
     }
-    case 'building': {
-      const buildSignals = matchObservationSignals(observation, ['roundtable', 'worker', 'distiller', 'scout', 'swarm', 'patch']);
+    case 'routed': {
+      const routeSignals = matchObservationSignals(observation, ['route', 'scope', 'lane', 'council', 'distiller']);
       return {
-        title: 'Bauphase',
-        summary: currentPhase === 'building'
-          ? 'Hier arbeiten Worker, Council und Distiller am konkreten Patch.'
-          : 'Diese Phase beschreibt den eigentlichen Bau- und Worker-Abschnitt der Task.',
+        title: 'Routing unter dem universellen Dach',
+        summary: currentPhase === 'routed'
+          ? 'Maya legt hier Lane, Team und geplante Outputform fuer den naechsten Schritt fest.'
+          : 'Diese Phase beschreibt den Uebergang von Verstehen zu gezielter Ausfuehrung.',
         source: 'observe',
         lines: [
+          `Lanes: ${formatLaneList(contract.routing.activeLanes)}`,
+          `Team: ${formatInstanceList(contract.team.activeInstances)}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
+          ...(routeSignals.length > 0
+            ? routeSignals.slice(-2).map((entry) => `${entry.actor} · ${entry.phase} · ${shortenGuideLabel(entry.content, 96)}`)
+            : [contract.routing.summary]),
+        ],
+      };
+    }
+    case 'active': {
+      const buildSignals = matchObservationSignals(observation, ['roundtable', 'worker', 'distiller', 'scout', 'swarm', 'patch']);
+      return {
+        title: 'Aktive Ausfuehrung',
+        summary: currentPhase === 'active'
+          ? 'Hier arbeitet das aktive Team in der spezialisierten Lane am eigentlichen Artefakt.'
+          : 'Diese Phase beschreibt den konkreten Arbeitsabschnitt der Aufgabe.',
+        source: 'observe',
+        lines: [
+          `Code-Lane: ${contract.codeLane.phase} · ${contract.codeLane.summary}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
           summarizeWorkerModels(observation),
           ...(buildSignals.length > 0
             ? buildSignals.slice(-3).map((entry) => `${entry.actor} · ${entry.phase} · ${shortenGuideLabel(entry.content, 96)}`)
@@ -926,76 +1342,66 @@ function deriveTribunePhaseDetail(
         ],
       };
     }
-    case 'checking':
+    case 'synthesizing':
       return {
-        title: 'Pruefphase',
+        title: 'Synthese und Pruefung',
         summary: evidence
-          ? 'Hier verdichtet der Builder Build-, Runtime- und Review-Signale.'
+          ? 'Hier verdichtet Maya Build-, Runtime-, Gegenbeispiel- und Review-Signale zu einem belastbaren Stand.'
           : afterCurrent
             ? 'Diese Phase ist noch nicht erreicht.'
-            : 'Noch kein Evidence Pack sichtbar; die Pruefphase hat noch nichts Verdichtetes geschrieben.',
+            : 'Noch kein Evidence Pack sichtbar; die Synthesephase hat noch nichts Verdichtetes geschrieben.',
         source: 'evidence',
         lines: evidence
           ? [
               `TSC: ${evidence.checks.tsc} · Build: ${evidence.checks.build}`,
               `Runtime: ${evidence.runtime_results.length} Signale, ${evidence.runtime_results.filter((result) => result.result !== 'pass').length} nicht gruen`,
               `Counterexamples: ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`,
+              `Execution: ${formatExecutionMeta(evidence)}`,
               `Agreement: ${evidence.agreement_level ?? '—'}`,
             ]
           : [timelineEntry?.detail ?? 'Noch keine Check-Signale sichtbar.'],
       };
-    case 'review':
+    case 'delivered':
       return {
-        title: 'Menschliche Entscheidung',
+        title: 'Ergebnis liegt vor',
         summary: isManualReviewLane
-          ? 'Diese Task darf ohne menschlichen Entscheid nicht still weiterlaufen.'
-          : 'Diese Phase war fuer diese Task nicht erforderlich.',
-        source: isManualReviewLane ? 'task + evidence' : 'task',
-        lines: isManualReviewLane
+          ? 'Maya hat einen verwertbaren Stand vorbereitet und haelt ihn fuer Entscheidung oder Freigabe bereit.'
+          : 'Maya betrachtet das Ergebnis als bereit fuer Auslieferung oder Abschluss.',
+        source: 'task + contract',
+        lines: [
+          `Output: ${contract.output.kind} · Format: ${contract.output.format}`,
+          `Artefakte: ${formatArtifacts(contract.output.plannedArtifacts)}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
+          ...(isManualReviewLane
           ? [
-              `Aktueller Status: ${task.status}`,
-              task.status === 'prototype_review'
+              task.contract.output.kind === 'html_artifact'
                 ? 'Prototype liegt sichtbar vor und wartet auf Freigabe, Revision oder Verwerfung.'
-                : 'Builder meldet eine Review- oder Approval-Pflicht vor dem naechsten Landing-Schritt.',
+                : 'Builder meldet eine Review- oder Approval-Pflicht vor dem naechsten Schritt.',
             ]
-          : [
-              'Diese Task konnte ohne manuelle Review-Phase weiterlaufen.',
-              timelineEntry?.state === 'done' ? 'Der sichtbare Pfad hat Review hier bewusst uebersprungen.' : 'Noch kein manueller Review-Bedarf sichtbar.',
-            ],
+          : [contract.output.summary]),
+        ],
         notRequired: !isManualReviewLane,
       };
-    case 'landed':
+    case 'confirmed':
       return {
-        title: 'Landing',
+        title: 'Bestaetigter Stand',
         summary: task.commitHash
-          ? 'Der Builder hat einen konkreten gelandeten Commit sichtbar gemacht.'
+          ? 'Der Builder hat einen bestaetigten Stand mit sichtbarem Commit verankert.'
           : afterCurrent
             ? 'Diese Phase ist noch nicht erreicht.'
-            : 'Noch kein Commit-Hash sichtbar; Landing steht noch aus oder wurde nicht hinterlegt.',
-        source: task.commitHash ? 'task + observe' : 'task',
+            : 'Die Aufgabe gilt als bestaetigt, auch wenn noch kein Commit-Hash sichtbar ist.',
+        source: task.commitHash ? 'task + contract' : 'task',
         lines: task.commitHash
           ? [
               `Commit: ${task.commitHash}`,
+              `Code-Lane: ${contract.codeLane.phase}`,
               `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
-              timelineEntry?.meta ?? 'Landing-Signal sichtbar.',
+              contract.codeLane.summary,
             ]
-          : [timelineEntry?.detail ?? 'Noch kein Landing-Signal sichtbar.'],
-      };
-    case 'live':
-      return {
-        title: 'Live-Verifikation',
-        summary: task.commitHash && evidence?.runtime_results.length
-          ? 'Live wird aktuell aus Landing plus Runtime-Signalen zusammengesetzt; es gibt noch keinen einzelnen kanonischen Live-Event.'
-          : 'Diese Phase ist noch nicht als harter Live-Nachweis sichtbar.',
-        source: task.commitHash && evidence?.runtime_results.length ? 'task + evidence' : 'derived',
-        lines: task.commitHash && evidence?.runtime_results.length
-          ? [
-              `Commit sichtbar: ${task.commitHash.slice(0, 7)}`,
-              `Runtime-Signale: ${evidence.runtime_results.length}`,
-              `Evidence erstellt: ${formatDate(evidence.created_at)}`,
-            ]
-          : ['Noch kein eigenstaendiger Live-Verifikationsbeleg im Primarsurface.'],
-        note: 'Saubere Loesung in vNext: eigener backend-seitiger Live-Verification-Status statt zusammengesetzter Frontend-Heuristik.',
+          : [
+              contract.lifecycle.summary,
+              `Output: ${contract.output.kind}`,
+            ],
       };
     case 'stopped':
       return {
@@ -1005,7 +1411,7 @@ function deriveTribunePhaseDetail(
           : 'Diese Phase wurde fuer die aktuelle Task nicht benoetigt.',
         source: 'task',
         lines: currentPhase === 'stopped'
-          ? [`Status: ${task.status}`, `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`]
+          ? [`Status: ${task.status}`, `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`, contract.codeLane.summary]
           : ['Kein Stop-Signal fuer diese Task sichtbar.'],
         notRequired: currentPhase !== 'stopped',
       };
@@ -1492,7 +1898,7 @@ export function BuilderStudioPage() {
   const [tasks, setTasks] = useState<BuilderTask[]>([]);
   const [taskDetail, setTaskDetail] = useState<BuilderTask | null>(null);
   const [files, setFiles] = useState<string[]>([]);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => getInitialSelectedTaskId());
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>('');
   const [dialogFormat, setDialogFormat] = useState<DialogFormat>('dsl');
@@ -1500,6 +1906,8 @@ export function BuilderStudioPage() {
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
   const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
   const [selectedTribunePhase, setSelectedTribunePhase] = useState<TribunePhaseKey | null>(null);
+  const [taskQueueFilter, setTaskQueueFilter] = useState<TaskQueueFilter>(() => getInitialTaskQueueFilter());
+  const [taskQueueSort, setTaskQueueSort] = useState<TaskQueueSort>(() => getInitialTaskQueueSort());
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1517,6 +1925,9 @@ export function BuilderStudioPage() {
     goal: '',
     risk: 'low',
     taskType: 'A',
+    intentKind: 'code_change',
+    requestedOutputKind: 'code_artifact',
+    requestedOutputFormat: 'code',
   });
   const builderRef = useRef<HTMLDivElement | null>(null);
   const registryState = useMayaTargetRegistry(builderRef);
@@ -1576,6 +1987,12 @@ export function BuilderStudioPage() {
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
+  const visibleTasks = useMemo(() => {
+    const filtered = taskQueueFilter === 'all'
+      ? tasks
+      : tasks.filter((task) => deriveTaskQueueSignal(task).priority === taskQueueFilter);
+    return sortTaskQueue(filtered, taskQueueSort);
+  }, [taskQueueFilter, taskQueueSort, tasks]);
   const executionState = useMemo(() => deriveExecutionState(activeTask, evidencePack), [activeTask, evidencePack]);
   const tribuneTimeline = useMemo(() => deriveTribuneTimeline(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
   const waitingTasks = useMemo(() => tasks.filter((task) => needsUserAttention(task)), [tasks]);
@@ -1587,6 +2004,18 @@ export function BuilderStudioPage() {
   }, [activeTask, waitingTasks]);
   const mayaTribuneSentence = useMemo(() => deriveMayaTribuneSentence(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
   const attentionDetail = useMemo(() => deriveAttentionDetail(attentionTask, waitingTasks.length), [attentionTask, waitingTasks.length]);
+  const operatorGuidance = useMemo(
+    () => deriveOperatorGuidance(activeTask, evidencePack, waitingTasks.length),
+    [activeTask, evidencePack, waitingTasks.length],
+  );
+  const latestDialogSnippet = useMemo(() => {
+    const latest = dialogBubbles[dialogBubbles.length - 1]?.content?.trim();
+    if (!latest) {
+      return null;
+    }
+
+    return latest.length > 420 ? `${latest.slice(0, 420).trimEnd()}...` : latest;
+  }, [dialogBubbles]);
   const currentTribuneEntry = useMemo(
     () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
     [tribuneTimeline],
@@ -1842,6 +2271,48 @@ export function BuilderStudioPage() {
     };
   }, [effectiveOpusToken, token]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY, taskQueueFilter);
+    } catch {
+      // noop
+    }
+  }, [taskQueueFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(BUILDER_TASK_QUEUE_SORT_STORAGE_KEY, taskQueueSort);
+    } catch {
+      // noop
+    }
+  }, [taskQueueSort]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (taskQueueFilter === 'all') {
+      params.delete('queue');
+    } else {
+      params.set('queue', taskQueueFilter);
+    }
+
+    if (taskQueueSort === 'priority') {
+      params.delete('queue_sort');
+    } else {
+      params.set('queue_sort', taskQueueSort);
+    }
+
+    if (selectedTaskId) {
+      params.set('task', selectedTaskId);
+    } else {
+      params.delete('task');
+    }
+
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [selectedTaskId, taskQueueFilter, taskQueueSort]);
+
   // Initial load: fetch tasks and files once authenticated
   useEffect(() => {
     if (!authenticated) return;
@@ -1963,6 +2434,13 @@ export function BuilderStudioPage() {
     }
   }, []);
 
+  const focusMayaTarget = useCallback((targetKey: string) => {
+    const target = document.querySelector(`[data-maya-target="${targetKey}"]`);
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   const handleOpenAttentionTask = useCallback(() => {
     if (!attentionTask) {
       return;
@@ -2004,7 +2482,11 @@ export function BuilderStudioPage() {
     setPageError(null);
     try {
       const created = await createBuilderTask(draft);
-      setDraft({ title: '', goal: '', risk: draft.risk, taskType: draft.taskType });
+      setDraft((current) => ({
+        ...current,
+        title: '',
+        goal: '',
+      }));
       await refreshTasks();
       setSelectedTaskId(created.id);
     } catch (error) {
@@ -2151,6 +2633,79 @@ export function BuilderStudioPage() {
       setIsBusy(false);
     }
   }, [confirmDelete, deleteBuilderTask, refreshTasks, selectedTaskId]);
+
+  const isOperatorActionDisabled = useCallback((action: OperatorActionKey) => {
+    switch (action) {
+      case 'run':
+        return isRunDisabled;
+      case 'approve':
+      case 'approve_prototype':
+      case 'revise_prototype':
+      case 'revert':
+        return isBusy || !selectedTaskId;
+      case 'inspect':
+        return !activeTask;
+      default:
+        return true;
+    }
+  }, [activeTask, isBusy, isRunDisabled, selectedTaskId]);
+
+  const handleOperatorAction = useCallback((action: OperatorActionKey) => {
+    switch (action) {
+      case 'run':
+        void handleRunTask();
+        break;
+      case 'approve':
+        void handleApproveTask();
+        break;
+      case 'approve_prototype':
+        void handleApprovePrototype();
+        break;
+      case 'revise_prototype':
+        void handleRevisePrototype();
+        break;
+      case 'revert':
+        void handleRevertTask();
+        break;
+      case 'inspect':
+        focusTaskDetail();
+        break;
+      default:
+        break;
+    }
+  }, [
+    focusMayaTarget,
+    focusTaskDetail,
+    handleApprovePrototype,
+    handleApproveTask,
+    handleRevisePrototype,
+    handleRevertTask,
+    handleRunTask,
+  ]);
+
+  const handleTransitionJump = useCallback((lane: string, reason: string | null) => {
+    if (reason?.includes('prototype') || activeTask?.status === 'prototype_review') {
+      focusMayaTarget('preview-panel');
+      return;
+    }
+
+    if (lane === 'review') {
+      focusMayaTarget('technical-details');
+      return;
+    }
+
+    if (lane === 'runtime') {
+      focusMayaTarget('pruefstand');
+      return;
+    }
+
+    if (lane === 'prototype') {
+      focusMayaTarget('delivery-surface');
+      return;
+    }
+
+    focusMayaTarget('dialog-viewer');
+  }, [activeTask?.status, focusMayaTarget]);
 
   const handleCancelTask = useCallback(async (taskId: string) => {
     setIsBusy(true);
@@ -2366,7 +2921,7 @@ export function BuilderStudioPage() {
           <CosmicTrail intensity={64} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontSize: 11, color: TOKENS.text2, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
-              Builder Control Surface
+              Maya-Centered Universal Builder
             </div>
             <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: compact ? 28 : 34, color: TOKENS.text, letterSpacing: '0.05em' }}>
               Builder Studio
@@ -2603,9 +3158,31 @@ export function BuilderStudioPage() {
             <div data-maya-target="tasklist">
               <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues und Statusfarben." accent={TOKENS.cyan}>
                 <div style={{ display: 'grid', gap: 10 }}>
-                {tasks.map((task) => {
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : '1fr 1fr' }}>
+                    <select value={taskQueueFilter} onChange={(event) => setTaskQueueFilter(event.target.value as TaskQueueFilter)} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 12.5 }}>
+                      <option value="all">Alle Prioritaeten</option>
+                      <option value="attention">Nur Aufmerksamkeit</option>
+                      <option value="active">Nur Laufend</option>
+                      <option value="ready">Nur Startklar</option>
+                      <option value="delivered">Nur Bereit</option>
+                      <option value="done">Nur Abgeschlossen</option>
+                    </select>
+                    <select value={taskQueueSort} onChange={(event) => setTaskQueueSort(event.target.value as TaskQueueSort)} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 12.5 }}>
+                      <option value="priority">Sort: Prioritaet zuerst</option>
+                      <option value="updated">Sort: Zuletzt aktualisiert</option>
+                      <option value="title">Sort: Titel A-Z</option>
+                    </select>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                    {visibleTasks.length} von {tasks.length} Tasks sichtbar
+                  </div>
+                </div>
+                {visibleTasks.map((task) => {
                   const selected = task.id === selectedTaskId;
                   const isActive = !['done', 'cancelled', 'blocked', 'deleted'].includes(task.status);
+                  const queueSignal = deriveTaskQueueSignal(task);
+                  const cardTone = deriveTaskCardTone(task, selected);
                   return (
                     <div
                       key={task.id}
@@ -2621,8 +3198,9 @@ export function BuilderStudioPage() {
                         style={{
                           textAlign: 'left',
                           borderRadius: 18,
-                          border: `1.5px solid ${selected ? TOKENS.gold : TOKENS.b2}`,
-                          background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
+                          border: `1.5px solid ${cardTone.border}`,
+                          background: cardTone.background,
+                          boxShadow: `0 0 0 1px ${cardTone.glow} inset`,
                           padding: '12px 14px',
                           cursor: 'pointer',
                           overflow: 'hidden',
@@ -2648,23 +3226,38 @@ export function BuilderStudioPage() {
                           >
                             {task.title}
                           </div>
-                          <span
-                            style={{
-                              borderRadius: 999,
-                              border: `1px solid ${TOKENS.b1}`,
-                              color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                              padding: '3px 8px',
-                              fontSize: 11,
-                              textTransform: 'uppercase',
-                              flexShrink: 0,
-                              maxWidth: 80,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {task.status}
-                          </span>
+                          <div style={{ display: 'grid', gap: 6, justifyItems: 'end', flexShrink: 0 }}>
+                            <span
+                              style={{
+                                borderRadius: 999,
+                                border: `1px solid ${TOKENS.b1}`,
+                                color: STATUS_COLORS[task.status] ?? TOKENS.text2,
+                                padding: '3px 8px',
+                                fontSize: 11,
+                                textTransform: 'uppercase',
+                                maxWidth: 80,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {task.status}
+                            </span>
+                            <span
+                              style={{
+                                borderRadius: 999,
+                                border: `1px solid ${queueSignal.accent}55`,
+                                background: cardTone.chipBg,
+                                color: queueSignal.accent,
+                                padding: '3px 8px',
+                                fontSize: 10.5,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {queueSignal.label}
+                            </span>
+                          </div>
                         </div>
                         <div
                           style={{
@@ -2682,6 +3275,34 @@ export function BuilderStudioPage() {
                           }}
                         >
                           {task.goal}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 11.5,
+                            lineHeight: 1.55,
+                            color: queueSignal.accent,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                          }}
+                        >
+                          {queueSignal.summary}
+                        </div>
+                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span style={{ fontSize: 10.5, color: TOKENS.text3, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '3px 7px', background: 'rgba(255,255,255,0.03)' }}>
+                            {task.contract.lifecycle.phase}
+                          </span>
+                          <span style={{ fontSize: 10.5, color: TOKENS.text3, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '3px 7px', background: 'rgba(255,255,255,0.03)' }}>
+                            {task.requestedOutputKind}
+                          </span>
+                          <span style={{ fontSize: 10.5, color: TOKENS.text3 }}>
+                            {formatLaneList(task.contract.routing.activeLanes)}
+                          </span>
                         </div>
                       </button>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'center' }}>
@@ -2730,6 +3351,7 @@ export function BuilderStudioPage() {
                   );
                 })}
                   {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}
+                  {tasks.length > 0 && visibleTasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Fuer diesen Filter sind gerade keine Tasks sichtbar.</div> : null}
                 </div>
               </BuilderPanel>
             </div>
@@ -2934,7 +3556,76 @@ export function BuilderStudioPage() {
                           </div>
                         </div>
                       ) : null}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
+                        <button type="button" onClick={() => focusMayaTarget('delivery-surface')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                          Zum Output
+                        </button>
+                        <button type="button" onClick={() => focusMayaTarget('dialog-viewer')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                          Zum Dialog
+                        </button>
+                        <button type="button" onClick={() => focusMayaTarget('technical-details')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                          Zu Transitions
+                        </button>
+                        {previewUrl ? (
+                          <button type="button" onClick={() => focusMayaTarget('preview-panel')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.gold}55`, background: 'rgba(212,175,55,0.10)', color: TOKENS.gold, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                            Zum Preview
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {operatorGuidance ? (
+                      <div style={{ borderRadius: 18, border: `1.5px solid ${operatorGuidance.accent}55`, background: `linear-gradient(135deg, ${operatorGuidance.accent}12, rgba(255,255,255,0.03))`, padding: '13px 14px', display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          <div style={{ fontSize: 11, color: operatorGuidance.accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                            Operator Next Step
+                          </div>
+                          <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                            {operatorGuidance.title}
+                          </div>
+                          <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                            {operatorGuidance.summary}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: TOKENS.text3, lineHeight: 1.6 }}>
+                            {operatorGuidance.detail}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {operatorGuidance.actions.map((action) => {
+                            const tones: Record<OperatorActionSuggestion['tone'], { border: string; background: string; color: string }> = {
+                              primary: { border: TOKENS.cyan, background: 'rgba(34,211,238,0.12)', color: TOKENS.text },
+                              warning: { border: TOKENS.gold, background: 'rgba(212,175,55,0.12)', color: TOKENS.text },
+                              neutral: { border: TOKENS.b1, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2 },
+                              danger: { border: TOKENS.rose, background: 'rgba(244,114,182,0.12)', color: TOKENS.text },
+                            };
+                            const tone = tones[action.tone];
+                            const disabled = isOperatorActionDisabled(action.key);
+
+                            return (
+                              <button
+                                type="button"
+                                key={action.key}
+                                onClick={() => handleOperatorAction(action.key)}
+                                disabled={disabled}
+                                style={{
+                                  borderRadius: 999,
+                                  border: `1.5px solid ${tone.border}`,
+                                  background: tone.background,
+                                  color: tone.color,
+                                  padding: '9px 14px',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: disabled ? 'not-allowed' : 'pointer',
+                                  opacity: disabled ? 0.45 : 1,
+                                }}
+                              >
+                                {action.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
 
                     {tribunePhaseDetail ? (
                       <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
@@ -3363,7 +4054,7 @@ export function BuilderStudioPage() {
                 <div style={{ display: 'grid', gap: 10 }}>
                   <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Task-Titel" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
                   <textarea value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value }))} placeholder="Task-Ziel" rows={4} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr', gap: 10 }}>
                     <select value={draft.risk ?? 'low'} onChange={(event) => setDraft((current) => ({ ...current, risk: event.target.value }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
                       <option value="low">low</option>
                       <option value="medium">medium</option>
@@ -3373,6 +4064,17 @@ export function BuilderStudioPage() {
                       {['A', 'B', 'C', 'D', 'P', 'S'].map((type) => <option key={type} value={type}>{type}</option>)}
                     </select>
                   </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr', gap: 10 }}>
+                    <select value={draft.intentKind} onChange={(event) => setDraft((current) => ({ ...current, intentKind: event.target.value as BuilderTaskIntentKind }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
+                      {INTENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <select value={draft.requestedOutputKind} onChange={(event) => setDraft((current) => ({ ...current, requestedOutputKind: event.target.value as BuilderOutputKind }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
+                      {OUTPUT_KIND_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </div>
+                  <select value={draft.requestedOutputFormat} onChange={(event) => setDraft((current) => ({ ...current, requestedOutputFormat: event.target.value as BuilderOutputFormat }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
+                    {OUTPUT_FORMAT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
                   <button onClick={() => { void handleCreateTask(); }} disabled={isBusy || draft.title.trim().length === 0 || draft.goal.trim().length === 0} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '11px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}>
                     Neue Task erstellen
                   </button>
@@ -3384,6 +4086,39 @@ export function BuilderStudioPage() {
                       <BuilderConfigPanel token={token} ctx={mayaCtx} />
                     </div>
                   )}
+                  {activeTask ? (
+                    <div data-maya-target="workspace-panel" style={{ borderRadius: 18, border: `1.5px solid ${operatorGuidance?.accent ?? TOKENS.b2}44`, background: `linear-gradient(135deg, ${(operatorGuidance?.accent ?? TOKENS.b2)}12, rgba(255,255,255,0.03))`, padding: '13px 14px', display: 'grid', gap: 12 }}>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <div style={{ fontSize: 11, color: operatorGuidance?.accent ?? TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                          Active Workspace
+                        </div>
+                        <div style={{ fontSize: 17, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
+                          {operatorGuidance?.title ?? executionState.label}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr', gap: 10 }}>
+                        <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 5 }}>
+                          <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                            Was Maya jetzt braucht
+                          </div>
+                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                            {operatorGuidance?.summary ?? executionState.detail}
+                          </div>
+                        </div>
+                        <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 5 }}>
+                          <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                            Was als Nächstes lieferbar ist
+                          </div>
+                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                            {activeTask.contract.output.summary}
+                          </div>
+                          <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                            Plan: {activeTask.contract.output.plannedArtifacts.join(', ') || '—'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <div
                     style={{
                       borderRadius: 18,
@@ -3436,6 +4171,12 @@ export function BuilderStudioPage() {
                   <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
                     <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? '—'}</strong></span>
                     <span>Risk: {activeTask?.risk ?? '—'} · Type: {activeTask?.taskType ?? '—'}</span>
+                    <span>Intent: {activeTask?.intentKind ?? '—'} · Output: {activeTask?.requestedOutputKind ?? '—'}</span>
+                    <span>Format: {activeTask?.requestedOutputFormat ?? '—'} · Phase: {activeTask?.contract.lifecycle.phase ?? '—'}</span>
+                    <span>Execution: {formatExecutionSummary(evidencePack)}</span>
+                    <span>Lanes: {activeTask ? activeTask.contract.routing.activeLanes.join(' · ') : '—'}</span>
+                    <span>Team: {activeTask ? activeTask.contract.team.activeInstances.join(' · ') : '—'}</span>
+                    <span>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : '—'}</span>
                     <span>Policy: {activeTask?.policyProfile ?? '—'}</span>
                     <span>Updated: {formatDate(activeTask?.updatedAt)}</span>
                   </div>
@@ -3493,6 +4234,79 @@ export function BuilderStudioPage() {
               <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
             </BuilderPanel>
 
+            <div data-maya-target="delivery-surface">
+              <BuilderPanel title="Delivery Surface" subtitle="Die passende Arbeits- und Ergebnisansicht pro Output-Typ statt nur generischer Technikdaten." accent={TOKENS.gold}>
+                {activeTask ? (
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        {activeTask.requestedOutputKind}
+                      </div>
+                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
+                        {activeTask.contract.output.summary}
+                      </div>
+                    </div>
+                    {(activeTask.requestedOutputKind === 'html_artifact' || activeTask.requestedOutputKind === 'visual_artifact') ? (
+                      <div data-maya-target="preview-panel" style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
+                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Preview Surface</div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          {previewUrl ? 'Das Artefakt ist als sichtbare Vorschau eingebunden und kann direkt beurteilt werden.' : 'Noch keine direkte Vorschau verfuegbar. Die Tribune und der Dialog liefern aktuell den besten Zwischenstand.'}
+                        </div>
+                        {previewUrl ? (
+                          <iframe
+                            title={`Delivery Preview ${activeTask.id}`}
+                            src={previewUrl}
+                            style={{ width: '100%', height: 320, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, background: '#0f0f17' }}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {activeTask.requestedOutputKind === 'code_artifact' ? (
+                      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
+                        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Code Delivery</div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          {activeTask.contract.codeLane.summary}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                          Geplante Artefakte: {activeTask.contract.output.plannedArtifacts.join(', ') || '—'}
+                        </div>
+                        {latestDialogSnippet ? (
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
+                            {latestDialogSnippet}
+                          </pre>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {(activeTask.requestedOutputKind === 'structured_answer' || activeTask.requestedOutputKind === 'chat_answer' || activeTask.requestedOutputKind === 'markdown_artifact' || activeTask.requestedOutputKind === 'json_artifact' || activeTask.requestedOutputKind === 'presentation_artifact') ? (
+                      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
+                        <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                          {activeTask.requestedOutputKind === 'presentation_artifact' ? 'Presentation Surface' : activeTask.requestedOutputKind === 'json_artifact' ? 'Structured Data Surface' : 'Answer Surface'}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                          {evidencePack?.intent?.user_outcome || activeTask.goal}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {activeTask.contract.output.plannedArtifacts.map((artifact) => (
+                            <span key={artifact} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
+                              {artifact}
+                            </span>
+                          ))}
+                        </div>
+                        {latestDialogSnippet ? (
+                          <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.65, borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
+                            {latestDialogSnippet}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: TOKENS.text2 }}>Waehle eine Task, um die passende Delivery-Ansicht zu sehen.</div>
+                )}
+              </BuilderPanel>
+            </div>
+
+            <div data-maya-target="pruefstand">
             <BuilderPanel title="Pruefstand" subtitle="Build- und Runtime-Befunde. Wichtig fuer Operatoren, aber bewusst nicht die Hauptbuehne." accent={TOKENS.cyan}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -3519,14 +4333,42 @@ export function BuilderStudioPage() {
                 </div>
               </div>
             </BuilderPanel>
+            </div>
 
+            <div data-maya-target="technical-details">
             <BuilderPanel title="Technische Details" subtitle="Review-, Diff- und Rohdaten zum aktuellen Task. Nur bei Bedarf vertiefen." accent={TOKENS.rose}>
               {evidencePack ? (
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Final Status: <strong style={{ color: STATUS_COLORS[evidencePack.final_status] ?? TOKENS.text }}>{evidencePack.final_status}</strong></div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Intent: {evidencePack.intent_kind} · Output: {evidencePack.requested_output_kind}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Format: {evidencePack.requested_output_format}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Execution Channel: {formatExecutionChannelLabel(evidencePack.execution_summary.channel)} · Source: {evidencePack.execution_summary.latest_status_source ?? '—'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Latest Transition: {evidencePack.execution_summary.last_transition_reason ?? '—'} · Lane: {evidencePack.execution_summary.last_transition_lane ?? '—'} · {formatDate(evidencePack.execution_summary.last_transition_at)}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Transition Count: {evidencePack.execution_summary.transition_count}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Contract Phase: {evidencePack.contract_snapshot.lifecycle_phase} · Attention: {evidencePack.contract_snapshot.attention_state}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Active Lanes: {evidencePack.contract_snapshot.active_lanes.join(' · ') || '—'} · Team: {evidencePack.contract_snapshot.team_instances.join(' · ') || '—'}</div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Planned Artifacts: {evidencePack.contract_snapshot.planned_artifacts.join(', ') || '—'}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Agreement: {evidencePack.agreement_level ?? '—'} · Tokens: {evidencePack.total_tokens}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>Counterexamples: {evidencePack.counterexamples_passed}/{evidencePack.counterexamples_tested}</div>
                   <div style={{ fontSize: 12, color: TOKENS.text2 }}>False success detected: {evidencePack.false_success_detected ? 'ja' : 'nein'}</div>
+                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Status Transitions</div>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                      {evidencePack.status_transitions.length > 0 ? evidencePack.status_transitions.slice(-8).map((transition) => (
+                        <button
+                          type="button"
+                          key={`${transition.at}-${transition.to_status}-${transition.reason ?? 'none'}`}
+                          onClick={() => handleTransitionJump(transition.lane, transition.reason)}
+                          style={{ fontSize: 12.5, color: TOKENS.text2, textAlign: 'left', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', cursor: 'pointer' }}
+                        >
+                          <strong style={{ color: TOKENS.text }}>{transition.to_status}</strong> via {transition.lane}
+                          {transition.from_status ? ` (von ${transition.from_status})` : ''}
+                          {transition.reason ? ` · ${transition.reason}` : ''}
+                          {` · ${transition.lifecycle_phase}`}
+                        </button>
+                      )) : <div style={{ fontSize: 12.5, color: TOKENS.text2 }}>Noch keine expliziten Transition-Signale gespeichert.</div>}
+                    </div>
+                  </div>
                   <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
                     <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Reviews</div>
                     <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
@@ -3551,29 +4393,33 @@ export function BuilderStudioPage() {
                 <div style={{ fontSize: 13, color: TOKENS.text2 }}>Für diese Task liegt noch kein Evidence Pack vor.</div>
               )}
             </BuilderPanel>
+            </div>
           </div>
         </div>
 
         <footer style={{ marginTop: 18, borderRadius: 22, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '14px 16px' }}>
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
-            {tasks.map((task) => (
-              <button
-                key={task.id}
-                onClick={() => setSelectedTaskId(task.id)}
-                style={{
-                  borderRadius: 999,
-                  border: `1px solid ${selectedTaskId === task.id ? TOKENS.gold : TOKENS.b1}`,
-                  background: selectedTaskId === task.id ? 'rgba(212,175,55,0.10)' : 'rgba(255,255,255,0.03)',
-                  color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                  padding: '8px 12px',
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                }}
-              >
-                {task.title} · {task.status}
-              </button>
-            ))}
+            {visibleTasks.map((task) => {
+              const queueSignal = deriveTaskQueueSignal(task);
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                  style={{
+                    borderRadius: 999,
+                    border: `1px solid ${selectedTaskId === task.id ? TOKENS.gold : TOKENS.b1}`,
+                    background: selectedTaskId === task.id ? 'rgba(212,175,55,0.10)' : 'rgba(255,255,255,0.03)',
+                    color: STATUS_COLORS[task.status] ?? TOKENS.text2,
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {task.title} · {queueSignal.label}
+                </button>
+              );
+            })}
           </div>
         </footer>
 

@@ -31,6 +31,7 @@ import {
 import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
 import { evaluateCanaryGate } from './builderCanary.js';
 import { setActiveBuilderTask, syncBuilderMemoryForTask } from './builderMemory.js';
+import { buildBuilderTaskContract } from './builderTaskContract.js';
 
 type ComplexityTier = 1 | 2 | 3;
 
@@ -38,7 +39,10 @@ async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promi
   try {
     const response = await callProvider('gemini', 'gemini-3-flash-preview', {
       system: 'Klassifiziere die Komplexitaet dieses Builder-Tasks. Antworte NUR mit 1, 2 oder 3.\n1 = einfach (neue Datei, kleiner Fix, 1 Datei)\n2 = mittel (mehrere Dateien, Pattern-Suche noetig, Logik-Aenderung)\n3 = komplex (Architektur, mehrere Module, Abhaengigkeiten)',
-      messages: [{ role: 'user', content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nRisk: ${task.risk}` }],
+      messages: [{
+        role: 'user',
+        content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nIntent: ${task.intentKind}\nRequestedOutput: ${task.requestedOutputKind}\nRequestedFormat: ${task.requestedOutputFormat}\nRisk: ${task.risk}`,
+      }],
       maxTokens: 10,
       temperature: 0,
     });
@@ -60,6 +64,9 @@ async function runCollaborativeAnalysis(
     'Analysiere diesen Task OHNE ihn umzusetzen.',
     `Title: ${task.title}`,
     `Goal: ${task.goal}`,
+    `Intent: ${task.intentKind}`,
+    `Requested Output: ${task.requestedOutputKind}`,
+    `Requested Format: ${task.requestedOutputFormat}`,
     `Scope: ${task.scope.join(', ') || '(alle Dateien erlaubt)'}`,
     `Worktree: ${worktreePath}`,
     '',
@@ -125,6 +132,30 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
+function needsVisualPrototype(task: typeof builderTasks.$inferSelect, laneFlags: { prototype: boolean }): boolean {
+  if (!laneFlags.prototype) {
+    return false;
+  }
+
+  return task.requestedOutputKind === 'html_artifact'
+    || task.requestedOutputKind === 'presentation_artifact'
+    || task.requestedOutputKind === 'visual_artifact'
+    || task.intentKind === 'app_build'
+    || ['B', 'C', 'P'].includes(task.taskType);
+}
+
+function needsBrowserLane(task: typeof builderTasks.$inferSelect, laneFlags: { browser: boolean }): boolean {
+  if (!laneFlags.browser) {
+    return false;
+  }
+
+  return task.requestedOutputKind === 'html_artifact'
+    || task.requestedOutputKind === 'presentation_artifact'
+    || task.requestedOutputKind === 'visual_artifact'
+    || task.intentKind === 'app_build'
+    || ['B', 'C'].includes(task.taskType);
+}
+
 function buildArchitectSystemPrompt(
   task: typeof builderTasks.$inferSelect,
   laneFlags: { browser: boolean },
@@ -163,11 +194,14 @@ function buildArchitectSystemPrompt(
     'Baue auf ihren Risiko-Einschaetzungen und Ansaetzen auf statt sie zu ignorieren.',
     '',
     `Task: ${task.goal}`,
+    `IntentKind: ${task.intentKind ?? 'code_change'}`,
+    `Requested Output: ${task.requestedOutputKind ?? 'code_artifact'} / ${task.requestedOutputFormat ?? 'code'}`,
     `Scope: ${task.scope.join(', ') || '(leer - alle Dateien erlaubt)'}`,
     `Not-Scope: ${task.notScope.join(', ') || '(leer)'}`,
     `Policy: ${task.policyProfile ?? TASK_TYPE_TO_PROFILE[task.taskType as keyof typeof TASK_TYPE_TO_PROFILE]}`,
-    laneFlags.browser && ['B', 'C'].includes(task.taskType)
-      ? 'Fuer Typ B/C musst du mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
+    'Halte die Code-Lane voll funktionsfaehig, auch wenn die Aufgabe als universeller Maya-Task geroutet wurde.',
+    needsBrowserLane(task, laneFlags)
+      ? 'Du musst mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
       : '',
   ].join('\n');
 }
@@ -228,7 +262,42 @@ function runGitCommand(command: string, cwd: string) {
   }
 }
 
+function buildTaskSnapshot(
+  task: typeof builderTasks.$inferSelect,
+  patch: Partial<typeof builderTasks.$inferSelect> = {},
+): typeof builderTasks.$inferSelect {
+  return {
+    ...task,
+    ...patch,
+  };
+}
+
+async function recordContractAction(input: {
+  task: typeof builderTasks.$inferSelect;
+  lane: string;
+  kind: string;
+  actor: string;
+  payload?: Record<string, unknown>;
+  result?: Record<string, unknown> | null;
+  tokenCount?: number;
+}) {
+  const db = getDb();
+  await db.insert(builderActions).values({
+    taskId: input.task.id,
+    lane: input.lane,
+    kind: input.kind,
+    actor: input.actor,
+    payload: {
+      ...(input.payload ?? {}),
+      contract: buildBuilderTaskContract(input.task),
+    },
+    result: input.result ?? null,
+    tokenCount: input.tokenCount ?? 0,
+  });
+}
+
 async function saveCommandActions(
+  task: typeof builderTasks.$inferSelect,
   taskId: string,
   actor: DialogRound['actor'],
   role: DialogRound['role'],
@@ -252,6 +321,7 @@ async function saveCommandActions(
         role,
         rawResponse,
         params: {},
+        contract: buildBuilderTaskContract(task),
       },
       result: { emptyBdl: true },
       tokenCount: tokensUsed,
@@ -272,6 +342,7 @@ async function saveCommandActions(
         rawCommand: command.raw,
         params: command.params,
         body: command.body,
+        contract: buildBuilderTaskContract(task),
       },
       result: results[index] ?? { stub: true },
       tokenCount: tokensUsed,
@@ -561,16 +632,55 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   if (!task) {
     throw new Error(`Task ${taskId} not found`);
   }
+  let currentTask = task;
 
-  const canaryGate = await evaluateCanaryGate(task);
-  if (!canaryGate.allowed) {
+  const updateTaskStatus = async (
+    nextStatus: typeof builderTasks.$inferSelect.status,
+    lane: 'code' | 'review' | 'runtime' | 'prototype',
+    reason: string,
+    patch: Partial<typeof builderTasks.$inferSelect> = {},
+  ) => {
+    const nextTask = buildTaskSnapshot(currentTask, {
+      ...patch,
+      status: nextStatus,
+      updatedAt: new Date(),
+    });
+
     await db
       .update(builderTasks)
-      .set({ status: 'blocked', updatedAt: new Date() })
+      .set({
+        status: nextStatus,
+        updatedAt: nextTask.updatedAt,
+        ...(patch.commitHash !== undefined ? { commitHash: patch.commitHash } : {}),
+        ...(patch.tokenCount !== undefined ? { tokenCount: patch.tokenCount } : {}),
+      })
       .where(eq(builderTasks.id, taskId));
 
-    await db.insert(builderActions).values({
-      taskId,
+    await recordContractAction({
+      task: nextTask,
+      lane,
+      kind: 'STATUS_TRANSITION',
+      actor: 'system',
+      payload: {
+        fromStatus: currentTask.status,
+        toStatus: nextStatus,
+        reason,
+      },
+      result: {
+        status: nextStatus,
+        lifecyclePhase: buildBuilderTaskContract(nextTask).lifecycle.phase,
+      },
+      tokenCount: 0,
+    });
+
+    currentTask = nextTask;
+  };
+
+  const canaryGate = await evaluateCanaryGate(currentTask);
+  if (!canaryGate.allowed) {
+    await updateTaskStatus('blocked', 'review', 'canary_gate_blocked');
+    await recordContractAction({
+      task: currentTask,
       lane: 'review',
       kind: 'BLOCK',
       actor: 'system',
@@ -594,10 +704,10 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
   const laneFlags = canaryGate.laneFlags;
 
-  const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
+  const policyName = currentTask.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
   const maxRounds = policy?.max_rounds ?? 3;
-  const tokenBudget = task.tokenBudget ?? (task.risk === 'high' ? 10000 : task.risk === 'medium' ? 5000 : 2000);
+  const tokenBudget = currentTask.tokenBudget ?? (currentTask.risk === 'high' ? 10000 : currentTask.risk === 'medium' ? 5000 : 2000);
 
   const rounds: DialogRound[] = [];
   const worktree = createWorktree(taskId);
@@ -605,17 +715,14 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
   let latestContext = '';
-  const needsPrototype = laneFlags.prototype && ['B', 'C', 'P'].includes(task.taskType);
-  const shouldRunPrototypeLane = needsPrototype && task.status !== 'planning' && task.status !== 'prototype_review';
+  const needsPrototype = needsVisualPrototype(currentTask, laneFlags);
+  const shouldRunPrototypeLane = needsPrototype && currentTask.status !== 'planning' && currentTask.status !== 'prototype_review';
 
   try {
-    if (task.status === 'prototype_review') {
+    if (currentTask.status === 'prototype_review') {
       finalStatus = 'prototype_review';
     } else if (shouldRunPrototypeLane) {
-      await db
-        .update(builderTasks)
-        .set({ status: 'prototyping', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('prototyping', 'prototype', 'prototype_lane_started');
 
       const protoResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
         system: [
@@ -628,7 +735,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         messages: [
           {
             role: 'user',
-            content: `Task: ${task.goal}\nScope: ${task.scope.join(', ')}`,
+            content: `Task: ${currentTask.goal}\nIntent: ${currentTask.intentKind}\nRequested Output: ${currentTask.requestedOutputKind}\nRequested Format: ${currentTask.requestedOutputFormat}\nScope: ${currentTask.scope.join(', ')}`,
           },
         ],
         maxTokens: 3000,
@@ -658,6 +765,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       });
 
       await saveCommandActions(
+        currentTask,
         taskId,
         'claude',
         'architect',
@@ -669,23 +777,20 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         'prototype',
       );
 
-      await db
-        .update(builderTasks)
-        .set({ status: 'prototype_review', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('prototype_review', 'prototype', 'prototype_ready_for_review');
 
       finalStatus = 'prototype_review';
     }
 
-    const tier = await classifyComplexity(task);
+    const tier = await classifyComplexity(currentTask);
     console.log(`[builder] Task ${taskId} classified as Tier ${tier}`);
 
     if (tier >= 2) {
-      const analysis = await runCollaborativeAnalysis(task, worktree.worktreePath);
+      const analysis = await runCollaborativeAnalysis(currentTask, worktree.worktreePath);
       latestContext = analysis.combined;
 
-      await db.insert(builderActions).values({
-        taskId,
+      await recordContractAction({
+        task: currentTask,
         lane: 'review',
         kind: 'COLLABORATIVE_ANALYSIS',
         actor: 'system',
@@ -702,21 +807,18 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       totalTokens += analysisTokens;
     }
 
-    if (!needsPrototype || task.status === 'planning') {
+    if (!needsPrototype || currentTask.status === 'planning') {
       for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
-        await db
-          .update(builderTasks)
-          .set({ status: 'planning', updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+        await updateTaskStatus('planning', 'code', 'architect_round_started');
 
         const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildArchitectSystemPrompt(task, laneFlags),
+          system: buildArchitectSystemPrompt(currentTask, laneFlags),
           messages: [
             {
               role: 'user',
               content: [
-                `Task title: ${task.title}`,
-                `Task goal: ${task.goal}`,
+                `Task title: ${currentTask.title}`,
+                `Task goal: ${currentTask.goal}`,
                 latestContext ? `Bisherige Beobachtungen:\n${latestContext}` : 'Noch keine Beobachtungen.',
               ].join('\n\n'),
             },
@@ -729,7 +831,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         totalTokens += architectTokens;
 
         const architectCommands = parseBdl(architectResponse);
-        const architectExecution = await executeArchitectCommands(task, worktree.worktreePath, architectCommands);
+        const architectExecution = await executeArchitectCommands(currentTask, worktree.worktreePath, architectCommands);
 
         const architectRound: DialogRound = {
           roundNumber,
@@ -743,6 +845,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(architectRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'claude',
           'architect',
@@ -760,10 +863,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           break;
         }
 
-        await db
-          .update(builderTasks)
-          .set({ status: 'reviewing', updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+        await updateTaskStatus('reviewing', 'review', 'review_round_started');
 
         const reviewerResponse = await callProvider('openai', 'gpt-4.1-mini', {
           system: buildReviewerSystemPrompt('primary'),
@@ -771,7 +871,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
             {
               role: 'user',
               content: [
-                `Task goal: ${task.goal}`,
+                `Task goal: ${currentTask.goal}`,
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
               ].join('\n\n'),
@@ -799,6 +899,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(reviewerRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'chatgpt',
           'reviewer',
@@ -824,7 +925,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
             {
               role: 'user',
               content: [
-                `Task goal: ${task.goal}`,
+                `Task goal: ${currentTask.goal}`,
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
                 `Erstes Review (ChatGPT):\n${reviewerResponse}`,
@@ -853,6 +954,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(claudeReviewerRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'claude',
           'reviewer',
@@ -875,7 +977,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
         let observerReview: ParsedReview | null = null;
         const observerResult = await runObserver(
-          task,
+          currentTask,
           agreement,
           [
             `Architect BDL:\n${architectResponse}`,
@@ -898,6 +1000,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           });
 
           await saveCommandActions(
+            currentTask,
             taskId,
             'deepseek',
             'observer',
@@ -939,19 +1042,17 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         if (combinedVerdict === 'ok') {
-          if (laneFlags.browser && ['B', 'C'].includes(task.taskType)) {
+          if (needsBrowserLane(currentTask, laneFlags)) {
             const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
 
-            await db
-              .update(builderTasks)
-              .set({ status: 'browser_testing', updatedAt: new Date() })
-              .where(eq(builderTasks.id, taskId));
+            await updateTaskStatus('browser_testing', 'runtime', 'browser_lane_started');
 
             try {
               const browserExecution = await runBrowserLane(taskId, worktree.worktreePath, uiRunCommands);
 
               if (uiRunCommands.length > 0) {
                 await saveCommandActions(
+                  currentTask,
                   taskId,
                   'system',
                   'system',
@@ -964,6 +1065,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
                 );
               } else {
                 await saveCommandActions(
+                  currentTask,
                   taskId,
                   'system',
                   'system',
@@ -990,6 +1092,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
             } catch (browserError) {
               const message = browserError instanceof Error ? browserError.message : String(browserError);
               await saveCommandActions(
+                currentTask,
                 taskId,
                 'system',
                 'system',
@@ -1024,13 +1127,10 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
     const needsCounterexamples = laneFlags.counterexample
       && policy?.counterexamples_required === true
-      && (task.risk === 'medium' || task.risk === 'high');
+      && (currentTask.risk === 'medium' || currentTask.risk === 'high');
 
     if (needsCounterexamples && finalStatus === 'push_candidate') {
-      await db
-        .update(builderTasks)
-        .set({ status: 'counterexampling', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('counterexampling', 'review', 'counterexample_lane_started');
 
       const counterexampleResponse = await callProvider('openai', 'gpt-4.1-mini', {
         system: [
@@ -1043,7 +1143,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         messages: [
           {
             role: 'user',
-            content: `Task: ${task.goal}\n\nBisheriger Dialog:\n${latestContext}`,
+            content: `Task: ${currentTask.goal}\n\nBisheriger Dialog:\n${latestContext}`,
           },
         ],
         maxTokens: 1500,
@@ -1065,6 +1165,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       });
 
       await saveCommandActions(
+        currentTask,
         taskId,
         'chatgpt',
         'reviewer',
@@ -1087,8 +1188,8 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   } catch (error) {
     finalStatus = 'blocked';
     abortReason = error instanceof Error ? error.message : String(error);
-    await db.insert(builderActions).values({
-      taskId,
+    await recordContractAction({
+      task: currentTask,
       lane: 'review',
       kind: 'BLOCK',
       actor: 'system',
@@ -1100,14 +1201,12 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
     removeWorktree(taskId);
   }
 
-  await db
-    .update(builderTasks)
-    .set({
-      status: finalStatus,
-      tokenCount: totalTokens,
-      updatedAt: new Date(),
-    })
-    .where(eq(builderTasks.id, taskId));
+  await updateTaskStatus(
+    finalStatus as typeof builderTasks.$inferSelect.status,
+    finalStatus === 'prototype_review' ? 'prototype' : finalStatus === 'push_candidate' ? 'review' : finalStatus === 'done' ? 'code' : 'review',
+    'dialog_engine_completed',
+    { tokenCount: totalTokens },
+  );
 
   try {
     const evidencePack = await generateEvidencePack(taskId);
