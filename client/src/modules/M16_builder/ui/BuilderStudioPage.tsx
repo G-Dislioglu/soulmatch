@@ -2003,7 +2003,7 @@ export function BuilderStudioPage() {
     discardPrototype: discardBuilderPrototype,
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
-  } = useBuilderApi(token || null, opusToken || token || null);
+  } = useBuilderApi(token || null, opusToken || null);
   const { getContext: getMayaContext, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
@@ -2322,6 +2322,13 @@ export function BuilderStudioPage() {
   const refreshPatrolFeed = useCallback(async () => {
     setPatrolLoading(true);
     setPatrolError(null);
+    if (!effectiveOpusToken) {
+      setPatrolStatus(null);
+      setPatrolFindings([]);
+      setPatrolError('Patrol braucht einen gueltigen Opus-Token. Oeffne Builder mit ?opus_token=... oder speichere ihn zuerst.');
+      setPatrolLoading(false);
+      return;
+    }
     try {
       const [nextStatus, nextFindings] = await Promise.all([
         getPatrolStatus(),
@@ -2334,7 +2341,7 @@ export function BuilderStudioPage() {
     } finally {
       setPatrolLoading(false);
     }
-  }, [getPatrolFindings, getPatrolStatus]);
+  }, [effectiveOpusToken, getPatrolFindings, getPatrolStatus]);
 
   useEffect(() => {
     const trimmedToken = token.trim();
@@ -3117,18 +3124,6 @@ export function BuilderStudioPage() {
               <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 Maya Tour
               </button>
-              <button onClick={() => { setSidebarExpanded(true); setSidebarView('tasks'); }} style={{ borderRadius: 999, border: `2px solid ${sidebarView === 'tasks' ? TOKENS.cyan : TOKENS.b1}`, background: sidebarView === 'tasks' ? 'rgba(34,211,238,0.12)' : TOKENS.bg2, color: sidebarView === 'tasks' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Queue
-              </button>
-              <button onClick={() => { setSidebarExpanded(true); setSidebarView('files'); }} style={{ borderRadius: 999, border: `2px solid ${sidebarView === 'files' ? TOKENS.purple : TOKENS.b1}`, background: sidebarView === 'files' ? 'rgba(124,106,247,0.14)' : TOKENS.bg2, color: sidebarView === 'files' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Files
-              </button>
-              <button onClick={() => { setSidebarExpanded(true); setSidebarView('patrol'); if (!patrolOpen) { setPatrolOpen(true); } }} style={{ borderRadius: 999, border: `2px solid ${sidebarView === 'patrol' ? '#f97316' : TOKENS.b1}`, background: sidebarView === 'patrol' ? 'rgba(249,115,22,0.14)' : TOKENS.bg2, color: sidebarView === 'patrol' ? '#fdba74' : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Patrol
-              </button>
-              <button onClick={() => { setSidebarExpanded(true); setSidebarView('notes'); }} style={{ borderRadius: 999, border: `2px solid ${sidebarView === 'notes' ? TOKENS.gold : TOKENS.b1}`, background: sidebarView === 'notes' ? 'rgba(212,175,55,0.14)' : TOKENS.bg2, color: sidebarView === 'notes' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Notes
-              </button>
               <button onClick={() => { setDrawerView((current) => current === 'task' ? null : 'task'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'task' ? TOKENS.green : TOKENS.b1}`, background: drawerView === 'task' ? 'rgba(74,222,128,0.12)' : TOKENS.bg2, color: drawerView === 'task' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 Task Drawer
               </button>
@@ -3140,7 +3135,14 @@ export function BuilderStudioPage() {
               </button>
               <a
                 data-maya-target="patrol-console"
-                href="/patrol?opus_token=opus-bridge-2026-geheim"
+                href={effectiveOpusToken ? `/patrol?opus_token=${encodeURIComponent(effectiveOpusToken)}` : '#'}
+                onClick={(event) => {
+                  if (!effectiveOpusToken) {
+                    event.preventDefault();
+                    setPatrolError('Patrol Console braucht einen gueltigen Opus-Token.');
+                  }
+                }}
+                title={effectiveOpusToken ? 'Patrol Console oeffnen' : 'Opus-Token fehlt'}
                 style={{
                   borderRadius: 999,
                   border: '2px solid #f97316',
@@ -3150,7 +3152,8 @@ export function BuilderStudioPage() {
                   padding: '9px 14px',
                   fontSize: 12.5,
                   fontWeight: 700,
-                  cursor: 'pointer',
+                  cursor: effectiveOpusToken ? 'pointer' : 'not-allowed',
+                  opacity: effectiveOpusToken ? 1 : 0.6,
                 }}
               >
                 Patrol Console
