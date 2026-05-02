@@ -79,8 +79,8 @@ export const DEFAULT_ROUNDTABLE_CONFIG: RoundtableConfig = {
       maxTokensPerRound: 2500,
     },
     {
-      actor: 'gpt-5.4',
-      model: 'gpt-5.4',
+      actor: 'gpt-5.5',
+      model: 'gpt-5.5',
       provider: 'openai',
       strengths: 'Edge-Cases, Fehlersuche, SicherheitslÃ¼cken, alternative AnsÃ¤tze',
       maxTokensPerRound: 2000,

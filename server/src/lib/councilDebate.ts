@@ -53,7 +53,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 // Modelle: Jede Rolle hat einen anderen Provider fÃ¼r maximale Perspektivenvielfalt
 const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
   architekt:        { provider: 'anthropic',  model: 'claude-opus-4-7' },
-  skeptiker:        { provider: 'openai',     model: 'gpt-5.4' },
+  skeptiker:        { provider: 'openai',     model: 'gpt-5.5' },
   pragmatiker:      { provider: 'openrouter', model: 'z-ai/glm-5-turbo' },
   implementierer:    { provider: 'openrouter', model: 'z-ai/glm-5.1' },
   'maya-moderator': { provider: 'anthropic',  model: 'claude-opus-4-7' },

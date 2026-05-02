@@ -19,14 +19,14 @@ export interface PersonaDefinition {
 
 export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
   // maya:       { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
-  // luna:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'companion' },
+  // luna:       { provider: 'deepseek', model: 'deepseek-v4-flash',               tier: 'companion' },
   // orion:      { provider: 'openai',   model: 'gpt-5-nano',                  tier: 'companion' },
   // lilith:     { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'companion' },
   // stella:     { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
   // kael:       { provider: 'xai',      model: 'grok-4-1-fast-non-reasoning', tier: 'specialist' },
-  // lian:       { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
+  // lian:       { provider: 'deepseek', model: 'deepseek-v4-flash',               tier: 'specialist' },
   // sibyl:      { provider: 'openai',   model: 'gpt-5-mini',                  tier: 'specialist' },
-  // amara:      { provider: 'deepseek', model: 'deepseek-chat',               tier: 'specialist' },
+  // amara:      { provider: 'deepseek', model: 'deepseek-v4-flash',               tier: 'specialist' },
   // echo_prism: { provider: 'openai',   model: 'gpt-5',                       tier: 'meta' },
 
   maya:       { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'companion' },
@@ -42,13 +42,13 @@ export const PERSONA_PROVIDERS: Record<string, PersonaProviderConfig> = {
   echo_prism: { provider: 'gemini', model: 'gemini-2.5-flash', tier: 'meta' },
   thinker_opus:      { provider: 'anthropic', model: 'claude-opus-4-7', tier: 'thinker' },
   thinker_sonnet:    { provider: 'anthropic', model: 'claude-sonnet-4-6', tier: 'thinker' },
-  thinker_gpt54:     { provider: 'openai', model: 'gpt-5.4', tier: 'thinker' },
+  thinker_gpt54:     { provider: 'openai', model: 'gpt-5.5', tier: 'thinker' },
   thinker_grok:      { provider: 'xai', model: 'grok-4-1-fast', tier: 'thinker' },
-  thinker_deepseek:  { provider: 'deepseek', model: 'deepseek-chat', tier: 'thinker' },
+  thinker_deepseek:  { provider: 'deepseek', model: 'deepseek-v4-flash', tier: 'thinker' },
   thinker_deepseek_r:{ provider: 'deepseek', model: 'deepseek-reasoner', tier: 'thinker' },
   thinker_glm_turbo: { provider: 'zhipu', model: 'glm-5-turbo', tier: 'thinker' },
   thinker_minimax:   { provider: 'openrouter', model: 'minimax/minimax-m2.7', tier: 'thinker' },
-  thinker_kimi:      { provider: 'openrouter', model: 'moonshotai/kimi-k2.5', tier: 'thinker' },
+  thinker_kimi:      { provider: 'openrouter', model: 'moonshotai/kimi-k2.6', tier: 'thinker' },
   thinker_qwen:      { provider: 'openrouter', model: 'qwen/qwen3.6-plus', tier: 'thinker' },
 };
 
@@ -132,9 +132,9 @@ export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
     tier: 'thinker',
   },
   thinker_gpt54: {
-    id: 'thinker_gpt54', name: 'GPT-5.4', title: 'Thinker · OpenAI',
+    id: 'thinker_gpt54', name: 'GPT-5.5', title: 'Thinker · OpenAI',
     icon: '◎', color: '#10a37f',
-    personality: 'OpenAI GPT-5.4. Vielseitig, breites Weltwissen, ausgewogene Problemlösung.',
+    personality: 'OpenAI GPT-5.5. Vielseitig, breites Weltwissen, ausgewogene Problemlösung.',
     tier: 'thinker',
   },
   thinker_grok: {
@@ -144,9 +144,9 @@ export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
     tier: 'thinker',
   },
   thinker_deepseek: {
-    id: 'thinker_deepseek', name: 'DeepSeek Chat', title: 'Thinker · DeepSeek',
+    id: 'thinker_deepseek', name: 'DeepSeek V4 Flash', title: 'Thinker · DeepSeek',
     icon: '◈', color: '#1e5fd9',
-    personality: 'DeepSeek Chat. Präzise, effizient und stark im Preis-Leistungs-Verhältnis.',
+    personality: 'DeepSeek V4 Flash. Präzise, effizient und stark im Preis-Leistungs-Verhältnis.',
     tier: 'thinker',
   },
   thinker_deepseek_r: {
@@ -168,9 +168,9 @@ export const PERSONA_DEFINITIONS: Record<string, PersonaDefinition> = {
     tier: 'thinker',
   },
   thinker_kimi: {
-    id: 'thinker_kimi', name: 'Kimi K2.5', title: 'Thinker · Moonshot',
+    id: 'thinker_kimi', name: 'Kimi K2.6', title: 'Thinker · Moonshot',
     icon: '◔', color: '#ff9800',
-    personality: 'Moonshot Kimi K2.5 via OpenRouter. Sehr langer Kontext mit Fokus auf Long-Form.',
+    personality: 'Moonshot Kimi K2.6 via OpenRouter. Sehr langer Kontext mit Fokus auf Long-Form.',
     tier: 'thinker',
   },
   thinker_qwen: {
@@ -231,7 +231,7 @@ export const PERSONA_CONFIG: Record<string, PersonaConfig> = {
   },
   orion: {
     personaId: 'orion',
-    standard: { provider: 'deepseek', model: 'deepseek-chat' },
+    standard: { provider: 'deepseek', model: 'deepseek-v4-flash' },
     deep: { provider: 'deepseek', model: 'deepseek-reasoner', useReasoning: true },
     tts: 'gemini-preview',
     fillerPhrases: [
@@ -275,7 +275,7 @@ export const PERSONA_CONFIG: Record<string, PersonaConfig> = {
   },
   kael: {
     personaId: 'kael',
-    standard: { provider: 'deepseek', model: 'deepseek-chat' },
+    standard: { provider: 'deepseek', model: 'deepseek-v4-flash' },
     deep: { provider: 'deepseek', model: 'deepseek-reasoner', useReasoning: true },
     tts: 'gemini-preview',
     fillerPhrases: [
@@ -286,7 +286,7 @@ export const PERSONA_CONFIG: Record<string, PersonaConfig> = {
   },
   lian: {
     personaId: 'lian',
-    standard: { provider: 'deepseek', model: 'deepseek-chat' },
+    standard: { provider: 'deepseek', model: 'deepseek-v4-flash' },
     deep: { provider: 'deepseek', model: 'deepseek-reasoner', useReasoning: true },
     tts: 'gemini-preview',
     fillerPhrases: [

@@ -4,8 +4,8 @@ const STORAGE_KEY = 'soulmatch.settings.v1';
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   none: '',
-  openai: 'gpt-5-nano',
-  deepseek: 'deepseek-chat',
+  openai: 'gpt-5.5',
+  deepseek: 'deepseek-v4-flash',
   xai: 'grok-4-1-fast-non-reasoning',
 };
 
@@ -14,11 +14,11 @@ export const MODEL_OPTIONS: Record<AiProvider, { value: string; label: string; t
   openai: [
     { value: 'gpt-5-nano', label: 'GPT-5 Nano — $0.05/1M ⭐ Standard', tier: 'budget' },
     { value: 'gpt-5-mini', label: 'GPT-5 Mini — $0.25/1M', tier: 'standard' },
-    { value: 'gpt-5', label: 'GPT-5 — $1.25/1M 🔥 Premium', tier: 'premium' },
+    { value: 'gpt-5.5', label: 'GPT-5.5 - Premium Coding/Reasoning', tier: 'premium' },
   ],
   deepseek: [
-    { value: 'deepseek-chat', label: 'DeepSeek V3 — $0.28/1M ⭐ Standard', tier: 'standard' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek R1 — Reasoning 🧠', tier: 'reasoning' },
+    { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash - Standard', tier: 'standard' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner - Reasoning', tier: 'reasoning' },
   ],
   xai: [
     { value: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast — Non-Reasoning ⭐ Standard', tier: 'standard' },

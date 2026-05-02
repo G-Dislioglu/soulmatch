@@ -1031,7 +1031,7 @@ router.post('/maya/director', async (req: Request, res: Response) => {
   try {
     const { message, directorModel, thinking = false, conversationHistory = [] } = req.body as {
       message?: string;
-      directorModel?: 'opus' | 'gpt5.4' | 'glm5.1';
+      directorModel?: 'opus' | 'gpt5.4' | 'gpt5.5' | 'glm5.1';
       thinking?: boolean;
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
     };
@@ -1041,8 +1041,8 @@ router.post('/maya/director', async (req: Request, res: Response) => {
       return;
     }
 
-    if (directorModel !== 'opus' && directorModel !== 'gpt5.4' && directorModel !== 'glm5.1') {
-      res.status(400).json({ error: 'directorModel must be opus, gpt5.4 or glm5.1' });
+    if (directorModel !== 'opus' && directorModel !== 'gpt5.4' && directorModel !== 'gpt5.5' && directorModel !== 'glm5.1') {
+      res.status(400).json({ error: 'directorModel must be opus, gpt5.5 or glm5.1' });
       return;
     }
 
@@ -1058,9 +1058,10 @@ router.post('/maya/director', async (req: Request, res: Response) => {
             anthropicThinking: thinking ? { type: 'enabled' as const, budget_tokens: 50000 } : undefined,
           };
         case 'gpt5.4':
+        case 'gpt5.5':
           return {
             provider: 'openai',
-            model: 'gpt-5.4',
+            model: 'gpt-5.5',
             maxTokens: 100000,
             reasoning: thinking,
           };
@@ -1236,7 +1237,7 @@ pools: { maya: ["opus"], council: ["opus", "sonnet"], distiller: ["glm-flash", "
 [/ACTION]
 
 DEINE FÃ„HIGKEITEN:
-- /build â€” Code-Ã„nderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.4, MiniMax, Kimi)
+- /build â€” Code-Ã„nderungen am Soulmatch-Repo (Worker: GLM-Turbo, FlashX, GPT-5.5, MiniMax, Kimi K2.6, MiMo)
 - /repo-query â€” Fragen an den Code beantworten
 - /git-push â€” Dateien direkt auf GitHub pushen (main oder staging Branch)
 - /push â€” Code deployen (mit branch Parameter fÃ¼r staging)

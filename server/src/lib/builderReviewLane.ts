@@ -285,7 +285,7 @@ export async function runObserver(
     return null;
   }
 
-  const rawResponse = await callProvider('deepseek', 'deepseek-chat', {
+  const rawResponse = await callProvider('deepseek', 'deepseek-v4-flash', {
     system: [
       'Du bist der Builder-Observer fuer Soulmatch.',
       'Du bist nur Tie-Breaker bei Dissens.',

@@ -1,7 +1,7 @@
 /**
  * Meister-Plan Phase â€” Opus-Bridge v4
  *
- * Opus plans the decomposition, GPT-5.4 critiques it, Opus finalizes.
+ * Opus plans the decomposition, GPT-5.5 critiques it, Opus finalizes.
  * Produces a build plan with independent sub-tasks for parallel workers.
  */
 
@@ -34,7 +34,7 @@ export interface BuildPlan {
 // â”€â”€â”€ Constants â”€â”€â”€
 
 const PLANNER = { provider: 'anthropic', model: 'claude-opus-4-7' };
-const CRITIC  = { provider: 'openai',    model: 'gpt-5.4' };
+const CRITIC  = { provider: 'openai',    model: 'gpt-5.5' };
 
 const AVAILABLE_WORKERS = ['glm', 'minimax', 'qwen', 'kimi'];
 
@@ -176,7 +176,7 @@ export async function runMeisterPlan(
   );
   rounds.push({ role: 'planner-opus', durationMs: r1.ms });
 
-  // Round 2: GPT-5.4 critiques
+  // Round 2: GPT-5.5 critiques
   const r2 = await callMeister(
     CRITIC.provider, CRITIC.model,
     'You are a critical code reviewer. Return ONLY valid JSON.',

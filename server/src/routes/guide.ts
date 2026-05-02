@@ -8,8 +8,8 @@ export const guideRouter = Router();
 type ProviderName = 'openai' | 'deepseek' | 'xai';
 
 const DEFAULT_MODELS: Record<ProviderName, string> = {
-  openai: 'gpt-5-nano',
-  deepseek: 'deepseek-chat',
+  openai: 'gpt-5.5',
+  deepseek: 'deepseek-v4-flash',
   xai: 'grok-4-1-fast-non-reasoning',
 };
 

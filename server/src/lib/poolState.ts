@@ -53,11 +53,11 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     color: '#a78bfa',
     pools: ['maya', 'council'],
   },
-  'gpt-5.4': {
-    id: 'gpt-5.4',
-    label: 'GPT-5.4',
+  'gpt-5.5': {
+    id: 'gpt-5.5',
+    label: 'GPT-5.5',
     provider: 'openai',
-    model: 'gpt-5.4',
+    model: 'gpt-5.5',
     quality: 88,
     speed: 'medium',
     color: '#22d3ee',
@@ -75,9 +75,9 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
   },
   deepseek: {
     id: 'deepseek',
-    label: 'DeepSeek Chat',
+    label: 'DeepSeek V4 Flash',
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-flash',
     quality: 72,
     speed: 'fast',
     color: '#4ade80',
@@ -115,12 +115,32 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
   },
   kimi: {
     id: 'kimi',
-    label: 'Kimi K2.5',
+    label: 'Kimi K2.6',
     provider: 'openrouter',
-    model: 'moonshotai/kimi-k2.5',
+    model: 'moonshotai/kimi-k2.6',
     quality: 65,
     speed: 'medium',
     color: '#f472b6',
+    pools: ['council', 'worker'],
+  },
+  mimo: {
+    id: 'mimo',
+    label: 'MiMo V2.5',
+    provider: 'openrouter',
+    model: 'xiaomi/mimo-v2.5',
+    quality: 74,
+    speed: 'medium',
+    color: '#fb7185',
+    pools: ['council', 'worker'],
+  },
+  'mimo-pro': {
+    id: 'mimo-pro',
+    label: 'MiMo V2.5 Pro',
+    provider: 'openrouter',
+    model: 'xiaomi/mimo-v2.5-pro',
+    quality: 82,
+    speed: 'medium',
+    color: '#f43f5e',
     pools: ['council', 'worker'],
   },
   qwen: {
@@ -165,9 +185,9 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
   },
   'deepseek-scout': {
     id: 'deepseek-scout',
-    label: 'DeepSeek Chat',
+    label: 'DeepSeek V4 Flash',
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-flash',
     quality: 70,
     speed: 'fast',
     color: '#4ade80',
@@ -199,20 +219,24 @@ const POOL_AVAILABLE_MODELS: Record<PoolType, string[]> = {
 
 const activePools: PoolConfig = {
   maya: ['glm51'],
-  council: ['opus', 'sonnet', 'gpt-5.4'],
-  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],
+  council: ['opus', 'sonnet', 'gpt-5.5'],
+  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'mimo', 'qwen'],
   scout: ['deepseek-scout', 'glm-flash', 'gemini-flash'],
   distiller: ['glm-flash'],
 };
 
 let persistenceInitialized = false;
+const POOL_ID_ALIASES: Record<string, string> = {
+  'gpt-5.4': 'gpt-5.5',
+};
 
 function normalizePoolIds(pool: PoolType, ids: string[]): string[] {
   const allowed = new Set(POOL_AVAILABLE_MODELS[pool]);
   const seen = new Set<string>();
   const normalized: string[] = [];
 
-  for (const id of ids) {
+  for (const rawId of ids) {
+    const id = POOL_ID_ALIASES[rawId] ?? rawId;
     if (!allowed.has(id) || seen.has(id)) {
       continue;
     }

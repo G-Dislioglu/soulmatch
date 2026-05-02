@@ -61,7 +61,7 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 2500,
   },
   gpt: {
-    actor: 'gpt-5.4', model: 'gpt-5.4', provider: 'openai',
+    actor: 'gpt-5.5', model: 'gpt-5.5', provider: 'openai',
     strengths: 'Edge-Cases, Fehlersuche, alternative Ansaetze',
     maxTokensPerRound: 2000,
   },
@@ -76,7 +76,7 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 1500,
   },
   deepseek: {
-    actor: 'deepseek', model: 'deepseek-chat', provider: 'deepseek',
+    actor: 'deepseek', model: 'deepseek-v4-flash', provider: 'deepseek',
     strengths: 'Sehr guenstig, gutes Reasoning fuer Standard-Tasks',
     maxTokensPerRound: 1500,
   },
@@ -91,9 +91,19 @@ const CODE_WRITER_PRESETS: Record<string, RoundtableParticipant> = {
     maxTokensPerRound: 1500,
   },
   kimi: {
-    actor: 'kimi', model: 'moonshotai/kimi-k2.5', provider: 'openrouter',
+    actor: 'kimi', model: 'moonshotai/kimi-k2.6', provider: 'openrouter',
     strengths: 'Sauber bei laengerem Kontext und mehrteiligen Datei-Aenderungen',
     maxTokensPerRound: 1500,
+  },
+  mimo: {
+    actor: 'mimo', model: 'xiaomi/mimo-v2.5', provider: 'openrouter',
+    strengths: 'Autonome Coding-Loops, gute Multi-File-Synthese und saubere Tool-Folgen',
+    maxTokensPerRound: 1500,
+  },
+  'mimo-pro': {
+    actor: 'mimo-pro', model: 'xiaomi/mimo-v2.5-pro', provider: 'openrouter',
+    strengths: 'Staerker fuer Council-/Review-Runden mit viel Kontext und mehreren Artefakten',
+    maxTokensPerRound: 2000,
   },
 };
 
