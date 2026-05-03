@@ -4,7 +4,20 @@ import { useLocation } from 'wouter';
 import { TOKENS } from '../../../design/tokens';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import './maya-highlight.css';
-import { BuilderConfigPanel } from './BuilderConfigPanel';
+import { BuilderPanel } from './BuilderPanel';
+import { BuilderContextPanel } from './BuilderContextPanel';
+import { BuilderDialogViewerPanel } from './BuilderDialogViewerPanel';
+import { BuilderFileExplorerPanel } from './BuilderFileExplorerPanel';
+import { BuilderModelConfigDrawer } from './BuilderModelConfigDrawer';
+import { BuilderOutputPanels } from './BuilderOutputPanels';
+import { BuilderSidebarNav } from './BuilderSidebarNav';
+import { BuilderStageIntro } from './BuilderStageIntro';
+import { BuilderStudioTopbar } from './BuilderStudioTopbar';
+import { BuilderTaskDetailPanel } from './BuilderTaskDetailPanel';
+import { BuilderTaskFooterStrip } from './BuilderTaskFooterStrip';
+import { BuilderTaskListPanel } from './BuilderTaskListPanel';
+import { BuilderTribuneStage } from './BuilderTribuneStage';
+import { BuilderVisualReviewPanel } from './BuilderVisualReviewPanel';
 import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType, type VisionModelScoreAggregate, type VisualReviewRunResponse, type VisualReviewTaskType } from '../hooks/useMayaApi';
 import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
 import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
@@ -478,40 +491,6 @@ function groupFiles(files: string[]) {
   }
 
   return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'de'));
-}
-
-function BuilderPanel(props: { title: string; subtitle?: string; children: React.ReactNode; accent?: string; }) {
-  const { title, subtitle, children, accent = TOKENS.gold } = props;
-
-  return (
-    <section
-      style={{
-        border: `2px solid ${TOKENS.b1}`,
-        borderRadius: 22,
-        background: TOKENS.card,
-        boxShadow: `${TOKENS.shadow.card}, 0 0 0 1px rgba(255,255,255,0.04) inset`,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          padding: '16px 18px 14px',
-          borderBottom: `2px solid ${TOKENS.b1}`,
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
-        }}
-      >
-        <div style={{ fontSize: 11, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
-          {title}
-        </div>
-        {subtitle ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: TOKENS.text2, lineHeight: 1.6, fontFamily: TOKENS.font.body }}>
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-      <div style={{ padding: 18 }}>{children}</div>
-    </section>
-  );
 }
 
 interface ExecutionStateSummary {
@@ -1732,96 +1711,6 @@ function PoolBar(props: {
   );
 }
 
-function ContextPanel(props: {
-  ctx: MayaContext | null;
-  onDeleteMemory: (id: string) => void;
-  onAddNote: (summary: string) => void;
-}) {
-  const { ctx, onDeleteMemory, onAddNote } = props;
-  const [showAdd, setShowAdd] = useState(false);
-  const [newNote, setNewNote] = useState('');
-
-  if (!ctx) {
-    return <div style={{ fontSize: 12, color: TOKENS.text3 }}>Kein Maya-Kontext geladen.</div>;
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Continuity Notes</div>
-          <button onClick={() => setShowAdd((current) => !current)} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, background: 'transparent', color: TOKENS.gold, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</button>
-        </div>
-        {showAdd ? (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <input
-              value={newNote}
-              onChange={(event) => setNewNote(event.target.value)}
-              placeholder="Session-Notiz..."
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && newNote.trim()) {
-                  onAddNote(newNote.trim());
-                  setNewNote('');
-                  setShowAdd(false);
-                }
-              }}
-              style={{ flex: 1, background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }}
-            />
-            <button onClick={() => {
-              if (!newNote.trim()) {
-                return;
-              }
-              onAddNote(newNote.trim());
-              setNewNote('');
-              setShowAdd(false);
-            }} style={{ fontSize: 10, padding: '6px 12px', borderRadius: 10, border: 'none', background: TOKENS.gold, color: '#000', cursor: 'pointer', fontWeight: 600 }}>OK</button>
-          </div>
-        ) : null}
-        <div style={{ display: 'grid', gap: 6 }}>
-          {ctx.continuityNotes.map((note, index) => (
-            <div key={note.id || index} style={{ display: 'flex', gap: 6, padding: '5px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5, borderBottom: `1px solid ${TOKENS.b3}` }}>
-              <div style={{ flex: 1 }}>
-                <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatDate(note.updatedAt)}</span>{' '}
-                {note.summary}
-              </div>
-              {note.id ? <button onClick={() => onDeleteMemory(note.id!)} style={{ border: 'none', background: 'transparent', color: TOKENS.text3, cursor: 'pointer', fontSize: 10 }}>x</button> : null}
-            </div>
-          ))}
-          {ctx.continuityNotes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Continuity Notes.</div> : null}
-        </div>
-      </div>
-
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ fontSize: 11, color: TOKENS.purple, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>Memory Episodes</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {ctx.memory.episodes.slice(0, 6).map((entry, index) => (
-            <div key={entry.id || index} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{entry.key}</span>
-                <span style={{ fontSize: 10, color: TOKENS.text3, fontFamily: 'monospace' }}>{formatDate(entry.updatedAt)}</span>
-              </div>
-              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.5 }}>{entry.summary}</div>
-            </div>
-          ))}
-          {ctx.memory.episodes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Memory Episodes.</div> : null}
-        </div>
-      </div>
-
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>System Status</div>
-        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, boxShadow: `0 0 8px ${TOKENS.green}60`, display: 'inline-block' }} />
-            Render
-          </span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.tasks.length} Tasks</span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.workerStats.length} Worker</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function BuilderAuthGate(props: {
   tokenInput: string;
   tokenVisible: boolean;
@@ -2186,7 +2075,7 @@ export function BuilderStudioPage() {
     return null;
   }, [selectedTaskId, selectedVisualArtifactIds.length, selectedVisualModelIds.length, tasks.length]);
   const isVisualLaunchMode = drawerView === 'visual' && !selectedTaskId;
-  const visualLaunchChecklist = useMemo(
+  const visualLaunchChecklist = useMemo<Array<{ id: string; label: string; status: 'done' | 'ready' | 'waiting'; description: string }>>(
     () => [
       {
         id: 'task',
@@ -3330,113 +3219,39 @@ export function BuilderStudioPage() {
             pointerEvents: 'none',
           }}
         />
-        <div
-          style={{
-            border: `2px solid ${TOKENS.b1}`,
-            borderRadius: 20,
-            background: TOKENS.card,
-            boxShadow: TOKENS.shadow.card,
-            padding: compact ? '14px 14px' : '14px 18px',
-            marginBottom: 18,
+        <BuilderStudioTopbar
+          compact={compact}
+          sidebarExpanded={sidebarExpanded}
+          greeting={greeting}
+          statusLeft={topbarStatus.left}
+          statusRight={topbarStatus.right}
+          currentFocusLabel={currentFocusLabel}
+          maskedToken={maskToken(token)}
+          tasksCount={tasks.length}
+          filesCount={files.length}
+          tasksExist={tasks.length > 0}
+          hasOutputContext={hasOutputContext}
+          drawerView={drawerView}
+          showConfig={showConfig}
+          effectiveOpusToken={effectiveOpusToken}
+          onToggleSidebarExpanded={() => setSidebarExpanded((current) => !current)}
+          onNavigateHome={() => navigate('/')}
+          onRefresh={() => {
+            void refreshTasks();
+            void refreshFiles();
+            void refreshMayaContext().catch(() => {});
+            if (patrolOpen) {
+              void refreshPatrolFeed();
+            }
           }}
-        >
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: compact ? 'start' : 'center', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSidebarExpanded((current) => !current)}
-                    title={sidebarExpanded ? 'Sidebar einklappen' : 'Sidebar aufklappen'}
-                    aria-label={sidebarExpanded ? 'Sidebar einklappen' : 'Sidebar aufklappen'}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 14,
-                      border: `2px solid ${sidebarExpanded ? TOKENS.cyan : TOKENS.b1}`,
-                      background: sidebarExpanded ? 'rgba(34,211,238,0.12)' : TOKENS.bg2,
-                      color: sidebarExpanded ? TOKENS.text : TOKENS.text2,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {sidebarExpanded ? '-' : '+'}
-                  </button>
-                  <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.16em', fontFamily: TOKENS.font.body }}>
-                    Maya Stage
-                  </div>
-                </div>
-                <div style={{ fontFamily: TOKENS.font.display, fontSize: compact ? 20 : 24, color: TOKENS.text, letterSpacing: '0.04em' }}>
-                  {greeting}. Builder bleibt im Dialog mit Maya.
-                </div>
-                <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.6, maxWidth: 860 }}>
-                  {topbarStatus.left}. {topbarStatus.right}.
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text3, fontSize: 12 }}>
-                <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}66`, padding: '6px 10px', background: 'rgba(34,211,238,0.10)', color: TOKENS.text }}>
-                  Fokus {currentFocusLabel}
-                </span>
-                <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>Token {maskToken(token)}</span>
-                <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>{tasks.length} Tasks</span>
-                <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>{files.length} Files</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `2px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Zur App
-              </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Refresh
-              </button>
-              <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Maya Tour
-              </button>
-              {tasks.length > 0 ? (
-                <button onClick={() => { setDrawerView((current) => current === 'task' ? null : 'task'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'task' ? TOKENS.green : TOKENS.b1}`, background: drawerView === 'task' ? 'rgba(74,222,128,0.12)' : TOKENS.bg2, color: drawerView === 'task' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Task
-                </button>
-              ) : null}
-              {hasOutputContext ? (
-                <button onClick={() => { setDrawerView((current) => current === 'output' ? null : 'output'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'output' ? TOKENS.gold : TOKENS.b1}`, background: drawerView === 'output' ? 'rgba(212,175,55,0.12)' : TOKENS.bg2, color: drawerView === 'output' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Output
-                </button>
-              ) : null}
-              <button onClick={() => { setDrawerView((current) => current === 'models' ? null : 'models'); setShowConfig(true); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'models' || showConfig ? '#7c6af7' : TOKENS.b1}`, background: drawerView === 'models' || showConfig ? 'rgba(124,106,247,0.14)' : TOKENS.bg2, color: drawerView === 'models' || showConfig ? '#c4b5fd' : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Models
-              </button>
-              <button onClick={() => { setDrawerView((current) => current === 'visual' ? null : 'visual'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'visual' ? TOKENS.cyan : TOKENS.b1}`, background: drawerView === 'visual' ? 'rgba(34,211,238,0.12)' : TOKENS.bg2, color: drawerView === 'visual' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Vision
-              </button>
-              <a
-                data-maya-target="patrol-console"
-                href={effectiveOpusToken ? `/patrol?opus_token=${encodeURIComponent(effectiveOpusToken)}` : '#'}
-                onClick={(event) => {
-                  if (!effectiveOpusToken) {
-                    event.preventDefault();
-                    setPatrolError('Patrol Console braucht einen gueltigen Opus-Token.');
-                  }
-                }}
-                title={effectiveOpusToken ? 'Patrol Console oeffnen' : 'Opus-Token fehlt'}
-                style={{
-                  borderRadius: 999,
-                  border: '2px solid #f97316',
-                  background: 'rgba(249,115,22,0.14)',
-                  color: '#fdba74',
-                  textDecoration: 'none',
-                  padding: '9px 14px',
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  cursor: effectiveOpusToken ? 'pointer' : 'not-allowed',
-                  opacity: effectiveOpusToken ? 1 : 0.6,
-                }}
-              >
-                Patrol Console
-              </a>
-            </div>
-          </div>
-        </div>
+          onStartMayaTour={handleStartMayaTour}
+          onToggleDrawer={(view) => setDrawerView((current) => current === view ? null : view)}
+          onOpenModels={() => {
+            setDrawerView((current) => current === 'models' ? null : 'models');
+            setShowConfig(true);
+          }}
+          onMissingPatrolToken={() => setPatrolError('Patrol Console braucht einen gueltigen Opus-Token.')}
+        />
         
         {pageError ? (
           <div style={{ marginBottom: 16, borderRadius: 16, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '12px 14px', fontSize: 13 }}>
@@ -3627,1997 +3442,278 @@ export function BuilderStudioPage() {
           }}
         >
           <div style={{ display: 'grid', gap: 18 }}>
-            <div
-              style={{
-                borderRadius: 20,
-                border: `2px solid ${TOKENS.b1}`,
-                background: TOKENS.card,
-                boxShadow: TOKENS.shadow.card,
-                padding: compact ? 12 : 14,
-                display: 'grid',
-                gap: 12,
-                overflow: 'hidden',
+            <BuilderSidebarNav
+              compact={compact}
+              sidebarExpanded={sidebarExpanded}
+              sidebarView={sidebarView}
+              patrolOpen={patrolOpen}
+              selectedTaskId={selectedTaskId}
+              selectedFilePath={selectedFilePath ?? (files.length > 0 ? `${files.length} Builder-Dateien indexiert` : null)}
+              sidebarTasks={sidebarTasks}
+              continuityNotes={continuityNotes}
+              patrolStatus={patrolStatus}
+              patrolSeverityConfig={PATROL_SEVERITY_CONFIG}
+              collapsedLabelFor={getCollapsedSidebarLabel}
+              formatDate={formatDate}
+              onSelectSidebarView={(view) => {
+                setSidebarExpanded(true);
+                setSidebarView(view);
               }}
-            >
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ fontSize: sidebarExpanded || compact ? 11 : 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700 }}>
-                  Sidebar
-                </div>
-                {[
-                  { key: 'chat', label: 'Chat', accent: TOKENS.gold },
-                  { key: 'tasks', label: 'Queue', accent: TOKENS.cyan },
-                  { key: 'files', label: 'Files', accent: TOKENS.purple },
-                  { key: 'patrol', label: 'Patrol', accent: '#f97316' },
-                  { key: 'notes', label: 'Notes', accent: TOKENS.green },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    title={item.label}
-                    aria-label={item.label}
-                    onClick={() => {
-                      setSidebarExpanded(true);
-                      setSidebarView(item.key as SidebarView);
-                    }}
-                    style={{
-                      borderRadius: 14,
-                      border: `2px solid ${sidebarView === item.key ? item.accent : TOKENS.b2}`,
-                      background: sidebarView === item.key ? `${item.accent}18` : TOKENS.bg2,
-                      color: sidebarView === item.key ? TOKENS.text : TOKENS.text2,
-                      padding: sidebarExpanded || compact ? '10px 12px' : '10px 0',
-                      minHeight: 42,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      textAlign: sidebarExpanded || compact ? 'left' : 'center',
-                    }}
-                  >
-                    {sidebarExpanded || compact ? item.label : getCollapsedSidebarLabel(item.key as SidebarView)}
-                  </button>
-                ))}
-              </div>
-              {sidebarExpanded || compact ? (
-                <div style={{ borderTop: `2px solid ${TOKENS.b2}`, paddingTop: 12, display: 'grid', gap: 10 }}>
-                  {sidebarView === 'chat' ? (
-                    <>
-                      <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Maya Einstieg
-                      </div>
-                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                        Aufgaben entstehen hier aus dem Dialog mit Maya, nicht aus einem Formular. Beschreibe den naechsten Schritt im Chat und Maya routet ihn in die passende Arbeitsform.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => focusMayaTarget('maya-chat')}
-                        style={{ borderRadius: 14, border: `2px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '10px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        Zum Maya-Chat
-                      </button>
-                    </>
-                  ) : null}
-                  {sidebarView === 'tasks' ? (
-                    <>
-                      <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Aufmerksamkeit zuerst
-                      </div>
-                      {sidebarTasks.length > 0 ? sidebarTasks.map((task) => (
-                        <button
-                          key={`sidebar-${task.id}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedTaskId(task.id);
-                            setDrawerView('task');
-                          }}
-                          style={{
-                            textAlign: 'left',
-                            borderRadius: 14,
-                            border: `2px solid ${selectedTaskId === task.id ? TOKENS.cyan : TOKENS.b2}`,
-                            background: selectedTaskId === task.id ? 'rgba(34,211,238,0.12)' : TOKENS.bg2,
-                            color: TOKENS.text,
-                            padding: '10px 12px',
-                            cursor: 'pointer',
-                            display: 'grid',
-                            gap: 4,
-                          }}
-                        >
-                          <span style={{ fontSize: 12.5, fontWeight: 700 }}>{task.title}</span>
-                          <span style={{ fontSize: 11.5, color: TOKENS.text3 }}>{deriveTaskQueueSignal(task).label}  -  {task.status}</span>
-                        </button>
-                      )) : (
-                        <div style={{ fontSize: 12.5, color: TOKENS.text3 }}>Noch keine Builder-Tasks vorhanden.</div>
-                      )}
-                    </>
-                  ) : null}
-                  {sidebarView === 'files' ? (
-                    <>
-                      <div style={{ fontSize: 11, color: TOKENS.purple, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Repo Einstieg
-                      </div>
-                      <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                        {selectedFilePath ?? `${files.length} Builder-Dateien indexiert`}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => focusMayaTarget('file-explorer')}
-                        style={{ borderRadius: 14, border: `2px solid ${TOKENS.purple}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        Zum File Explorer
-                      </button>
-                    </>
-                  ) : null}
-                  {sidebarView === 'patrol' ? (
-                    <>
-                      <div style={{ fontSize: 11, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Patrol Feed
-                      </div>
-                      <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                        {patrolStatus
-                          ? `${patrolStatus.totalFindings ?? 0} Findings  -  ${patrolStatus.crossConfirmed ?? 0} cross-confirmed`
-                          : 'Patrol-Status wird geladen oder ist noch nicht geoeffnet.'}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPatrolOpen((current) => !current);
-                          focusMayaTarget('session');
-                        }}
-                        style={{ borderRadius: 14, border: '2px solid #f97316', background: 'rgba(249,115,22,0.14)', color: TOKENS.text, padding: '10px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        {patrolOpen ? 'Patrol einklappen' : 'Patrol zeigen'}
-                      </button>
-                      <div style={{ display: 'grid', gap: 8 }}>
-                        {(Object.keys(PATROL_SEVERITY_CONFIG) as BuilderPatrolSeverity[]).map((severity) => {
-                          const config = PATROL_SEVERITY_CONFIG[severity];
-                          return (
-                            <div key={`sidebar-patrol-${severity}`} style={{ borderRadius: 14, border: `2px solid ${config.color}33`, background: config.bg, color: config.color, padding: '9px 10px', fontSize: 12, fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                              <span>{config.label}</span>
-                              <span>{patrolStatus?.bySeverity?.[severity] ?? 0}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : null}
-                  {sidebarView === 'notes' ? (
-                    <>
-                      <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Continuity
-                      </div>
-                      {continuityNotes.length > 0 ? continuityNotes.slice(0, 3).map((note) => (
-                        <div key={note.id} style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'grid', gap: 4 }}>
-                          <div style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(note.updatedAt)}</div>
-                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.55 }}>{note.summary}</div>
-                        </div>
-                      )) : (
-                        <div style={{ fontSize: 12.5, color: TOKENS.text3 }}>Noch keine Continuity Notes gespeichert.</div>
-                      )}
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+              onFocusChat={() => focusMayaTarget('maya-chat')}
+              onSelectTask={(taskId) => {
+                setSelectedTaskId(taskId);
+                setDrawerView('task');
+              }}
+              onFocusFileExplorer={() => focusMayaTarget('file-explorer')}
+              onTogglePatrolFeed={() => {
+                setPatrolOpen((current) => !current);
+                focusMayaTarget('session');
+              }}
+            />
             {sidebarView === 'tasks' || compact ? (
-            <div data-maya-target="tasklist">
-              <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues, Prioritaetssignale und Statusfarben." accent={TOKENS.cyan}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : '1fr 1fr' }}>
-                    <select value={taskQueueFilter} onChange={(event) => setTaskQueueFilter(event.target.value as TaskQueueFilter)} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 12.5 }}>
-                      <option value="all">Alle Prioritaeten</option>
-                      <option value="attention">Nur Aufmerksamkeit</option>
-                      <option value="active">Nur Laufend</option>
-                      <option value="ready">Nur Startklar</option>
-                      <option value="delivered">Nur Bereit</option>
-                      <option value="done">Nur Abgeschlossen</option>
-                    </select>
-                    <select value={taskQueueSort} onChange={(event) => setTaskQueueSort(event.target.value as TaskQueueSort)} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 12.5 }}>
-                      <option value="priority">Sort: Prioritaet zuerst</option>
-                      <option value="updated">Sort: Zuletzt aktualisiert</option>
-                      <option value="title">Sort: Titel A-Z</option>
-                    </select>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                    {visibleTasks.length} von {tasks.length} Tasks sichtbar
-                  </div>
-                </div>
-                {visibleTasks.map((task) => {
-                  const selected = task.id === selectedTaskId;
-                  const isActive = !['done', 'cancelled', 'blocked', 'deleted'].includes(task.status);
-                  const queueSignal = deriveTaskQueueSignal(task);
-                  const cardTone = deriveTaskCardTone(task, selected);
-                  return (
-                    <div
-                      key={task.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(0, 1fr) auto',
-                        gap: 8,
-                        alignItems: 'start',
-                      }}
-                    >
-                      <button
-                        onClick={() => {
-                          setSelectedTaskId(task.id);
-                          setDrawerView('task');
-                        }}
-                        style={{
-                          textAlign: 'left',
-                          borderRadius: 18,
-                          border: `1.5px solid ${cardTone.border}`,
-                          background: cardTone.background,
-                          boxShadow: `0 0 0 1px ${cardTone.glow} inset`,
-                          padding: '12px 14px',
-                          cursor: 'pointer',
-                          overflow: 'hidden',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                          <div
-                            style={{
-                              minWidth: 0,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: TOKENS.text,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              wordBreak: 'break-word',
-                              overflowWrap: 'break-word',
-                            }}
-                          >
-                            {task.title}
-                          </div>
-                          <div style={{ display: 'grid', gap: 6, justifyItems: 'end', flexShrink: 0 }}>
-                            <span
-                              style={{
-                                borderRadius: 999,
-                                border: `1px solid ${TOKENS.b1}`,
-                                color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                                padding: '3px 8px',
-                                fontSize: 11,
-                                textTransform: 'uppercase',
-                                maxWidth: 80,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {task.status}
-                            </span>
-                            <span
-                              style={{
-                                borderRadius: 999,
-                                border: `1px solid ${queueSignal.accent}55`,
-                                background: cardTone.chipBg,
-                                color: queueSignal.accent,
-                                padding: '3px 8px',
-                                fontSize: 10.5,
-                                fontWeight: 700,
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {queueSignal.label}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 8,
-                            fontSize: 12,
-                            lineHeight: 1.55,
-                            color: TOKENS.text2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word',
-                          }}
-                        >
-                          {task.goal}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 8,
-                            fontSize: 11.5,
-                            lineHeight: 1.55,
-                            color: queueSignal.accent,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word',
-                          }}
-                        >
-                          {queueSignal.summary}
-                        </div>
-                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span style={{ fontSize: 10.5, color: TOKENS.text3, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '3px 7px', background: 'rgba(255,255,255,0.03)' }}>
-                            {task.contract.lifecycle.phase}
-                          </span>
-                          <span style={{ fontSize: 10.5, color: TOKENS.text3, borderRadius: 999, border: `1px solid ${TOKENS.b3}`, padding: '3px 7px', background: 'rgba(255,255,255,0.03)' }}>
-                            {task.requestedOutputKind}
-                          </span>
-                          <span style={{ fontSize: 10.5, color: TOKENS.text3 }}>
-                            {formatLaneList(task.contract.routing.activeLanes)}
-                          </span>
-                        </div>
-                      </button>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'center' }}>
-                        {isActive ? (
-                          <button
-                            onClick={() => { void handleCancelTask(task.id); }}
-                            title="Task abbrechen"
-                            disabled={isBusy}
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 999,
-                              border: `1.5px solid rgba(239,68,68,0.45)`,
-                              background: 'rgba(127,29,29,0.22)',
-                              color: '#fecaca',
-                              cursor: isBusy ? 'not-allowed' : 'pointer',
-                              fontSize: 16,
-                              lineHeight: 1,
-                              opacity: isBusy ? 0.6 : 1,
-                            }}
-                          >
-                            x
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={() => { void handleDeleteInline(task.id); }}
-                          title="Task loeschen"
-                          disabled={isBusy}
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 999,
-                            border: `1.5px solid rgba(161,98,7,0.45)`,
-                            background: 'rgba(120,53,15,0.22)',
-                            color: '#fde68a',
-                            cursor: isBusy ? 'not-allowed' : 'pointer',
-                            fontSize: 15,
-                            lineHeight: 1,
-                            opacity: isBusy ? 0.6 : 1,
-                          }}
-                        >
-                          x
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                  {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}
-                  {tasks.length > 0 && visibleTasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Fuer diesen Filter sind gerade keine Tasks sichtbar.</div> : null}
-                </div>
-              </BuilderPanel>
-            </div>
+              <BuilderTaskListPanel
+                compact={compact}
+                taskQueueFilter={taskQueueFilter}
+                taskQueueSort={taskQueueSort}
+                visibleTasks={visibleTasks}
+                tasksCount={tasks.length}
+                selectedTaskId={selectedTaskId}
+                isBusy={isBusy}
+                deriveTaskQueueSignal={deriveTaskQueueSignal}
+                deriveTaskCardTone={deriveTaskCardTone}
+                formatLaneList={formatLaneList}
+                onTaskQueueFilterChange={setTaskQueueFilter}
+                onTaskQueueSortChange={setTaskQueueSort}
+                onSelectTask={(taskId) => {
+                  setSelectedTaskId(taskId);
+                  setDrawerView('task');
+                }}
+                onCancelTask={(taskId) => {
+                  void handleCancelTask(taskId);
+                }}
+                onDeleteTask={(taskId) => {
+                  void handleDeleteInline(taskId);
+                }}
+              />
             ) : null}
 
             {sidebarView === 'files' || compact ? (
-            <div data-maya-target="file-explorer">
-            <BuilderPanel title="File Explorer" subtitle="Repo-Dateien bis Tiefe 3, direkt aus dem Builder-Endpoint." accent={TOKENS.purple}>
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'grid', gap: 12, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
-                  {groupedFiles.map(([group, entries]) => (
-                    <div key={group}>
-                      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.text3, marginBottom: 8 }}>{group}</div>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {entries.slice(0, 14).map((file) => (
-                          <button
-                            key={file}
-                            onClick={() => setSelectedFilePath(file)}
-                            style={{
-                              textAlign: 'left',
-                              borderRadius: 12,
-                              border: `1px solid ${selectedFilePath === file ? TOKENS.gold : TOKENS.b3}`,
-                              background: selectedFilePath === file ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)',
-                              color: TOKENS.text2,
-                              padding: '8px 10px',
-                              fontSize: 12,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {file}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                  <div style={{ fontSize: 12, color: TOKENS.text3, marginBottom: 8 }}>{selectedFilePath ?? 'Keine Datei gewaehlt'}</div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, lineHeight: 1.55, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {selectedFileContent ? toLines(selectedFileContent).join('\n') : 'Dateiinhalt erscheint hier als kurzer Preview-Ausschnitt.'}
-                  </pre>
-                </div>
-              </div>
-            </BuilderPanel>
-            </div>
+              <BuilderFileExplorerPanel
+                groupedFiles={groupedFiles}
+                selectedFilePath={selectedFilePath}
+                selectedFileContent={selectedFileContent}
+                toLines={toLines}
+                onSelectFile={setSelectedFilePath}
+              />
             ) : null}
             {sidebarView === 'notes' || compact ? (
-            <BuilderPanel title="Context" subtitle="Continuity Notes und Memory-Episoden fuer Maya im einklappbaren Sidebar-Kontext." accent={TOKENS.gold}>
-              <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
-            </BuilderPanel>
+              <BuilderPanel title="Context" subtitle="Continuity Notes und Memory-Episoden fuer Maya im einklappbaren Sidebar-Kontext." accent={TOKENS.gold}>
+                <BuilderContextPanel
+                  ctx={mayaCtx}
+                  formatDate={formatDate}
+                  onDeleteMemory={(id) => { void handleDeleteMemory(id); }}
+                  onAddNote={(summary) => { void handleAddNote(summary); }}
+                />
+              </BuilderPanel>
             ) : null}
           </div>
 
           <div style={{ display: 'grid', gap: 18 }}>
-            <div data-maya-target="tribune-main">
-              <BuilderPanel title="Live Tribune" subtitle="Was passiert gerade, warum und wartet Maya auf dich oder nicht?" accent={TOKENS.purple}>
-                {activeTask ? (
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <div
-                      style={{
-                        borderRadius: 22,
-                        border: `1.5px solid ${tribuneHeroPhaseTone}55`,
-                        background: `linear-gradient(135deg, ${tribuneHeroPhaseTone}16, rgba(255,255,255,0.03))`,
-                        padding: compact ? '16px 16px' : '18px 20px',
-                        display: 'grid',
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ fontSize: 11, color: tribuneHeroPhaseTone, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700 }}>
-                        First Cognition
-                      </div>
-                      <div style={{ fontSize: compact ? 24 : 30, color: TOKENS.text, fontFamily: TOKENS.font.display, lineHeight: 1.2 }}>
-                        {tribuneHeroTitle}
-                      </div>
-                      <div style={{ fontSize: 15, color: TOKENS.text2, lineHeight: 1.7, maxWidth: 920 }}>
-                        {tribuneHeroSummary}
-                      </div>
-                    </div>
+            <BuilderTribuneStage
+              compact={compact}
+              activeTask={activeTask}
+              attentionTask={attentionTask}
+              attentionDetail={attentionDetail}
+              isBusy={isBusy}
+              selectedTaskId={selectedTaskId}
+              tribuneHeroTitle={tribuneHeroTitle}
+              tribuneHeroSummary={tribuneHeroSummary}
+              tribuneHeroPhaseTone={tribuneHeroPhaseTone}
+              tribuneTimeline={tribuneTimeline}
+              effectiveTribunePhase={effectiveTribunePhase}
+              mayaTribuneSentence={mayaTribuneSentence}
+              currentTribuneEntry={currentTribuneEntry}
+              previewUrl={previewUrl}
+              operatorGuidance={operatorGuidance}
+              tribunePhaseDetail={tribunePhaseDetail}
+              fallbackContent={(
+                <BuilderStageIntro
+                  compact={compact}
+                  greeting={greeting}
+                  isVisualLaunchMode={isVisualLaunchMode}
+                  experienceModeLabel={experienceMode === 'single_specialist' ? 'Single Specialist' : 'Universal Maya Studio'}
+                  visualLaunchChecklist={visualLaunchChecklist}
+                  chatLoading={chatLoading}
+                  onFocusChat={() => focusMayaTarget('maya-chat')}
+                  onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
+                  onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
+                />
+              )}
+              onSelectTribunePhase={(phase) => setSelectedTribunePhase(phase as BuilderUniversalLifecyclePhase | null)}
+              onFocusOutput={() => focusMayaTarget('delivery-surface')}
+              onFocusDialog={() => focusMayaTarget('dialog-viewer')}
+              onFocusTechnicalDetails={() => focusMayaTarget('technical-details')}
+              onFocusPreview={() => focusMayaTarget('preview-panel')}
+              onOpenAttentionTask={handleOpenAttentionTask}
+              onApprovePrototype={() => { void handleApprovePrototype(); }}
+              onApproveTask={() => { void handleApproveTask(); }}
+              onOperatorAction={(key) => handleOperatorAction(key as OperatorActionKey)}
+              isOperatorActionDisabled={(key) => isOperatorActionDisabled(key as OperatorActionKey)}
+            />
 
-                    {attentionTask && attentionDetail ? (
-                      <div
-                        style={{
-                          borderRadius: 18,
-                          border: `1.5px solid ${TOKENS.gold}66`,
-                          background: 'rgba(212,175,55,0.12)',
-                          padding: '14px 16px',
-                          display: 'grid',
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ display: 'grid', gap: 6 }}>
-                            <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                              Maya braucht dich kurz
-                            </div>
-                            <div style={{ fontSize: 18, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                              {attentionTask.title}
-                            </div>
-                          </div>
-                          <div style={{ minWidth: 28, height: 28, borderRadius: '50%', background: `${TOKENS.gold}22`, border: `1px solid ${TOKENS.gold}55`, display: 'grid', placeItems: 'center', color: TOKENS.gold, fontWeight: 700 }}>
-                            M
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                          {attentionDetail}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3, fontFamily: TOKENS.font.body }}>
-                          {attentionTask.status === 'prototype_review'
-                            ? 'Ich habe einen sichtbaren Zwischenstand vorbereitet. Bitte entscheide jetzt bewusst.'
-                            : 'Ich bin an einem Punkt, an dem ich nicht still weiterlanden sollte.'}
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            onClick={handleOpenAttentionTask}
-                            style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.16)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            {attentionTask.id === activeTask.id ? 'Zum Entscheidungsblock' : 'Zu dieser Task'}
-                          </button>
-                          {attentionTask.id === activeTask.id && attentionTask.status === 'prototype_review' ? (
-                            <button
-                              type="button"
-                              onClick={() => { void handleApprovePrototype(); }}
-                              disabled={isBusy || !selectedTaskId}
-                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
-                            >
-                              Prototype freigeben
-                            </button>
-                          ) : null}
-                          {attentionTask.id === activeTask.id && attentionTask.status !== 'prototype_review' ? (
-                            <button
-                              type="button"
-                              onClick={() => { void handleApproveTask(); }}
-                              disabled={isBusy || !selectedTaskId}
-                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}
-                            >
-                              Freigeben
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div style={{ display: 'grid', gap: 10 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Sichtbarer Task-Pfad
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-                        {tribuneTimeline.map((entry, index) => {
-                          const stateStyles: Record<TribuneTimelineEntry['state'], { border: string; background: string; dot: string; text: string; badge: string }> = {
-                            done: { border: `${TOKENS.green}44`, background: 'rgba(74,222,128,0.08)', dot: TOKENS.green, text: TOKENS.text, badge: 'Durchlaufen' },
-                            current: { border: `${entry.accent}66`, background: `${entry.accent}16`, dot: entry.accent, text: TOKENS.text, badge: 'Aktiv' },
-                            pending: { border: TOKENS.b3, background: 'rgba(255,255,255,0.02)', dot: TOKENS.text3, text: TOKENS.text2, badge: 'Ausstehend' },
-                            waiting: { border: `${TOKENS.gold}66`, background: 'rgba(212,175,55,0.12)', dot: TOKENS.gold, text: TOKENS.text, badge: 'Wartet auf dich' },
-                            blocked: { border: `${TOKENS.rose}66`, background: 'rgba(244,114,182,0.12)', dot: TOKENS.rose, text: TOKENS.text, badge: 'Gestoppt' },
-                          };
-                          const style = stateStyles[entry.state];
-
-                          return (
-                            <button
-                              type="button"
-                              key={entry.key}
-                              onClick={() => setSelectedTribunePhase(entry.key)}
-                              style={{
-                                borderRadius: 16,
-                                border: `1.5px solid ${effectiveTribunePhase === entry.key ? entry.accent : style.border}`,
-                                background: effectiveTribunePhase === entry.key ? `${entry.accent}18` : style.background,
-                                padding: '12px 12px 13px',
-                                display: 'grid',
-                                gap: 8,
-                                minHeight: compact ? 92 : 108,
-                                alignContent: 'start',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: style.dot, boxShadow: entry.state === 'current' ? `0 0 12px ${style.dot}66` : 'none', display: 'inline-block', flexShrink: 0 }} />
-                                <span style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                  Schritt {index + 1}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 14, color: style.text, fontWeight: 700, lineHeight: 1.35 }}>
-                                {entry.label}
-                              </div>
-                              <div style={{ fontSize: 11.5, color: entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked' ? style.text : TOKENS.text3, lineHeight: 1.5 }}>
-                                {style.badge}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 8 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Maya sagt gerade
-                      </div>
-                      <div style={{ fontSize: 15, color: TOKENS.text, lineHeight: 1.75 }}>
-                        {mayaTribuneSentence}
-                      </div>
-                      {currentTribuneEntry ? (
-                        <div style={{ display: 'grid', gap: 4, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
-                          <div style={{ fontSize: 13, color: currentTribuneEntry.accent, fontWeight: 700 }}>
-                            {currentTribuneEntry.label}
-                          </div>
-                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                            {currentTribuneEntry.detail}
-                          </div>
-                          <div style={{ fontSize: 11, color: TOKENS.text3, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                            {currentTribuneEntry.meta}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
-                        <button type="button" onClick={() => focusMayaTarget('delivery-surface')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                          Zum Output
-                        </button>
-                        <button type="button" onClick={() => focusMayaTarget('dialog-viewer')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                          Zum Dialog
-                        </button>
-                        <button type="button" onClick={() => focusMayaTarget('technical-details')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                          Zu Transitions
-                        </button>
-                        {previewUrl ? (
-                          <button type="button" onClick={() => focusMayaTarget('preview-panel')} style={{ borderRadius: 999, border: `1px solid ${TOKENS.gold}55`, background: 'rgba(212,175,55,0.10)', color: TOKENS.gold, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                            Zum Preview
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {operatorGuidance ? (
-                      <div style={{ borderRadius: 18, border: `1.5px solid ${operatorGuidance.accent}55`, background: `linear-gradient(135deg, ${operatorGuidance.accent}12, rgba(255,255,255,0.03))`, padding: '13px 14px', display: 'grid', gap: 10 }}>
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          <div style={{ fontSize: 11, color: operatorGuidance.accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                            Operator Next Step
-                          </div>
-                          <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                            {operatorGuidance.title}
-                          </div>
-                          <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                            {operatorGuidance.summary}
-                          </div>
-                          <div style={{ fontSize: 11.5, color: TOKENS.text3, lineHeight: 1.6 }}>
-                            {operatorGuidance.detail}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          {operatorGuidance.actions.map((action) => {
-                            const tones: Record<OperatorActionSuggestion['tone'], { border: string; background: string; color: string }> = {
-                              primary: { border: TOKENS.cyan, background: 'rgba(34,211,238,0.12)', color: TOKENS.text },
-                              warning: { border: TOKENS.gold, background: 'rgba(212,175,55,0.12)', color: TOKENS.text },
-                              neutral: { border: TOKENS.b1, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2 },
-                              danger: { border: TOKENS.rose, background: 'rgba(244,114,182,0.12)', color: TOKENS.text },
-                            };
-                            const tone = tones[action.tone];
-                            const disabled = isOperatorActionDisabled(action.key);
-
-                            return (
-                              <button
-                                type="button"
-                                key={action.key}
-                                onClick={() => handleOperatorAction(action.key)}
-                                disabled={disabled}
-                                style={{
-                                  borderRadius: 999,
-                                  border: `1.5px solid ${tone.border}`,
-                                  background: tone.background,
-                                  color: tone.color,
-                                  padding: '9px 14px',
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  cursor: disabled ? 'not-allowed' : 'pointer',
-                                  opacity: disabled ? 0.45 : 1,
-                                }}
-                              >
-                                {action.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {tribunePhaseDetail ? (
-                      <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                            Phase im Detail
-                          </div>
-                          <div style={{ fontSize: 11, color: tribunePhaseDetail.notRequired ? TOKENS.text3 : TOKENS.cyan, fontWeight: 700 }}>
-                            Quelle: {tribunePhaseDetail.source}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 16, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                          {tribunePhaseDetail.title}
-                        </div>
-                        <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                          {tribunePhaseDetail.summary}
-                        </div>
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          {tribunePhaseDetail.lines.map((line, index) => (
-                            <div key={`${tribunePhaseDetail.title}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 11px', fontSize: 12, color: TOKENS.text2, lineHeight: 1.55 }}>
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                        {tribunePhaseDetail.notRequired ? (
-                          <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                            Diese Phase war fuer die aktuelle Task nicht erforderlich und ist deshalb bewusst nicht weiter ausgefaltet.
-                          </div>
-                        ) : null}
-                        {tribunePhaseDetail.note ? (
-                          <div style={{ fontSize: 11.5, color: TOKENS.text3, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 8 }}>
-                            {tribunePhaseDetail.note}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : isVisualLaunchMode ? (
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <div style={{ borderRadius: 20, border: `2px solid ${TOKENS.cyan}66`, background: 'linear-gradient(135deg, rgba(34,211,238,0.14), rgba(255,255,255,0.03))', padding: compact ? '16px 16px' : '18px 20px', display: 'grid', gap: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                          Vision Launchpad
-                        </div>
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                          Taskloser Startpfad fuer UI- und UX-Reviews
-                        </div>
-                      </div>
-                      <div style={{ fontSize: compact ? 24 : 28, color: TOKENS.text, fontFamily: TOKENS.font.display, lineHeight: 1.2 }}>
-                        Starte den Review-Flow zuerst ueber Maya, dann uebernimmt Vision.
-                      </div>
-                      <div style={{ fontSize: 13.5, color: TOKENS.text2, lineHeight: 1.7 }}>
-                        Solange noch keine Task und keine Browser-Screenshots gebunden sind, braucht Builder zuerst einen klaren Startlauf. Maya kann ihn direkt fuer dich aufsetzen.
-                      </div>
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {visualLaunchChecklist.map((item) => {
-                          const statusColor = item.status === 'done'
-                            ? TOKENS.green
-                            : item.status === 'ready'
-                              ? TOKENS.cyan
-                              : TOKENS.text3;
-                          const statusBg = item.status === 'done'
-                            ? 'rgba(74,222,128,0.12)'
-                            : item.status === 'ready'
-                              ? 'rgba(34,211,238,0.12)'
-                              : TOKENS.bg2;
-                          const statusLabel = item.status === 'done' ? 'Erledigt' : item.status === 'ready' ? 'Startklar' : 'Wartet';
-                          return (
-                            <div key={item.id} style={{ borderRadius: 16, border: `1.5px solid ${statusColor}55`, background: statusBg, padding: '11px 12px', display: 'grid', gap: 5 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                                <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{item.label}</div>
-                                <span style={{ borderRadius: 999, border: `1px solid ${statusColor}66`, padding: '3px 8px', fontSize: 10.5, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
-                              </div>
-                              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{item.description}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => focusMayaTarget('maya-chat')}
-                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          Zum Chat
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void handleRunVisualCaptureFlow(); }}
-                          disabled={chatLoading}
-                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.12)', color: TOKENS.text, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: chatLoading ? 'not-allowed' : 'pointer', opacity: chatLoading ? 0.5 : 1 }}
-                        >
-                          Capture jetzt an Maya senden
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSeedVisualCapturePrompt}
-                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text2, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          Prompt im Chat bearbeiten
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <div style={{ borderRadius: 20, border: `2px solid ${TOKENS.gold}66`, background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(255,255,255,0.03))', padding: compact ? '16px 16px' : '18px 20px', display: 'grid', gap: 10 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        Default Mode
-                      </div>
-                      <div style={{ fontSize: compact ? 24 : 28, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                        {greeting}. Sprich mit Maya, nicht mit einem Task-Formular.
-                      </div>
-                      <div style={{ fontSize: 14, color: TOKENS.text2, lineHeight: 1.7 }}>
-                        Builder startet jetzt dialogisch. Beschreibe die Aufgabe im Maya-Chat; Intent, Output und Routing entstehen aus der Kommunikation und erscheinen danach erst als strukturierte Task.
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}66`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '5px 10px', fontSize: 11.5, fontWeight: 700 }}>Dialog first</span>
-                        <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}66`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '5px 10px', fontSize: 11.5, fontWeight: 700 }}>Keine manuelle Task-Erstellung</span>
-                        <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.purple}66`, background: 'rgba(124,106,247,0.10)', color: TOKENS.text, padding: '5px 10px', fontSize: 11.5, fontWeight: 700 }}>{experienceMode === 'single_specialist' ? 'Single Specialist' : 'Universal Maya Studio'}</span>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.7 }}>
-                      Maya wartet auf deine naechste klare Aufgabe. Sobald eine Task aktiv ist, wird hier zuerst sichtbar, was gerade passiert, warum und ob Maya gerade deine Entscheidung braucht.
-                    </div>
-                  </div>
-                )}
-              </BuilderPanel>
-            </div>
-
-            <div data-maya-target="dialog-viewer">
-            <BuilderPanel title={isVisualLaunchMode ? 'Maya Capture' : 'Dialog Viewer'} subtitle={isVisualLaunchMode ? 'Starte hier den ersten Browser-Lauf fuer Vision. Danach uebernimmt der Review-Drawer mit Screenshots und Modellwahl.' : 'Rueckfragen, Begruendungen und Builder-Dialoge. Sekundaer zur Tribune, aber weiter voll nutzbar.'} accent={TOKENS.gold}>
-              <div
-                data-maya-target="maya-chat"
-              style={{
-                background: TOKENS.bg2,
-                borderRadius: 22,
-                border: `1px solid ${TOKENS.b1}`,
-                padding: 16,
-                marginBottom: 16,
+            <BuilderDialogViewerPanel
+              isVisualLaunchMode={isVisualLaunchMode}
+              directorModel={directorModel}
+              directorThinking={directorThinking}
+              activeChatLabel={activeChatLabel}
+              activeChatEndpoint={activeChatEndpoint}
+              directorModelMeta={DIRECTOR_MODEL_META}
+              directorStatusText={directorStatusText}
+              directorLivePhase={directorLiveStatus?.phase ?? null}
+              chatMessages={chatMessages}
+              dialogBubbles={dialogBubbles}
+              chatInput={chatInput}
+              chatLoading={chatLoading}
+              speech={speech}
+              activeTaskTitle={activeTask?.title ?? null}
+              dialogFormat={dialogFormat}
+              chatContainerRef={chatContainerRef}
+              chatEndRef={chatEndRef}
+              actorColors={ACTOR_COLORS}
+              formatDate={formatDate}
+              parseTaskConfirmation={parseTaskConfirmation}
+              getReadFilePreview={getReadFilePreview}
+              onToggleDirectorMode={() => setDirectorModel((current) => current ? null : 'opus')}
+              onSelectDirectorModel={setDirectorModel}
+              onToggleDirectorThinking={() => setDirectorThinking((current) => !current)}
+              onChatInputChange={setChatInput}
+              onSendChat={() => {
+                void handleSendChat();
               }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: TOKENS.gold,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
-                  marginBottom: 10,
-                  fontFamily: TOKENS.font.display,
-                }}
-              >
-                Maya Chat
-              </div>
-              <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button
-                    onClick={() => setDirectorModel((current) => current ? null : 'opus')}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${directorModel ? '#7c6af7' : TOKENS.b1}`,
-                      background: directorModel ? 'rgba(124,106,247,0.14)' : 'transparent',
-                      color: directorModel ? '#c4b5fd' : TOKENS.text2,
-                      padding: '7px 12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Maya Brain {directorModel ? 'AN' : 'AUS'}
-                  </button>
-                  {directorModel ? (Object.entries(DIRECTOR_MODEL_META) as Array<[DirectorModel, { label: string }]>).map(([id, meta]) => (
-                    <button
-                      key={id}
-                      onClick={() => setDirectorModel(id)}
-                      style={{
-                        borderRadius: 999,
-                        border: `1px solid ${directorModel === id ? TOKENS.gold : TOKENS.b1}`,
-                        background: directorModel === id ? 'rgba(212,175,55,0.14)' : 'transparent',
-                        color: directorModel === id ? TOKENS.gold : TOKENS.text2,
-                        padding: '6px 11px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {meta.label}
-                    </button>
-                  )) : null}
-                  {directorModel ? (
-                    <button
-                      onClick={() => setDirectorThinking((current) => !current)}
-                      style={{
-                        borderRadius: 999,
-                        border: `1px solid ${directorThinking ? TOKENS.cyan : TOKENS.b1}`,
-                        background: directorThinking ? 'rgba(34,211,238,0.12)' : 'transparent',
-                        color: directorThinking ? TOKENS.cyan : TOKENS.text2,
-                        padding: '6px 11px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {directorThinking ? 'Deep' : 'Fast'}
-                    </button>
-                  ) : null}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 14, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.03)' }}>
-                  <span style={{ fontSize: 12, color: TOKENS.text }}>
-                    {directorModel ? 'Mehrstufiger Maya-Brain aktiv' : 'Normaler Builder-Chat aktiv'}
-                  </span>
-                  <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {activeChatLabel}  -  {activeChatEndpoint}
-                  </span>
-                </div>
-              </div>
-              <div
-                ref={chatContainerRef}
-                style={{
-                  maxHeight: 420,
-                  overflowY: 'auto',
-                  marginBottom: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                {chatMessages.length === 0 ? (
-                  <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
-                    {directorModel
-                      ? 'Beschreibe den naechsten Builder-Schritt - Maya Brain kann analysieren, delegieren und Actions ausfuehren.'
-                      : 'Beschreibe was du aendern willst - Maya erstellt den Task automatisch.'}
-                  </div>
-                ) : null}
-                {chatMessages.map((message, index) => {
-                  const parsedTask = message.role === 'assistant'
-                    ? parseTaskConfirmation(message.content)
-                    : null;
-
-                  return (
-                    <div
-                      key={`${message.role}-${index}`}
-                      style={{
-                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                        background: message.role === 'user' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${message.role === 'user' ? `${TOKENS.gold}30` : TOKENS.b1}`,
-                        borderRadius: 14,
-                        padding: '8px 12px',
-                        maxWidth: '85%',
-                        fontSize: 13,
-                        color: TOKENS.text,
-                        lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {message.role === 'assistant' && message.label ? (
-                        <div style={{ marginBottom: 6, fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                          {message.label}
-                        </div>
-                      ) : null}
-                      {parsedTask ? (
-                        <div
-                          style={{
-                            background: 'rgba(212,175,55,0.08)',
-                            border: '1px solid rgba(212,175,55,0.25)',
-                            borderRadius: 10,
-                            padding: '12px 16px',
-                          }}
-                        >
-                          <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                            Task erstellt
-                          </div>
-                          <div style={{ fontSize: 15, color: '#e2e4f0', fontWeight: 600 }}>
-                            {parsedTask.title}
-                          </div>
-                          {parsedTask.goal ? (
-                            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                              {parsedTask.goal}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <>
-                          {message.content}
-                          {message.actions && message.actions.length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                              {message.actions.map((action, actionIndex) => (
-                                <span
-                                  key={`${action.tool}-${actionIndex}`}
-                                  style={{
-                                    borderRadius: 999,
-                                    border: `1px solid ${action.ok ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.35)'}`,
-                                    background: action.ok ? 'rgba(20,83,45,0.26)' : 'rgba(127,29,29,0.22)',
-                                    color: action.ok ? '#bbf7d0' : '#fecaca',
-                                    padding: '3px 8px',
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                  }}
-                                  title={action.summary}
-                                >
-                                  {action.tool}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                          {message.actions
-                            ?.map((action) => getReadFilePreview(action))
-                            .filter((preview): preview is ReadFilePreview => preview !== null)
-                            .map((preview, previewIndex) => (
-                              <details
-                                key={`${preview.path}-${previewIndex}`}
-                                style={{
-                                  marginTop: 10,
-                                  borderRadius: 12,
-                                  border: `1px solid ${TOKENS.b2}`,
-                                  background: 'rgba(255,255,255,0.03)',
-                                  padding: '10px 12px',
-                                }}
-                              >
-                                <summary style={{ cursor: 'pointer', color: TOKENS.gold, fontSize: 12, fontWeight: 700 }}>
-                                  read-file  -  {preview.path}
-                                </summary>
-                                <pre
-                                  style={{
-                                    margin: '10px 0 0',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    fontSize: 11,
-                                    lineHeight: 1.6,
-                                    color: TOKENS.text2,
-                                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-                                  }}
-                                >
-                                  {preview.content}
-                                </pre>
-                              </details>
-                            ))}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                {chatLoading && !directorModel ? (
-                  <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
-                    Maya denkt nach...
-                  </div>
-                ) : null}
-                <div ref={chatEndRef} />
-              </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={chatInput}
-                    onChange={(event) => setChatInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        void handleSendChat();
-                      }
-                    }}
-                    placeholder={directorModel ? "z.B. 'Pruefe den Patrol-Status und delegiere den naechsten sinnvollen Schritt'" : "z.B. 'Erstelle einen Health-Check Endpoint'"}
-                    style={{
-                      flex: 1,
-                      borderRadius: 12,
-                      border: `1.5px solid ${TOKENS.b1}`,
-                      background: TOKENS.bg,
-                      color: TOKENS.text,
-                      padding: '10px 12px',
-                      fontSize: 13,
-                      outline: 'none',
-                    }}
-                    disabled={chatLoading}
-                  />
-                  <button
-                    onClick={handleMicClick}
-                    disabled={!speech.isSupported || chatLoading}
-                    title={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
-                    aria-label={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
-                    style={{
-                      borderRadius: 12,
-                      border: `1.5px solid ${speech.isListening ? TOKENS.green : TOKENS.b1}`,
-                      background: speech.isListening ? 'rgba(16,185,129,0.16)' : 'transparent',
-                      color: speech.isListening ? TOKENS.green : TOKENS.text2,
-                      padding: '10px 14px',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: !speech.isSupported || chatLoading ? 'not-allowed' : 'pointer',
-                      opacity: !speech.isSupported || chatLoading ? 0.45 : 1,
-                    }}
-                  >
-                    {speech.isListening ? 'Stop' : 'Mic'}
-                  </button>
-                  <button
-                    data-maya-target="send-button"
-                    onClick={() => {
-                      void handleSendChat();
-                    }}
-                    disabled={chatLoading || !chatInput.trim()}
-                    style={{
-                      borderRadius: 12,
-                      border: `1.5px solid ${TOKENS.gold}`,
-                      background: 'rgba(212,175,55,0.12)',
-                      color: TOKENS.gold,
-                      padding: '10px 16px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: chatLoading ? 'not-allowed' : 'pointer',
-                      opacity: chatLoading || !chatInput.trim() ? 0.5 : 1,
-                    }}
-                  >
-                    Senden
-                  </button>
-                </div>
-                {speech.micBlocked || speech.isListening ? (
-                  <div
-                    style={{
-                      minHeight: 18,
-                      color: speech.micBlocked ? '#fca5a5' : TOKENS.green,
-                      fontSize: 12,
-                    }}
-                  >
-                    {speech.micBlocked ? 'Mikrofon blockiert. Bitte Browser-Freigabe pruefen.' : 'Maya hoert zu...'}
-                  </div>
-                ) : null}
-                {directorModel && directorStatusText ? (
-                  <div
-                    style={{
-                      minHeight: 20,
-                      color: directorLiveStatus?.phase === 'error'
-                        ? '#fca5a5'
-                        : directorLiveStatus?.phase === 'tool' || chatLoading
-                          ? TOKENS.green
-                          : TOKENS.text2,
-                      fontSize: 12,
-                    }}
-                  >
-                    {directorStatusText}
-                  </div>
-                ) : null}
-              </div>
-              </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-              <div style={{ color: TOKENS.text2, fontSize: 13 }}>
-                Aktiver Task: {activeTask?.title ?? '-'}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {(['dsl', 'text'] as const).map((format) => (
-                  <button
-                    key={format}
-                    onClick={() => setDialogFormat(format)}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${dialogFormat === format ? TOKENS.gold : TOKENS.b1}`,
-                      background: dialogFormat === format ? 'rgba(212,175,55,0.12)' : 'transparent',
-                      color: dialogFormat === format ? TOKENS.text : TOKENS.text2,
-                      padding: '8px 14px',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {format.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gap: 14, minHeight: 720 }}>
-              {dialogBubbles.map((bubble) => (
-                <article
-                  key={bubble.id}
-                  style={{
-                    justifySelf: bubble.actor === 'chatgpt' ? 'end' : 'start',
-                    width: 'min(86%, 760px)',
-                    borderRadius: 22,
-                    border: `1.5px solid ${ACTOR_COLORS[bubble.actor] ?? TOKENS.b2}`,
-                    background: bubble.actor === 'chatgpt' ? 'rgba(34,211,238,0.07)' : bubble.actor === 'claude' ? 'rgba(212,175,55,0.08)' : TOKENS.card2,
-                    padding: '14px 16px',
-                    boxShadow: TOKENS.shadow.card,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: ACTOR_COLORS[bubble.actor] ?? TOKENS.text2 }}>{bubble.actor}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: TOKENS.text3 }}>Runde {bubble.roundNumber || '-'}  -  {bubble.role}</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(bubble.createdAt)}</div>
-                  </div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, lineHeight: 1.7, color: TOKENS.text, fontFamily: dialogFormat === 'dsl' ? 'ui-monospace, SFMono-Regular, monospace' : TOKENS.font.body }}>
-                    {bubble.content}
-                  </pre>
-                </article>
-              ))}
-              {dialogBubbles.length === 0 ? <div style={{ fontSize: 14, color: TOKENS.text2 }}>Noch kein Dialog fuer den gewaehlten Task vorhanden.</div> : null}
-            </div>
-            </BuilderPanel>
-          </div>
+              onMicClick={handleMicClick}
+              onSetDialogFormat={setDialogFormat}
+            />
           </div>
 
           {showDrawerColumn || compact ? (
           <div style={{ display: 'grid', gap: 18 }}>
             {drawerView === 'task' || compact ? (
-            <div data-maya-target="task-detail">
-              <BuilderPanel title="Task Detail" subtitle="Steuerung und Aktionen fuer die gewaehlte Task. Nicht die Hauptbuehne." accent={TOKENS.green}>
-                <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ borderRadius: 16, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 14px', display: 'grid', gap: 6 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                      Dialog first
-                    </div>
-                    <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                      Neue Tasks werden nicht manuell angelegt. Beschreibe die Aufgabe im Maya-Chat, Maya schneidet daraus Intent, Output und Routing.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => focusMayaTarget('maya-chat')}
-                      style={{ justifySelf: 'start', borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '9px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Zum Chat
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 14, display: 'grid', gap: 10 }}>
-                  {showConfig && (
-                    <div style={{ border: `1.5px solid rgba(124,106,247,0.3)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden', marginBottom: 10 }}>
-                      <BuilderConfigPanel
-                        ctx={mayaCtx}
-                        poolConfig={poolConfig}
-                        pools={pools}
-                        openPool={openPool}
-                        onOpenPool={setOpenPool}
-                        onToggleModel={handleTogglePoolModel}
-                        onSelectModel={(pool, modelId) => handleTogglePoolModel(pool, modelId)}
-                      />
-                    </div>
-                  )}
-                  {activeTask ? (
-                    <div data-maya-target="workspace-panel" style={{ borderRadius: 18, border: `1.5px solid ${operatorGuidance?.accent ?? TOKENS.b2}44`, background: `linear-gradient(135deg, ${(operatorGuidance?.accent ?? TOKENS.b2)}12, rgba(255,255,255,0.03))`, padding: '13px 14px', display: 'grid', gap: 12 }}>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <div style={{ fontSize: 11, color: operatorGuidance?.accent ?? TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                          Active Workspace
-                        </div>
-                        <div style={{ fontSize: 17, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                          {operatorGuidance?.title ?? executionState.label}
-                        </div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr', gap: 10 }}>
-                        <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 5 }}>
-                          <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                            Was Maya jetzt braucht
-                          </div>
-                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                            {operatorGuidance?.summary ?? executionState.detail}
-                          </div>
-                        </div>
-                        <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 5 }}>
-                          <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                            Was als Naechstes lieferbar ist
-                          </div>
-                          <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                            {activeTask.contract.output.summary}
-                          </div>
-                          <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                            Plan: {activeTask.contract.output.plannedArtifacts.join(', ') || '-'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div
-                    style={{
-                      borderRadius: 18,
-                      border: `1.5px solid ${executionState.accent}44`,
-                      background: `${executionState.accent}14`,
-                      padding: '12px 14px',
-                      display: 'grid',
-                      gap: 6,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: executionState.accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                      Jetzt gerade
-                    </div>
-                    <div style={{ fontSize: 19, color: TOKENS.text, fontFamily: TOKENS.font.display }}>
-                      {executionState.label}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                      {executionState.detail}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: TOKENS.font.display,
-                      fontSize: 22,
-                      color: TOKENS.text,
-                      overflowWrap: 'break-word',
-                      wordBreak: 'normal',
-                      hyphens: 'auto',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                    }}
-                  >
-                    {activeTask?.title ?? 'Keine Task gewaehlt'}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: TOKENS.text2,
-                      lineHeight: 1.7,
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {activeTask?.goal ?? 'Links eine Task waehlen oder oben eine neue erstellen.'}
-                  </div>
-                  <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
-                    <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? '-'}</strong></span>
-                    <span>Risk: {activeTask?.risk ?? '-'}  -  Type: {activeTask?.taskType ?? '-'}</span>
-                    <span>Intent: {activeTask?.intentKind ?? '-'}  -  Output: {activeTask?.requestedOutputKind ?? '-'}</span>
-                    <span>Format: {activeTask?.requestedOutputFormat ?? '-'}  -  Phase: {activeTask?.contract.lifecycle.phase ?? '-'}</span>
-                    <span>Execution: {formatExecutionSummary(evidencePack)}</span>
-                    <span>Lanes: {activeTask ? activeTask.contract.routing.activeLanes.join('  -  ') : '-'}</span>
-                    <span>Team: {activeTask ? activeTask.contract.team.activeInstances.join('  -  ') : '-'}</span>
-                    <span>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : '-'}</span>
-                    <span>Policy: {activeTask?.policyProfile ?? '-'}</span>
-                    <span>Updated: {formatDate(activeTask?.updatedAt)}</span>
-                  </div>
-                  <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash fuer Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
-                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                    <button data-maya-target="run-button" onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
-                    <button data-maya-target="approve-button" onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
-                    <button data-maya-target="revert-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
-                  </div>
-                  <button
-                    onClick={() => { void handleDeleteTask(); }}
-                    disabled={isBusy || !selectedTaskId}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${confirmDelete ? '#ef4444' : TOKENS.b1}`,
-                      background: confirmDelete ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.03)',
-                      color: confirmDelete ? '#ef4444' : TOKENS.text2,
-                      padding: '8px 14px',
-                      fontSize: 11,
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      marginTop: 6,
-                      width: '100%',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {confirmDelete ? 'Wirklich loeschen?' : 'Task loeschen'}
-                  </button>
-                  {isPrototypeReview && previewUrl ? (
-                    <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
-                      <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Prototype Preview</div>
-                        <div style={{ marginTop: 6, fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          Der Builder stoppt hier bewusst. Preview pruefen und dann explizit freigeben, ueberarbeiten lassen oder verwerfen.
-                        </div>
-                        <iframe
-                          title={`Prototype Preview ${activeTask.id}`}
-                          src={previewUrl}
-                          style={{ width: '100%', height: 400, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, marginTop: 12, background: '#0f0f17' }}
-                        />
-                      </div>
-                      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                        <button data-maya-target="approve-prototype-button" onClick={() => { void handleApprovePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve Prototype</button>
-                        <button data-maya-target="revise-prototype-button" onClick={() => { void handleRevisePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revise</button>
-                        <button data-maya-target="discard-prototype-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Discard</button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                </div>
-              </BuilderPanel>
-            </div>
+              <BuilderTaskDetailPanel
+                compact={compact}
+                showConfig={showConfig}
+                mayaCtx={mayaCtx}
+                poolConfig={poolConfig}
+                pools={pools}
+                openPool={openPool}
+                activeTask={activeTask}
+                selectedTaskId={selectedTaskId}
+                operatorGuidance={operatorGuidance}
+                executionState={executionState}
+                commitHash={commitHash}
+                isRunDisabled={isRunDisabled}
+                isBusy={isBusy}
+                isPrototypeReview={isPrototypeReview}
+                confirmDelete={confirmDelete}
+                previewUrl={previewUrl}
+                executionSummaryText={formatExecutionSummary(evidencePack)}
+                onOpenPool={setOpenPool}
+                onTogglePoolModel={handleTogglePoolModel}
+                onCommitHashChange={setCommitHash}
+                onFocusChat={() => focusMayaTarget('maya-chat')}
+                onRunTask={() => { void handleRunTask(); }}
+                onApproveTask={() => { void handleApproveTask(); }}
+                onRevertTask={() => { void handleRevertTask(); }}
+                onDeleteTask={() => { void handleDeleteTask(); }}
+                onApprovePrototype={() => { void handleApprovePrototype(); }}
+                onRevisePrototype={() => { void handleRevisePrototype(); }}
+                formatDate={formatDate}
+              />
             ) : null}
 
             {drawerView === 'models' || compact ? (
-            <BuilderPanel title="Model & Config" subtitle="Pool-Transparenz und Maya-Konfiguration nur bei Bedarf im Drawer." accent={TOKENS.purple}>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'grid', gap: 8, gridTemplateColumns: compact ? '1fr' : 'repeat(2, minmax(0, 1fr))' }}>
-                  <div style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'grid', gap: 4 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Selection Mode</div>
-                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{poolConfig?.selectionMode === 'manual' ? 'Manuell gesetzt' : 'Maya Auto'}</div>
-                    <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>
-                      {poolConfig?.autoSelectionAvailable ? 'Maya-Autowahl ist architektonisch vorbereitet.' : 'Nur manuelle Auswahl aktiv.'}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'grid', gap: 4 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Model Catalog</div>
-                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{poolConfig?.models.length ?? 0} verfuegbar</div>
-                    <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>Aktiv und verfuegbar laufen jetzt aus derselben Server-Quelle.</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Aktive Pools</div>
-                  {(['maya', 'council', 'distiller', 'worker', 'scout'] as PoolType[]).map((pool) => (
-                    <div key={pool} style={{ borderRadius: 14, border: `2px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12.5, color: TOKENS.text }}>{POOL_LABELS[pool].label}</span>
-                      <span style={{ fontSize: 11.5, color: TOKENS.text3 }}>{pools[pool].length} aktiv</span>
-                    </div>
-                  ))}
-                </div>
-                {showConfig ? (
-                  <div style={{ border: `2px solid rgba(124,106,247,0.35)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden' }}>
-                    <BuilderConfigPanel
-                      ctx={mayaCtx}
-                      poolConfig={poolConfig}
-                      pools={pools}
-                      openPool={openPool}
-                      onOpenPool={setOpenPool}
-                      onToggleModel={handleTogglePoolModel}
-                      onSelectModel={(pool, modelId) => handleTogglePoolModel(pool, modelId)}
-                    />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowConfig(true)}
-                    style={{ borderRadius: 14, border: `2px solid #7c6af7`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Config oeffnen
-                  </button>
-                )}
-              </div>
-            </BuilderPanel>
+              <BuilderModelConfigDrawer
+                compact={compact}
+                showConfig={showConfig}
+                mayaCtx={mayaCtx}
+                poolConfig={poolConfig}
+                pools={pools}
+                openPool={openPool}
+                poolLabels={POOL_LABELS}
+                onOpenPool={setOpenPool}
+                onTogglePoolModel={handleTogglePoolModel}
+                onShowConfig={() => setShowConfig(true)}
+              />
             ) : null}
 
             {drawerView === 'visual' || compact ? (
-            <div data-maya-target="visual-review">
-              <BuilderPanel title="Visual Review" subtitle="Vision-Modelle, Browser-Screenshots und Maya-Synthese fuer UI- und UX-Pruefung." accent={TOKENS.cyan}>
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ borderRadius: 16, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                      Visual Pool
-                    </div>
-                    <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                      Nutzt vorhandene Browser-Screenshots aus dem Builder-Lauf. Du waehlst 1..N Vision-Modelle, Maya synthetisiert die Findings in einen naechsten Schritt.
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: compact ? '1fr' : 'minmax(0, 1fr) auto' }}>
-                    <div style={{ borderRadius: 14, border: `1.5px solid ${selectedTaskId ? TOKENS.cyan : TOKENS.b2}`, background: selectedTaskId ? 'rgba(34,211,238,0.08)' : TOKENS.bg2, padding: '11px 12px', display: 'grid', gap: 4 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Review Context</div>
-                      <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>
-                        {selectedTaskId && activeTask ? activeTask.title : visualReviewTaskCandidate ? `Noch nicht gebunden  -  Vorschlag: ${visualReviewTaskCandidate.title}` : 'Noch keine Task fuer diesen Review gebunden'}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                        {selectedTaskId
-                          ? 'Vision-Reports werden an diese Task, ihre Screenshots und ihre Artefakte gebunden.'
-                          : tasks.length > 0
-                            ? 'Waehle zuerst eine Task, damit der Review-Lauf nicht im Leeren endet.'
-                            : 'Starte zuerst einen Builder-Lauf ueber Maya, bevor Vision-Modelle Screenshots pruefen koennen.'}
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
-                      <button
-                        type="button"
-                        onClick={handleSelectVisualReviewTask}
-                        disabled={!visualReviewTaskCandidate}
-                        style={{
-                          borderRadius: 999,
-                          border: `1.5px solid ${TOKENS.cyan}`,
-                          background: 'rgba(34,211,238,0.12)',
-                          color: TOKENS.text,
-                          padding: '10px 14px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: visualReviewTaskCandidate ? 'pointer' : 'not-allowed',
-                          opacity: visualReviewTaskCandidate ? 1 : 0.5,
-                        }}
-                      >
-                        {selectedTaskId ? 'Task wechseln' : 'Task fuer Review waehlen'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { void handleRunVisualCaptureFlow(); }}
-                        style={{
-                          borderRadius: 999,
-                          border: `1.5px solid ${TOKENS.cyan}`,
-                          background: 'rgba(34,211,238,0.12)',
-                          color: TOKENS.text,
-                          padding: '10px 14px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: chatLoading ? 'not-allowed' : 'pointer',
-                          opacity: chatLoading ? 0.5 : 1,
-                        }}
-                        disabled={chatLoading}
-                      >
-                        Capture jetzt an Maya senden
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSeedVisualCapturePrompt}
-                        style={{
-                          borderRadius: 999,
-                          border: `1.5px solid ${TOKENS.gold}`,
-                          background: 'rgba(212,175,55,0.12)',
-                          color: TOKENS.text,
-                          padding: '10px 14px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Prompt im Chat bearbeiten
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Review Type</div>
-                    <select
-                      value={visualTaskType}
-                      onChange={(event) => setVisualTaskType(event.target.value as VisualReviewTaskType)}
-                      style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 13 }}
-                    >
-                      <option value="ui_review">UI Review</option>
-                      <option value="layout_drift">Layout Drift</option>
-                      <option value="ocr_and_label_check">OCR and Label Check</option>
-                      <option value="frontend_recreation_hint">Frontend Recreation Hint</option>
-                      <option value="multi_state_review">Multi State Review</option>
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Vision Models</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {visionModels.map((model) => {
-                        const active = selectedVisualModelIds.includes(model.id);
-                        const score = visionScores.find((entry) => entry.modelId === model.id) ?? null;
-                        return (
-                          <button
-                            key={model.id}
-                            type="button"
-                            onClick={() => handleToggleVisualModel(model.id)}
-                            style={{
-                              borderRadius: 999,
-                              border: `1.5px solid ${active ? model.color : TOKENS.b2}`,
-                              background: active ? `${model.color}22` : TOKENS.bg2,
-                              color: active ? TOKENS.text : TOKENS.text2,
-                              padding: '7px 11px',
-                              fontSize: 11.5,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {model.label}{score ? ` (${score.score.toFixed(2)})` : ''}
-                          </button>
-                        );
-                      })}
-                      {visionModels.length === 0 ? (
-                        <div style={{ fontSize: 12, color: TOKENS.text3 }}>Noch keine Vision-Modelle im Katalog sichtbar.</div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Screenshot Sources</div>
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      {browserScreenshotArtifacts.map((artifact) => {
-                        const payload = toArtifactPayload(artifact);
-                        const step = typeof payload?.step === 'string' ? payload.step : 'ui-run';
-                        const route = typeof payload?.route === 'string' ? payload.route : artifact.path || '-';
-                        const active = selectedVisualArtifactIds.includes(artifact.id);
-                        return (
-                          <button
-                            key={artifact.id}
-                            type="button"
-                            onClick={() => handleToggleVisualArtifact(artifact.id)}
-                            style={{
-                              textAlign: 'left',
-                              borderRadius: 14,
-                              border: `1.5px solid ${active ? TOKENS.cyan : TOKENS.b2}`,
-                              background: active ? 'rgba(34,211,238,0.1)' : TOKENS.bg2,
-                              color: TOKENS.text,
-                              padding: '10px 12px',
-                              display: 'grid',
-                              gap: 4,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                              <strong style={{ fontSize: 12 }}>{step}</strong>
-                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
-                            </div>
-                            <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{route}</div>
-                          </button>
-                        );
-                      })}
-                      {browserScreenshotArtifacts.length === 0 ? (
-                        <div style={{ borderRadius: 14, border: `1.5px dashed ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text3, padding: '12px 13px', fontSize: 12.5, display: 'grid', gap: 6 }}>
-                          <div>Fuer diese Task gibt es noch keine Browser-Screenshots. Die Browser-Lane muss zuerst ein `browser_screenshot`-Artefakt erzeugen.</div>
-                          <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                            Nutze den Maya-Chat fuer einen UI-Lauf mit `UI_RUN`-Schritten oder wechsle auf eine Task, die bereits Browser-Artefakte mitbringt.
-                          </div>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={() => { void handleRunVisualCaptureFlow(); }}
-                              disabled={chatLoading}
-                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.12)', color: TOKENS.text, padding: '8px 12px', fontSize: 11.5, fontWeight: 700, cursor: chatLoading ? 'not-allowed' : 'pointer', opacity: chatLoading ? 0.5 : 1 }}
-                            >
-                              Capture-Lauf starten
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleSeedVisualCapturePrompt}
-                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '8px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              Prompt ansehen
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Operator Prompt</div>
-                    <textarea
-                      value={visualPrompt}
-                      onChange={(event) => setVisualPrompt(event.target.value)}
-                      placeholder="z.B. Pruefe die visuelle Hierarchie, doppelte Navigation und stoerende Operator-Reibung."
-                      rows={4}
-                      style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 12, color: TOKENS.text3 }}>
-                      {selectedVisualModelIds.length} Modelle  -  {selectedVisualArtifactIds.length} Screenshots
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { void handleRunVisualReview(); }}
-                      disabled={visualRunLoading || !selectedTaskId || selectedVisualModelIds.length === 0 || selectedVisualArtifactIds.length === 0}
-                      style={{
-                        borderRadius: 999,
-                        border: `2px solid ${TOKENS.cyan}`,
-                        background: 'rgba(34,211,238,0.14)',
-                        color: TOKENS.text,
-                        padding: '9px 14px',
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        cursor: visualRunLoading ? 'not-allowed' : 'pointer',
-                        opacity: visualRunLoading || !selectedTaskId || selectedVisualModelIds.length === 0 || selectedVisualArtifactIds.length === 0 ? 0.5 : 1,
-                      }}
-                    >
-                      {visualRunLoading ? 'Visual Review laeuft...' : 'Visual Review starten'}
-                    </button>
-                  </div>
-
-                  {visualReviewBlockingReason ? (
-                    <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text2, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.6 }}>
-                      {visualReviewBlockingReason}
-                    </div>
-                  ) : null}
-
-                  {displayedVisualRunResult ? (
-                    <div style={{ display: 'grid', gap: 10, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 12 }}>
-                      <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: '12px 13px', display: 'grid', gap: 6 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Maya Synthesis</div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.65 }}>{displayedVisualRunResult.mayaSynthesis.summary || 'Noch keine Synthese sichtbar.'}</div>
-                        <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                          Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {displayedVisualRunResult.modelResults.map((result) => (
-                          <div key={`${result.modelId}-${result.model}`} style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                              <strong style={{ fontSize: 12.5, color: TOKENS.text }}>{result.modelId}</strong>
-                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{result.findings.length} Findings</span>
-                            </div>
-                            <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{result.summary || (result.error ? `Fehler: ${result.error}` : 'Keine Kurzfassung')}</div>
-                            {displayedVisualRunResult.reportArtifactId ? (
-                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                {([
-                                  { verdict: 'confirmed', label: 'Bestaetigt' },
-                                  { verdict: 'mixed', label: 'Gemischt' },
-                                  { verdict: 'false_positive', label: 'Falschalarm' },
-                                ] as const).map((option) => {
-                                  const feedbackKey = `${displayedVisualRunResult.reportArtifactId}:${result.modelId}:${option.verdict}`;
-                                  const busy = visualFeedbackSavingKey === feedbackKey;
-                                  return (
-                                    <button
-                                      key={option.verdict}
-                                      type="button"
-                                      onClick={() => {
-                                        void handleSubmitVisualFeedback(displayedVisualRunResult.reportArtifactId!, result.modelId, option.verdict);
-                                      }}
-                                      disabled={visualFeedbackSavingKey !== null}
-                                      style={{
-                                        borderRadius: 999,
-                                        border: `1px solid ${TOKENS.b3}`,
-                                        background: TOKENS.card2,
-                                        color: TOKENS.text2,
-                                        padding: '5px 9px',
-                                        fontSize: 11,
-                                        cursor: visualFeedbackSavingKey !== null ? 'not-allowed' : 'pointer',
-                                        opacity: visualFeedbackSavingKey !== null && !busy ? 0.55 : 1,
-                                      }}
-                                    >
-                                      {busy ? 'Speichert...' : option.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : null}
-                            {result.findings.length > 0 ? (
-                              <div style={{ display: 'grid', gap: 8 }}>
-                                {result.findings.slice(0, 5).map((finding, index) => (
-                                  <div key={`${result.modelId}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', display: 'grid', gap: 4 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                      <span style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{finding.category}</span>
-                                      <span style={{ fontSize: 11, color: TOKENS.text3 }}>{finding.severity}</span>
-                                    </div>
-                                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{finding.title}</div>
-                                    <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{finding.description}</div>
-                                    {finding.suggestedFix ? (
-                                      <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>Fix: {finding.suggestedFix}</div>
-                                    ) : null}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-
-                      {visualReviewReportArtifacts.length > 0 ? (
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                          Persistierte Visual Reports: {visualReviewReportArtifacts.length}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </BuilderPanel>
-            </div>
+              <BuilderVisualReviewPanel
+                compact={compact}
+                selectedTaskId={selectedTaskId}
+                activeTask={activeTask}
+                visualReviewTaskCandidate={visualReviewTaskCandidate}
+                tasksCount={tasks.length}
+                selectedVisualModelIds={selectedVisualModelIds}
+                selectedVisualArtifactIds={selectedVisualArtifactIds}
+                visualTaskType={visualTaskType}
+                visualPrompt={visualPrompt}
+                visualRunLoading={visualRunLoading}
+                chatLoading={chatLoading}
+                visionModels={visionModels}
+                visionScores={visionScores}
+                browserScreenshotArtifacts={browserScreenshotArtifacts}
+                displayedVisualRunResult={displayedVisualRunResult}
+                visualReviewReportArtifactsCount={visualReviewReportArtifacts.length}
+                visualReviewBlockingReason={visualReviewBlockingReason}
+                visualFeedbackSavingKey={visualFeedbackSavingKey}
+                onSelectTaskType={setVisualTaskType}
+                onPromptChange={setVisualPrompt}
+                onToggleVisualModel={handleToggleVisualModel}
+                onToggleVisualArtifact={handleToggleVisualArtifact}
+                onSelectVisualReviewTask={handleSelectVisualReviewTask}
+                onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
+                onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
+                onRunVisualReview={() => { void handleRunVisualReview(); }}
+                onSubmitVisualFeedback={(reportArtifactId, modelId, verdict) => {
+                  void handleSubmitVisualFeedback(reportArtifactId, modelId, verdict);
+                }}
+              />
             ) : null}
 
             {drawerView === 'output' || compact ? (
-            <div data-maya-target="delivery-surface">
-              <BuilderPanel title="Delivery Surface" subtitle="Die passende Arbeits- und Ergebnisansicht pro Output-Typ statt nur generischer Technikdaten." accent={TOKENS.gold}>
-                {activeTask ? (
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    <div style={{ display: 'grid', gap: 4 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                        {activeTask.requestedOutputKind}
-                      </div>
-                      <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
-                        {activeTask.contract.output.summary}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
-                        <span key={artifact.id} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
-                          {formatArtifactTypeLabel(artifact.artifactType)}  -  {artifact.lane}
-                        </span>
-                      )) : (
-                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
-                          Noch keine persistierten Delivery-Artefakte
-                        </span>
-                      )}
-                    </div>
-                    {(activeTask.requestedOutputKind === 'html_artifact' || activeTask.requestedOutputKind === 'visual_artifact') ? (
-                      <div data-maya-target="preview-panel" style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 10 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Preview Surface</div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {latestPrototypeArtifact
-                            ? `Gespeichertes ${formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)} aus der Prototype-Lane ist vorhanden und dient hier als primaere Delivery-Spur.`
-                            : previewUrl
-                              ? 'Die Preview ist verfuegbar, aber noch nicht als eigenstaendiges Artefakt beschrieben.'
-                              : 'Noch keine direkte Vorschau verfuegbar. Die Tribune und der Dialog liefern aktuell den besten Zwischenstand.'}
-                        </div>
-                        {previewUrl ? (
-                          <iframe
-                            title={`Delivery Preview ${activeTask.id}`}
-                            src={previewUrl}
-                            style={{ width: '100%', height: 320, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, background: '#0f0f17' }}
-                          />
-                        ) : null}
-                        {latestPrototypeArtifact ? (
-                          <div style={{ fontSize: 12, color: TOKENS.text3 }}>
-                            {formatArtifactTypeLabel(latestPrototypeArtifact.artifactType)}  -  {latestPrototypeArtifact.path ?? 'ohne Pfad'}  -  {formatDate(latestPrototypeArtifact.createdAt)}
-                          </div>
-                        ) : null}
-                        {screenshotPreviewSrc ? (
-                          <div style={{ display: 'grid', gap: 8 }}>
-                            <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Latest Browser Capture</div>
-                            <img
-                              src={screenshotPreviewSrc}
-                              alt="Latest browser screenshot"
-                              style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: '#0f0f17' }}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {activeTask.requestedOutputKind === 'code_artifact' ? (
-                      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Code Delivery</div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {latestApprovalArtifact
-                            ? 'Es liegt bereits ein persistierter Freigabe- oder Operator-Artefaktpfad vor. Das ist aktuell die belastbarste Delivery-Spur fuer diesen Lauf.'
-                            : deliveryArtifacts.length > 0
-                              ? 'Der Lauf hat persistierte Builder-Artefakte erzeugt. Fuer Code ist die Artefaktspur noch knapper als fuer Preview-Outputs, aber nicht mehr rein dialogbasiert.'
-                              : activeTask.contract.codeLane.summary}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                          Geplante Artefakte: {activeTask.contract.output.plannedArtifacts.join(', ') || '-'}
-                        </div>
-                        {deliveryArtifacts.length > 0 ? deliveryArtifacts.slice(0, 3).map((artifact) => (
-                          <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 4 }}>
-                            <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                              {formatArtifactTypeLabel(artifact.artifactType)}  -  {artifact.lane}
-                            </div>
-                            <div style={{ fontSize: 12, color: TOKENS.text2 }}>
-                              {artifact.path ?? 'kein Pfad gespeichert'}
-                            </div>
-                            <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                              {formatDate(artifact.createdAt)}
-                            </div>
-                            {getArtifactPreviewText(artifact) ? (
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 180, overflowY: 'auto' }}>
-                                {getArtifactPreviewText(artifact)}
-                              </pre>
-                            ) : null}
-                          </div>
-                        )) : null}
-                        {latestDialogSnippet ? (
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
-                            {latestDialogSnippet}
-                          </pre>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {(activeTask.requestedOutputKind === 'structured_answer' || activeTask.requestedOutputKind === 'chat_answer' || activeTask.requestedOutputKind === 'markdown_artifact' || activeTask.requestedOutputKind === 'json_artifact' || activeTask.requestedOutputKind === 'presentation_artifact') ? (
-                      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                          {activeTask.requestedOutputKind === 'presentation_artifact' ? 'Presentation Surface' : activeTask.requestedOutputKind === 'json_artifact' ? 'Structured Data Surface' : 'Answer Surface'}
-                        </div>
-                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          {latestStructuredArtifact
-                            ? 'Die Delivery Surface zeigt hier das zuletzt persistierte Builder-Artefakt statt nur die Zusammenfassung aus Contract oder Dialog.'
-                            : evidencePack?.intent?.user_outcome || activeTask.goal}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {activeTask.contract.output.plannedArtifacts.map((artifact) => (
-                            <span key={artifact} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '4px 8px', fontSize: 11 }}>
-                              {artifact}
-                            </span>
-                          ))}
-                        </div>
-                        {latestStructuredArtifact ? (
-                          <div style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px', display: 'grid', gap: 6 }}>
-                            <div style={{ fontSize: 11, color: TOKENS.green, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                              {formatArtifactTypeLabel(latestStructuredArtifact.artifactType)}  -  {latestStructuredArtifact.lane}
-                            </div>
-                            <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                              {latestStructuredArtifact.path ?? 'kein Pfad gespeichert'}  -  {formatDate(latestStructuredArtifact.createdAt)}
-                            </div>
-                            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.6, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 260, overflowY: 'auto' }}>
-                              {getArtifactPreviewText(latestStructuredArtifact)}
-                            </pre>
-                          </div>
-                        ) : null}
-                        {latestDialogSnippet ? (
-                          <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.65, borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 11px' }}>
-                            {latestDialogSnippet}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
-                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Artifact Stream</div>
-                      {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
-                        <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', display: 'grid', gap: 4 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                            <strong style={{ fontSize: 12, color: TOKENS.text }}>{formatArtifactTypeLabel(artifact.artifactType)}</strong>
-                            <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
-                          </div>
-                          <div style={{ fontSize: 12, color: TOKENS.text2 }}>
-                            Lane {artifact.lane}  -  {artifact.path ?? 'kein Pfad'}
-                          </div>
-                          {getArtifactPayloadString(artifact, 'route') ? (
-                            <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
-                              Route: {getArtifactPayloadString(artifact, 'route')}
-                            </div>
-                          ) : null}
-                        </div>
-                      )) : (
-                        <div style={{ fontSize: 13, color: TOKENS.text2 }}>
-                          Fuer diese Task liegt noch kein eigener Builder-Artefaktstrom vor.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: TOKENS.text2 }}>Waehle eine Task, um die passende Delivery-Ansicht zu sehen.</div>
-                )}
-              </BuilderPanel>
-            </div>
-            ) : null}
-
-            {drawerView === 'output' || compact ? (
-            <div data-maya-target="pruefstand">
-            <BuilderPanel title="Pruefstand" subtitle="Build- und Runtime-Befunde. Wichtig fuer Operatoren, aber bewusst nicht die Hauptbuehne." accent={TOKENS.cyan}>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>TSC</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.tsc === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.tsc ?? '-'}</div>
-                  </div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Build</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.build === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.build ?? '-'}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {(evidencePack?.runtime_results ?? []).slice(0, 8).map((result) => (
-                    <div key={`${result.test}-${result.details}`} style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                        <span style={{ fontSize: 12.5, color: TOKENS.text }}>{result.test}</span>
-                        <span style={{ fontSize: 12, color: result.result === 'pass' ? TOKENS.green : '#fca5a5' }}>{result.result}</span>
-                      </div>
-                      <div style={{ marginTop: 6, fontSize: 12, color: TOKENS.text2 }}>{result.details}</div>
-                    </div>
-                  ))}
-                  {!evidencePack || evidencePack.runtime_results.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Test- oder Runtime-Ergebnisse vorhanden.</div> : null}
-                </div>
-              </div>
-            </BuilderPanel>
-            </div>
-            ) : null}
-
-            {drawerView === 'output' || compact ? (
-            <div data-maya-target="technical-details">
-            <BuilderPanel title="Technische Details" subtitle="Review-, Diff- und Rohdaten zum aktuellen Task. Nur bei Bedarf vertiefen." accent={TOKENS.rose}>
-              {evidencePack ? (
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Final Status: <strong style={{ color: STATUS_COLORS[evidencePack.final_status] ?? TOKENS.text }}>{evidencePack.final_status}</strong></div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Intent: {evidencePack.intent_kind}  -  Output: {evidencePack.requested_output_kind}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Format: {evidencePack.requested_output_format}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Execution Channel: {formatExecutionChannelLabel(evidencePack.execution_summary.channel)}  -  Source: {evidencePack.execution_summary.latest_status_source ?? '-'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Latest Transition: {evidencePack.execution_summary.last_transition_reason ?? '-'}  -  Lane: {evidencePack.execution_summary.last_transition_lane ?? '-'}  -  {formatDate(evidencePack.execution_summary.last_transition_at)}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Transition Count: {evidencePack.execution_summary.transition_count}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Contract Phase: {evidencePack.contract_snapshot.lifecycle_phase}  -  Attention: {evidencePack.contract_snapshot.attention_state}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Active Lanes: {evidencePack.contract_snapshot.active_lanes.join('  -  ') || '-'}  -  Team: {evidencePack.contract_snapshot.team_instances.join('  -  ') || '-'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Planned Artifacts: {evidencePack.contract_snapshot.planned_artifacts.join(', ') || '-'}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Agreement: {evidencePack.agreement_level ?? '-'}  -  Tokens: {evidencePack.total_tokens}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Counterexamples: {evidencePack.counterexamples_passed}/{evidencePack.counterexamples_tested}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>False success detected: {evidencePack.false_success_detected ? 'ja' : 'nein'}</div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Status Transitions</div>
-                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                      {evidencePack.status_transitions.length > 0 ? evidencePack.status_transitions.slice(-8).map((transition) => (
-                        <button
-                          type="button"
-                          key={`${transition.at}-${transition.to_status}-${transition.reason ?? 'none'}`}
-                          onClick={() => handleTransitionJump(transition.lane, transition.reason)}
-                          style={{ fontSize: 12.5, color: TOKENS.text2, textAlign: 'left', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', cursor: 'pointer' }}
-                        >
-                          <strong style={{ color: TOKENS.text }}>{transition.to_status}</strong> via {transition.lane}
-                          {transition.from_status ? ` (von ${transition.from_status})` : ''}
-                          {transition.reason ? `  -  ${transition.reason}` : ''}
-                          {`  -  ${transition.lifecycle_phase}`}
-                        </button>
-                      )) : <div style={{ fontSize: 12.5, color: TOKENS.text2 }}>Noch keine expliziten Transition-Signale gespeichert.</div>}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Reviews</div>
-                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                      {Object.entries(evidencePack.reviews).map(([reviewer, review]) => (
-                        <div key={reviewer} style={{ fontSize: 12.5, color: TOKENS.text2 }}>
-                          <strong style={{ color: ACTOR_COLORS[reviewer] ?? TOKENS.text }}>{reviewer}</strong>: {review.verdict}
-                          {review.notes ? <div style={{ marginTop: 3 }}>{review.notes}</div> : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <details style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
-                    <summary style={{ cursor: 'pointer', color: TOKENS.text, fontSize: 12.5, fontWeight: 700 }}>
-                      Rohdaten anzeigen
-                    </summary>
-                    <pre style={{ margin: '10px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.7, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 280, overflowY: 'auto' }}>
-                      {JSON.stringify(evidencePack, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: TOKENS.text2 }}>Fuer diese Task liegt noch kein Evidence Pack vor.</div>
-              )}
-            </BuilderPanel>
-            </div>
+              <BuilderOutputPanels
+                activeTask={activeTask}
+                deliveryArtifacts={deliveryArtifacts}
+                latestPrototypeArtifact={latestPrototypeArtifact}
+                latestApprovalArtifact={latestApprovalArtifact}
+                latestStructuredArtifact={latestStructuredArtifact}
+                latestDialogSnippet={latestDialogSnippet}
+                previewUrl={previewUrl}
+                screenshotPreviewSrc={screenshotPreviewSrc}
+                evidencePack={evidencePack}
+                statusColors={STATUS_COLORS}
+                actorColors={ACTOR_COLORS}
+                formatDate={formatDate}
+                formatArtifactTypeLabel={formatArtifactTypeLabel}
+                formatExecutionChannelLabel={formatExecutionChannelLabel}
+                getArtifactPreviewText={getArtifactPreviewText}
+                getArtifactPayloadString={getArtifactPayloadString}
+                onTransitionJump={handleTransitionJump}
+              />
             ) : null}
           </div>
           ) : null}
         </div>
 
-        <footer style={{ marginTop: 18, borderRadius: 22, border: `2px solid ${TOKENS.b1}`, background: TOKENS.card, boxShadow: `${TOKENS.shadow.card}, 0 0 0 1px rgba(255,255,255,0.04) inset`, padding: '14px 16px' }}>
-          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
-            {visibleTasks.map((task) => {
-              const queueSignal = deriveTaskQueueSignal(task);
-              return (
-                <button
-                  key={task.id}
-                  onClick={() => {
-                    setSelectedTaskId(task.id);
-                    setDrawerView('task');
-                  }}
-                  style={{
-                    borderRadius: 999,
-                    border: `1px solid ${selectedTaskId === task.id ? TOKENS.gold : TOKENS.b1}`,
-                    background: selectedTaskId === task.id ? 'rgba(212,175,55,0.10)' : 'rgba(255,255,255,0.03)',
-                    color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    whiteSpace: 'nowrap',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {task.title}  -  {queueSignal.label}
-                </button>
-              );
-            })}
-          </div>
-        </footer>
+        <BuilderTaskFooterStrip
+          visibleTasks={visibleTasks}
+          selectedTaskId={selectedTaskId}
+          statusColors={STATUS_COLORS}
+          deriveTaskQueueSignal={deriveTaskQueueSignal}
+          onSelectTask={(taskId) => {
+            setSelectedTaskId(taskId);
+            setDrawerView('task');
+          }}
+        />
 
         <MayaFigure
           phase={mayaFigurePhase}
