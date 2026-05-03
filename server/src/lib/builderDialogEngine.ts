@@ -374,6 +374,7 @@ async function executeArchitectCommands(
   const outputs: string[] = [];
   const results: Array<Record<string, unknown>> = [];
   const pendingPatches: Array<{ file: string; body: string }> = [];
+  const deferredGithubPatches: ReturnType<typeof convertBdlPatchesToPayload> = [];
   let lastCallResult: RuntimeCallResult | null = null;
 
   for (const command of commands) {
@@ -554,15 +555,12 @@ async function executeArchitectCommands(
             raw: '',
           })),
         );
-        const triggerResult = await triggerGithubAction(task.id, patchPayloads);
+        deferredGithubPatches.push(...patchPayloads);
         pendingPatches.length = 0;
         result = {
-          mode: 'github_actions',
-          triggered: triggerResult.triggered,
-          error: triggerResult.error || null,
-          note: triggerResult.triggered
-            ? 'Patches sent to GitHub Actions. Results will arrive via callback.'
-            : 'GitHub bridge not available. Patches saved but not executed.',
+          mode: 'github_actions_deferred',
+          queued: patchPayloads.length,
+          note: 'Patches buffered. GitHub Actions will be triggered only after reviewer approval.',
         };
       } else {
         const patchResults = [];
@@ -635,6 +633,7 @@ async function executeArchitectCommands(
   return {
     results,
     contextText: outputs.join('\n'),
+    deferredGithubPatches,
   };
 }
 
@@ -1118,6 +1117,31 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               );
               finalStatus = 'review_needed';
               abortReason = `browser_lane_error:${message}`;
+              break;
+            }
+          }
+
+          if (architectExecution.deferredGithubPatches.length > 0) {
+            const triggerResult = await triggerGithubAction(taskId, architectExecution.deferredGithubPatches);
+            await recordContractAction({
+              task: currentTask,
+              lane: 'code',
+              kind: 'APPLY',
+              actor: 'system',
+              payload: {
+                mode: 'github_actions',
+                patches: architectExecution.deferredGithubPatches.length,
+              },
+              result: {
+                triggered: triggerResult.triggered,
+                error: triggerResult.error || null,
+              },
+              tokenCount: 0,
+            });
+
+            if (!triggerResult.triggered) {
+              finalStatus = 'blocked';
+              abortReason = triggerResult.error || 'github_action_trigger_failed';
               break;
             }
           }
