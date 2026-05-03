@@ -237,6 +237,7 @@ export function useMayaApi(token: string | null) {
   const escalateVisualReportToCouncil = useCallback((reportArtifactId: string, input: {
     councilModelIds?: string[];
     prompt?: string;
+    confirmed?: boolean;
   } = {}) =>
     request<VisualCouncilEscalationResponse>(`/visual-perception/reports/${reportArtifactId}/council`, {
       method: 'POST',

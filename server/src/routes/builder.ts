@@ -1227,9 +1227,10 @@ router.post('/visual-perception/auto-pick', async (req: Request, res: Response) 
 router.post('/visual-perception/reports/:artifactId/council', async (req: Request, res: Response) => {
   try {
     const db = getDb();
-    const { councilModelIds, prompt } = req.body as {
+    const { councilModelIds, prompt, confirmed } = req.body as {
       councilModelIds?: string[];
       prompt?: string;
+      confirmed?: boolean;
     };
 
     const [report] = await db
@@ -1273,6 +1274,19 @@ router.post('/visual-perception/reports/:artifactId/council', async (req: Reques
 
     if (selectedCouncilIds.length === 0) {
       res.status(400).json({ error: 'No valid council models available' });
+      return;
+    }
+
+    if (confirmed !== true) {
+      res.status(409).json({
+        success: false,
+        needsConfirmation: true,
+        risk: 'provider_cost',
+        message: 'Visual Council calls multiple providers. Re-submit with confirmed:true to start the model round.',
+        reportArtifactId: report.id,
+        councilModelIds: selectedCouncilIds,
+        modelCount: selectedCouncilIds.length,
+      });
       return;
     }
 

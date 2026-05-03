@@ -445,6 +445,9 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   <div style={{ fontSize: 11, color: TOKENS.text3 }}>
                     Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
                   </div>
+                  <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                    Council startet erst nach Bestaetigung.
+                  </div>
                   <button
                     type="button"
                     onClick={onEscalateVisualCouncil}

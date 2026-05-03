@@ -3052,11 +3052,17 @@ export function BuilderStudioPage() {
       return;
     }
 
+    const confirmed = window.confirm('Visual Council startet mehrere Provider-Aufrufe. Council-Runde jetzt wirklich starten?');
+    if (!confirmed) {
+      return;
+    }
+
     setVisualCouncilLoading(true);
     setPageError(null);
     try {
       const result = await escalateVisualReportToCouncil(reportArtifactId, {
         prompt: visualPrompt.trim() || undefined,
+        confirmed: true,
       });
       setVisualCouncilResult(result);
       if (selectedTaskId) {
