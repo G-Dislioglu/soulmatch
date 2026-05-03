@@ -2185,6 +2185,44 @@ export function BuilderStudioPage() {
     }
     return null;
   }, [selectedTaskId, selectedVisualArtifactIds.length, selectedVisualModelIds.length, tasks.length]);
+  const isVisualLaunchMode = drawerView === 'visual' && !selectedTaskId;
+  const visualLaunchChecklist = useMemo(
+    () => [
+      {
+        id: 'task',
+        label: 'Task binden',
+        status: selectedTaskId ? 'done' : visualReviewTaskCandidate ? 'ready' : 'waiting',
+        description: selectedTaskId
+          ? 'Der Review ist bereits an eine Builder-Task gebunden.'
+          : visualReviewTaskCandidate
+            ? `Nimm ${visualReviewTaskCandidate.title} als Startpunkt oder starte direkt im Chat.`
+            : 'Starte im Maya-Chat mit einer klaren UI-Aufgabe, damit Builder eine Task anlegt.',
+      },
+      {
+        id: 'capture',
+        label: 'Screenshots erzeugen',
+        status: browserScreenshotArtifacts.length > 0 ? 'done' : selectedTaskId || visualReviewTaskCandidate ? 'ready' : 'waiting',
+        description: browserScreenshotArtifacts.length > 0
+          ? `${browserScreenshotArtifacts.length} Browser-Screenshot(s) stehen fuer den Review bereit.`
+          : 'Lass Maya einen UI-Lauf mit UI_RUN-Schritten starten und browser_screenshot-Artefakte speichern.',
+      },
+      {
+        id: 'review',
+        label: 'Vision-Review laufen lassen',
+        status: selectedVisualArtifactIds.length > 0 ? 'ready' : 'waiting',
+        description: selectedVisualArtifactIds.length > 0
+          ? `${selectedVisualModelIds.length} Modell(e) koennen jetzt auf die gewaehlten Screenshots laufen.`
+          : 'Waehle danach Screenshots und 1..N Vision-Modelle fuer den eigentlichen Review-Lauf.',
+      },
+    ],
+    [
+      browserScreenshotArtifacts.length,
+      selectedTaskId,
+      selectedVisualArtifactIds.length,
+      selectedVisualModelIds.length,
+      visualReviewTaskCandidate,
+    ],
+  );
   const sidebarTasks = useMemo(() => sortTaskQueue(tasks, 'priority').slice(0, 8), [tasks]);
   const continuityNotes = mayaCtx?.continuityNotes ?? [];
   const builderStatus = useMemo(() => {
@@ -2203,11 +2241,18 @@ export function BuilderStudioPage() {
       };
     }
 
+    if (isVisualLaunchMode) {
+      return {
+        left: getPipelineReadinessText(pools),
+        right: 'Vision-Flow wartet auf Task, Browser-Screenshots und deinen Startimpuls',
+      };
+    }
+
     return {
       left: getPipelineReadinessText(pools),
       right: 'Maya wartet auf deine naechste Aufgabe',
     };
-  }, [activeTask, directorModel, evidencePack, experienceMode, poolModelMap, pools, tribuneTimeline]);
+  }, [activeTask, directorModel, evidencePack, experienceMode, isVisualLaunchMode, poolModelMap, pools, tribuneTimeline]);
   const currentTribuneEntry = useMemo(
     () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
     [tribuneTimeline],
@@ -3026,12 +3071,19 @@ export function BuilderStudioPage() {
     setDrawerView('visual');
   }, [visualReviewTaskCandidate]);
 
+  const buildVisualCaptureMessage = useCallback(() => {
+    if (visualReviewTaskCandidate) {
+      return `Uebernimm ${visualReviewTaskCandidate.title} als Visual-Review-Startpunkt. Fuehre anschliessend einen Browser-Lauf mit UI_RUN-Schritten gegen die Builder-Oberflaeche aus und speichere mindestens drei browser_screenshot-Artefakte fuer einen Vision-Review-Lauf.`;
+    }
+
+    return 'Ich moechte einen Visual-Review-Flow starten. Lege eine passende Builder-Task fuer die aktuelle Builder-UI an, fuehre danach einen Browser-Lauf mit UI_RUN-Schritten gegen /builder aus und speichere mindestens drei browser_screenshot-Artefakte fuer einen Vision-Review-Lauf.';
+  }, [visualReviewTaskCandidate]);
+
   const handleSeedVisualCapturePrompt = useCallback(() => {
-    const taskLabel = visualReviewTaskCandidate?.title ?? 'die aktuelle Builder-Ansicht';
     setSidebarExpanded(true);
     setSidebarView('chat');
-    setChatInput(`Erzeuge fuer ${taskLabel} einen Browser-Lauf mit UI_RUN-Schritten und speichere mindestens drei browser_screenshot-Artefakte fuer einen Visual-Review-Lauf.`);
-  }, [visualReviewTaskCandidate]);
+    setChatInput(buildVisualCaptureMessage());
+  }, [buildVisualCaptureMessage]);
 
   const handleRunVisualReview = useCallback(async () => {
     if (!selectedTaskId) {
@@ -3178,6 +3230,22 @@ export function BuilderStudioPage() {
       }, 100);
     }
   }, [activeChatEndpoint, activeChatLabel, chatLoading, chatMessages, directorChat, directorModel, directorThinking, guideMayaTo, mayaChat, refreshMayaContext, refreshMayaTargets, refreshTasks]);
+
+  const handleRunVisualCaptureFlow = useCallback(async () => {
+    const message = buildVisualCaptureMessage();
+    if (!message.trim()) {
+      return;
+    }
+
+    if (visualReviewTaskCandidate && !selectedTaskId) {
+      setSelectedTaskId(visualReviewTaskCandidate.id);
+    }
+
+    setSidebarExpanded(true);
+    setSidebarView('chat');
+    setDrawerView('visual');
+    void sendMayaMessage(message);
+  }, [buildVisualCaptureMessage, selectedTaskId, sendMayaMessage, visualReviewTaskCandidate]);
 
   const speech = useSpeechToText('de', (text) => {
     void sendMayaMessage(text);
@@ -4223,6 +4291,73 @@ export function BuilderStudioPage() {
                       </div>
                     ) : null}
                   </div>
+                ) : isVisualLaunchMode ? (
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div style={{ borderRadius: 20, border: `2px solid ${TOKENS.cyan}66`, background: 'linear-gradient(135deg, rgba(34,211,238,0.14), rgba(255,255,255,0.03))', padding: compact ? '16px 16px' : '18px 20px', display: 'grid', gap: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                          Vision Launchpad
+                        </div>
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                          Taskloser Startpfad fuer UI- und UX-Reviews
+                        </div>
+                      </div>
+                      <div style={{ fontSize: compact ? 24 : 28, color: TOKENS.text, fontFamily: TOKENS.font.display, lineHeight: 1.2 }}>
+                        Starte den Review-Flow zuerst ueber Maya, dann uebernimmt Vision.
+                      </div>
+                      <div style={{ fontSize: 13.5, color: TOKENS.text2, lineHeight: 1.7 }}>
+                        Solange noch keine Task und keine Browser-Screenshots gebunden sind, braucht Builder zuerst einen klaren Startlauf. Maya kann ihn direkt fuer dich aufsetzen.
+                      </div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {visualLaunchChecklist.map((item) => {
+                          const statusColor = item.status === 'done'
+                            ? TOKENS.green
+                            : item.status === 'ready'
+                              ? TOKENS.cyan
+                              : TOKENS.text3;
+                          const statusBg = item.status === 'done'
+                            ? 'rgba(74,222,128,0.12)'
+                            : item.status === 'ready'
+                              ? 'rgba(34,211,238,0.12)'
+                              : TOKENS.bg2;
+                          const statusLabel = item.status === 'done' ? 'Erledigt' : item.status === 'ready' ? 'Startklar' : 'Wartet';
+                          return (
+                            <div key={item.id} style={{ borderRadius: 16, border: `1.5px solid ${statusColor}55`, background: statusBg, padding: '11px 12px', display: 'grid', gap: 5 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{item.label}</div>
+                                <span style={{ borderRadius: 999, border: `1px solid ${statusColor}66`, padding: '3px 8px', fontSize: 10.5, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+                              </div>
+                              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{item.description}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => focusMayaTarget('maya-chat')}
+                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Zum Chat
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { void handleRunVisualCaptureFlow(); }}
+                          disabled={chatLoading}
+                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.12)', color: TOKENS.text, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: chatLoading ? 'not-allowed' : 'pointer', opacity: chatLoading ? 0.5 : 1 }}
+                        >
+                          Capture jetzt an Maya senden
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSeedVisualCapturePrompt}
+                          style={{ borderRadius: 999, border: `2px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text2, padding: '9px 13px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Prompt im Chat bearbeiten
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div style={{ display: 'grid', gap: 14 }}>
                     <div style={{ borderRadius: 20, border: `2px solid ${TOKENS.gold}66`, background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(255,255,255,0.03))', padding: compact ? '16px 16px' : '18px 20px', display: 'grid', gap: 10 }}>
@@ -4250,7 +4385,7 @@ export function BuilderStudioPage() {
             </div>
 
             <div data-maya-target="dialog-viewer">
-            <BuilderPanel title="Dialog Viewer" subtitle="Rueckfragen, Begruendungen und Builder-Dialoge. Sekundaer zur Tribune, aber weiter voll nutzbar." accent={TOKENS.gold}>
+            <BuilderPanel title={isVisualLaunchMode ? 'Maya Capture' : 'Dialog Viewer'} subtitle={isVisualLaunchMode ? 'Starte hier den ersten Browser-Lauf fuer Vision. Danach uebernimmt der Review-Drawer mit Screenshots und Modellwahl.' : 'Rueckfragen, Begruendungen und Builder-Dialoge. Sekundaer zur Tribune, aber weiter voll nutzbar.'} accent={TOKENS.gold}>
               <div
                 data-maya-target="maya-chat"
               style={{
@@ -4899,6 +5034,24 @@ export function BuilderStudioPage() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => { void handleRunVisualCaptureFlow(); }}
+                        style={{
+                          borderRadius: 999,
+                          border: `1.5px solid ${TOKENS.cyan}`,
+                          background: 'rgba(34,211,238,0.12)',
+                          color: TOKENS.text,
+                          padding: '10px 14px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: chatLoading ? 'not-allowed' : 'pointer',
+                          opacity: chatLoading ? 0.5 : 1,
+                        }}
+                        disabled={chatLoading}
+                      >
+                        Capture jetzt an Maya senden
+                      </button>
+                      <button
+                        type="button"
                         onClick={handleSeedVisualCapturePrompt}
                         style={{
                           borderRadius: 999,
@@ -4911,7 +5064,7 @@ export function BuilderStudioPage() {
                           cursor: 'pointer',
                         }}
                       >
-                        Maya Capture Prompt
+                        Prompt im Chat bearbeiten
                       </button>
                     </div>
                   </div>
@@ -5002,6 +5155,23 @@ export function BuilderStudioPage() {
                           <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.6 }}>
                             Nutze den Maya-Chat fuer einen UI-Lauf mit `UI_RUN`-Schritten oder wechsle auf eine Task, die bereits Browser-Artefakte mitbringt.
                           </div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => { void handleRunVisualCaptureFlow(); }}
+                              disabled={chatLoading}
+                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.12)', color: TOKENS.text, padding: '8px 12px', fontSize: 11.5, fontWeight: 700, cursor: chatLoading ? 'not-allowed' : 'pointer', opacity: chatLoading ? 0.5 : 1 }}
+                            >
+                              Capture-Lauf starten
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSeedVisualCapturePrompt}
+                              style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.12)', color: TOKENS.text, padding: '8px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              Prompt ansehen
+                            </button>
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -5012,7 +5182,7 @@ export function BuilderStudioPage() {
                     <textarea
                       value={visualPrompt}
                       onChange={(event) => setVisualPrompt(event.target.value)}
-                      placeholder="z.B. Prüfe die visuelle Hierarchie, doppelte Navigation und störende Operator-Reibung."
+                      placeholder="z.B. Pruefe die visuelle Hierarchie, doppelte Navigation und stoerende Operator-Reibung."
                       rows={4}
                       style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }}
                     />
