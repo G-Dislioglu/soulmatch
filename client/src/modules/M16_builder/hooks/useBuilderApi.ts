@@ -97,6 +97,12 @@ export interface BuilderTask {
   intentKind: BuilderTaskIntentKind;
   requestedOutputKind: BuilderOutputKind;
   requestedOutputFormat: BuilderOutputFormat;
+  parentTaskId?: string | null;
+  goalKind?: string | null;
+  successConditions?: string[];
+  revisionLog?: Record<string, unknown>[];
+  budgetIterations?: number;
+  budgetUsed?: number;
   policyProfile: string | null;
   scope: string[];
   notScope: string[];

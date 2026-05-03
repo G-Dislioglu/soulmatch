@@ -39,6 +39,7 @@ import { requireDevToken } from '../lib/requireDevToken.js';
 import { callProvider, type ProviderMessagePart } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
 import { getActivePools, getPoolConfigSnapshot, updatePools, pickFromPool, getVisionCapableModels, getPoolModelCatalogEntry, resolveModelById } from '../lib/poolState.js';
+import { computeGoalState } from '../lib/builderGoalState.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -115,6 +116,19 @@ type VisionModelScoreAggregate = {
   avgUsefulness: number | null;
   score: number;
   taskTypes: string[];
+  taskTypeScores: VisionModelTaskTypeScore[];
+};
+
+type VisionModelTaskTypeScore = {
+  taskType: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
 };
 
 type VisualCouncilModelResponse = {
@@ -353,7 +367,7 @@ async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate
     ))
     .orderBy(desc(builderArtifacts.createdAt));
 
-  const aggregates = new Map<string, {
+  type MutableVisionScore = {
     modelId: string;
     runs: number;
     findingsEmitted: number;
@@ -364,7 +378,62 @@ async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate
     usefulnessTotal: number;
     usefulnessCount: number;
     taskTypes: Set<string>;
-  }>();
+    taskTypeScores: Map<string, MutableVisionTaskTypeScore>;
+  };
+
+  type MutableVisionTaskTypeScore = Omit<MutableVisionScore, 'modelId' | 'taskTypes' | 'taskTypeScores'> & {
+    taskType: string;
+  };
+
+  const createTaskTypeScore = (taskType: string): MutableVisionTaskTypeScore => ({
+    taskType,
+    runs: 0,
+    findingsEmitted: 0,
+    feedbackCount: 0,
+    confirmedCount: 0,
+    mixedCount: 0,
+    falsePositiveCount: 0,
+    usefulnessTotal: 0,
+    usefulnessCount: 0,
+  });
+
+  const createAggregate = (modelId: string): MutableVisionScore => ({
+    modelId,
+    runs: 0,
+    findingsEmitted: 0,
+    feedbackCount: 0,
+    confirmedCount: 0,
+    mixedCount: 0,
+    falsePositiveCount: 0,
+    usefulnessTotal: 0,
+    usefulnessCount: 0,
+    taskTypes: new Set<string>(),
+    taskTypeScores: new Map<string, MutableVisionTaskTypeScore>(),
+  });
+
+  const finalizeScore = (input: {
+    runs: number;
+    findingsEmitted: number;
+    feedbackCount: number;
+    confirmedCount: number;
+    mixedCount: number;
+    falsePositiveCount: number;
+    usefulnessTotal: number;
+    usefulnessCount: number;
+  }) => {
+    const avgUsefulness = input.usefulnessCount > 0 ? input.usefulnessTotal / input.usefulnessCount : null;
+    const precisionProxy = input.feedbackCount > 0
+      ? (input.confirmedCount + input.mixedCount * 0.5) / input.feedbackCount
+      : 0.5;
+    const usefulnessNorm = avgUsefulness !== null ? Math.max(0, Math.min(1, avgUsefulness / 5)) : 0.5;
+    const score = Number((precisionProxy * 0.7 + usefulnessNorm * 0.3).toFixed(3));
+    return {
+      avgUsefulness: avgUsefulness !== null ? Number(avgUsefulness.toFixed(2)) : null,
+      score,
+    };
+  };
+
+  const aggregates = new Map<string, MutableVisionScore>();
 
   const latestFeedbackByReportModel = new Map<string, { verdict: VisualReviewFeedbackVerdict; usefulness: number | null }>();
 
@@ -410,45 +479,53 @@ async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate
       if (!modelId) {
         continue;
       }
-      const aggregate = aggregates.get(modelId) ?? {
-        modelId,
-        runs: 0,
-        findingsEmitted: 0,
-        feedbackCount: 0,
-        confirmedCount: 0,
-        mixedCount: 0,
-        falsePositiveCount: 0,
-        usefulnessTotal: 0,
-        usefulnessCount: 0,
-        taskTypes: new Set<string>(),
-      };
+      const aggregate = aggregates.get(modelId) ?? createAggregate(modelId);
+      const taskTypeAggregate = aggregate.taskTypeScores.get(taskType) ?? createTaskTypeScore(taskType);
       aggregate.runs += 1;
       aggregate.findingsEmitted += findings.length;
       aggregate.taskTypes.add(taskType);
+      taskTypeAggregate.runs += 1;
+      taskTypeAggregate.findingsEmitted += findings.length;
 
       const feedback = latestFeedbackByReportModel.get(`${artifact.id}:${modelId}`);
       if (feedback) {
         aggregate.feedbackCount += 1;
+        taskTypeAggregate.feedbackCount += 1;
         if (feedback.verdict === 'confirmed') aggregate.confirmedCount += 1;
         if (feedback.verdict === 'mixed') aggregate.mixedCount += 1;
         if (feedback.verdict === 'false_positive') aggregate.falsePositiveCount += 1;
+        if (feedback.verdict === 'confirmed') taskTypeAggregate.confirmedCount += 1;
+        if (feedback.verdict === 'mixed') taskTypeAggregate.mixedCount += 1;
+        if (feedback.verdict === 'false_positive') taskTypeAggregate.falsePositiveCount += 1;
         if (typeof feedback.usefulness === 'number') {
           aggregate.usefulnessTotal += feedback.usefulness;
           aggregate.usefulnessCount += 1;
+          taskTypeAggregate.usefulnessTotal += feedback.usefulness;
+          taskTypeAggregate.usefulnessCount += 1;
         }
       }
 
+      aggregate.taskTypeScores.set(taskType, taskTypeAggregate);
       aggregates.set(modelId, aggregate);
     }
   }
 
   return Array.from(aggregates.values()).map((aggregate) => {
-    const avgUsefulness = aggregate.usefulnessCount > 0 ? aggregate.usefulnessTotal / aggregate.usefulnessCount : null;
-    const precisionProxy = aggregate.feedbackCount > 0
-      ? (aggregate.confirmedCount + aggregate.mixedCount * 0.5) / aggregate.feedbackCount
-      : 0.5;
-    const usefulnessNorm = avgUsefulness !== null ? Math.max(0, Math.min(1, avgUsefulness / 5)) : 0.5;
-    const score = Number((precisionProxy * 0.7 + usefulnessNorm * 0.3).toFixed(3));
+    const globalScore = finalizeScore(aggregate);
+    const taskTypeScores = Array.from(aggregate.taskTypeScores.values()).map((taskTypeScore) => {
+      const specificScore = finalizeScore(taskTypeScore);
+      return {
+        taskType: taskTypeScore.taskType,
+        runs: taskTypeScore.runs,
+        findingsEmitted: taskTypeScore.findingsEmitted,
+        feedbackCount: taskTypeScore.feedbackCount,
+        confirmedCount: taskTypeScore.confirmedCount,
+        mixedCount: taskTypeScore.mixedCount,
+        falsePositiveCount: taskTypeScore.falsePositiveCount,
+        avgUsefulness: specificScore.avgUsefulness,
+        score: specificScore.score,
+      } satisfies VisionModelTaskTypeScore;
+    }).sort((a, b) => b.score - a.score || b.runs - a.runs || a.taskType.localeCompare(b.taskType));
     return {
       modelId: aggregate.modelId,
       runs: aggregate.runs,
@@ -457,9 +534,10 @@ async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate
       confirmedCount: aggregate.confirmedCount,
       mixedCount: aggregate.mixedCount,
       falsePositiveCount: aggregate.falsePositiveCount,
-      avgUsefulness: avgUsefulness !== null ? Number(avgUsefulness.toFixed(2)) : null,
-      score,
+      avgUsefulness: globalScore.avgUsefulness,
+      score: globalScore.score,
       taskTypes: Array.from(aggregate.taskTypes.values()),
+      taskTypeScores,
     } satisfies VisionModelScoreAggregate;
   }).sort((a, b) => b.score - a.score || b.runs - a.runs || a.modelId.localeCompare(b.modelId));
 }
@@ -477,10 +555,15 @@ function pickVisionModelsForTask(
   return getVisionCapableModels()
     .map((model) => {
       const score = scoreMap.get(model.id);
+      const taskTypeScore = score?.taskTypeScores.find((entry) => entry.taskType === taskType) ?? null;
       const roleMatch = model.recommendedVisualRoles?.includes(taskType) ? 0.12 : 0;
-      const feedbackWeight = score ? Math.min(0.2, score.feedbackCount * 0.025) : 0;
+      const feedbackWeight = taskTypeScore
+        ? Math.min(0.2, taskTypeScore.feedbackCount * 0.03)
+        : score
+          ? Math.min(0.12, score.feedbackCount * 0.015)
+          : 0;
       const baseQuality = model.quality / 100;
-      const learned = score ? score.score : 0.5;
+      const learned = taskTypeScore ? taskTypeScore.score : score ? score.score : 0.5;
       const compositeScore = Number((learned * 0.55 + baseQuality * 0.25 + roleMatch + feedbackWeight).toFixed(3));
       return {
         id: model.id,
@@ -488,12 +571,14 @@ function pickVisionModelsForTask(
         provider: model.provider,
         model: model.model,
         quality: model.quality,
-        score: score?.score ?? null,
-        runs: score?.runs ?? 0,
-        feedbackCount: score?.feedbackCount ?? 0,
+        score: taskTypeScore?.score ?? score?.score ?? null,
+        runs: taskTypeScore?.runs ?? score?.runs ?? 0,
+        feedbackCount: taskTypeScore?.feedbackCount ?? score?.feedbackCount ?? 0,
         compositeScore,
-        reason: score
-          ? `Score ${score.score.toFixed(2)}, ${score.runs} Runs, ${score.feedbackCount} Feedbacks`
+        reason: taskTypeScore
+          ? `${taskType} Score ${taskTypeScore.score.toFixed(2)}, ${taskTypeScore.runs} Runs, ${taskTypeScore.feedbackCount} Feedbacks`
+          : score
+            ? `Global Score ${score.score.toFixed(2)}, ${score.runs} Runs, ${score.feedbackCount} Feedbacks`
           : `Cold start, quality ${model.quality}`,
       };
     })
@@ -507,6 +592,23 @@ function normalizeCouncilList(value: unknown): string[] {
   }
 
   return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0))];
+}
+
+function normalizeSuccessConditions(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value
+    .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    .map((entry) => entry.trim())
+    .slice(0, 20))];
+}
+
+function normalizeBudgetIterations(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(1, Math.min(50, Math.round(value)))
+    : 1;
 }
 
 async function runVisualCouncilMember(input: {
@@ -804,7 +906,112 @@ router.get('/files/*', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/builder/tasks â€” list all tasks, optional ?status= filter
+// POST /api/builder/goals - additive A1 goal foundation, no execution side effects.
+router.post('/goals', async (req: Request, res: Response) => {
+  try {
+    const {
+      title,
+      goal,
+      parentTaskId,
+      goalKind,
+      successConditions,
+      budgetIterations,
+      risk,
+      taskType,
+    } = req.body as {
+      title?: string;
+      goal?: string;
+      parentTaskId?: string | null;
+      goalKind?: string;
+      successConditions?: unknown;
+      budgetIterations?: unknown;
+      risk?: string;
+      taskType?: string;
+    };
+
+    if (!title?.trim() || !goal?.trim()) {
+      res.status(400).json({ error: 'title and goal are required' });
+      return;
+    }
+
+    const normalizedTaskType = typeof taskType === 'string' && taskType.trim().length > 0 ? taskType.trim() : 'A';
+    const normalizedRisk = risk === 'medium' || risk === 'high' ? risk : 'low';
+    const policyProfile = TASK_TYPE_TO_PROFILE[normalizedTaskType as TaskType] ?? null;
+    const creationDefaults = deriveTaskCreationDefaults({
+      title: title.trim(),
+      goal: goal.trim(),
+      taskType: normalizedTaskType,
+      risk: normalizedRisk,
+      intentKind: 'strategy',
+      requestedOutputKind: 'structured_answer',
+      requestedOutputFormat: 'json',
+    });
+
+    const db = getDb();
+    const [created] = await db
+      .insert(builderTasks)
+      .values({
+        title: title.trim(),
+        goal: goal.trim(),
+        parentTaskId: parentTaskId || null,
+        goalKind: typeof goalKind === 'string' && goalKind.trim().length > 0 ? goalKind.trim().slice(0, 30) : 'builder_goal',
+        successConditions: normalizeSuccessConditions(successConditions),
+        revisionLog: [{
+          at: new Date().toISOString(),
+          actor: 'operator',
+          kind: 'goal_created',
+          honesty: 'Goal verification is a stub in A1.',
+        }],
+        budgetIterations: normalizeBudgetIterations(budgetIterations),
+        budgetUsed: 0,
+        risk: normalizedRisk,
+        taskType: normalizedTaskType,
+        intentKind: creationDefaults.intentKind,
+        requestedOutputKind: creationDefaults.requestedOutputKind,
+        requestedOutputFormat: creationDefaults.requestedOutputFormat,
+        requiredLanes: creationDefaults.requiredLanes,
+        policyProfile,
+      })
+      .returning();
+
+    res.status(201).json({
+      success: true,
+      goal: presentBuilderTask(created),
+      goalState: computeGoalState(created),
+    });
+  } catch (err) {
+    console.error('[builder] POST /goals error:', err);
+    res.status(500).json({ error: 'Goal creation failed' });
+  }
+});
+
+// GET /api/builder/goals/:id - A1 honesty-state read model.
+router.get('/goals/:id', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const [goal] = await db
+      .select()
+      .from(builderTasks)
+      .where(eq(builderTasks.id, req.params.id))
+      .limit(1);
+
+    if (!goal) {
+      res.status(404).json({ error: 'Goal not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      goal: presentBuilderTask(goal),
+      goalState: computeGoalState(goal),
+    });
+  } catch (err) {
+    console.error('[builder] GET /goals/:id error:', err);
+    res.status(500).json({ error: 'Goal read failed' });
+  }
+});
+
+// GET /api/builder/tasks - list all tasks, optional ?status= filter
 router.get('/tasks', async (req: Request, res: Response) => {
   try {
     const db = getDb();

@@ -1936,6 +1936,12 @@ export function BuilderStudioPage() {
     () => Object.fromEntries((poolConfig?.models ?? []).map((model) => [model.id, model])),
     [poolConfig],
   );
+  const activeCouncilModels = useMemo(() => {
+    const configuredIds = poolConfig?.active.council ?? [];
+    const fallbackIds = ['opus', 'sonnet', 'gpt-5.5'];
+    const ids = configuredIds.length > 0 ? configuredIds : fallbackIds;
+    return ids.map((id) => poolModelMap[id]).filter((model): model is MayaPoolModel => Boolean(model)).slice(0, 5);
+  }, [poolConfig, poolModelMap]);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -3052,7 +3058,14 @@ export function BuilderStudioPage() {
       return;
     }
 
-    const confirmed = window.confirm('Visual Council startet mehrere Provider-Aufrufe. Council-Runde jetzt wirklich starten?');
+    const councilLabels = activeCouncilModels.map((model) => `${model.label} (${model.provider})`);
+    const confirmed = window.confirm([
+      'Visual Council startet Provider-Aufrufe.',
+      `Council-Modelle: ${activeCouncilModels.length || 'aktive Pool-Auswahl'}`,
+      councilLabels.length > 0 ? `Auswahl: ${councilLabels.join(', ')}` : null,
+      'Kostenmodus: manuell bestaetigter Council-Lauf plus Maya-Synthese.',
+      'Council-Runde jetzt wirklich starten?',
+    ].filter(Boolean).join('\n'));
     if (!confirmed) {
       return;
     }
@@ -3073,7 +3086,7 @@ export function BuilderStudioPage() {
     } finally {
       setVisualCouncilLoading(false);
     }
-  }, [displayedVisualRunResult?.reportArtifactId, escalateVisualReportToCouncil, refreshArtifacts, selectedTaskId, visualPrompt]);
+  }, [activeCouncilModels, displayedVisualRunResult?.reportArtifactId, escalateVisualReportToCouncil, refreshArtifacts, selectedTaskId, visualPrompt]);
 
   const handleSubmitVisualFeedback = useCallback(async (
     reportArtifactId: string,
@@ -3737,6 +3750,7 @@ export function BuilderStudioPage() {
                 chatLoading={chatLoading}
                 visionModels={visionModels}
                 visionScores={visionScores}
+                activeCouncilModels={activeCouncilModels}
                 browserScreenshotArtifacts={browserScreenshotArtifacts}
                 displayedVisualRunResult={displayedVisualRunResult}
                 visualCouncilResult={visualCouncilResult}

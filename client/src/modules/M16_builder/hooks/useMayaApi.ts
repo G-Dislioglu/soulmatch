@@ -104,6 +104,19 @@ export interface VisionModelScoreAggregate {
   avgUsefulness: number | null;
   score: number;
   taskTypes: string[];
+  taskTypeScores: VisionModelTaskTypeScore[];
+}
+
+export interface VisionModelTaskTypeScore {
+  taskType: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
 }
 
 export interface VisionAutoPickModel {

@@ -60,6 +60,12 @@ export interface BuilderTaskRecord {
   intentKind?: BuilderTaskIntentKind | string | null;
   requestedOutputKind?: BuilderOutputKind | string | null;
   requestedOutputFormat?: BuilderOutputFormat | string | null;
+  parentTaskId?: string | null;
+  goalKind?: string | null;
+  successConditions?: string[] | null;
+  revisionLog?: Record<string, unknown>[] | null;
+  budgetIterations?: number | null;
+  budgetUsed?: number | null;
   policyProfile: string | null;
   scope: string[];
   notScope: string[];

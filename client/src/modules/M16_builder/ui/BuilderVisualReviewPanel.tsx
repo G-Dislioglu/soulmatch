@@ -27,6 +27,7 @@ interface BuilderVisualReviewPanelProps {
   chatLoading: boolean;
   visionModels: MayaPoolModel[];
   visionScores: VisionModelScoreAggregate[];
+  activeCouncilModels: MayaPoolModel[];
   browserScreenshotArtifacts: BuilderArtifact[];
   displayedVisualRunResult: VisualReviewRunResponse | null;
   visualCouncilResult: VisualCouncilEscalationResponse | null;
@@ -91,6 +92,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     chatLoading,
     visionModels,
     visionScores,
+    activeCouncilModels,
     browserScreenshotArtifacts,
     displayedVisualRunResult,
     visualCouncilResult,
@@ -111,6 +113,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
   } = props;
   const scoreMap = new Map(visionScores.map((entry) => [entry.modelId, entry]));
   const rankedVisionScores = [...visionScores].sort((a, b) => b.score - a.score || b.runs - a.runs).slice(0, 6);
+  const councilCostMode = activeCouncilModels.length > 0 ? `${activeCouncilModels.length} Council + Maya Synthese` : 'aktive Pool-Auswahl + Maya Synthese';
 
   return (
     <div data-maya-target="visual-review">
@@ -254,6 +257,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
               {visionModels.map((model) => {
                 const active = selectedVisualModelIds.includes(model.id);
                 const score = scoreMap.get(model.id) ?? null;
+                const taskTypeScore = score?.taskTypeScores?.find((entry) => entry.taskType === visualTaskType) ?? null;
                 return (
                   <button
                     key={model.id}
@@ -281,7 +285,8 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>Q {model.quality}</span>
                       <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>{model.speed}</span>
-                      {score ? <span style={{ borderRadius: 999, border: `1px solid ${model.color}55`, background: `${model.color}14`, padding: '2px 7px', fontSize: 10.5, color: active ? TOKENS.text : model.color }}>Score {score.score.toFixed(2)}</span> : null}
+                      {taskTypeScore ? <span style={{ borderRadius: 999, border: `1px solid ${model.color}55`, background: `${model.color}14`, padding: '2px 7px', fontSize: 10.5, color: active ? TOKENS.text : model.color }}>{visualTaskType} {taskTypeScore.score.toFixed(2)}</span> : null}
+                      {!taskTypeScore && score ? <span style={{ borderRadius: 999, border: `1px solid ${model.color}55`, background: `${model.color}14`, padding: '2px 7px', fontSize: 10.5, color: active ? TOKENS.text : model.color }}>Global {score.score.toFixed(2)}</span> : null}
                     </div>
                     {model.recommendedVisualRoles && model.recommendedVisualRoles.length > 0 ? (
                       <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.5 }}>
@@ -306,16 +311,22 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
               <div style={{ display: 'grid', gap: 7 }}>
                 {rankedVisionScores.map((score) => {
                   const model = visionModels.find((entry) => entry.id === score.modelId);
+                  const taskTypeScore = score.taskTypeScores?.find((entry) => entry.taskType === visualTaskType) ?? null;
                   return (
                     <div key={score.modelId} style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.bg2, padding: '8px 10px' }}>
                       <div style={{ display: 'grid', gap: 3 }}>
                         <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{model?.label ?? score.modelId}</div>
                         <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                          {score.runs} Runs  -  {score.findingsEmitted} Findings  -  {score.feedbackCount} Feedbacks
+                          {taskTypeScore
+                            ? `${visualTaskType}: ${taskTypeScore.runs} Runs  -  ${taskTypeScore.findingsEmitted} Findings  -  ${taskTypeScore.feedbackCount} Feedbacks`
+                            : `${score.runs} Runs  -  ${score.findingsEmitted} Findings  -  ${score.feedbackCount} Feedbacks`}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: compact ? 'flex-start' : 'flex-end' }}>
-                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '3px 7px', fontSize: 11 }}>Score {score.score.toFixed(2)}</span>
+                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '3px 7px', fontSize: 11 }}>
+                          {taskTypeScore ? `Type ${taskTypeScore.score.toFixed(2)}` : `Score ${score.score.toFixed(2)}`}
+                        </span>
+                        {taskTypeScore ? <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text3, padding: '3px 7px', fontSize: 11 }}>Global {score.score.toFixed(2)}</span> : null}
                         <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.green}55`, background: 'rgba(74,222,128,0.08)', color: TOKENS.green, padding: '3px 7px', fontSize: 11 }}>{score.confirmedCount} ok</span>
                         <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.rose}55`, background: 'rgba(251,113,133,0.08)', color: TOKENS.rose, padding: '3px 7px', fontSize: 11 }}>{score.falsePositiveCount} falsch</span>
                       </div>
@@ -445,9 +456,6 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   <div style={{ fontSize: 11, color: TOKENS.text3 }}>
                     Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
                   </div>
-                  <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                    Council startet erst nach Bestaetigung.
-                  </div>
                   <button
                     type="button"
                     onClick={onEscalateVisualCouncil}
@@ -466,6 +474,26 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   >
                     {visualCouncilLoading ? 'Council prueft...' : 'An Council geben'}
                   </button>
+                </div>
+                <div style={{ borderRadius: 12, border: `1px solid ${TOKENS.gold}55`, background: 'rgba(212,175,55,0.07)', padding: '9px 10px', display: 'grid', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Council Cost Preview</span>
+                    <span style={{ fontSize: 11, color: TOKENS.text2 }}>{councilCostMode}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.55 }}>
+                    Provider-Runde startet nur nach manueller Bestaetigung. Ausgewaehlte Council-Member:
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {activeCouncilModels.length > 0 ? activeCouncilModels.map((model) => (
+                      <span key={model.id} style={{ borderRadius: 999, border: `1px solid ${model.color}66`, background: `${model.color}14`, color: TOKENS.text2, padding: '3px 8px', fontSize: 11 }}>
+                        {model.label} / {model.provider}
+                      </span>
+                    )) : (
+                      <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, color: TOKENS.text3, padding: '3px 8px', fontSize: 11 }}>
+                        Fallback aus aktiver Council-Pool-Auswahl
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
