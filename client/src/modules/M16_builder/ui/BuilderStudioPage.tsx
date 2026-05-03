@@ -18,7 +18,7 @@ import { BuilderTaskFooterStrip } from './BuilderTaskFooterStrip';
 import { BuilderTaskListPanel } from './BuilderTaskListPanel';
 import { BuilderTribuneStage } from './BuilderTribuneStage';
 import { BuilderVisualReviewPanel } from './BuilderVisualReviewPanel';
-import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType, type VisionModelScoreAggregate, type VisualCouncilEscalationResponse, type VisualReviewRunResponse, type VisualReviewTaskType } from '../hooks/useMayaApi';
+import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType, type VisionModelScoreAggregate, type VisualCouncilEscalationResponse, type VisualFixTaskCreationResponse, type VisualReviewRunResponse, type VisualReviewTaskType } from '../hooks/useMayaApi';
 import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
 import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
@@ -1858,8 +1858,10 @@ export function BuilderStudioPage() {
   const [visualRunLoading, setVisualRunLoading] = useState(false);
   const [visualAutoPicking, setVisualAutoPicking] = useState(false);
   const [visualCouncilLoading, setVisualCouncilLoading] = useState(false);
+  const [visualFixTasksLoading, setVisualFixTasksLoading] = useState(false);
   const [visualRunResult, setVisualRunResult] = useState<VisualReviewRunResponse | null>(null);
   const [visualCouncilResult, setVisualCouncilResult] = useState<VisualCouncilEscalationResponse | null>(null);
+  const [visualFixTaskResult, setVisualFixTaskResult] = useState<VisualFixTaskCreationResponse | null>(null);
   const [visionScores, setVisionScores] = useState<VisionModelScoreAggregate[]>([]);
   const [visualFeedbackSavingKey, setVisualFeedbackSavingKey] = useState<string | null>(null);
   const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
@@ -1920,7 +1922,7 @@ export function BuilderStudioPage() {
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
   } = useBuilderApi(token || null, opusToken || null);
-  const { getContext: getMayaContext, getVisionScores, autoPickVisionModels, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat, runVisualPerception, submitVisualFeedback, escalateVisualReportToCouncil } = useMayaApi(token || null);
+  const { getContext: getMayaContext, getVisionScores, autoPickVisionModels, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat, runVisualPerception, submitVisualFeedback, escalateVisualReportToCouncil, createVisualFixTasks } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const [pools, setPools] = useState<PoolState>(EMPTY_POOL_STATE);
@@ -2609,6 +2611,7 @@ export function BuilderStudioPage() {
   useEffect(() => {
     setVisualRunResult(null);
     setVisualCouncilResult(null);
+    setVisualFixTaskResult(null);
   }, [selectedTaskId]);
 
   useEffect(() => {
@@ -3041,6 +3044,7 @@ export function BuilderStudioPage() {
       });
       setVisualRunResult(result);
       setVisualCouncilResult(null);
+      setVisualFixTaskResult(null);
       await refreshArtifacts(selectedTaskId);
       await refreshVisionScores();
       setDrawerView('visual');
@@ -3105,6 +3109,37 @@ export function BuilderStudioPage() {
       setVisualFeedbackSavingKey(null);
     }
   }, [refreshVisionScores, submitVisualFeedback]);
+
+  const handleCreateVisualFixTasks = useCallback(async () => {
+    const reportArtifactId = displayedVisualRunResult?.reportArtifactId;
+    if (!reportArtifactId) {
+      setPageError('Kein Visual Report fuer Fix-Task-Erzeugung vorhanden');
+      return;
+    }
+
+    const confirmed = window.confirm('Maya erzeugt aus den Visual Findings neue Builder-Fix-Tasks. Es werden noch keine Worker gestartet und nichts gepusht. Fortfahren?');
+    if (!confirmed) {
+      return;
+    }
+
+    setVisualFixTasksLoading(true);
+    setPageError(null);
+    try {
+      const result = await createVisualFixTasks(reportArtifactId, {
+        maxTasks: 5,
+        severities: ['critical', 'high', 'medium'],
+      });
+      setVisualFixTaskResult(result);
+      await refreshTasks();
+      if (selectedTaskId) {
+        await refreshArtifacts(selectedTaskId);
+      }
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Fix-Tasks konnten nicht erzeugt werden');
+    } finally {
+      setVisualFixTasksLoading(false);
+    }
+  }, [createVisualFixTasks, displayedVisualRunResult?.reportArtifactId, refreshArtifacts, refreshTasks, selectedTaskId]);
 
   const sendMayaMessage = useCallback(async (rawMessage: string) => {
     const message = rawMessage.trim();
@@ -3747,6 +3782,7 @@ export function BuilderStudioPage() {
                 visualRunLoading={visualRunLoading}
                 visualAutoPicking={visualAutoPicking}
                 visualCouncilLoading={visualCouncilLoading}
+                visualFixTasksLoading={visualFixTasksLoading}
                 chatLoading={chatLoading}
                 visionModels={visionModels}
                 visionScores={visionScores}
@@ -3754,6 +3790,7 @@ export function BuilderStudioPage() {
                 browserScreenshotArtifacts={browserScreenshotArtifacts}
                 displayedVisualRunResult={displayedVisualRunResult}
                 visualCouncilResult={visualCouncilResult}
+                visualFixTaskResult={visualFixTaskResult}
                 visualReviewReportArtifactsCount={visualReviewReportArtifacts.length}
                 visualReviewBlockingReason={visualReviewBlockingReason}
                 visualFeedbackSavingKey={visualFeedbackSavingKey}
@@ -3767,6 +3804,7 @@ export function BuilderStudioPage() {
                 onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
                 onRunVisualReview={() => { void handleRunVisualReview(); }}
                 onEscalateVisualCouncil={() => { void handleEscalateVisualCouncil(); }}
+                onCreateVisualFixTasks={() => { void handleCreateVisualFixTasks(); }}
                 onSubmitVisualFeedback={(reportArtifactId, modelId, verdict) => {
                   void handleSubmitVisualFeedback(reportArtifactId, modelId, verdict);
                 }}

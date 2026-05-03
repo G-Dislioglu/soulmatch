@@ -165,6 +165,26 @@ export interface VisualCouncilEscalationResponse {
   };
 }
 
+export interface VisualFixTaskCreationResponse {
+  success: boolean;
+  sourceTaskId: string;
+  reportArtifactId: string;
+  createdCount: number;
+  tasks: Array<{
+    task: {
+      id: string;
+      title: string;
+      status: string;
+      risk: string;
+      taskType: string;
+    };
+    goalState: {
+      honesty: { status: 'stub_only'; summary: string };
+      budget: { iterations: number; used: number; remaining: number; exhausted: boolean };
+    };
+  }>;
+}
+
 export interface MayaChatResponse {
   response: string;
   model: string;
@@ -256,6 +276,14 @@ export function useMayaApi(token: string | null) {
       method: 'POST',
       body: JSON.stringify(input),
     }), [request]);
+  const createVisualFixTasks = useCallback((reportArtifactId: string, input: {
+    maxTasks?: number;
+    severities?: Array<'critical' | 'high' | 'medium' | 'low'>;
+  } = {}) =>
+    request<VisualFixTaskCreationResponse>(`/visual-perception/reports/${reportArtifactId}/fix-tasks`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
 
   const chat = useCallback((message: string, history: MayaChatMessage[] = []) =>
     request<MayaChatResponse>('/maya/chat', {
@@ -322,6 +350,7 @@ export function useMayaApi(token: string | null) {
     runVisualPerception,
     submitVisualFeedback,
     escalateVisualReportToCouncil,
+    createVisualFixTasks,
     chat,
     directorChat,
     chatWithFile,

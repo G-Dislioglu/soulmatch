@@ -104,6 +104,7 @@ type VisualReviewModelResult = {
 };
 
 type VisualReviewFeedbackVerdict = 'confirmed' | 'mixed' | 'false_positive';
+type VisualReviewSeverity = VisualReviewFinding['severity'];
 
 type VisionModelScoreAggregate = {
   modelId: string;
@@ -149,6 +150,17 @@ type BrowserScreenshotArtifact = {
   path: string | null;
   createdAt: Date;
   jsonPayload: Record<string, unknown> | null;
+};
+
+type VisualFixTaskCandidate = {
+  sourceModelId: string;
+  severity: VisualReviewSeverity;
+  category: string;
+  title: string;
+  description: string;
+  suggestedFix: string | null;
+  screenshotRef: string | null;
+  regionHint: string | null;
 };
 
 function normalizeVisualReviewTaskType(value: unknown): VisualReviewTaskType {
@@ -592,6 +604,77 @@ function normalizeCouncilList(value: unknown): string[] {
   }
 
   return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0))];
+}
+
+function compactText(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3).trimEnd()}...` : normalized;
+}
+
+function severityRank(severity: VisualReviewSeverity): number {
+  switch (severity) {
+    case 'critical': return 4;
+    case 'high': return 3;
+    case 'medium': return 2;
+    default: return 1;
+  }
+}
+
+function visualRiskForSeverity(severity: VisualReviewSeverity): 'low' | 'medium' | 'high' {
+  if (severity === 'critical') return 'high';
+  if (severity === 'high') return 'medium';
+  return 'low';
+}
+
+function normalizeVisualSeverityList(value: unknown): Set<VisualReviewSeverity> {
+  const fallback = new Set<VisualReviewSeverity>(['critical', 'high', 'medium']);
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const selected = value.filter((entry): entry is VisualReviewSeverity =>
+    entry === 'critical' || entry === 'high' || entry === 'medium' || entry === 'low',
+  );
+
+  return selected.length > 0 ? new Set(selected) : fallback;
+}
+
+function extractVisualFixTaskCandidates(payload: Record<string, unknown>, allowedSeverities: Set<VisualReviewSeverity>): VisualFixTaskCandidate[] {
+  const modelResults = Array.isArray(payload.modelResults) ? payload.modelResults : [];
+  const candidates = new Map<string, VisualFixTaskCandidate>();
+
+  for (const result of modelResults) {
+    if (!result || typeof result !== 'object') {
+      continue;
+    }
+    const resultRecord = result as Record<string, unknown>;
+    const sourceModelId = typeof resultRecord.modelId === 'string' ? resultRecord.modelId : 'vision-model';
+    const findings = normalizeVisualFindings(resultRecord.findings);
+
+    for (const finding of findings) {
+      if (!allowedSeverities.has(finding.severity)) {
+        continue;
+      }
+      const dedupeKey = `${finding.severity}:${finding.category}:${finding.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      if (candidates.has(dedupeKey)) {
+        continue;
+      }
+      candidates.set(dedupeKey, {
+        sourceModelId,
+        severity: finding.severity,
+        category: finding.category,
+        title: finding.title,
+        description: finding.description,
+        suggestedFix: finding.suggestedFix ?? null,
+        screenshotRef: finding.screenshotRef ?? null,
+        regionHint: finding.regionHint ?? null,
+      });
+    }
+  }
+
+  return [...candidates.values()].sort((a, b) =>
+    severityRank(b.severity) - severityRank(a.severity) || a.title.localeCompare(b.title),
+  );
 }
 
 function normalizeSuccessConditions(value: unknown): string[] {
@@ -1634,6 +1717,156 @@ router.post('/visual-perception/reports/:artifactId/feedback', async (req: Reque
   } catch (err) {
     console.error('[builder] POST /visual-perception/reports/:artifactId/feedback error:', err);
     res.status(500).json({ error: 'Visual review feedback failed' });
+  }
+});
+
+router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { maxTasks, severities } = req.body as {
+      maxTasks?: number;
+      severities?: unknown;
+    };
+
+    const [report] = await db
+      .select({
+        id: builderArtifacts.id,
+        taskId: builderArtifacts.taskId,
+        artifactType: builderArtifacts.artifactType,
+        jsonPayload: builderArtifacts.jsonPayload,
+      })
+      .from(builderArtifacts)
+      .where(eq(builderArtifacts.id, req.params.artifactId))
+      .limit(1);
+
+    if (!report || report.artifactType !== 'visual_review_report') {
+      res.status(404).json({ error: 'Visual review report not found' });
+      return;
+    }
+
+    if (!report.taskId) {
+      res.status(400).json({ error: 'Visual review report is not attached to a task' });
+      return;
+    }
+
+    const [sourceTask] = await db
+      .select()
+      .from(builderTasks)
+      .where(eq(builderTasks.id, report.taskId))
+      .limit(1);
+
+    if (!sourceTask) {
+      res.status(404).json({ error: 'Task not found for visual review report' });
+      return;
+    }
+
+    const reportPayload = report.jsonPayload as Record<string, unknown> | null;
+    if (!reportPayload) {
+      res.status(400).json({ error: 'Visual review report has no payload' });
+      return;
+    }
+
+    const limit = typeof maxTasks === 'number' && Number.isFinite(maxTasks)
+      ? Math.max(1, Math.min(8, Math.round(maxTasks)))
+      : 5;
+    const candidates = extractVisualFixTaskCandidates(reportPayload, normalizeVisualSeverityList(severities)).slice(0, limit);
+
+    if (candidates.length === 0) {
+      res.status(400).json({ error: 'No eligible visual findings found for fix task creation' });
+      return;
+    }
+
+    const createdTasks: Array<typeof builderTasks.$inferSelect> = [];
+    for (const candidate of candidates) {
+      const risk = visualRiskForSeverity(candidate.severity);
+      const title = `[Visual ${candidate.severity}] ${compactText(candidate.title, 150)}`;
+      const goal = [
+        `Fix this visual UI/UX finding from report ${report.id}.`,
+        `Source task: ${sourceTask.title} (${sourceTask.id}).`,
+        `Source model: ${candidate.sourceModelId}.`,
+        `Severity: ${candidate.severity}. Category: ${candidate.category}.`,
+        `Finding: ${candidate.description}`,
+        candidate.suggestedFix ? `Suggested fix: ${candidate.suggestedFix}` : null,
+        candidate.screenshotRef ? `Screenshot ref: ${candidate.screenshotRef}` : null,
+        candidate.regionHint ? `Region hint: ${candidate.regionHint}` : null,
+        'Do not change provider/auth/deploy settings. Keep the fix scoped to visible UI/UX behavior unless code evidence proves otherwise.',
+      ].filter(Boolean).join('\n');
+      const creationDefaults = deriveTaskCreationDefaults({
+        title,
+        goal,
+        taskType: 'B',
+        risk,
+        intentKind: 'debug',
+        requestedOutputKind: 'code_artifact',
+        requestedOutputFormat: 'code',
+      });
+      const policyProfile = TASK_TYPE_TO_PROFILE.B ?? null;
+
+      const [created] = await db
+        .insert(builderTasks)
+        .values({
+          title,
+          goal,
+          parentTaskId: sourceTask.id,
+          goalKind: 'visual_fix',
+          successConditions: [
+            'The visible issue described by the visual finding is corrected.',
+            'A follow-up screenshot or browser check can verify the UI no longer shows the defect.',
+            'Existing Quick Mode and Pipeline Mode behavior remains unchanged.',
+          ],
+          revisionLog: [{
+            at: new Date().toISOString(),
+            actor: 'maya',
+            kind: 'visual_fix_task_created',
+            reportArtifactId: report.id,
+            sourceModelId: candidate.sourceModelId,
+            severity: candidate.severity,
+          }],
+          budgetIterations: candidate.severity === 'critical' ? 3 : 2,
+          budgetUsed: 0,
+          risk,
+          taskType: 'B',
+          intentKind: creationDefaults.intentKind,
+          requestedOutputKind: creationDefaults.requestedOutputKind,
+          requestedOutputFormat: creationDefaults.requestedOutputFormat,
+          requiredLanes: creationDefaults.requiredLanes,
+          policyProfile,
+        })
+        .returning();
+
+      createdTasks.push(created);
+    }
+
+    await db.insert(builderActions).values({
+      taskId: sourceTask.id,
+      lane: 'visual',
+      kind: 'VISUAL_FIX_TASKS_CREATED',
+      actor: 'maya',
+      payload: {
+        reportArtifactId: report.id,
+        maxTasks: limit,
+        createdTaskIds: createdTasks.map((task) => task.id),
+      },
+      result: {
+        createdCount: createdTasks.length,
+        titles: createdTasks.map((task) => task.title),
+      },
+      tokenCount: 0,
+    });
+
+    res.status(201).json({
+      success: true,
+      sourceTaskId: sourceTask.id,
+      reportArtifactId: report.id,
+      createdCount: createdTasks.length,
+      tasks: createdTasks.map((task) => ({
+        task: presentBuilderTask(task),
+        goalState: computeGoalState(task),
+      })),
+    });
+  } catch (err) {
+    console.error('[builder] POST /visual-perception/reports/:artifactId/fix-tasks error:', err);
+    res.status(500).json({ error: 'Visual fix task creation failed' });
   }
 });
 

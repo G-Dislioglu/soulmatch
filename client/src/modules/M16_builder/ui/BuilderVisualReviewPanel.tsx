@@ -3,6 +3,7 @@ import type { BuilderArtifact, BuilderTask } from '../hooks/useBuilderApi';
 import type {
   MayaPoolModel,
   VisualCouncilEscalationResponse,
+  VisualFixTaskCreationResponse,
   VisionModelScoreAggregate,
   VisualReviewRunResponse,
   VisualReviewTaskType,
@@ -24,6 +25,7 @@ interface BuilderVisualReviewPanelProps {
   visualRunLoading: boolean;
   visualAutoPicking: boolean;
   visualCouncilLoading: boolean;
+  visualFixTasksLoading: boolean;
   chatLoading: boolean;
   visionModels: MayaPoolModel[];
   visionScores: VisionModelScoreAggregate[];
@@ -31,6 +33,7 @@ interface BuilderVisualReviewPanelProps {
   browserScreenshotArtifacts: BuilderArtifact[];
   displayedVisualRunResult: VisualReviewRunResponse | null;
   visualCouncilResult: VisualCouncilEscalationResponse | null;
+  visualFixTaskResult: VisualFixTaskCreationResponse | null;
   visualReviewReportArtifactsCount: number;
   visualReviewBlockingReason: string | null;
   visualFeedbackSavingKey: string | null;
@@ -44,6 +47,7 @@ interface BuilderVisualReviewPanelProps {
   onSeedVisualCapturePrompt: () => void;
   onRunVisualReview: () => void;
   onEscalateVisualCouncil: () => void;
+  onCreateVisualFixTasks: () => void;
   onSubmitVisualFeedback: (reportArtifactId: string, modelId: string, verdict: VisualFeedbackVerdict) => void;
 }
 
@@ -89,6 +93,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     visualRunLoading,
     visualAutoPicking,
     visualCouncilLoading,
+    visualFixTasksLoading,
     chatLoading,
     visionModels,
     visionScores,
@@ -96,6 +101,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     browserScreenshotArtifacts,
     displayedVisualRunResult,
     visualCouncilResult,
+    visualFixTaskResult,
     visualReviewReportArtifactsCount,
     visualReviewBlockingReason,
     visualFeedbackSavingKey,
@@ -109,6 +115,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     onSeedVisualCapturePrompt,
     onRunVisualReview,
     onEscalateVisualCouncil,
+    onCreateVisualFixTasks,
     onSubmitVisualFeedback,
   } = props;
   const scoreMap = new Map(visionScores.map((entry) => [entry.modelId, entry]));
@@ -474,6 +481,24 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   >
                     {visualCouncilLoading ? 'Council prueft...' : 'An Council geben'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={onCreateVisualFixTasks}
+                    disabled={!displayedVisualRunResult.reportArtifactId || visualFixTasksLoading}
+                    style={{
+                      borderRadius: 999,
+                      border: `1.5px solid ${TOKENS.cyan}`,
+                      background: 'rgba(34,211,238,0.12)',
+                      color: TOKENS.text,
+                      padding: '7px 11px',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: !displayedVisualRunResult.reportArtifactId || visualFixTasksLoading ? 'not-allowed' : 'pointer',
+                      opacity: !displayedVisualRunResult.reportArtifactId || visualFixTasksLoading ? 0.55 : 1,
+                    }}
+                  >
+                    {visualFixTasksLoading ? 'Tasks entstehen...' : 'Fix-Tasks erzeugen'}
+                  </button>
                 </div>
                 <div style={{ borderRadius: 12, border: `1px solid ${TOKENS.gold}55`, background: 'rgba(212,175,55,0.07)', padding: '9px 10px', display: 'grid', gap: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -496,6 +521,28 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   </div>
                 </div>
               </div>
+
+              {visualFixTaskResult ? (
+                <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.07)', padding: '12px 13px', display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Maya Action Loop</div>
+                    <div style={{ fontSize: 11, color: TOKENS.text2 }}>{visualFixTaskResult.createdCount} Fix-Tasks erzeugt</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>
+                    Die Tasks liegen jetzt in der normalen Builder-Queue. Worker starten erst ueber den bestehenden Run-/Approval-Pfad.
+                  </div>
+                  <div style={{ display: 'grid', gap: 7 }}>
+                    {visualFixTaskResult.tasks.map((entry) => (
+                      <div key={entry.task.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.bg2, padding: '8px 10px', display: 'grid', gap: 4 }}>
+                        <strong style={{ fontSize: 12, color: TOKENS.text }}>{entry.task.title}</strong>
+                        <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                          {entry.task.status} / Risk {entry.task.risk} / Budget {entry.goalState.budget.remaining}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {visualCouncilResult ? (
                 <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.07)', padding: '12px 13px', display: 'grid', gap: 8 }}>
