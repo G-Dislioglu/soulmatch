@@ -2,6 +2,7 @@ import { TOKENS } from '../../../design/tokens';
 import type { BuilderArtifact, BuilderTask } from '../hooks/useBuilderApi';
 import type {
   MayaPoolModel,
+  VisualCouncilEscalationResponse,
   VisionModelScoreAggregate,
   VisualReviewRunResponse,
   VisualReviewTaskType,
@@ -21,11 +22,14 @@ interface BuilderVisualReviewPanelProps {
   visualTaskType: VisualReviewTaskType;
   visualPrompt: string;
   visualRunLoading: boolean;
+  visualAutoPicking: boolean;
+  visualCouncilLoading: boolean;
   chatLoading: boolean;
   visionModels: MayaPoolModel[];
   visionScores: VisionModelScoreAggregate[];
   browserScreenshotArtifacts: BuilderArtifact[];
   displayedVisualRunResult: VisualReviewRunResponse | null;
+  visualCouncilResult: VisualCouncilEscalationResponse | null;
   visualReviewReportArtifactsCount: number;
   visualReviewBlockingReason: string | null;
   visualFeedbackSavingKey: string | null;
@@ -34,9 +38,11 @@ interface BuilderVisualReviewPanelProps {
   onToggleVisualModel: (modelId: string) => void;
   onToggleVisualArtifact: (artifactId: string) => void;
   onSelectVisualReviewTask: () => void;
+  onAutoPickVisualModels: () => void;
   onRunVisualCaptureFlow: () => void;
   onSeedVisualCapturePrompt: () => void;
   onRunVisualReview: () => void;
+  onEscalateVisualCouncil: () => void;
   onSubmitVisualFeedback: (reportArtifactId: string, modelId: string, verdict: VisualFeedbackVerdict) => void;
 }
 
@@ -80,11 +86,14 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     visualTaskType,
     visualPrompt,
     visualRunLoading,
+    visualAutoPicking,
+    visualCouncilLoading,
     chatLoading,
     visionModels,
     visionScores,
     browserScreenshotArtifacts,
     displayedVisualRunResult,
+    visualCouncilResult,
     visualReviewReportArtifactsCount,
     visualReviewBlockingReason,
     visualFeedbackSavingKey,
@@ -93,11 +102,15 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     onToggleVisualModel,
     onToggleVisualArtifact,
     onSelectVisualReviewTask,
+    onAutoPickVisualModels,
     onRunVisualCaptureFlow,
     onSeedVisualCapturePrompt,
     onRunVisualReview,
+    onEscalateVisualCouncil,
     onSubmitVisualFeedback,
   } = props;
+  const scoreMap = new Map(visionScores.map((entry) => [entry.modelId, entry]));
+  const rankedVisionScores = [...visionScores].sort((a, b) => b.score - a.score || b.runs - a.runs).slice(0, 6);
 
   return (
     <div data-maya-target="visual-review">
@@ -216,11 +229,31 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
           </div>
 
           <div style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Vision Models</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Vision Models</div>
+              <button
+                type="button"
+                onClick={onAutoPickVisualModels}
+                disabled={visualAutoPicking || visionModels.length === 0}
+                style={{
+                  borderRadius: 999,
+                  border: `1.5px solid ${TOKENS.cyan}`,
+                  background: 'rgba(34,211,238,0.10)',
+                  color: TOKENS.text,
+                  padding: '7px 11px',
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  cursor: visualAutoPicking || visionModels.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: visualAutoPicking || visionModels.length === 0 ? 0.55 : 1,
+                }}
+              >
+                {visualAutoPicking ? 'Maya waehlt...' : 'Maya Auto-Pick'}
+              </button>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
               {visionModels.map((model) => {
                 const active = selectedVisualModelIds.includes(model.id);
-                const score = visionScores.find((entry) => entry.modelId === model.id) ?? null;
+                const score = scoreMap.get(model.id) ?? null;
                 return (
                   <button
                     key={model.id}
@@ -262,6 +295,39 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                 <div style={{ fontSize: 12, color: TOKENS.text3 }}>Noch keine Vision-Modelle im Katalog sichtbar.</div>
               ) : null}
             </div>
+          </div>
+
+          <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.025)', padding: '11px 12px', display: 'grid', gap: 9 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Vision Scoreboard</div>
+              <div style={{ fontSize: 11, color: TOKENS.text3 }}>{visionScores.length} Modelle mit Laufdaten</div>
+            </div>
+            {rankedVisionScores.length > 0 ? (
+              <div style={{ display: 'grid', gap: 7 }}>
+                {rankedVisionScores.map((score) => {
+                  const model = visionModels.find((entry) => entry.id === score.modelId);
+                  return (
+                    <div key={score.modelId} style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.bg2, padding: '8px 10px' }}>
+                      <div style={{ display: 'grid', gap: 3 }}>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{model?.label ?? score.modelId}</div>
+                        <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                          {score.runs} Runs  -  {score.findingsEmitted} Findings  -  {score.feedbackCount} Feedbacks
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: compact ? 'flex-start' : 'flex-end' }}>
+                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '3px 7px', fontSize: 11 }}>Score {score.score.toFixed(2)}</span>
+                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.green}55`, background: 'rgba(74,222,128,0.08)', color: TOKENS.green, padding: '3px 7px', fontSize: 11 }}>{score.confirmedCount} ok</span>
+                        <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.rose}55`, background: 'rgba(251,113,133,0.08)', color: TOKENS.rose, padding: '3px 7px', fontSize: 11 }}>{score.falsePositiveCount} falsch</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: TOKENS.text3, lineHeight: 1.6 }}>
+                Noch keine belastbaren Scores. Nach Visual-Reviews und Feedback lernt Maya, welche Modelle fuer welchen Review-Typ am besten liefern.
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gap: 8 }}>
@@ -375,10 +441,49 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
               <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: '12px 13px', display: 'grid', gap: 6 }}>
                 <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Maya Synthesis</div>
                 <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.65 }}>{displayedVisualRunResult.mayaSynthesis.summary || 'Noch keine Synthese sichtbar.'}</div>
-                <div style={{ fontSize: 11, color: TOKENS.text3 }}>
-                  Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                    Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onEscalateVisualCouncil}
+                    disabled={!displayedVisualRunResult.reportArtifactId || visualCouncilLoading}
+                    style={{
+                      borderRadius: 999,
+                      border: `1.5px solid ${TOKENS.gold}`,
+                      background: 'rgba(212,175,55,0.12)',
+                      color: TOKENS.text,
+                      padding: '7px 11px',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: !displayedVisualRunResult.reportArtifactId || visualCouncilLoading ? 'not-allowed' : 'pointer',
+                      opacity: !displayedVisualRunResult.reportArtifactId || visualCouncilLoading ? 0.55 : 1,
+                    }}
+                  >
+                    {visualCouncilLoading ? 'Council prueft...' : 'An Council geben'}
+                  </button>
                 </div>
               </div>
+
+              {visualCouncilResult ? (
+                <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.07)', padding: '12px 13px', display: 'grid', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Council Decision</div>
+                  <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.65 }}>{visualCouncilResult.mayaSynthesis.summary}</div>
+                  <div style={{ display: 'grid', gap: 7 }}>
+                    {visualCouncilResult.councilResults.map((entry) => (
+                      <div key={`${entry.modelId}-${entry.model}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.bg2, padding: '8px 10px', display: 'grid', gap: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: 12, color: TOKENS.text }}>{entry.modelId}</strong>
+                          {entry.error ? <span style={{ fontSize: 11, color: TOKENS.rose }}>{entry.error}</span> : null}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.55 }}>{entry.position}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: TOKENS.text3 }}>Debate Artifact: {visualCouncilResult.debateArtifactId ?? '-'}</div>
+                </div>
+              ) : null}
 
               <div style={{ display: 'grid', gap: 10 }}>
                 {displayedVisualRunResult.modelResults.map((result) => (

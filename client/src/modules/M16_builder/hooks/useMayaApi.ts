@@ -106,6 +106,52 @@ export interface VisionModelScoreAggregate {
   taskTypes: string[];
 }
 
+export interface VisionAutoPickModel {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+  quality: number;
+  score: number | null;
+  runs: number;
+  feedbackCount: number;
+  compositeScore: number;
+  reason: string;
+}
+
+export interface VisionAutoPickResponse {
+  success: boolean;
+  taskType: VisualReviewTaskType;
+  modelIds: string[];
+  selected: VisionAutoPickModel[];
+  scores: VisionModelScoreAggregate[];
+}
+
+export interface VisualCouncilModelResponse {
+  modelId: string;
+  provider: string;
+  model: string;
+  position: string;
+  recommendations: string[];
+  risks: string[];
+  error?: string | null;
+  raw?: string;
+}
+
+export interface VisualCouncilEscalationResponse {
+  success: boolean;
+  taskId: string;
+  reportArtifactId: string;
+  debateArtifactId: string | null;
+  councilResults: VisualCouncilModelResponse[];
+  mayaSynthesis: {
+    modelId: string;
+    provider: string;
+    model: string;
+    summary: string;
+  };
+}
+
 export interface MayaChatResponse {
   response: string;
   model: string;
@@ -154,6 +200,14 @@ export function useMayaApi(token: string | null) {
   const getPoolConfig = useCallback(() => request<MayaPoolConfig>('/maya/pools'), [request]);
   const getVisionModels = useCallback(() => request<{ models: MayaPoolModel[]; count: number }>('/maya/vision-models'), [request]);
   const getVisionScores = useCallback(() => request<{ scores: VisionModelScoreAggregate[]; count: number }>('/maya/vision-scores'), [request]);
+  const autoPickVisionModels = useCallback((input: {
+    taskType?: VisualReviewTaskType;
+    limit?: number;
+  }) =>
+    request<VisionAutoPickResponse>('/visual-perception/auto-pick', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
   const updatePools = useCallback((pools: PoolState) =>
     request<{ success: boolean; pools: PoolState; poolConfig: MayaPoolConfig }>('/maya/pools', {
       method: 'POST',
@@ -177,6 +231,14 @@ export function useMayaApi(token: string | null) {
     notes?: string;
   }) =>
     request<{ success: boolean; feedbackArtifactId: string | null; reportArtifactId: string; modelId: string; verdict: string; usefulness: number }>(`/visual-perception/reports/${reportArtifactId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const escalateVisualReportToCouncil = useCallback((reportArtifactId: string, input: {
+    councilModelIds?: string[];
+    prompt?: string;
+  } = {}) =>
+    request<VisualCouncilEscalationResponse>(`/visual-perception/reports/${reportArtifactId}/council`, {
       method: 'POST',
       body: JSON.stringify(input),
     }), [request]);
@@ -241,9 +303,11 @@ export function useMayaApi(token: string | null) {
     getPoolConfig,
     getVisionModels,
     getVisionScores,
+    autoPickVisionModels,
     updatePools,
     runVisualPerception,
     submitVisualFeedback,
+    escalateVisualReportToCouncil,
     chat,
     directorChat,
     chatWithFile,

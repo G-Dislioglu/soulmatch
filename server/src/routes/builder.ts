@@ -117,6 +117,17 @@ type VisionModelScoreAggregate = {
   taskTypes: string[];
 };
 
+type VisualCouncilModelResponse = {
+  modelId: string;
+  provider: string;
+  model: string;
+  position: string;
+  recommendations: string[];
+  risks: string[];
+  error?: string | null;
+  raw?: string;
+};
+
 type BrowserScreenshotArtifact = {
   id: string;
   artifactType: string;
@@ -451,6 +462,150 @@ async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate
       taskTypes: Array.from(aggregate.taskTypes.values()),
     } satisfies VisionModelScoreAggregate;
   }).sort((a, b) => b.score - a.score || b.runs - a.runs || a.modelId.localeCompare(b.modelId));
+}
+
+function pickVisionModelsForTask(
+  taskType: VisualReviewTaskType,
+  scores: VisionModelScoreAggregate[],
+  requestedLimit: unknown,
+) {
+  const limit = typeof requestedLimit === 'number' && Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(8, Math.round(requestedLimit)))
+    : 3;
+  const scoreMap = new Map(scores.map((entry) => [entry.modelId, entry]));
+
+  return getVisionCapableModels()
+    .map((model) => {
+      const score = scoreMap.get(model.id);
+      const roleMatch = model.recommendedVisualRoles?.includes(taskType) ? 0.12 : 0;
+      const feedbackWeight = score ? Math.min(0.2, score.feedbackCount * 0.025) : 0;
+      const baseQuality = model.quality / 100;
+      const learned = score ? score.score : 0.5;
+      const compositeScore = Number((learned * 0.55 + baseQuality * 0.25 + roleMatch + feedbackWeight).toFixed(3));
+      return {
+        id: model.id,
+        label: model.label,
+        provider: model.provider,
+        model: model.model,
+        quality: model.quality,
+        score: score?.score ?? null,
+        runs: score?.runs ?? 0,
+        feedbackCount: score?.feedbackCount ?? 0,
+        compositeScore,
+        reason: score
+          ? `Score ${score.score.toFixed(2)}, ${score.runs} Runs, ${score.feedbackCount} Feedbacks`
+          : `Cold start, quality ${model.quality}`,
+      };
+    })
+    .sort((a, b) => b.compositeScore - a.compositeScore || b.quality - a.quality || a.id.localeCompare(b.id))
+    .slice(0, limit);
+}
+
+function normalizeCouncilList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0))];
+}
+
+async function runVisualCouncilMember(input: {
+  modelId: string;
+  taskTitle: string;
+  reportPayload: Record<string, unknown>;
+  operatorPrompt?: string;
+}): Promise<VisualCouncilModelResponse> {
+  const catalog = getPoolModelCatalogEntry(input.modelId);
+  if (!catalog) {
+    return {
+      modelId: input.modelId,
+      provider: 'unknown',
+      model: input.modelId,
+      position: 'Council model is not available in the Builder model catalog.',
+      recommendations: [],
+      risks: ['missing_model_catalog_entry'],
+      error: 'missing_model_catalog_entry',
+    };
+  }
+
+  const system = [
+    'You are a Builder Council member reviewing visual review outputs.',
+    'You do not see the screenshots directly in this step. You reason over the structured vision findings and Maya synthesis.',
+    'Return only valid JSON with this shape:',
+    '{"position":"string","recommendations":["string"],"risks":["string"]}',
+    'Be direct. Disagree with the vision reports if the evidence is weak or contradictory.',
+  ].join('\n');
+
+  const response = await callProvider(catalog.provider, catalog.model, {
+    system,
+    messages: [{
+      role: 'user',
+      content: [
+        `Task: ${input.taskTitle}`,
+        input.operatorPrompt?.trim() ? `Operator request: ${input.operatorPrompt.trim()}` : null,
+        'Visual review report payload:',
+        JSON.stringify(input.reportPayload, null, 2),
+      ].filter(Boolean).join('\n\n'),
+    }],
+    maxTokens: 2200,
+    temperature: 0.35,
+  });
+
+  const parsed = parseJsonObject<{ position?: unknown; recommendations?: unknown; risks?: unknown }>(response);
+  return {
+    modelId: catalog.id,
+    provider: catalog.provider,
+    model: catalog.model,
+    position: typeof parsed?.position === 'string' ? parsed.position : 'Council member returned non-JSON or incomplete output.',
+    recommendations: Array.isArray(parsed?.recommendations)
+      ? parsed.recommendations.filter((entry): entry is string => typeof entry === 'string')
+      : [],
+    risks: Array.isArray(parsed?.risks)
+      ? parsed.risks.filter((entry): entry is string => typeof entry === 'string')
+      : [],
+    error: parsed ? null : 'invalid_json',
+    raw: response,
+  };
+}
+
+async function synthesizeVisualCouncilWithMaya(input: {
+  taskTitle: string;
+  visualReportPayload: Record<string, unknown>;
+  councilResults: VisualCouncilModelResponse[];
+  operatorPrompt?: string;
+}) {
+  const fallback = resolveModelById('glm51') ?? { id: 'glm51', provider: 'zhipu', model: 'glm-5.1' };
+  const mayaModel = pickFromPool('maya', true) ?? fallback;
+  const system = [
+    'You are Maya, moderating a Builder Council discussion after a visual review.',
+    'Use the vision findings and the Council positions to decide the next practical UI/UX step.',
+    'Answer in plain text with a short decision, ranked priorities, and the next action.',
+  ].join('\n');
+
+  const summary = await callProvider(mayaModel.provider, mayaModel.model, {
+    system,
+    messages: [{
+      role: 'user',
+      content: [
+        `Task: ${input.taskTitle}`,
+        input.operatorPrompt?.trim() ? `Operator request: ${input.operatorPrompt.trim()}` : null,
+        'Visual report:',
+        JSON.stringify(input.visualReportPayload, null, 2),
+        'Council results:',
+        JSON.stringify(input.councilResults, null, 2),
+      ].filter(Boolean).join('\n\n'),
+    }],
+    maxTokens: 1800,
+    temperature: 0.25,
+    forceJsonObject: false,
+  });
+
+  return {
+    modelId: mayaModel.id,
+    provider: mayaModel.provider,
+    model: mayaModel.model,
+    summary,
+  };
 }
 
 function getLocalOpusBridgeUrl(endpoint: string): string {
@@ -1046,6 +1201,143 @@ router.post('/visual-perception/run', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[builder] POST /visual-perception/run error:', err);
     res.status(500).json({ error: 'Visual perception run failed' });
+  }
+});
+
+router.post('/visual-perception/auto-pick', async (req: Request, res: Response) => {
+  try {
+    const { taskType, limit } = req.body as { taskType?: string; limit?: number };
+    const normalizedTaskType = normalizeVisualReviewTaskType(taskType);
+    const scores = await computeVisionScoreAggregates();
+    const selected = pickVisionModelsForTask(normalizedTaskType, scores, limit);
+
+    res.json({
+      success: true,
+      taskType: normalizedTaskType,
+      modelIds: selected.map((entry) => entry.id),
+      selected,
+      scores,
+    });
+  } catch (err) {
+    console.error('[builder] POST /visual-perception/auto-pick error:', err);
+    res.status(500).json({ error: 'Vision auto-pick failed' });
+  }
+});
+
+router.post('/visual-perception/reports/:artifactId/council', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { councilModelIds, prompt } = req.body as {
+      councilModelIds?: string[];
+      prompt?: string;
+    };
+
+    const [report] = await db
+      .select({
+        id: builderArtifacts.id,
+        taskId: builderArtifacts.taskId,
+        artifactType: builderArtifacts.artifactType,
+        jsonPayload: builderArtifacts.jsonPayload,
+      })
+      .from(builderArtifacts)
+      .where(eq(builderArtifacts.id, req.params.artifactId))
+      .limit(1);
+
+    if (!report || report.artifactType !== 'visual_review_report') {
+      res.status(404).json({ error: 'Visual review report not found' });
+      return;
+    }
+
+    if (!report.taskId) {
+      res.status(400).json({ error: 'Visual review report is not attached to a task' });
+      return;
+    }
+
+    const [task] = await db
+      .select({ id: builderTasks.id, title: builderTasks.title })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, report.taskId))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found for visual review report' });
+      return;
+    }
+
+    const requestedCouncilIds = normalizeCouncilList(councilModelIds);
+    const activeCouncilIds = getActivePools().council;
+    const fallbackCouncilIds = ['opus', 'sonnet', 'gpt-5.5'];
+    const selectedCouncilIds = (requestedCouncilIds.length > 0 ? requestedCouncilIds : activeCouncilIds.length > 0 ? activeCouncilIds : fallbackCouncilIds)
+      .filter((id) => Boolean(getPoolModelCatalogEntry(id)))
+      .slice(0, 5);
+
+    if (selectedCouncilIds.length === 0) {
+      res.status(400).json({ error: 'No valid council models available' });
+      return;
+    }
+
+    const visualReportPayload = report.jsonPayload as Record<string, unknown> | null;
+    if (!visualReportPayload) {
+      res.status(400).json({ error: 'Visual review report has no payload' });
+      return;
+    }
+
+    const councilResults = await Promise.all(selectedCouncilIds.map((modelId) =>
+      runVisualCouncilMember({
+        modelId,
+        taskTitle: task.title,
+        reportPayload: visualReportPayload,
+        operatorPrompt: prompt,
+      }),
+    ));
+    const mayaSynthesis = await synthesizeVisualCouncilWithMaya({
+      taskTitle: task.title,
+      visualReportPayload,
+      councilResults,
+      operatorPrompt: prompt,
+    });
+
+    const [stored] = await db.insert(builderArtifacts).values({
+      taskId: task.id,
+      artifactType: 'visual_council_debate',
+      lane: 'visual',
+      path: null,
+      jsonPayload: {
+        reportArtifactId: report.id,
+        prompt: typeof prompt === 'string' && prompt.trim().length > 0 ? prompt.trim() : null,
+        councilModelIds: selectedCouncilIds,
+        councilResults,
+        mayaSynthesis,
+      },
+    }).returning({ id: builderArtifacts.id });
+
+    await db.insert(builderActions).values({
+      taskId: task.id,
+      lane: 'visual',
+      kind: 'VISUAL_COUNCIL_ESCALATION',
+      actor: 'maya',
+      payload: {
+        reportArtifactId: report.id,
+        councilModelIds: selectedCouncilIds,
+      },
+      result: {
+        debateArtifactId: stored?.id ?? null,
+        mayaSummary: mayaSynthesis.summary,
+      },
+      tokenCount: 0,
+    });
+
+    res.json({
+      success: true,
+      taskId: task.id,
+      reportArtifactId: report.id,
+      debateArtifactId: stored?.id ?? null,
+      councilResults,
+      mayaSynthesis,
+    });
+  } catch (err) {
+    console.error('[builder] POST /visual-perception/reports/:artifactId/council error:', err);
+    res.status(500).json({ error: 'Visual council escalation failed' });
   }
 });
 
