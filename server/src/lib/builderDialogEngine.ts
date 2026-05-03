@@ -164,6 +164,10 @@ function needsBrowserLane(task: typeof builderTasks.$inferSelect, laneFlags: { b
     return false;
   }
 
+  if (task.goalKind === 'visual_fix') {
+    return false;
+  }
+
   return task.requestedOutputKind === 'html_artifact'
     || task.requestedOutputKind === 'presentation_artifact'
     || task.requestedOutputKind === 'visual_artifact'
@@ -269,6 +273,9 @@ function buildReviewerSystemPrompt(mode: 'primary' | 'secondary', task: typeof b
     isVisualFix
       ? 'Bei visual_fix ist searched_codebase=false ein Hinweis, aber kein automatischer Blocker, wenn der Patch plausibel im Scope bleibt.'
       : 'Blockiere, wenn der Patch Code ersetzt, der nicht im Execution summary aus @READ sichtbar war.',
+    isVisualFix
+      ? 'VISUAL_FIX_SOURCE_CONTEXT gilt als Code-Evidenz. Blockiere nicht nur deshalb, weil der Architect keinen separaten @READ in derselben Runde erzeugt hat.'
+      : '',
     isVisualFix
       ? 'Neue kleine Inline-Hilfen sind erlaubt. Neue externe UI-Bibliotheken oder nicht vorhandene Importpfade sind echte Blocker.'
       : 'Blockiere, wenn der Patch eine UI-Bibliothek oder Komponente einfuehrt, die im Ziel-File nicht vorkommt.',
