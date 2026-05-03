@@ -30,6 +30,11 @@ export interface PoolModelCatalogEntry {
   speed: 'slow' | 'medium' | 'fast';
   color: string;
   pools: PoolType[];
+  visionCapable?: boolean;
+  supportsMultiImage?: boolean;
+  supportsWebResearch?: boolean;
+  recommendedVisualRoles?: string[];
+  experimental?: boolean;
 }
 
 export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
@@ -42,6 +47,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'slow',
     color: '#7c6af7',
     pools: ['maya', 'council'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['ui_review', 'layout_drift', 'multi_state_review'],
   },
   sonnet: {
     id: 'sonnet',
@@ -52,6 +61,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'fast',
     color: '#a78bfa',
     pools: ['maya', 'council'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['ui_review', 'ocr_and_label_check'],
   },
   'gpt-5.5': {
     id: 'gpt-5.5',
@@ -62,6 +75,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'medium',
     color: '#22d3ee',
     pools: ['maya', 'council'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['ui_review', 'frontend_recreation_hint', 'ocr_and_label_check'],
   },
   grok: {
     id: 'grok',
@@ -122,6 +139,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'medium',
     color: '#f472b6',
     pools: ['council', 'worker'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['multi_state_review', 'frontend_recreation_hint'],
   },
   mimo: {
     id: 'mimo',
@@ -132,6 +153,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'medium',
     color: '#fb7185',
     pools: ['council', 'worker'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['frontend_recreation_hint', 'ui_review'],
   },
   'mimo-pro': {
     id: 'mimo-pro',
@@ -142,6 +167,10 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'medium',
     color: '#f43f5e',
     pools: ['council', 'worker'],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['frontend_recreation_hint', 'multi_state_review'],
   },
   qwen: {
     id: 'qwen',
@@ -182,6 +211,62 @@ export const POOL_MODEL_CATALOG: Record<string, PoolModelCatalogEntry> = {
     speed: 'fast',
     color: '#eab308',
     pools: ['scout'],
+  },
+  'gemini-pro': {
+    id: 'gemini-pro',
+    label: 'Gemini 3 Pro Preview',
+    provider: 'gemini',
+    model: 'gemini-3-pro-preview',
+    quality: 91,
+    speed: 'medium',
+    color: '#c084fc',
+    pools: [],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['multi_state_review', 'ui_review', 'layout_drift'],
+  },
+  'qwen-vl': {
+    id: 'qwen-vl',
+    label: 'Qwen3 VL 32B',
+    provider: 'openrouter',
+    model: 'qwen/qwen3-vl-32b-instruct',
+    quality: 86,
+    speed: 'medium',
+    color: '#8b5cf6',
+    pools: [],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['ocr_and_label_check', 'ui_review'],
+  },
+  'glm-46v': {
+    id: 'glm-46v',
+    label: 'GLM 4.6V',
+    provider: 'zhipu',
+    model: 'glm-4.6v',
+    quality: 84,
+    speed: 'medium',
+    color: '#10b981',
+    pools: [],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['frontend_recreation_hint', 'layout_drift'],
+  },
+  'glm-5v': {
+    id: 'glm-5v',
+    label: 'GLM 5V Turbo',
+    provider: 'zhipu',
+    model: 'glm-5v-turbo',
+    quality: 89,
+    speed: 'medium',
+    color: '#06b6d4',
+    pools: [],
+    visionCapable: true,
+    supportsMultiImage: true,
+    supportsWebResearch: false,
+    recommendedVisualRoles: ['frontend_recreation_hint', 'ui_review', 'multi_state_review'],
   },
   'deepseek-scout': {
     id: 'deepseek-scout',
@@ -366,6 +451,22 @@ export interface ResolvedModel {
   id: string;
   provider: string;
   model: string;
+}
+
+export function getPoolModelCatalogEntry(id: string): PoolModelCatalogEntry | null {
+  return POOL_MODEL_CATALOG[id] ?? null;
+}
+
+export function getVisionCapableModels(): PoolModelCatalogEntry[] {
+  return Object.values(POOL_MODEL_CATALOG).filter((entry) => entry.visionCapable === true);
+}
+
+export function resolveModelById(id: string): ResolvedModel | null {
+  const entry = POOL_MODEL_MAP[id];
+  if (!entry) {
+    return null;
+  }
+  return { id, provider: entry.provider, model: entry.model };
 }
 
 export function pickFromPool(pool: PoolType, preferStrong = true): ResolvedModel | null {

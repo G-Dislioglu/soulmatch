@@ -5,7 +5,7 @@ import { TOKENS } from '../../../design/tokens';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import './maya-highlight.css';
 import { BuilderConfigPanel } from './BuilderConfigPanel';
-import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType } from '../hooks/useMayaApi';
+import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType, type VisionModelScoreAggregate, type VisualReviewRunResponse, type VisualReviewTaskType } from '../hooks/useMayaApi';
 import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
 import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
@@ -524,7 +524,7 @@ type BuilderExperienceMode = 'default' | 'single_specialist' | 'pipeline';
 
 type SidebarView = 'chat' | 'tasks' | 'patrol' | 'models' | 'files' | 'notes';
 
-type DrawerView = 'models' | 'task' | 'output';
+type DrawerView = 'models' | 'task' | 'output' | 'visual';
 
 type TribunePhaseKey =
   BuilderUniversalLifecyclePhase;
@@ -1282,6 +1282,14 @@ function pickLatestArtifact(artifacts: BuilderArtifact[], types: string[]) {
   return artifacts.find((artifact) => types.includes(artifact.artifactType)) ?? null;
 }
 
+function isBrowserScreenshotArtifact(artifact: BuilderArtifact) {
+  return artifact.artifactType === 'browser_screenshot';
+}
+
+function isVisualReviewReportArtifact(artifact: BuilderArtifact) {
+  return artifact.artifactType === 'visual_review_report';
+}
+
 function matchObservationSignals(
   observation: BuilderTaskObservation | null,
   patterns: string[],
@@ -1946,6 +1954,14 @@ export function BuilderStudioPage() {
   const [dialogActions, setDialogActions] = useState<BuilderAction[]>([]);
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
   const [taskArtifacts, setTaskArtifacts] = useState<BuilderArtifact[]>([]);
+  const [selectedVisualModelIds, setSelectedVisualModelIds] = useState<string[]>(['opus', 'gpt-5.5', 'qwen-vl']);
+  const [selectedVisualArtifactIds, setSelectedVisualArtifactIds] = useState<string[]>([]);
+  const [visualTaskType, setVisualTaskType] = useState<VisualReviewTaskType>('ui_review');
+  const [visualPrompt, setVisualPrompt] = useState('');
+  const [visualRunLoading, setVisualRunLoading] = useState(false);
+  const [visualRunResult, setVisualRunResult] = useState<VisualReviewRunResponse | null>(null);
+  const [visionScores, setVisionScores] = useState<VisionModelScoreAggregate[]>([]);
+  const [visualFeedbackSavingKey, setVisualFeedbackSavingKey] = useState<string | null>(null);
   const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
   const [selectedTribunePhase, setSelectedTribunePhase] = useState<TribunePhaseKey | null>(null);
   const [taskQueueFilter, setTaskQueueFilter] = useState<TaskQueueFilter>(() => getInitialTaskQueueFilter());
@@ -2004,7 +2020,7 @@ export function BuilderStudioPage() {
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
   } = useBuilderApi(token || null, opusToken || null);
-  const { getContext: getMayaContext, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
+  const { getContext: getMayaContext, getVisionScores, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat, runVisualPerception, submitVisualFeedback } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
   const [pools, setPools] = useState<PoolState>(EMPTY_POOL_STATE);
@@ -2062,6 +2078,14 @@ export function BuilderStudioPage() {
     () => taskArtifacts.filter((artifact) => artifact.artifactType !== 'evidence_pack'),
     [taskArtifacts],
   );
+  const browserScreenshotArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter(isBrowserScreenshotArtifact),
+    [nonEvidenceArtifacts],
+  );
+  const visualReviewReportArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter(isVisualReviewReportArtifact),
+    [nonEvidenceArtifacts],
+  );
   const latestPrototypeArtifact = useMemo(
     () => pickLatestArtifact(nonEvidenceArtifacts, ['promoted_prototype', 'prototype']),
     [nonEvidenceArtifacts],
@@ -2085,6 +2109,10 @@ export function BuilderStudioPage() {
     }) ?? null,
     [nonEvidenceArtifacts],
   );
+  const latestVisualReviewArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['visual_review_report']),
+    [nonEvidenceArtifacts],
+  );
   const screenshotPreviewSrc = useMemo(() => {
     const payload = toArtifactPayload(latestScreenshotArtifact);
     const dataBase64 = typeof payload?.dataBase64 === 'string' ? payload.dataBase64 : null;
@@ -2095,6 +2123,31 @@ export function BuilderStudioPage() {
     () => nonEvidenceArtifacts.filter((artifact) => artifact.artifactType !== 'approval_ticket').slice(0, 6),
     [nonEvidenceArtifacts],
   );
+  const visionModels = useMemo(
+    () => (poolConfig?.models ?? []).filter((model) => model.visionCapable === true),
+    [poolConfig],
+  );
+  const displayedVisualRunResult = useMemo(() => {
+    if (visualRunResult) {
+      return visualRunResult;
+    }
+    const payload = toArtifactPayload(latestVisualReviewArtifact);
+    if (!payload) {
+      return null;
+    }
+    const reportArtifactId = typeof latestVisualReviewArtifact?.id === 'string' ? latestVisualReviewArtifact.id : null;
+    return {
+      success: true,
+      taskId: typeof latestVisualReviewArtifact?.taskId === 'string' ? latestVisualReviewArtifact.taskId : activeTask?.id ?? '',
+      reportArtifactId,
+      taskType: (typeof payload.taskType === 'string' ? payload.taskType : 'ui_review') as VisualReviewTaskType,
+      screenshotArtifactIds: Array.isArray(payload.screenshotArtifactIds) ? payload.screenshotArtifactIds.filter((entry): entry is string => typeof entry === 'string') : [],
+      modelResults: Array.isArray(payload.modelResults) ? payload.modelResults as VisualReviewRunResponse['modelResults'] : [],
+      mayaSynthesis: (payload.mayaSynthesis && typeof payload.mayaSynthesis === 'object'
+        ? payload.mayaSynthesis
+        : { modelId: '-', provider: '-', model: '-', summary: '' }) as VisualReviewRunResponse['mayaSynthesis'],
+    } satisfies VisualReviewRunResponse;
+  }, [activeTask?.id, latestVisualReviewArtifact, visualRunResult]);
   const sidebarTasks = useMemo(() => sortTaskQueue(tasks, 'priority').slice(0, 8), [tasks]);
   const continuityNotes = mayaCtx?.continuityNotes ?? [];
   const builderStatus = useMemo(() => {
@@ -2319,6 +2372,11 @@ export function BuilderStudioPage() {
     setPools(nextContext.poolConfig.active);
   }, [getMayaContext]);
 
+  const refreshVisionScores = useCallback(async () => {
+    const next = await getVisionScores();
+    setVisionScores(next.scores);
+  }, [getVisionScores]);
+
   const refreshPatrolFeed = useCallback(async () => {
     setPatrolLoading(true);
     setPatrolError(null);
@@ -2449,6 +2507,7 @@ export function BuilderStudioPage() {
     void refreshTasks().catch(() => {});
     void refreshFiles().catch(() => {});
     void refreshMayaContext().catch(() => {});
+    void refreshVisionScores().catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -2538,6 +2597,21 @@ export function BuilderStudioPage() {
 
     return () => window.clearInterval(intervalId);
   }, [authenticated, selectedTaskId, refreshArtifacts]);
+
+  useEffect(() => {
+    const nextIds = browserScreenshotArtifacts.map((artifact) => artifact.id);
+    setSelectedVisualArtifactIds((current) => {
+      const stillValid = current.filter((id) => nextIds.includes(id));
+      if (stillValid.length > 0) {
+        return stillValid;
+      }
+      return nextIds.slice(0, 3);
+    });
+  }, [browserScreenshotArtifacts]);
+
+  useEffect(() => {
+    setVisualRunResult(null);
+  }, [selectedTaskId]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -2893,6 +2967,71 @@ export function BuilderStudioPage() {
     }
   }, [deleteBuilderTask, refreshTasks, selectedTaskId]);
 
+  const handleToggleVisualModel = useCallback((modelId: string) => {
+    setSelectedVisualModelIds((current) => current.includes(modelId)
+      ? current.filter((id) => id !== modelId)
+      : [...current, modelId]);
+  }, []);
+
+  const handleToggleVisualArtifact = useCallback((artifactId: string) => {
+    setSelectedVisualArtifactIds((current) => current.includes(artifactId)
+      ? current.filter((id) => id !== artifactId)
+      : [...current, artifactId]);
+  }, []);
+
+  const handleRunVisualReview = useCallback(async () => {
+    if (!selectedTaskId) {
+      setPageError('Keine Task fuer Visual Review gewaehlt');
+      return;
+    }
+    if (selectedVisualModelIds.length === 0) {
+      setPageError('Waehle mindestens ein Vision-Modell');
+      return;
+    }
+    if (selectedVisualArtifactIds.length === 0) {
+      setPageError('Waehle mindestens einen Browser-Screenshot');
+      return;
+    }
+
+    setVisualRunLoading(true);
+    setPageError(null);
+    try {
+      const result = await runVisualPerception({
+        taskId: selectedTaskId,
+        artifactIds: selectedVisualArtifactIds,
+        modelIds: selectedVisualModelIds,
+        taskType: visualTaskType,
+        prompt: visualPrompt.trim() || undefined,
+      });
+      setVisualRunResult(result);
+      await refreshArtifacts(selectedTaskId);
+      await refreshVisionScores();
+      setDrawerView('visual');
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Review konnte nicht gestartet werden');
+    } finally {
+      setVisualRunLoading(false);
+    }
+  }, [refreshArtifacts, refreshVisionScores, runVisualPerception, selectedTaskId, selectedVisualArtifactIds, selectedVisualModelIds, visualPrompt, visualTaskType]);
+
+  const handleSubmitVisualFeedback = useCallback(async (
+    reportArtifactId: string,
+    modelId: string,
+    verdict: 'confirmed' | 'mixed' | 'false_positive',
+  ) => {
+    const feedbackKey = `${reportArtifactId}:${modelId}:${verdict}`;
+    setVisualFeedbackSavingKey(feedbackKey);
+    setPageError(null);
+    try {
+      await submitVisualFeedback(reportArtifactId, { modelId, verdict });
+      await refreshVisionScores();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Feedback konnte nicht gespeichert werden');
+    } finally {
+      setVisualFeedbackSavingKey(null);
+    }
+  }, [refreshVisionScores, submitVisualFeedback]);
+
   const sendMayaMessage = useCallback(async (rawMessage: string) => {
     const message = rawMessage.trim();
     if (!message || chatLoading) {
@@ -3115,6 +3254,9 @@ export function BuilderStudioPage() {
               </button>
               <button onClick={() => { setDrawerView((current) => current === 'models' ? null : 'models'); setShowConfig(true); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'models' || showConfig ? '#7c6af7' : TOKENS.b1}`, background: drawerView === 'models' || showConfig ? 'rgba(124,106,247,0.14)' : TOKENS.bg2, color: drawerView === 'models' || showConfig ? '#c4b5fd' : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 Model & Config
+              </button>
+              <button onClick={() => { setDrawerView((current) => current === 'visual' ? null : 'visual'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'visual' ? TOKENS.cyan : TOKENS.b1}`, background: drawerView === 'visual' ? 'rgba(34,211,238,0.12)' : TOKENS.bg2, color: drawerView === 'visual' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                Visual Review
               </button>
               <a
                 data-maya-target="patrol-console"
@@ -4649,6 +4791,227 @@ export function BuilderStudioPage() {
                 )}
               </div>
             </BuilderPanel>
+            ) : null}
+
+            {drawerView === 'visual' || compact ? (
+            <div data-maya-target="visual-review">
+              <BuilderPanel title="Visual Review" subtitle="Vision-Modelle, Browser-Screenshots und Maya-Synthese fuer UI- und UX-Pruefung." accent={TOKENS.cyan}>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div style={{ borderRadius: 16, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+                      Visual Pool
+                    </div>
+                    <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                      Nutzt vorhandene Browser-Screenshots aus dem Builder-Lauf. Du waehlst 1..N Vision-Modelle, Maya synthetisiert die Findings in einen naechsten Schritt.
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Review Type</div>
+                    <select
+                      value={visualTaskType}
+                      onChange={(event) => setVisualTaskType(event.target.value as VisualReviewTaskType)}
+                      style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '10px 12px', fontSize: 13 }}
+                    >
+                      <option value="ui_review">UI Review</option>
+                      <option value="layout_drift">Layout Drift</option>
+                      <option value="ocr_and_label_check">OCR and Label Check</option>
+                      <option value="frontend_recreation_hint">Frontend Recreation Hint</option>
+                      <option value="multi_state_review">Multi State Review</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Vision Models</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {visionModels.map((model) => {
+                        const active = selectedVisualModelIds.includes(model.id);
+                        const score = visionScores.find((entry) => entry.modelId === model.id) ?? null;
+                        return (
+                          <button
+                            key={model.id}
+                            type="button"
+                            onClick={() => handleToggleVisualModel(model.id)}
+                            style={{
+                              borderRadius: 999,
+                              border: `1.5px solid ${active ? model.color : TOKENS.b2}`,
+                              background: active ? `${model.color}22` : TOKENS.bg2,
+                              color: active ? TOKENS.text : TOKENS.text2,
+                              padding: '7px 11px',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {model.label}{score ? ` (${score.score.toFixed(2)})` : ''}
+                          </button>
+                        );
+                      })}
+                      {visionModels.length === 0 ? (
+                        <div style={{ fontSize: 12, color: TOKENS.text3 }}>Noch keine Vision-Modelle im Katalog sichtbar.</div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Screenshot Sources</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {browserScreenshotArtifacts.map((artifact) => {
+                        const payload = toArtifactPayload(artifact);
+                        const step = typeof payload?.step === 'string' ? payload.step : 'ui-run';
+                        const route = typeof payload?.route === 'string' ? payload.route : artifact.path || '-';
+                        const active = selectedVisualArtifactIds.includes(artifact.id);
+                        return (
+                          <button
+                            key={artifact.id}
+                            type="button"
+                            onClick={() => handleToggleVisualArtifact(artifact.id)}
+                            style={{
+                              textAlign: 'left',
+                              borderRadius: 14,
+                              border: `1.5px solid ${active ? TOKENS.cyan : TOKENS.b2}`,
+                              background: active ? 'rgba(34,211,238,0.1)' : TOKENS.bg2,
+                              color: TOKENS.text,
+                              padding: '10px 12px',
+                              display: 'grid',
+                              gap: 4,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: 12 }}>{step}</strong>
+                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{route}</div>
+                          </button>
+                        );
+                      })}
+                      {browserScreenshotArtifacts.length === 0 ? (
+                        <div style={{ borderRadius: 14, border: `1.5px dashed ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text3, padding: '12px 13px', fontSize: 12.5 }}>
+                          Fuer diese Task gibt es noch keine Browser-Screenshots. Die Browser-Lane muss zuerst ein `browser_screenshot`-Artefakt erzeugen.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Operator Prompt</div>
+                    <textarea
+                      value={visualPrompt}
+                      onChange={(event) => setVisualPrompt(event.target.value)}
+                      placeholder="z.B. Prüfe die visuelle Hierarchie, doppelte Navigation und störende Operator-Reibung."
+                      rows={4}
+                      style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 12, color: TOKENS.text3 }}>
+                      {selectedVisualModelIds.length} Modelle  -  {selectedVisualArtifactIds.length} Screenshots
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { void handleRunVisualReview(); }}
+                      disabled={visualRunLoading || !selectedTaskId || selectedVisualModelIds.length === 0 || selectedVisualArtifactIds.length === 0}
+                      style={{
+                        borderRadius: 999,
+                        border: `2px solid ${TOKENS.cyan}`,
+                        background: 'rgba(34,211,238,0.14)',
+                        color: TOKENS.text,
+                        padding: '9px 14px',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: visualRunLoading ? 'not-allowed' : 'pointer',
+                        opacity: visualRunLoading || !selectedTaskId || selectedVisualModelIds.length === 0 || selectedVisualArtifactIds.length === 0 ? 0.5 : 1,
+                      }}
+                    >
+                      {visualRunLoading ? 'Visual Review laeuft...' : 'Visual Review starten'}
+                    </button>
+                  </div>
+
+                  {displayedVisualRunResult ? (
+                    <div style={{ display: 'grid', gap: 10, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 12 }}>
+                      <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: '12px 13px', display: 'grid', gap: 6 }}>
+                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Maya Synthesis</div>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.65 }}>{displayedVisualRunResult.mayaSynthesis.summary || 'Noch keine Synthese sichtbar.'}</div>
+                        <div style={{ fontSize: 11, color: TOKENS.text3 }}>
+                          Model: {displayedVisualRunResult.mayaSynthesis.model}  -  Report Artifact: {displayedVisualRunResult.reportArtifactId ?? '-'}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {displayedVisualRunResult.modelResults.map((result) => (
+                          <div key={`${result.modelId}-${result.model}`} style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: 12.5, color: TOKENS.text }}>{result.modelId}</strong>
+                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{result.findings.length} Findings</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{result.summary || (result.error ? `Fehler: ${result.error}` : 'Keine Kurzfassung')}</div>
+                            {displayedVisualRunResult.reportArtifactId ? (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {([
+                                  { verdict: 'confirmed', label: 'Bestaetigt' },
+                                  { verdict: 'mixed', label: 'Gemischt' },
+                                  { verdict: 'false_positive', label: 'Falschalarm' },
+                                ] as const).map((option) => {
+                                  const feedbackKey = `${displayedVisualRunResult.reportArtifactId}:${result.modelId}:${option.verdict}`;
+                                  const busy = visualFeedbackSavingKey === feedbackKey;
+                                  return (
+                                    <button
+                                      key={option.verdict}
+                                      type="button"
+                                      onClick={() => {
+                                        void handleSubmitVisualFeedback(displayedVisualRunResult.reportArtifactId!, result.modelId, option.verdict);
+                                      }}
+                                      disabled={visualFeedbackSavingKey !== null}
+                                      style={{
+                                        borderRadius: 999,
+                                        border: `1px solid ${TOKENS.b3}`,
+                                        background: TOKENS.card2,
+                                        color: TOKENS.text2,
+                                        padding: '5px 9px',
+                                        fontSize: 11,
+                                        cursor: visualFeedbackSavingKey !== null ? 'not-allowed' : 'pointer',
+                                        opacity: visualFeedbackSavingKey !== null && !busy ? 0.55 : 1,
+                                      }}
+                                    >
+                                      {busy ? 'Speichert...' : option.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                            {result.findings.length > 0 ? (
+                              <div style={{ display: 'grid', gap: 8 }}>
+                                {result.findings.slice(0, 5).map((finding, index) => (
+                                  <div key={`${result.modelId}-${index}`} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', display: 'grid', gap: 4 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{finding.category}</span>
+                                      <span style={{ fontSize: 11, color: TOKENS.text3 }}>{finding.severity}</span>
+                                    </div>
+                                    <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{finding.title}</div>
+                                    <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{finding.description}</div>
+                                    {finding.suggestedFix ? (
+                                      <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>Fix: {finding.suggestedFix}</div>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+
+                      {visualReviewReportArtifacts.length > 0 ? (
+                        <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                          Persistierte Visual Reports: {visualReviewReportArtifacts.length}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </BuilderPanel>
+            </div>
             ) : null}
 
             {drawerView === 'output' || compact ? (

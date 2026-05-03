@@ -36,9 +36,9 @@ import { signalPushResult } from '../lib/pushResultWaiter.js';
 import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
 import { requireDevToken } from '../lib/requireDevToken.js';
-import { callProvider } from '../lib/providers.js';
+import { callProvider, type ProviderMessagePart } from '../lib/providers.js';
 import { WORKER_PROFILES, pickWorker } from '../lib/workerProfiles.js';
-import { getActivePools, getPoolConfigSnapshot, updatePools, pickFromPool } from '../lib/poolState.js';
+import { getActivePools, getPoolConfigSnapshot, updatePools, pickFromPool, getVisionCapableModels, getPoolModelCatalogEntry, resolveModelById } from '../lib/poolState.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -72,6 +72,385 @@ async function recordBuilderStatusTransition(input: {
     },
     tokenCount: 0,
   });
+}
+
+type VisualReviewTaskType =
+  | 'ui_review'
+  | 'layout_drift'
+  | 'ocr_and_label_check'
+  | 'frontend_recreation_hint'
+  | 'multi_state_review';
+
+type VisualReviewFinding = {
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  title: string;
+  description: string;
+  suggestedFix?: string;
+  confidence?: number;
+  screenshotRef?: string;
+  regionHint?: string;
+};
+
+type VisualReviewModelResult = {
+  modelId: string;
+  provider: string;
+  model: string;
+  summary: string;
+  findings: VisualReviewFinding[];
+  raw?: string;
+  error?: string | null;
+};
+
+type VisualReviewFeedbackVerdict = 'confirmed' | 'mixed' | 'false_positive';
+
+type VisionModelScoreAggregate = {
+  modelId: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
+  taskTypes: string[];
+};
+
+type BrowserScreenshotArtifact = {
+  id: string;
+  artifactType: string;
+  lane: string;
+  path: string | null;
+  createdAt: Date;
+  jsonPayload: Record<string, unknown> | null;
+};
+
+function normalizeVisualReviewTaskType(value: unknown): VisualReviewTaskType {
+  const allowed: VisualReviewTaskType[] = [
+    'ui_review',
+    'layout_drift',
+    'ocr_and_label_check',
+    'frontend_recreation_hint',
+    'multi_state_review',
+  ];
+  return typeof value === 'string' && allowed.includes(value as VisualReviewTaskType)
+    ? value as VisualReviewTaskType
+    : 'ui_review';
+}
+
+function parseJsonObject<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeVisualFindings(value: unknown): VisualReviewFinding[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const findings: VisualReviewFinding[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const record = entry as Record<string, unknown>;
+    const severity = typeof record.severity === 'string' ? record.severity : 'medium';
+    const finding: VisualReviewFinding = {
+      severity: severity === 'critical' || severity === 'high' || severity === 'medium' || severity === 'low'
+        ? severity
+        : 'medium',
+      category: typeof record.category === 'string' ? record.category : 'layout',
+      title: typeof record.title === 'string' ? record.title : 'Untitled visual finding',
+      description: typeof record.description === 'string' ? record.description : '',
+      suggestedFix: typeof record.suggestedFix === 'string' ? record.suggestedFix : undefined,
+      confidence: typeof record.confidence === 'number' ? record.confidence : undefined,
+      screenshotRef: typeof record.screenshotRef === 'string' ? record.screenshotRef : undefined,
+      regionHint: typeof record.regionHint === 'string' ? record.regionHint : undefined,
+    };
+    if (finding.description.length > 0) {
+      findings.push(finding);
+    }
+  }
+  return findings;
+}
+
+function toVisualInputParts(
+  screenshots: BrowserScreenshotArtifact[],
+  taskType: VisualReviewTaskType,
+  prompt?: string,
+): ProviderMessagePart[] {
+  const parts: ProviderMessagePart[] = [
+    {
+      type: 'text',
+      text: [
+        `Visual review task type: ${taskType}.`,
+        prompt?.trim() ? `Operator request: ${prompt.trim()}` : null,
+        'Review the screenshots and return only structured JSON.',
+        'Focus on concrete UI/UX issues, layout drift, navigation friction, broken labels, visual noise, and implementation-relevant findings.',
+      ].filter(Boolean).join('\n'),
+    },
+  ];
+
+  screenshots.forEach((artifact, index) => {
+    const payload = artifact.jsonPayload ?? {};
+    const mimeType = typeof payload.contentType === 'string' ? payload.contentType : 'image/png';
+    const data = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
+    if (!data) {
+      return;
+    }
+    const route = typeof payload.route === 'string' ? payload.route : 'unknown-route';
+    const step = typeof payload.step === 'string' ? payload.step : `screenshot-${index + 1}`;
+    parts.push({
+      type: 'text',
+      text: `Screenshot ${index + 1}: artifactId=${artifact.id}, step=${step}, route=${route}`,
+    });
+    parts.push({
+      type: 'image',
+      mediaType: mimeType,
+      data,
+      detail: 'high',
+    });
+  });
+
+  return parts;
+}
+
+async function runVisualModelReview(input: {
+  modelId: string;
+  taskType: VisualReviewTaskType;
+  screenshots: BrowserScreenshotArtifact[];
+  prompt?: string;
+}): Promise<VisualReviewModelResult> {
+  const catalog = getPoolModelCatalogEntry(input.modelId);
+  if (!catalog || catalog.visionCapable !== true) {
+    return {
+      modelId: input.modelId,
+      provider: catalog?.provider ?? 'unknown',
+      model: catalog?.model ?? input.modelId,
+      summary: 'Model is not available as a vision-capable Builder model.',
+      findings: [],
+      error: 'model_not_vision_capable',
+    };
+  }
+
+  const screenshots = catalog.supportsMultiImage === false ? input.screenshots.slice(0, 1) : input.screenshots;
+  const system = [
+    'You are a strict frontend and UI/UX visual reviewer.',
+    'You analyze screenshots, not implementation code directly.',
+    'Return only valid JSON with this shape:',
+    '{"summary":"string","findings":[{"severity":"critical|high|medium|low","category":"layout|navigation|copy|consistency|accessibility|visual_noise|operator_confusion|implementation_hint","title":"string","description":"string","suggestedFix":"string","confidence":0.0,"screenshotRef":"artifact id","regionHint":"optional"}]}',
+    'Do not wrap the JSON in markdown.',
+    'Do not invent hidden code facts. Stay grounded in the screenshots.',
+  ].join('\n');
+
+  const response = await callProvider(catalog.provider, catalog.model, {
+    system,
+    messages: [{ role: 'user', content: toVisualInputParts(screenshots, input.taskType, input.prompt) }],
+    maxTokens: 4000,
+    temperature: 0.2,
+  });
+
+  const parsed = parseJsonObject<{ summary?: unknown; findings?: unknown }>(response);
+  if (!parsed) {
+    return {
+      modelId: catalog.id,
+      provider: catalog.provider,
+      model: catalog.model,
+      summary: 'Model returned non-JSON visual review output.',
+      findings: [],
+      raw: response,
+      error: 'invalid_json',
+    };
+  }
+
+  return {
+    modelId: catalog.id,
+    provider: catalog.provider,
+    model: catalog.model,
+    summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+    findings: normalizeVisualFindings(parsed.findings),
+    raw: response,
+    error: null,
+  };
+}
+
+async function synthesizeVisualReviewWithMaya(input: {
+  taskType: VisualReviewTaskType;
+  taskTitle: string;
+  modelResults: VisualReviewModelResult[];
+  prompt?: string;
+}): Promise<{ modelId: string; provider: string; model: string; summary: string }> {
+  const fallback = resolveModelById('glm51') ?? { id: 'glm51', provider: 'zhipu', model: 'glm-5.1' };
+  const mayaModel = pickFromPool('maya', true) ?? fallback;
+
+  const system = [
+    'You are Maya, the Builder orchestrator.',
+    'Synthesize the visual review findings into a concise recommendation.',
+    'Prioritize operator clarity, UI correctness, and next implementation steps.',
+    'Answer in plain text, not JSON.',
+  ].join('\n');
+
+  const findingsDigest = input.modelResults.map((result) => ({
+    modelId: result.modelId,
+    summary: result.summary,
+    findings: result.findings,
+    error: result.error,
+  }));
+
+  const summary = await callProvider(mayaModel.provider, mayaModel.model, {
+    system,
+    messages: [{
+      role: 'user',
+      content: [
+        `Task: ${input.taskTitle}`,
+        `Visual review type: ${input.taskType}`,
+        input.prompt?.trim() ? `Operator request: ${input.prompt.trim()}` : null,
+        'Model findings:',
+        JSON.stringify(findingsDigest, null, 2),
+      ].filter(Boolean).join('\n\n'),
+    }],
+    maxTokens: 1800,
+    temperature: 0.3,
+    forceJsonObject: false,
+  });
+
+  return {
+    modelId: mayaModel.id,
+    provider: mayaModel.provider,
+    model: mayaModel.model,
+    summary,
+  };
+}
+
+async function computeVisionScoreAggregates(): Promise<VisionModelScoreAggregate[]> {
+  const db = getDb();
+  const artifacts = await db
+    .select({
+      id: builderArtifacts.id,
+      taskId: builderArtifacts.taskId,
+      artifactType: builderArtifacts.artifactType,
+      jsonPayload: builderArtifacts.jsonPayload,
+      createdAt: builderArtifacts.createdAt,
+    })
+    .from(builderArtifacts)
+    .where(and(
+      eq(builderArtifacts.lane, 'visual'),
+      inArray(builderArtifacts.artifactType, ['visual_review_report', 'visual_review_feedback']),
+    ))
+    .orderBy(desc(builderArtifacts.createdAt));
+
+  const aggregates = new Map<string, {
+    modelId: string;
+    runs: number;
+    findingsEmitted: number;
+    feedbackCount: number;
+    confirmedCount: number;
+    mixedCount: number;
+    falsePositiveCount: number;
+    usefulnessTotal: number;
+    usefulnessCount: number;
+    taskTypes: Set<string>;
+  }>();
+
+  const latestFeedbackByReportModel = new Map<string, { verdict: VisualReviewFeedbackVerdict; usefulness: number | null }>();
+
+  for (const artifact of artifacts) {
+    const payload = artifact.jsonPayload as Record<string, unknown> | null;
+    if (!payload) {
+      continue;
+    }
+
+    if (artifact.artifactType === 'visual_review_feedback') {
+      const reportArtifactId = typeof payload.reportArtifactId === 'string' ? payload.reportArtifactId : null;
+      const modelId = typeof payload.modelId === 'string' ? payload.modelId : null;
+      const verdict = payload.verdict === 'confirmed' || payload.verdict === 'mixed' || payload.verdict === 'false_positive'
+        ? payload.verdict
+        : null;
+      const usefulness = typeof payload.usefulness === 'number' ? payload.usefulness : null;
+      if (reportArtifactId && modelId && verdict) {
+        const key = `${reportArtifactId}:${modelId}`;
+        if (!latestFeedbackByReportModel.has(key)) {
+          latestFeedbackByReportModel.set(key, { verdict, usefulness });
+        }
+      }
+    }
+  }
+
+  for (const artifact of artifacts) {
+    if (artifact.artifactType !== 'visual_review_report') {
+      continue;
+    }
+    const payload = artifact.jsonPayload as Record<string, unknown> | null;
+    if (!payload) {
+      continue;
+    }
+    const taskType = typeof payload.taskType === 'string' ? payload.taskType : 'ui_review';
+    const modelResults = Array.isArray(payload.modelResults) ? payload.modelResults : [];
+    for (const result of modelResults) {
+      if (!result || typeof result !== 'object') {
+        continue;
+      }
+      const record = result as Record<string, unknown>;
+      const modelId = typeof record.modelId === 'string' ? record.modelId : null;
+      const findings = Array.isArray(record.findings) ? record.findings : [];
+      if (!modelId) {
+        continue;
+      }
+      const aggregate = aggregates.get(modelId) ?? {
+        modelId,
+        runs: 0,
+        findingsEmitted: 0,
+        feedbackCount: 0,
+        confirmedCount: 0,
+        mixedCount: 0,
+        falsePositiveCount: 0,
+        usefulnessTotal: 0,
+        usefulnessCount: 0,
+        taskTypes: new Set<string>(),
+      };
+      aggregate.runs += 1;
+      aggregate.findingsEmitted += findings.length;
+      aggregate.taskTypes.add(taskType);
+
+      const feedback = latestFeedbackByReportModel.get(`${artifact.id}:${modelId}`);
+      if (feedback) {
+        aggregate.feedbackCount += 1;
+        if (feedback.verdict === 'confirmed') aggregate.confirmedCount += 1;
+        if (feedback.verdict === 'mixed') aggregate.mixedCount += 1;
+        if (feedback.verdict === 'false_positive') aggregate.falsePositiveCount += 1;
+        if (typeof feedback.usefulness === 'number') {
+          aggregate.usefulnessTotal += feedback.usefulness;
+          aggregate.usefulnessCount += 1;
+        }
+      }
+
+      aggregates.set(modelId, aggregate);
+    }
+  }
+
+  return Array.from(aggregates.values()).map((aggregate) => {
+    const avgUsefulness = aggregate.usefulnessCount > 0 ? aggregate.usefulnessTotal / aggregate.usefulnessCount : null;
+    const precisionProxy = aggregate.feedbackCount > 0
+      ? (aggregate.confirmedCount + aggregate.mixedCount * 0.5) / aggregate.feedbackCount
+      : 0.5;
+    const usefulnessNorm = avgUsefulness !== null ? Math.max(0, Math.min(1, avgUsefulness / 5)) : 0.5;
+    const score = Number((precisionProxy * 0.7 + usefulnessNorm * 0.3).toFixed(3));
+    return {
+      modelId: aggregate.modelId,
+      runs: aggregate.runs,
+      findingsEmitted: aggregate.findingsEmitted,
+      feedbackCount: aggregate.feedbackCount,
+      confirmedCount: aggregate.confirmedCount,
+      mixedCount: aggregate.mixedCount,
+      falsePositiveCount: aggregate.falsePositiveCount,
+      avgUsefulness: avgUsefulness !== null ? Number(avgUsefulness.toFixed(2)) : null,
+      score,
+      taskTypes: Array.from(aggregate.taskTypes.values()),
+    } satisfies VisionModelScoreAggregate;
+  }).sort((a, b) => b.score - a.score || b.runs - a.runs || a.modelId.localeCompare(b.modelId));
 }
 
 function getLocalOpusBridgeUrl(endpoint: string): string {
@@ -537,6 +916,214 @@ router.get('/tasks/:id/artifacts', async (req: Request, res: Response) => {
 });
 
 // GET /api/builder/tasks/:id/audit â€” canary audit summary for a task
+router.post('/visual-perception/run', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { taskId, artifactIds, modelIds, taskType, prompt } = req.body as {
+      taskId?: string;
+      artifactIds?: string[];
+      modelIds?: string[];
+      taskType?: string;
+      prompt?: string;
+    };
+
+    if (!taskId) {
+      res.status(400).json({ error: 'taskId is required' });
+      return;
+    }
+
+    const selectedModelIds = Array.isArray(modelIds)
+      ? [...new Set(modelIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))]
+      : [];
+    if (selectedModelIds.length === 0) {
+      res.status(400).json({ error: 'modelIds is required' });
+      return;
+    }
+
+    const invalidModelIds = selectedModelIds.filter((id) => getPoolModelCatalogEntry(id)?.visionCapable !== true);
+    if (invalidModelIds.length > 0) {
+      res.status(400).json({ error: `Non-vision models selected: ${invalidModelIds.join(', ')}` });
+      return;
+    }
+
+    const [task] = await db
+      .select({ id: builderTasks.id, title: builderTasks.title })
+      .from(builderTasks)
+      .where(eq(builderTasks.id, taskId))
+      .limit(1);
+
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    const requestedArtifactIds = Array.isArray(artifactIds)
+      ? [...new Set(artifactIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))]
+      : [];
+
+    const screenshots = await db
+      .select({
+        id: builderArtifacts.id,
+        artifactType: builderArtifacts.artifactType,
+        lane: builderArtifacts.lane,
+        path: builderArtifacts.path,
+        createdAt: builderArtifacts.createdAt,
+        jsonPayload: builderArtifacts.jsonPayload,
+      })
+      .from(builderArtifacts)
+      .where(and(
+        eq(builderArtifacts.taskId, taskId),
+        eq(builderArtifacts.artifactType, 'browser_screenshot'),
+        requestedArtifactIds.length > 0 ? inArray(builderArtifacts.id, requestedArtifactIds) : sql`true`,
+      ))
+      .orderBy(desc(builderArtifacts.createdAt))
+      .limit(requestedArtifactIds.length > 0 ? Math.max(requestedArtifactIds.length, 1) : 3) as BrowserScreenshotArtifact[];
+
+    if (screenshots.length === 0) {
+      res.status(404).json({ error: 'No browser screenshot artifacts found for task' });
+      return;
+    }
+
+    const normalizedTaskType = normalizeVisualReviewTaskType(taskType);
+    const modelResults = await Promise.all(selectedModelIds.map((id) =>
+      runVisualModelReview({
+        modelId: id,
+        taskType: normalizedTaskType,
+        screenshots,
+        prompt,
+      }),
+    ));
+
+    const mayaSynthesis = await synthesizeVisualReviewWithMaya({
+      taskType: normalizedTaskType,
+      taskTitle: task.title,
+      modelResults,
+      prompt,
+    });
+
+    const [stored] = await db.insert(builderArtifacts).values({
+      taskId,
+      artifactType: 'visual_review_report',
+      lane: 'visual',
+      path: null,
+      jsonPayload: {
+        taskType: normalizedTaskType,
+        prompt: prompt?.trim() || null,
+        modelIds: selectedModelIds,
+        screenshotArtifactIds: screenshots.map((artifact) => artifact.id),
+        modelResults,
+        mayaSynthesis,
+      },
+    }).returning({ id: builderArtifacts.id });
+
+    await db.insert(builderActions).values({
+      taskId,
+      lane: 'visual',
+      kind: 'VISUAL_REVIEW_RUN',
+      actor: 'maya',
+      payload: {
+        taskType: normalizedTaskType,
+        modelIds: selectedModelIds,
+        screenshotArtifactIds: screenshots.map((artifact) => artifact.id),
+      },
+      result: {
+        reportArtifactId: stored?.id ?? null,
+        mayaSummary: mayaSynthesis.summary,
+        findingsPerModel: modelResults.map((entry) => ({ modelId: entry.modelId, count: entry.findings.length, error: entry.error ?? null })),
+      },
+      tokenCount: 0,
+    });
+
+    res.json({
+      success: true,
+      taskId,
+      reportArtifactId: stored?.id ?? null,
+      taskType: normalizedTaskType,
+      screenshotArtifactIds: screenshots.map((artifact) => artifact.id),
+      modelResults,
+      mayaSynthesis,
+    });
+  } catch (err) {
+    console.error('[builder] POST /visual-perception/run error:', err);
+    res.status(500).json({ error: 'Visual perception run failed' });
+  }
+});
+
+router.post('/visual-perception/reports/:artifactId/feedback', async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const { modelId, verdict, usefulness, notes } = req.body as {
+      modelId?: string;
+      verdict?: VisualReviewFeedbackVerdict;
+      usefulness?: number;
+      notes?: string;
+    };
+
+    if (!modelId || (verdict !== 'confirmed' && verdict !== 'mixed' && verdict !== 'false_positive')) {
+      res.status(400).json({ error: 'modelId and valid verdict are required' });
+      return;
+    }
+
+    const [report] = await db
+      .select({
+        id: builderArtifacts.id,
+        taskId: builderArtifacts.taskId,
+        artifactType: builderArtifacts.artifactType,
+        jsonPayload: builderArtifacts.jsonPayload,
+      })
+      .from(builderArtifacts)
+      .where(eq(builderArtifacts.id, req.params.artifactId))
+      .limit(1);
+
+    if (!report || report.artifactType !== 'visual_review_report') {
+      res.status(404).json({ error: 'Visual review report not found' });
+      return;
+    }
+
+    const payload = report.jsonPayload as Record<string, unknown> | null;
+    const modelResults = Array.isArray(payload?.modelResults) ? payload.modelResults : [];
+    const hasModel = modelResults.some((result) => result && typeof result === 'object' && (result as Record<string, unknown>).modelId === modelId);
+    if (!hasModel) {
+      res.status(400).json({ error: 'modelId not part of report' });
+      return;
+    }
+
+    const clampedUsefulness = typeof usefulness === 'number'
+      ? Math.max(1, Math.min(5, Math.round(usefulness)))
+      : verdict === 'confirmed'
+        ? 5
+        : verdict === 'mixed'
+          ? 3
+          : 1;
+
+    const [stored] = await db.insert(builderArtifacts).values({
+      taskId: report.taskId,
+      artifactType: 'visual_review_feedback',
+      lane: 'visual',
+      path: null,
+      jsonPayload: {
+        reportArtifactId: report.id,
+        modelId,
+        verdict,
+        usefulness: clampedUsefulness,
+        notes: typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null,
+      },
+    }).returning({ id: builderArtifacts.id });
+
+    res.json({
+      success: true,
+      feedbackArtifactId: stored?.id ?? null,
+      reportArtifactId: report.id,
+      modelId,
+      verdict,
+      usefulness: clampedUsefulness,
+    });
+  } catch (err) {
+    console.error('[builder] POST /visual-perception/reports/:artifactId/feedback error:', err);
+    res.status(500).json({ error: 'Visual review feedback failed' });
+  }
+});
+
 router.get('/tasks/:id/audit', async (req: Request, res: Response) => {
   try {
     const audit = await buildTaskAudit(req.params.id);
@@ -1569,6 +2156,21 @@ router.post('/maya/brief', async (req: Request, res: Response) => {
 // POST /api/builder/maya/pools â€” receive pool configuration from frontend
 router.get('/maya/pools', (_req: Request, res: Response) => {
   res.json(getPoolConfigSnapshot());
+});
+
+router.get('/maya/vision-models', (_req: Request, res: Response) => {
+  const models = getVisionCapableModels();
+  res.json({ models, count: models.length });
+});
+
+router.get('/maya/vision-scores', async (_req: Request, res: Response) => {
+  try {
+    const scores = await computeVisionScoreAggregates();
+    res.json({ scores, count: scores.length });
+  } catch (err) {
+    console.error('[builder] GET /maya/vision-scores error:', err);
+    res.status(500).json({ error: 'Vision score aggregation failed' });
+  }
 });
 
 router.post('/maya/pools', (req: Request, res: Response) => {

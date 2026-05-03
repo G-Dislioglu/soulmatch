@@ -19,6 +19,11 @@ export interface MayaPoolModel {
   speed: 'slow' | 'medium' | 'fast';
   color: string;
   pools: PoolType[];
+  visionCapable?: boolean;
+  supportsMultiImage?: boolean;
+  supportsWebResearch?: boolean;
+  recommendedVisualRoles?: string[];
+  experimental?: boolean;
 }
 
 export interface MayaPoolConfig {
@@ -43,6 +48,62 @@ export interface MayaContext {
   workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
   poolConfig: MayaPoolConfig;
   timestamp: string;
+}
+
+export type VisualReviewTaskType =
+  | 'ui_review'
+  | 'layout_drift'
+  | 'ocr_and_label_check'
+  | 'frontend_recreation_hint'
+  | 'multi_state_review';
+
+export interface VisualReviewFinding {
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  title: string;
+  description: string;
+  suggestedFix?: string;
+  confidence?: number;
+  screenshotRef?: string;
+  regionHint?: string;
+}
+
+export interface VisualReviewModelResult {
+  modelId: string;
+  provider: string;
+  model: string;
+  summary: string;
+  findings: VisualReviewFinding[];
+  raw?: string;
+  error?: string | null;
+}
+
+export interface VisualReviewRunResponse {
+  success: boolean;
+  taskId: string;
+  reportArtifactId: string | null;
+  taskType: VisualReviewTaskType;
+  screenshotArtifactIds: string[];
+  modelResults: VisualReviewModelResult[];
+  mayaSynthesis: {
+    modelId: string;
+    provider: string;
+    model: string;
+    summary: string;
+  };
+}
+
+export interface VisionModelScoreAggregate {
+  modelId: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
+  taskTypes: string[];
 }
 
 export interface MayaChatResponse {
@@ -91,10 +152,33 @@ export function useMayaApi(token: string | null) {
 
   const getContext = useCallback(() => request<MayaContext>('/maya/context'), [request]);
   const getPoolConfig = useCallback(() => request<MayaPoolConfig>('/maya/pools'), [request]);
+  const getVisionModels = useCallback(() => request<{ models: MayaPoolModel[]; count: number }>('/maya/vision-models'), [request]);
+  const getVisionScores = useCallback(() => request<{ scores: VisionModelScoreAggregate[]; count: number }>('/maya/vision-scores'), [request]);
   const updatePools = useCallback((pools: PoolState) =>
     request<{ success: boolean; pools: PoolState; poolConfig: MayaPoolConfig }>('/maya/pools', {
       method: 'POST',
       body: JSON.stringify({ pools }),
+    }), [request]);
+  const runVisualPerception = useCallback((input: {
+    taskId: string;
+    artifactIds?: string[];
+    modelIds: string[];
+    taskType?: VisualReviewTaskType;
+    prompt?: string;
+  }) =>
+    request<VisualReviewRunResponse>('/visual-perception/run', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const submitVisualFeedback = useCallback((reportArtifactId: string, input: {
+    modelId: string;
+    verdict: 'confirmed' | 'mixed' | 'false_positive';
+    usefulness?: number;
+    notes?: string;
+  }) =>
+    request<{ success: boolean; feedbackArtifactId: string | null; reportArtifactId: string; modelId: string; verdict: string; usefulness: number }>(`/visual-perception/reports/${reportArtifactId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(input),
     }), [request]);
 
   const chat = useCallback((message: string, history: MayaChatMessage[] = []) =>
@@ -155,7 +239,11 @@ export function useMayaApi(token: string | null) {
   return {
     getContext,
     getPoolConfig,
+    getVisionModels,
+    getVisionScores,
     updatePools,
+    runVisualPerception,
+    submitVisualFeedback,
     chat,
     directorChat,
     chatWithFile,

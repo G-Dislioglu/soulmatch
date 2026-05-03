@@ -170,7 +170,7 @@ async function fetchWithRetries(url: string, init: OutboundFetchInit, provider: 
 
 export interface CallProviderParams {
   system: string;
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  messages: ProviderMessage[];
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
@@ -184,6 +184,104 @@ export interface CallProviderParams {
     | { type: 'adaptive' };
 }
 
+export type ProviderMessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mediaType: string; detail?: 'auto' | 'low' | 'high' };
+
+export interface ProviderMessage {
+  role: 'user' | 'assistant';
+  content: string | ProviderMessagePart[];
+}
+
+function normalizeMessageParts(content: ProviderMessage['content']): ProviderMessagePart[] {
+  if (typeof content === 'string') {
+    return [{ type: 'text', text: content }];
+  }
+  return content;
+}
+
+function messageHasImage(content: ProviderMessage['content']): boolean {
+  return normalizeMessageParts(content).some((part) => part.type === 'image');
+}
+
+function providerSupportsVision(provider: string): boolean {
+  return provider === 'anthropic'
+    || provider === 'gemini'
+    || provider === 'openai'
+    || provider === 'openrouter'
+    || provider === 'zhipu';
+}
+
+function assertProviderVisionSupport(provider: string, model: string, messages: ProviderMessage[]) {
+  const needsVision = messages.some((message) => messageHasImage(message.content));
+  if (needsVision && !providerSupportsVision(provider)) {
+    throw new Error(`${provider}/${model} does not support image inputs in the current provider transport`);
+  }
+}
+
+function buildAnthropicContent(content: ProviderMessage['content']) {
+  return normalizeMessageParts(content).map((part) => {
+    if (part.type === 'text') {
+      return { type: 'text', text: part.text };
+    }
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: part.mediaType,
+        data: part.data,
+      },
+    };
+  });
+}
+
+function buildGeminiParts(content: ProviderMessage['content']) {
+  return normalizeMessageParts(content).map((part) => {
+    if (part.type === 'text') {
+      return { text: part.text };
+    }
+    return {
+      inlineData: {
+        mimeType: part.mediaType,
+        data: part.data,
+      },
+    };
+  });
+}
+
+function buildOpenAiResponsesContent(content: ProviderMessage['content']) {
+  return normalizeMessageParts(content).map((part) => {
+    if (part.type === 'text') {
+      return { type: 'input_text', text: part.text };
+    }
+    return {
+      type: 'input_image',
+      image_url: `data:${part.mediaType};base64,${part.data}`,
+      detail: part.detail ?? 'auto',
+    };
+  });
+}
+
+function buildOpenAiCompatibleContent(content: ProviderMessage['content']): string | Array<Record<string, unknown>> {
+  const parts = normalizeMessageParts(content);
+  if (parts.every((part) => part.type === 'text')) {
+    return parts.map((part) => part.type === 'text' ? part.text : '').join('\n');
+  }
+
+  return parts.map((part) => {
+    if (part.type === 'text') {
+      return { type: 'text', text: part.text };
+    }
+    return {
+      type: 'image_url',
+      image_url: {
+        url: `data:${part.mediaType};base64,${part.data}`,
+        detail: part.detail ?? 'auto',
+      },
+    };
+  });
+}
+
 /**
  * Calls any supported provider via the chat/completions endpoint.
  * Returns the raw text content of the first choice.
@@ -195,6 +293,7 @@ export async function callProvider(
   params: CallProviderParams,
   clientApiKey?: string,
 ): Promise<string> {
+  assertProviderVisionSupport(provider, model, params.messages);
   const openAiReasoning = normalizeOpenAiReasoning(model, params.reasoning);
   const openRouterReasoning = normalizeOpenRouterReasoning(model, params.reasoning);
 
@@ -206,7 +305,7 @@ export async function callProvider(
 
     const contents = params.messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
+      parts: buildGeminiParts(m.content),
     }));
 
     const resp = await fetchWithRetries(url, {
@@ -255,7 +354,10 @@ export async function callProvider(
     const body: Record<string, unknown> = {
       model,
       system: params.system || undefined,
-      messages: params.messages,
+      messages: params.messages.map((message) => ({
+        role: message.role,
+        content: buildAnthropicContent(message.content),
+      })),
       max_tokens: params.maxTokens ?? 2000,
     };
 
@@ -322,8 +424,11 @@ export async function callProvider(
             // Responses API format (GPT-5 reasoning models)
             model,
             input: [
-              { role: 'system', content: params.system },
-              ...params.messages,
+              { role: 'system', content: [{ type: 'input_text', text: params.system }] },
+              ...params.messages.map((message) => ({
+                role: message.role,
+                content: buildOpenAiResponsesContent(message.content),
+              })),
             ],
             ...(openAiReasoning ? { reasoning: openAiReasoning } : {}),
             max_output_tokens: params.maxTokens ?? 2000,
@@ -333,7 +438,10 @@ export async function callProvider(
             model,
             messages: [
               { role: 'system', content: params.system },
-              ...params.messages,
+              ...params.messages.map((message) => ({
+                role: message.role,
+                content: buildOpenAiCompatibleContent(message.content),
+              })),
             ],
             ...(params.forceJsonObject === false ? {} : { response_format: { type: 'json_object' } }),
             temperature: params.temperature ?? 0.85,
