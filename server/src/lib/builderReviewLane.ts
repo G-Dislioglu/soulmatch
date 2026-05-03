@@ -151,6 +151,7 @@ function parseReviewBodyBlock(body: string) {
     scopeOk: parseBoolean(extractField(body, 'scope_ok')) ?? true,
     blocking: parseBoolean(extractField(body, 'blocking')) ?? false,
     notes: extractNotes(body),
+    reuseScalar: parseBoolean(extractField(body, 'reuse_check')),
     reuseBody: extractObjectBody(body, 'reuse_check') ?? '',
     uxBody: extractObjectBody(body, 'ux_heuristic') ?? '',
     falseSuccessBody: extractObjectBody(body, 'false_success_check') ?? '',
@@ -167,7 +168,7 @@ export function parseReviewBody(body: string): ParsedReview {
     blocking: parsed.blocking,
     notes: parsed.notes,
     reuseCheck: {
-      searchedCodebase: parseBoolean(extractField(parsed.reuseBody, 'searched_codebase')) ?? false,
+      searchedCodebase: parseBoolean(extractField(parsed.reuseBody, 'searched_codebase')) ?? parsed.reuseScalar ?? false,
       existingPatternFound: parseBoolean(extractField(parsed.reuseBody, 'existing_pattern_found')),
       patternReused: parseEnum(extractField(parsed.reuseBody, 'pattern_reused'), ['true', 'false', 'adapted'] as const),
       justificationIfNew: extractField(parsed.reuseBody, 'justification_if_new')?.replace(/^"|"$/g, ''),
@@ -291,6 +292,7 @@ export async function runObserver(
       'Du bist nur Tie-Breaker bei Dissens.',
       'Antworte NUR in BDL.',
       'Gib genau einen @REVIEW Block mit verdict, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check.',
+      'reuse_check muss ein Objekt sein: reuse_check: { searched_codebase: true|false, existing_pattern_found: true|false, pattern_reused: true|false|adapted, justification_if_new: "..." }.',
       'Danach genau eine Entscheidung: @APPROVE, @REQUEST_CHANGE oder @BLOCK.',
     ].join('\n'),
     messages: [

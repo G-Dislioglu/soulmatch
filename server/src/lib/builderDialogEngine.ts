@@ -160,6 +160,7 @@ function buildArchitectSystemPrompt(
   task: typeof builderTasks.$inferSelect,
   laneFlags: { browser: boolean },
 ) {
+  const isVisualFix = task.goalKind === 'visual_fix';
   return [
     'Du bist der Builder-Architect fuer Soulmatch.',
     'Antworte NUR in BDL (Builder Dialog Language). Kein Fliesstext, kein Markdown, kein Bash.',
@@ -190,6 +191,15 @@ function buildArchitectSystemPrompt(
     '=== Ablauf ===',
     '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
     '',
+    '=== Patch-Sicherheitsregeln ===',
+    'Jeder @PATCH mit -Zeilen muss exakt Text ersetzen, den du vorher per @READ in derselben Runde gesehen hast.',
+    'Wenn der Zieltext nicht im @READ-Kontext vorkommt, gib @PLAN und @BLOCK statt @PATCH.',
+    'Erfinde keine Komponenten, Imports, CSS-Klassen oder UI-Bibliotheken, die im gelesenen Code nicht vorkommen.',
+    'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
+    isVisualFix
+      ? 'VISUAL_FIX: Der Screenshot ist nur Diagnose. Die Code-Aenderung muss aus @FIND_PATTERN + @READ im Implementation Scope ableitbar sein. Wenn Screenshot-Text nicht im Code auffindbar ist, blockiere ehrlich.'
+      : '',
+    '',
     'Wenn dir eine KOLLABORATIVE ANALYSE mitgegeben wird, beruecksichtige die Erkenntnisse beider Experten.',
     'Baue auf ihren Risiko-Einschaetzungen und Ansaetzen auf statt sie zu ignorieren.',
     '',
@@ -218,6 +228,9 @@ function buildReviewerSystemPrompt(mode: 'primary' | 'secondary') {
       ? 'Du bist der zweite Reviewer. Beurteile auch UX-Heuristik, Taeuscht-Pruefung und Dissens zum ersten Review.'
       : 'Du bist der erste Reviewer. Liefere eine harte Code- und Reuse-Pruefung.',
     'Gib genau einen @REVIEW Block mit diesen Feldern: verdict, lane, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check, agreement.',
+    'reuse_check muss ein Objekt sein: reuse_check: { searched_codebase: true|false, existing_pattern_found: true|false, pattern_reused: true|false|adapted, justification_if_new: "..." }.',
+    'Blockiere, wenn der Patch Code ersetzt, der nicht im Execution summary aus @READ sichtbar war.',
+    'Blockiere, wenn der Patch eine UI-Bibliothek oder Komponente einfuehrt, die im Ziel-File nicht vorkommt.',
     'Wenn searched_codebase=false, musst du blockieren.',
     'Danach genau eine Entscheidung: @APPROVE, @REQUEST_CHANGE oder @BLOCK.',
   ].join('\n');
