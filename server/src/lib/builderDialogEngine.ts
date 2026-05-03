@@ -9,7 +9,7 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
-import { triggerGithubAction, convertBdlPatchesToPayload } from './builderGithubBridge.js';
+import { triggerGithubAction, convertBdlPatchesToPayload, validatePatchPayloads } from './builderGithubBridge.js';
 import { webSearch } from './builderSearch.js';
 import { runBrowserLane } from './builderBrowserLane.js';
 import { executePrototype } from './builderPrototypeLane.js';
@@ -229,6 +229,9 @@ function buildArchitectSystemPrompt(
       : 'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
     isVisualFix
       ? 'VISUAL_FIX PATCH REGEL: Wenn du einen bestehenden JSX-Block verbesserst, ersetze ihn. Dupliziere keine Buttons, Panels oder Labels. In @PATCH muessen entfernte alte Zeilen mit - und neue Zeilen mit + markiert sein.'
+      : '',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: oldText muss exakt im aktuellen Source-Kontext vorkommen. Wenn ein Reviewer oder Tool oldText_not_found meldet, lies/verwende einen kleineren stabilen Textanker und versuche es erneut.'
       : '',
     !isVisualFix && !codeEvidenceReady
       ? 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.'
@@ -675,13 +678,23 @@ async function executeArchitectCommands(
             raw: '',
           })),
         );
-        deferredGithubPatches.push(...patchPayloads);
+        const validation = validatePatchPayloads(worktreePath, patchPayloads);
         pendingPatches.length = 0;
-        result = {
-          mode: 'github_actions_deferred',
-          queued: patchPayloads.length,
-          note: 'Patches buffered. GitHub Actions will be triggered only after reviewer approval.',
-        };
+        if (!validation.ok) {
+          result = {
+            error: 'patch_validation_failed',
+            reason: validation.error,
+            file: validation.patch.file,
+            note: 'Patch was not sent to GitHub. The worker should retry with an exact smaller oldText anchor.',
+          };
+        } else {
+          deferredGithubPatches.push(...patchPayloads);
+          result = {
+            mode: 'github_actions_deferred',
+            queued: patchPayloads.length,
+            note: 'Patches buffered. GitHub Actions will be triggered only after reviewer approval.',
+          };
+        }
       } else {
         const patchResults = [];
         for (const patch of pendingPatches) {
@@ -1229,6 +1242,26 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         if (effectiveVerdict === 'ok') {
+          const attemptedPatch = architectCommands.some((command) => command.kind === 'PATCH');
+          if (
+            isVisualFix
+            && attemptedPatch
+            && process.env.GITHUB_PAT
+            && architectExecution.deferredGithubPatches.length === 0
+          ) {
+            if (roundNumber < maxRounds) {
+              latestContext = [
+                latestContext,
+                'VISUAL_FIX_RETRY: Patch validation failed before GitHub dispatch. Retry with an exact oldText anchor from source context. Prefer a smaller replace block.',
+              ].join('\n\n');
+              continue;
+            }
+
+            finalStatus = 'review_needed';
+            abortReason = 'patch_validation_failed';
+            break;
+          }
+
           if (needsBrowserLane(currentTask, laneFlags)) {
             const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
 
