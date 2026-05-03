@@ -159,6 +159,7 @@ function needsBrowserLane(task: typeof builderTasks.$inferSelect, laneFlags: { b
 function buildArchitectSystemPrompt(
   task: typeof builderTasks.$inferSelect,
   laneFlags: { browser: boolean },
+  codeEvidenceReady: boolean,
 ) {
   const isVisualFix = task.goalKind === 'visual_fix';
   return [
@@ -196,6 +197,9 @@ function buildArchitectSystemPrompt(
     'Wenn der Zieltext nicht im @READ-Kontext vorkommt, gib @PLAN und @BLOCK statt @PATCH.',
     'Erfinde keine Komponenten, Imports, CSS-Klassen oder UI-Bibliotheken, die im gelesenen Code nicht vorkommen.',
     'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
+    codeEvidenceReady
+      ? 'CODE-EVIDENCE ist vorhanden: Du darfst jetzt einen kleinen @PATCH liefern, aber nur gegen exakt gelesenen Code aus den bisherigen Beobachtungen.'
+      : 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.',
     isVisualFix
       ? 'VISUAL_FIX: Der Screenshot ist nur Diagnose. Die Code-Aenderung muss aus @FIND_PATTERN + @READ im Implementation Scope ableitbar sein. Wenn Screenshot-Text nicht im Code auffindbar ist, blockiere ehrlich.'
       : '',
@@ -367,6 +371,7 @@ async function executeArchitectCommands(
   task: typeof builderTasks.$inferSelect,
   worktreePath: string,
   commands: BdlCommand[],
+  options: { allowPatches: boolean } = { allowPatches: true },
 ) {
   const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
@@ -530,7 +535,12 @@ async function executeArchitectCommands(
       const filePath = command.params.file;
       let result: Record<string, unknown>;
 
-      if (!filePath) {
+      if (!options.allowPatches) {
+        result = {
+          error: 'patch_requires_prior_read_round',
+          note: 'Patch ignored. The architect must first read code in one round, then patch in a later round.',
+        };
+      } else if (!filePath) {
         result = { error: 'missing_file_param' };
       } else {
         pendingPatches.push({ file: filePath, body: command.body ?? '' });
@@ -543,6 +553,17 @@ async function executeArchitectCommands(
     }
 
     if (kind === 'APPLY') {
+      if (!options.allowPatches) {
+        const result = {
+          error: 'apply_requires_prior_read_round',
+          note: 'Apply ignored. GitHub Actions can only be triggered after a reviewed patch round.',
+        };
+        pendingPatches.length = 0;
+        results.push(result);
+        outputs.push(summarizeCommandResult(command, result));
+        continue;
+      }
+
       const hasGithubPat = !!process.env.GITHUB_PAT;
       let result: Record<string, unknown>;
 
@@ -727,6 +748,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
   let latestContext = '';
+  let codeEvidenceReady = false;
   const needsPrototype = needsVisualPrototype(currentTask, laneFlags);
   const shouldRunPrototypeLane = needsPrototype && currentTask.status !== 'planning' && currentTask.status !== 'prototype_review';
 
@@ -824,7 +846,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         await updateTaskStatus('planning', 'code', 'architect_round_started');
 
         const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildArchitectSystemPrompt(currentTask, laneFlags),
+          system: buildArchitectSystemPrompt(currentTask, laneFlags, codeEvidenceReady),
           messages: [
             {
               role: 'user',
@@ -843,7 +865,12 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         totalTokens += architectTokens;
 
         const architectCommands = parseBdl(architectResponse);
-        const architectExecution = await executeArchitectCommands(currentTask, worktree.worktreePath, architectCommands);
+        const architectExecution = await executeArchitectCommands(
+          currentTask,
+          worktree.worktreePath,
+          architectCommands,
+          { allowPatches: codeEvidenceReady },
+        );
 
         const architectRound: DialogRound = {
           roundNumber,
@@ -873,6 +900,21 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           finalStatus = 'blocked';
           abortReason = 'token_budget_exceeded';
           break;
+        }
+
+        if (!codeEvidenceReady) {
+          const gatheredCodeEvidence = architectCommands.some((command) =>
+            command.kind === 'READ' || command.kind === 'FIND_PATTERN' || command.kind === 'SEARCH');
+          if (gatheredCodeEvidence) {
+            codeEvidenceReady = true;
+            latestContext = [
+              latestContext,
+              'CODE-EVIDENCE from previous round:',
+              architectExecution.contextText,
+              'Next round: produce a small patch only if the exact target text appears in the READ output above. Otherwise block honestly.',
+            ].filter(Boolean).join('\n\n');
+            continue;
+          }
         }
 
         await updateTaskStatus('reviewing', 'review', 'review_round_started');
