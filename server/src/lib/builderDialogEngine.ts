@@ -32,6 +32,7 @@ import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js
 import { evaluateCanaryGate } from './builderCanary.js';
 import { setActiveBuilderTask, syncBuilderMemoryForTask } from './builderMemory.js';
 import { buildBuilderTaskContract } from './builderTaskContract.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 
 type ComplexityTier = 1 | 2 | 3;
 
@@ -60,7 +61,11 @@ async function runCollaborativeAnalysis(
   task: typeof builderTasks.$inferSelect,
   worktreePath: string,
 ): Promise<{ claudeAnalysis: string; chatgptAnalysis: string; combined: string }> {
+  const scoutBrief = buildTeamAwarenessBrief(task, 'scout');
+  const reviewerBrief = buildTeamAwarenessBrief(task, 'reviewer');
   const analysisPrompt = [
+    scoutBrief,
+    '',
     'Analysiere diesen Task OHNE ihn umzusetzen.',
     `Title: ${task.title}`,
     `Goal: ${task.goal}`,
@@ -81,13 +86,19 @@ async function runCollaborativeAnalysis(
 
   const [claudeResult, chatgptResult] = await Promise.all([
     callProvider('anthropic', 'claude-sonnet-4-20250514', {
-      system: 'Du bist ein Senior Backend-Architect. Analysiere den Task aus Architektur-Perspektive.',
+      system: [
+        'Du bist ein Senior Backend-Architect. Analysiere den Task aus Architektur-Perspektive.',
+        scoutBrief,
+      ].join('\n\n'),
       messages: [{ role: 'user', content: analysisPrompt }],
       maxTokens: 800,
       temperature: 0.5,
     }).catch(() => 'Claude-Analyse nicht verfuegbar.'),
     callProvider('openai', 'gpt-4.1-mini', {
-      system: 'Du bist ein Senior Code-Reviewer. Analysiere den Task aus Qualitaets- und Sicherheits-Perspektive.',
+      system: [
+        'Du bist ein Senior Code-Reviewer. Analysiere den Task aus Qualitaets- und Sicherheits-Perspektive.',
+        reviewerBrief,
+      ].join('\n\n'),
       messages: [{ role: 'user', content: analysisPrompt }],
       maxTokens: 800,
       temperature: 0.5,
@@ -166,8 +177,11 @@ function buildArchitectSystemPrompt(
   codeEvidenceReady: boolean,
 ) {
   const isVisualFix = task.goalKind === 'visual_fix';
+  const teamBrief = buildTeamAwarenessBrief(task, 'architect');
   return [
     'Du bist der Builder-Architect fuer Soulmatch.',
+    teamBrief,
+    '',
     'Antworte NUR in BDL (Builder Dialog Language). Kein Fliesstext, kein Markdown, kein Bash.',
     '',
     '=== BDL Syntax-Referenz ===',
@@ -231,8 +245,11 @@ function buildArchitectSystemPrompt(
 
 function buildReviewerSystemPrompt(mode: 'primary' | 'secondary', task: typeof builderTasks.$inferSelect) {
   const isVisualFix = task.goalKind === 'visual_fix';
+  const teamBrief = buildTeamAwarenessBrief(task, 'reviewer');
   return [
     'Du bist der Builder-Reviewer fuer Soulmatch.',
+    teamBrief,
+    '',
     'Antworte NUR in BDL.',
     'Pruefe den Vorschlag des Architects. Achte auf:',
     '1. Scope-Einhaltung',

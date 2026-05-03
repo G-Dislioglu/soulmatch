@@ -1,6 +1,7 @@
 import { getDb } from '../db.js';
 import { builderReviews, builderTasks } from '../schema/builder.js';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 import { callProvider } from './providers.js';
 
 export type ReviewVerdict = 'ok' | 'issue' | 'block';
@@ -290,6 +291,8 @@ export async function runObserver(
   const rawResponse = await callProvider('deepseek', 'deepseek-v4-flash', {
     system: [
       'Du bist der Builder-Observer fuer Soulmatch.',
+      buildTeamAwarenessBrief(task, 'observer'),
+      '',
       'Du bist nur Tie-Breaker bei Dissens.',
       'Antworte NUR in BDL.',
       'Gib genau einen @REVIEW Block mit verdict, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check.',
