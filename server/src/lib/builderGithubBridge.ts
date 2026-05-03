@@ -118,6 +118,7 @@ export function convertBdlPatchesToPayload(
 export function validatePatchPayloads(
   repoRoot: string,
   patches: PatchPayload[],
+  options: { disallowAppendToExisting?: boolean } = {},
 ): { ok: true } | { ok: false; error: string; patch: PatchPayload } {
   const root = path.resolve(repoRoot);
 
@@ -125,6 +126,14 @@ export function validatePatchPayloads(
     const target = path.resolve(root, patch.file);
     if (!target.startsWith(root + path.sep)) {
       return { ok: false, error: `patch_path_outside_repo:${patch.file}`, patch };
+    }
+
+    if (
+      options.disallowAppendToExisting
+      && (patch.action === 'append' || patch.action === 'write')
+      && fs.existsSync(target)
+    ) {
+      return { ok: false, error: `append_to_existing_disallowed:${patch.file}`, patch };
     }
 
     if (patch.action !== 'replace') {

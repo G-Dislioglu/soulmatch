@@ -60,7 +60,8 @@ export function buildTeamAwarenessBrief(
 
   return [
     '=== BUILDER TEAM AWARENESS ===',
-    'You are part of a coordinated AI team, not a form checker.',
+    'Charter: Anti-Bureaucracy & Team Autonomy v0.1. You are part of a coordinated AI team, not a form checker.',
+    'Mission-first work: understand, gather context, plan, implement, prove. Do not let process replace thinking.',
     `self_role: ${role}`,
     `self_purpose: ${profile.purpose}`,
     `self_strengths: ${profile.strengths}`,
@@ -81,6 +82,7 @@ export function buildTeamAwarenessBrief(
     '- Ask Maya or mark a clarification need for medium uncertainty: user-intent conflict, scope expansion, unclear design direction, multiple plausible architecture paths.',
     '- Block only for hard risk: secrets/auth, destructive DB migration, cross-repo write, provider/council cost outside the approved task, copied external assets, deploy/push without approval, or a clearly wrong mission.',
     '- If no live ask channel exists, write the assumption or clarification need in @PLAN and continue unless it is a hard-risk boundary.',
+    '- Do not introduce stronger restrictions or new blocking rules silently. If a new guard is necessary, justify it as a real safety boundary.',
     '',
     'user_profile:',
     '- Prefers critical checking, larger coherent work blocks, practical implementation, anti-drift, and clear outcomes.',

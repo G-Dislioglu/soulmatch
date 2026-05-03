@@ -233,6 +233,9 @@ function buildArchitectSystemPrompt(
     isVisualFix
       ? 'VISUAL_FIX PATCH REGEL: oldText muss exakt im aktuellen Source-Kontext vorkommen. Wenn ein Reviewer oder Tool oldText_not_found meldet, lies/verwende einen kleineren stabilen Textanker und versuche es erneut.'
       : '',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: Keine append/write-Aenderung an bestehenden TSX-Dateien. Nutze replace mit stabilem altem Textanker, sonst riskierst du kaputtes JSX.'
+      : '',
     !isVisualFix && !codeEvidenceReady
       ? 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.'
       : '',
@@ -478,6 +481,7 @@ async function executeArchitectCommands(
   const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
   const forbiddenFiles = policy?.forbidden_files ?? [];
+  const isVisualFix = task.goalKind === 'visual_fix';
   const outputs: string[] = [];
   const results: Array<Record<string, unknown>> = [];
   const pendingPatches: Array<{ file: string; body: string }> = [];
@@ -678,7 +682,9 @@ async function executeArchitectCommands(
             raw: '',
           })),
         );
-        const validation = validatePatchPayloads(worktreePath, patchPayloads);
+        const validation = validatePatchPayloads(worktreePath, patchPayloads, {
+          disallowAppendToExisting: isVisualFix,
+        });
         pendingPatches.length = 0;
         if (!validation.ok) {
           result = {
