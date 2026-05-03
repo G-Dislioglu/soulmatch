@@ -158,7 +158,8 @@ function parseReviewBodyBlock(body: string) {
   };
 }
 
-export function parseReviewBody(body: string): ParsedReview {
+export function parseReviewBody(body: string, options: { requireReuseSearch?: boolean } = {}): ParsedReview {
+  const requireReuseSearch = options.requireReuseSearch ?? true;
   const parsed = parseReviewBodyBlock(body);
 
   const review: ParsedReview = {
@@ -188,7 +189,7 @@ export function parseReviewBody(body: string): ParsedReview {
     },
   };
 
-  if (review.reuseCheck.searchedCodebase === false) {
+  if (requireReuseSearch && review.reuseCheck.searchedCodebase === false) {
     review.verdict = 'block';
     review.blocking = true;
     review.reuseCheck.forcedBlock = true;
@@ -314,7 +315,9 @@ export async function runObserver(
 
   const commands = parseBdl(rawResponse);
   const reviewCommand = commands.find((command) => command.kind === 'REVIEW');
-  const review = parseReviewBody(reviewCommand?.body ?? rawResponse);
+  const review = parseReviewBody(reviewCommand?.body ?? rawResponse, {
+    requireReuseSearch: task.goalKind !== 'visual_fix',
+  });
 
   return {
     rawResponse,

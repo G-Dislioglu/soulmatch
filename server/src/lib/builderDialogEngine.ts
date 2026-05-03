@@ -197,15 +197,20 @@ function buildArchitectSystemPrompt(
     '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
     '',
     '=== Patch-Sicherheitsregeln ===',
-    'Jeder @PATCH mit -Zeilen muss exakt Text ersetzen, den du vorher per @READ in derselben Runde gesehen hast.',
-    'Wenn der Zieltext nicht im @READ-Kontext vorkommt, gib @PLAN und @BLOCK statt @PATCH.',
-    'Erfinde keine Komponenten, Imports, CSS-Klassen oder UI-Bibliotheken, die im gelesenen Code nicht vorkommen.',
-    'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
-    codeEvidenceReady
-      ? 'CODE-EVIDENCE ist vorhanden: Du darfst jetzt einen kleinen @PATCH liefern, aber nur gegen exakt gelesenen Code aus den bisherigen Beobachtungen.'
-      : 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.',
     isVisualFix
-      ? 'VISUAL_FIX: Der Screenshot ist nur Diagnose. Die Code-Aenderung muss aus @FIND_PATTERN + @READ im Implementation Scope ableitbar sein. Wenn Screenshot-Text nicht im Code auffindbar ist, blockiere ehrlich.'
+      ? 'VISUAL_FIX-AUTONOMY: Nutze BDL nur als Transportformat. Denke wie ein erfahrener Frontend-Engineer: Kontext aufnehmen, kleinstmoeglichen sinnvollen Fix planen, dann umsetzen. Blockiere nicht wegen Formular- oder Reuse-Buerokratie.'
+      : 'Jeder @PATCH mit -Zeilen muss exakt Text ersetzen, den du vorher per @READ in derselben Runde gesehen hast.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Du darfst kleine Inline-Labels, aria-label/title, Hilfstexte und konsistente Inline-Styles einfuehren, wenn sie zur bestehenden Datei passen. Keine externen UI-Libraries einfuehren, ausser sie sind schon im File vorhanden.'
+      : 'Wenn der Zieltext nicht im @READ-Kontext vorkommt, gib @PLAN und @BLOCK statt @PATCH.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Wenn der relevante Source-Kontext in den bisherigen Beobachtungen steht, darfst du direkt patchen. Wenn dir Kontext fehlt, lies gezielt nach.'
+      : 'Erfinde keine Komponenten, Imports, CSS-Klassen oder UI-Bibliotheken, die im gelesenen Code nicht vorkommen.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Ein guter, kleiner Fix ist besser als ein perfektes Schema. GitHub Typecheck/Build bleibt die harte Sicherheitsgrenze.'
+      : 'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
+    !isVisualFix && !codeEvidenceReady
+      ? 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.'
       : '',
     '',
     'Wenn dir eine KOLLABORATIVE ANALYSE mitgegeben wird, beruecksichtige die Erkenntnisse beider Experten.',
@@ -224,7 +229,8 @@ function buildArchitectSystemPrompt(
   ].join('\n');
 }
 
-function buildReviewerSystemPrompt(mode: 'primary' | 'secondary') {
+function buildReviewerSystemPrompt(mode: 'primary' | 'secondary', task: typeof builderTasks.$inferSelect) {
+  const isVisualFix = task.goalKind === 'visual_fix';
   return [
     'Du bist der Builder-Reviewer fuer Soulmatch.',
     'Antworte NUR in BDL.',
@@ -235,11 +241,18 @@ function buildReviewerSystemPrompt(mode: 'primary' | 'secondary') {
     mode === 'secondary'
       ? 'Du bist der zweite Reviewer. Beurteile auch UX-Heuristik, Taeuscht-Pruefung und Dissens zum ersten Review.'
       : 'Du bist der erste Reviewer. Liefere eine harte Code- und Reuse-Pruefung.',
+    isVisualFix
+      ? 'VISUAL_FIX Review: Nicht wegen fehlendem Schema blockieren. Blockiere nur bei echtem Scope-Bruch, fehlender Abhaengigkeit, offensichtlich kaputtem Code, Security-Risiko oder klar falscher Ziel-Datei. Sonst APPROVE oder REQUEST_CHANGE.'
+      : '',
     'Gib genau einen @REVIEW Block mit diesen Feldern: verdict, lane, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check, agreement.',
     'reuse_check muss ein Objekt sein: reuse_check: { searched_codebase: true|false, existing_pattern_found: true|false, pattern_reused: true|false|adapted, justification_if_new: "..." }.',
-    'Blockiere, wenn der Patch Code ersetzt, der nicht im Execution summary aus @READ sichtbar war.',
-    'Blockiere, wenn der Patch eine UI-Bibliothek oder Komponente einfuehrt, die im Ziel-File nicht vorkommt.',
-    'Wenn searched_codebase=false, musst du blockieren.',
+    isVisualFix
+      ? 'Bei visual_fix ist searched_codebase=false ein Hinweis, aber kein automatischer Blocker, wenn der Patch plausibel im Scope bleibt.'
+      : 'Blockiere, wenn der Patch Code ersetzt, der nicht im Execution summary aus @READ sichtbar war.',
+    isVisualFix
+      ? 'Neue kleine Inline-Hilfen sind erlaubt. Neue externe UI-Bibliotheken oder nicht vorhandene Importpfade sind echte Blocker.'
+      : 'Blockiere, wenn der Patch eine UI-Bibliothek oder Komponente einfuehrt, die im Ziel-File nicht vorkommt.',
+    isVisualFix ? '' : 'Wenn searched_codebase=false, musst du blockieren.',
     'Danach genau eine Entscheidung: @APPROVE, @REQUEST_CHANGE oder @BLOCK.',
   ].join('\n');
 }
@@ -258,6 +271,40 @@ function decideVerdict(verdicts: ReviewVerdict[]) {
 
 function summarizeCommandResult(command: BdlCommand, result: Record<string, unknown>) {
   return JSON.stringify({ kind: command.kind, params: command.params, result });
+}
+
+async function buildVisualFixSourceContext(
+  task: typeof builderTasks.$inferSelect,
+  worktreePath: string,
+  forbiddenFiles: string[],
+) {
+  if (task.goalKind !== 'visual_fix' || task.scope.length === 0) {
+    return '';
+  }
+
+  const maxCharsPerFile = 70000;
+  const chunks: string[] = [];
+  for (const file of task.scope.slice(0, 6)) {
+    try {
+      const readResult = await readFile(worktreePath, file, task.scope, forbiddenFiles);
+      const content = readResult.content.length > maxCharsPerFile
+        ? `${readResult.content.slice(0, maxCharsPerFile)}\n\n/* truncated: ${readResult.content.length - maxCharsPerFile} chars omitted */`
+        : readResult.content;
+      chunks.push([
+        `--- SOURCE ${file} (${readResult.lines} lines) ---`,
+        content,
+      ].join('\n'));
+    } catch (error) {
+      chunks.push(`--- SOURCE ${file} unavailable: ${error instanceof Error ? error.message : String(error)} ---`);
+    }
+  }
+
+  return [
+    'VISUAL_FIX_SOURCE_CONTEXT:',
+    'Maya gibt dem Worker diesen Source-Kontext direkt, damit er autonom planen und handeln kann.',
+    'Nutze ihn wie gelesenen Code. Wenn du patchst, ersetze vorhandene Textanker aus diesem Kontext oder lies gezielt nach.',
+    chunks.join('\n\n'),
+  ].join('\n\n');
 }
 
 function parseStageFiles(value: string) {
@@ -743,8 +790,11 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
   const policyName = currentTask.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
-  const maxRounds = policy?.max_rounds ?? 3;
-  const tokenBudget = currentTask.tokenBudget ?? (currentTask.risk === 'high' ? 10000 : currentTask.risk === 'medium' ? 5000 : 2000);
+  const forbiddenFiles = policy?.forbidden_files ?? [];
+  const isVisualFix = currentTask.goalKind === 'visual_fix';
+  const maxRounds = isVisualFix ? Math.max(policy?.max_rounds ?? 3, 6) : policy?.max_rounds ?? 3;
+  const baseTokenBudget = currentTask.tokenBudget ?? (currentTask.risk === 'high' ? 10000 : currentTask.risk === 'medium' ? 5000 : 2000);
+  const tokenBudget = isVisualFix ? Math.max(baseTokenBudget, 50000) : baseTokenBudget;
 
   const rounds: DialogRound[] = [];
   const worktree = createWorktree(taskId);
@@ -825,7 +875,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
     if (tier >= 2) {
       const analysis = await runCollaborativeAnalysis(currentTask, worktree.worktreePath);
-      latestContext = analysis.combined;
+      latestContext = [latestContext, analysis.combined].filter(Boolean).join('\n\n');
 
       await recordContractAction({
         task: currentTask,
@@ -845,6 +895,14 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       totalTokens += analysisTokens;
     }
 
+    if (isVisualFix) {
+      const sourceContext = await buildVisualFixSourceContext(currentTask, worktree.worktreePath, forbiddenFiles);
+      if (sourceContext) {
+        latestContext = [latestContext, sourceContext].filter(Boolean).join('\n\n');
+        codeEvidenceReady = true;
+      }
+    }
+
     if (!needsPrototype || currentTask.status === 'planning') {
       for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
         await updateTaskStatus('planning', 'code', 'architect_round_started');
@@ -861,8 +919,8 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.7,
+          maxTokens: isVisualFix ? 4500 : 2000,
+          temperature: isVisualFix ? 0.45 : 0.7,
         });
 
         const architectTokens = estimateTokens(architectResponse);
@@ -923,7 +981,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         await updateTaskStatus('reviewing', 'review', 'review_round_started');
 
         const reviewerResponse = await callProvider('openai', 'gpt-4.1-mini', {
-          system: buildReviewerSystemPrompt('primary'),
+          system: buildReviewerSystemPrompt('primary', currentTask),
           messages: [
             {
               role: 'user',
@@ -934,15 +992,17 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.7,
+          maxTokens: isVisualFix ? 3000 : 2000,
+          temperature: isVisualFix ? 0.3 : 0.7,
         });
 
         const reviewerTokens = estimateTokens(reviewerResponse);
         totalTokens += reviewerTokens;
         const reviewerCommands = parseBdl(reviewerResponse);
         const reviewerReviewCommand = reviewerCommands.find((command) => command.kind === 'REVIEW');
-        const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse);
+        const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse, {
+          requireReuseSearch: !isVisualFix,
+        });
 
         const reviewerRound: DialogRound = {
           roundNumber,
@@ -977,7 +1037,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         const claudeReviewerResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildReviewerSystemPrompt('secondary'),
+          system: buildReviewerSystemPrompt('secondary', currentTask),
           messages: [
             {
               role: 'user',
@@ -989,15 +1049,17 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.5,
+          maxTokens: isVisualFix ? 3000 : 2000,
+          temperature: isVisualFix ? 0.3 : 0.5,
         });
 
         const claudeReviewerTokens = estimateTokens(claudeReviewerResponse);
         totalTokens += claudeReviewerTokens;
         const claudeReviewerCommands = parseBdl(claudeReviewerResponse);
         const claudeReviewCommand = claudeReviewerCommands.find((command) => command.kind === 'REVIEW');
-        const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse);
+        const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse, {
+          requireReuseSearch: !isVisualFix,
+        });
 
         const claudeReviewerRound: DialogRound = {
           roundNumber,
@@ -1092,13 +1154,19 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           ? observerReview.verdict
           : decideVerdict([reviewerReview.verdict, claudeReview.verdict]);
 
-        if (combinedVerdict === 'block') {
+        const effectiveVerdict = isVisualFix && combinedVerdict === 'issue'
+          && !reviewerReview.blocking
+          && !claudeReview.blocking
+          ? 'ok'
+          : combinedVerdict;
+
+        if (effectiveVerdict === 'block') {
           finalStatus = 'blocked';
           abortReason = observerReview ? 'observer_blocked' : 'dual_review_blocked';
           break;
         }
 
-        if (combinedVerdict === 'ok') {
+        if (effectiveVerdict === 'ok') {
           if (needsBrowserLane(currentTask, laneFlags)) {
             const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
 
