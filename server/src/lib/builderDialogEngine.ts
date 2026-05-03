@@ -223,6 +223,9 @@ function buildArchitectSystemPrompt(
     isVisualFix
       ? 'VISUAL_FIX-AUTONOMY: Ein guter, kleiner Fix ist besser als ein perfektes Schema. GitHub Typecheck/Build bleibt die harte Sicherheitsgrenze.'
       : 'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: Wenn du einen bestehenden JSX-Block verbesserst, ersetze ihn. Dupliziere keine Buttons, Panels oder Labels. In @PATCH muessen entfernte alte Zeilen mit - und neue Zeilen mit + markiert sein.'
+      : '',
     !isVisualFix && !codeEvidenceReady
       ? 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.'
       : '',
@@ -284,6 +287,27 @@ function decideVerdict(verdicts: ReviewVerdict[]) {
   }
 
   return 'issue';
+}
+
+function isHardVisualReviewBlock(review: ParsedReview) {
+  if (review.scopeOk === false) {
+    return true;
+  }
+
+  const notes = review.notes.join(' ').toLowerCase();
+  return [
+    'secret',
+    'auth',
+    'provider',
+    'deploy',
+    'migration',
+    'security',
+    'wrong file',
+    'falsche ziel-datei',
+    'scope-bruch',
+    'external library',
+    'extern',
+  ].some((needle) => notes.includes(needle));
 }
 
 function summarizeCommandResult(command: BdlCommand, result: Record<string, unknown>) {
@@ -1178,6 +1202,20 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           : combinedVerdict;
 
         if (effectiveVerdict === 'block') {
+          const softVisualBlock = isVisualFix
+            && roundNumber < maxRounds
+            && !isHardVisualReviewBlock(reviewerReview)
+            && !isHardVisualReviewBlock(claudeReview)
+            && (!observerReview || !isHardVisualReviewBlock(observerReview));
+
+          if (softVisualBlock) {
+            latestContext = [
+              latestContext,
+              'VISUAL_FIX_RETRY: Reviewer found a repairable implementation defect, not a hard safety stop. Fix the patch in the next round. Do not repeat the same patch. Replace existing code instead of duplicating UI.',
+            ].join('\n\n');
+            continue;
+          }
+
           finalStatus = 'blocked';
           abortReason = observerReview ? 'observer_blocked' : 'dual_review_blocked';
           break;
