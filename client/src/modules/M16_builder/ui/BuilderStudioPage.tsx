@@ -3202,6 +3202,10 @@ export function BuilderStudioPage() {
   const sidebarWidth = sidebarExpanded && !compact ? 248 : 72;
   const showDrawerColumn = Boolean(drawerView) && !compact;
   const topbarStatus = builderStatus;
+  const shouldShowSessionSummary = Boolean(sessionSummary) && !isVisualLaunchMode && (sidebarView === 'patrol' || compact || experienceMode === 'pipeline');
+  const shouldShowInlineStageIntro = !activeTask;
+  const shouldShowDialogViewer = Boolean(activeTask) || isVisualLaunchMode || sidebarView === 'chat' || chatMessages.length > 0 || chatLoading;
+  const shouldShowFooterStrip = visibleTasks.length > 0 && !isVisualLaunchMode;
   
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text }}>
@@ -3272,7 +3276,7 @@ export function BuilderStudioPage() {
           />
         ) : null}
 
-        {sessionSummary && (sidebarView === 'patrol' || compact || experienceMode === 'pipeline') ? (
+        {shouldShowSessionSummary ? (
           <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
             <button
               data-maya-target="session"
@@ -3518,81 +3522,85 @@ export function BuilderStudioPage() {
             ) : null}
           </div>
 
-          <div style={{ display: 'grid', gap: 18 }}>
-            <BuilderTribuneStage
-              compact={compact}
-              activeTask={activeTask}
-              attentionTask={attentionTask}
-              attentionDetail={attentionDetail}
-              isBusy={isBusy}
-              selectedTaskId={selectedTaskId}
-              tribuneHeroTitle={tribuneHeroTitle}
-              tribuneHeroSummary={tribuneHeroSummary}
-              tribuneHeroPhaseTone={tribuneHeroPhaseTone}
-              tribuneTimeline={tribuneTimeline}
-              effectiveTribunePhase={effectiveTribunePhase}
-              mayaTribuneSentence={mayaTribuneSentence}
-              currentTribuneEntry={currentTribuneEntry}
-              previewUrl={previewUrl}
-              operatorGuidance={operatorGuidance}
-              tribunePhaseDetail={tribunePhaseDetail}
-              fallbackContent={(
-                <BuilderStageIntro
-                  compact={compact}
-                  greeting={greeting}
-                  isVisualLaunchMode={isVisualLaunchMode}
-                  experienceModeLabel={experienceMode === 'single_specialist' ? 'Single Specialist' : 'Universal Maya Studio'}
-                  visualLaunchChecklist={visualLaunchChecklist}
-                  chatLoading={chatLoading}
-                  onFocusChat={() => focusMayaTarget('maya-chat')}
-                  onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
-                  onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
-                />
-              )}
-              onSelectTribunePhase={(phase) => setSelectedTribunePhase(phase as BuilderUniversalLifecyclePhase | null)}
-              onFocusOutput={() => focusMayaTarget('delivery-surface')}
-              onFocusDialog={() => focusMayaTarget('dialog-viewer')}
-              onFocusTechnicalDetails={() => focusMayaTarget('technical-details')}
-              onFocusPreview={() => focusMayaTarget('preview-panel')}
-              onOpenAttentionTask={handleOpenAttentionTask}
-              onApprovePrototype={() => { void handleApprovePrototype(); }}
-              onApproveTask={() => { void handleApproveTask(); }}
-              onOperatorAction={(key) => handleOperatorAction(key as OperatorActionKey)}
-              isOperatorActionDisabled={(key) => isOperatorActionDisabled(key as OperatorActionKey)}
-            />
+          <div style={{ display: 'grid', gap: shouldShowDialogViewer ? 18 : 12 }}>
+            {shouldShowInlineStageIntro ? (
+              <BuilderStageIntro
+                compact={compact}
+                greeting={greeting}
+                isVisualLaunchMode={isVisualLaunchMode}
+                experienceModeLabel={experienceMode === 'single_specialist' ? 'Single Specialist' : 'Universal Maya Studio'}
+                visualLaunchChecklist={visualLaunchChecklist}
+                chatLoading={chatLoading}
+                onFocusChat={() => focusMayaTarget('maya-chat')}
+                onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
+                onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
+              />
+            ) : (
+              <BuilderTribuneStage
+                compact={compact}
+                activeTask={activeTask}
+                attentionTask={attentionTask}
+                attentionDetail={attentionDetail}
+                isBusy={isBusy}
+                selectedTaskId={selectedTaskId}
+                tribuneHeroTitle={tribuneHeroTitle}
+                tribuneHeroSummary={tribuneHeroSummary}
+                tribuneHeroPhaseTone={tribuneHeroPhaseTone}
+                tribuneTimeline={tribuneTimeline}
+                effectiveTribunePhase={effectiveTribunePhase}
+                mayaTribuneSentence={mayaTribuneSentence}
+                currentTribuneEntry={currentTribuneEntry}
+                previewUrl={previewUrl}
+                operatorGuidance={operatorGuidance}
+                tribunePhaseDetail={tribunePhaseDetail}
+                fallbackContent={null}
+                onSelectTribunePhase={(phase) => setSelectedTribunePhase(phase as BuilderUniversalLifecyclePhase | null)}
+                onFocusOutput={() => focusMayaTarget('delivery-surface')}
+                onFocusDialog={() => focusMayaTarget('dialog-viewer')}
+                onFocusTechnicalDetails={() => focusMayaTarget('technical-details')}
+                onFocusPreview={() => focusMayaTarget('preview-panel')}
+                onOpenAttentionTask={handleOpenAttentionTask}
+                onApprovePrototype={() => { void handleApprovePrototype(); }}
+                onApproveTask={() => { void handleApproveTask(); }}
+                onOperatorAction={(key) => handleOperatorAction(key as OperatorActionKey)}
+                isOperatorActionDisabled={(key) => isOperatorActionDisabled(key as OperatorActionKey)}
+              />
+            )}
 
-            <BuilderDialogViewerPanel
-              isVisualLaunchMode={isVisualLaunchMode}
-              directorModel={directorModel}
-              directorThinking={directorThinking}
-              activeChatLabel={activeChatLabel}
-              activeChatEndpoint={activeChatEndpoint}
-              directorModelMeta={DIRECTOR_MODEL_META}
-              directorStatusText={directorStatusText}
-              directorLivePhase={directorLiveStatus?.phase ?? null}
-              chatMessages={chatMessages}
-              dialogBubbles={dialogBubbles}
-              chatInput={chatInput}
-              chatLoading={chatLoading}
-              speech={speech}
-              activeTaskTitle={activeTask?.title ?? null}
-              dialogFormat={dialogFormat}
-              chatContainerRef={chatContainerRef}
-              chatEndRef={chatEndRef}
-              actorColors={ACTOR_COLORS}
-              formatDate={formatDate}
-              parseTaskConfirmation={parseTaskConfirmation}
-              getReadFilePreview={getReadFilePreview}
-              onToggleDirectorMode={() => setDirectorModel((current) => current ? null : 'opus')}
-              onSelectDirectorModel={setDirectorModel}
-              onToggleDirectorThinking={() => setDirectorThinking((current) => !current)}
-              onChatInputChange={setChatInput}
-              onSendChat={() => {
-                void handleSendChat();
-              }}
-              onMicClick={handleMicClick}
-              onSetDialogFormat={setDialogFormat}
-            />
+            {shouldShowDialogViewer ? (
+              <BuilderDialogViewerPanel
+                isVisualLaunchMode={isVisualLaunchMode}
+                directorModel={directorModel}
+                directorThinking={directorThinking}
+                activeChatLabel={activeChatLabel}
+                activeChatEndpoint={activeChatEndpoint}
+                directorModelMeta={DIRECTOR_MODEL_META}
+                directorStatusText={directorStatusText}
+                directorLivePhase={directorLiveStatus?.phase ?? null}
+                chatMessages={chatMessages}
+                dialogBubbles={dialogBubbles}
+                chatInput={chatInput}
+                chatLoading={chatLoading}
+                speech={speech}
+                activeTaskTitle={activeTask?.title ?? null}
+                dialogFormat={dialogFormat}
+                chatContainerRef={chatContainerRef}
+                chatEndRef={chatEndRef}
+                actorColors={ACTOR_COLORS}
+                formatDate={formatDate}
+                parseTaskConfirmation={parseTaskConfirmation}
+                getReadFilePreview={getReadFilePreview}
+                onToggleDirectorMode={() => setDirectorModel((current) => current ? null : 'opus')}
+                onSelectDirectorModel={setDirectorModel}
+                onToggleDirectorThinking={() => setDirectorThinking((current) => !current)}
+                onChatInputChange={setChatInput}
+                onSendChat={() => {
+                  void handleSendChat();
+                }}
+                onMicClick={handleMicClick}
+                onSetDialogFormat={setDialogFormat}
+              />
+            ) : null}
           </div>
 
           {showDrawerColumn || compact ? (
@@ -3704,16 +3712,18 @@ export function BuilderStudioPage() {
           ) : null}
         </div>
 
-        <BuilderTaskFooterStrip
-          visibleTasks={visibleTasks}
-          selectedTaskId={selectedTaskId}
-          statusColors={STATUS_COLORS}
-          deriveTaskQueueSignal={deriveTaskQueueSignal}
-          onSelectTask={(taskId) => {
-            setSelectedTaskId(taskId);
-            setDrawerView('task');
-          }}
-        />
+        {shouldShowFooterStrip ? (
+          <BuilderTaskFooterStrip
+            visibleTasks={visibleTasks}
+            selectedTaskId={selectedTaskId}
+            statusColors={STATUS_COLORS}
+            deriveTaskQueueSignal={deriveTaskQueueSignal}
+            onSelectTask={(taskId) => {
+              setSelectedTaskId(taskId);
+              setDrawerView('task');
+            }}
+          />
+        ) : null}
 
         <MayaFigure
           phase={mayaFigurePhase}
