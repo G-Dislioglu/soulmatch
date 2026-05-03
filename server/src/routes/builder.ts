@@ -1905,7 +1905,7 @@ router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Requ
             },
             inferredScope: fixScope,
           }],
-          budgetIterations: candidate.severity === 'critical' ? 3 : 2,
+          budgetIterations: candidate.severity === 'critical' ? 4 : 3,
           budgetUsed: 0,
           risk,
           taskType: 'B',

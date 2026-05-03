@@ -907,8 +907,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         if (!codeEvidenceReady) {
-          const gatheredCodeEvidence = architectCommands.some((command) =>
-            command.kind === 'READ' || command.kind === 'FIND_PATTERN' || command.kind === 'SEARCH');
+          const gatheredCodeEvidence = architectCommands.some((command) => command.kind === 'READ');
           if (gatheredCodeEvidence) {
             codeEvidenceReady = true;
             latestContext = [
