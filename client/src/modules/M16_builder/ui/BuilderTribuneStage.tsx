@@ -291,7 +291,7 @@ export function BuilderTribuneStage(props: BuilderTribuneStageProps) {
 
             <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 8 }}>
               <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                Maya sagt gerade
+                {isPipelineMode ? 'Maya sagt gerade' : 'Maya fokussiert gerade'}
               </div>
               <div style={{ fontSize: 15, color: TOKENS.text, lineHeight: 1.75 }}>
                 {mayaTribuneSentence}
@@ -316,9 +316,11 @@ export function BuilderTribuneStage(props: BuilderTribuneStageProps) {
                 <button type="button" onClick={onFocusDialog} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
                   Zum Dialog
                 </button>
-                <button type="button" onClick={onFocusTechnicalDetails} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Zu Transitions
-                </button>
+                {isPipelineMode ? (
+                  <button type="button" onClick={onFocusTechnicalDetails} style={{ borderRadius: 999, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.04)', color: TOKENS.text2, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                    Zu Transitions
+                  </button>
+                ) : null}
                 {previewUrl ? (
                   <button type="button" onClick={onFocusPreview} style={{ borderRadius: 999, border: `1px solid ${TOKENS.gold}55`, background: 'rgba(212,175,55,0.10)', color: TOKENS.gold, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
                     Zum Preview
@@ -380,7 +382,7 @@ export function BuilderTribuneStage(props: BuilderTribuneStageProps) {
               </div>
             ) : null}
 
-            {tribunePhaseDetail ? (
+            {tribunePhaseDetail && isPipelineMode ? (
               <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '13px 14px', display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>

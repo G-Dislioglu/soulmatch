@@ -2206,7 +2206,7 @@ export function BuilderStudioPage() {
           : experienceMode === 'pipeline'
             ? 'Pipeline'
             : experienceMode === 'single_specialist'
-              ? 'Single Specialist'
+              ? 'Specialist Run'
               : 'Dialog';
   const directorStatusText = directorModel
     ? getDirectorStatusText(
