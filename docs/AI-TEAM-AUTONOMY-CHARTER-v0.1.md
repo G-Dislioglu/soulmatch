@@ -134,3 +134,20 @@ Hard risk transitions are push, deploy, auth, secrets, destructive DB changes, c
 New restrictions or stronger blocks must not be introduced silently. They must be justified and aligned with the user.
 
 The goal is effective, verifiable problem solving with maximum useful autonomy and minimum necessary bureaucracy.
+
+## Runtime Anchors
+
+The Builder runtime must keep this charter connected to execution, not only to documentation.
+
+Current anchors:
+
+- `builderTeamAwareness.ts` gives every Builder role a self/team/mission/decision-rights brief.
+- `buildTeamContextPack()` adds concrete task context before work starts: universal task contract, recent actions, failed attempts, task/global memory, agent profiles, accepted assumptions, and budget state.
+- `builderDialogEngine.ts` feeds that context pack into Architect, collaborative analysis, and reviewers.
+- BDL supports non-blocking team commands: `@ASSUMPTION`, `@CLARIFY`, and `@CONSULT`.
+- `@ASSUMPTION` persists low-risk assumptions into Builder memory, so later rounds and future tasks can see them.
+- Maya Director and Council prompts explicitly inherit the anti-bureaucracy rule: ask or assume when safe, block only at hard risk transitions.
+
+Non-goal:
+
+- This charter does not remove safety gates. It moves gates back to real risk transitions and prevents ordinary uncertainty from becoming work-prevention bureaucracy.

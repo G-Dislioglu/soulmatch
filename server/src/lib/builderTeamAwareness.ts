@@ -1,4 +1,13 @@
-import { builderTasks } from '../schema/builder.js';
+import { desc, eq } from 'drizzle-orm';
+import { getDb } from '../db.js';
+import {
+  builderActions,
+  builderAgentProfiles,
+  builderAssumptions,
+  builderMemory,
+  builderTasks,
+} from '../schema/builder.js';
+import { buildBuilderTaskContract } from './builderTaskContract.js';
 import { TASK_TYPE_TO_PROFILE } from './builderPolicyProfiles.js';
 
 export type BuilderTeamRole = 'architect' | 'scout' | 'reviewer' | 'observer' | 'worker' | 'judge';
@@ -89,4 +98,118 @@ export function buildTeamAwarenessBrief(
     '- Does not want schema over thinking, unnecessary blocking, bureaucratic loops, or isolated workers without context.',
     '=== END TEAM AWARENESS ===',
   ].join('\n');
+}
+
+function compact(value: unknown, max = 420) {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value ?? {});
+  return raw.replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function listLines(title: string, rows: string[]) {
+  if (rows.length === 0) {
+    return '';
+  }
+  return [`${title}:`, ...rows.map((row) => `- ${row}`)].join('\n');
+}
+
+function summarizeAction(action: typeof builderActions.$inferSelect) {
+  const result = action.result ? ` result=${compact(action.result, 180)}` : '';
+  return `${action.actor}/${action.lane}/${action.kind}: ${compact(action.payload, 220)}${result}`;
+}
+
+function summarizeAgent(profile: typeof builderAgentProfiles.$inferSelect) {
+  const strengths = profile.strengths.length > 0 ? profile.strengths.slice(0, 4).join(', ') : 'not learned yet';
+  const weaknesses = profile.weaknesses.length > 0 ? profile.weaknesses.slice(0, 3).join(', ') : 'not learned yet';
+  const learnings = profile.lastLearnings.length > 0 ? profile.lastLearnings.slice(0, 2).join('; ') : 'none';
+  return `${profile.agentId} (${profile.role}): strengths=${strengths}; limits=${weaknesses}; learnings=${learnings}; success=${profile.successCount}/${profile.taskCount}; avgQuality=${profile.avgQuality}`;
+}
+
+function summarizeMemory(row: typeof builderMemory.$inferSelect) {
+  return `${row.layer}${row.worker ? `/${row.worker}` : ''}: ${row.summary}`;
+}
+
+function summarizeAssumption(row: typeof builderAssumptions.$inferSelect) {
+  return `${row.title}: ${row.text}`;
+}
+
+export async function buildTeamContextPack(
+  task: typeof builderTasks.$inferSelect,
+  role: BuilderTeamRole,
+) {
+  const db = getDb();
+  const contract = buildBuilderTaskContract(task);
+  let actions: Array<typeof builderActions.$inferSelect> = [];
+  let memories: Array<typeof builderMemory.$inferSelect> = [];
+  let agentProfiles: Array<typeof builderAgentProfiles.$inferSelect> = [];
+  let assumptions: Array<typeof builderAssumptions.$inferSelect> = [];
+
+  try {
+    [actions, memories, agentProfiles, assumptions] = await Promise.all([
+      db
+        .select()
+        .from(builderActions)
+        .where(eq(builderActions.taskId, task.id))
+        .orderBy(desc(builderActions.createdAt))
+        .limit(10),
+      db
+        .select()
+        .from(builderMemory)
+        .orderBy(desc(builderMemory.updatedAt))
+        .limit(8),
+      db
+        .select()
+        .from(builderAgentProfiles)
+        .orderBy(desc(builderAgentProfiles.updatedAt))
+        .limit(8),
+      db
+        .select()
+        .from(builderAssumptions)
+        .where(eq(builderAssumptions.hardeningStatus, 'accepted'))
+        .orderBy(desc(builderAssumptions.updatedAt))
+        .limit(6),
+    ]);
+  } catch (error) {
+    return [
+      '=== BUILDER TEAM CONTEXT PACK ===',
+      `role: ${role}`,
+      `task: ${task.id}`,
+      `context_load: failed (${error instanceof Error ? error.message : String(error)})`,
+      'Fallback: use the mission brief and gather missing context autonomously. Do not block unless a hard risk boundary is reached.',
+      '=== END TEAM CONTEXT PACK ===',
+    ].join('\n');
+  }
+
+  const taskMemories = memories.filter((row) => row.taskId === task.id);
+  const globalMemories = memories.filter((row) => row.taskId !== task.id);
+  const recentHardSignals = actions.filter((action) => {
+    const text = `${action.kind} ${compact(action.result, 240)} ${compact(action.payload, 240)}`.toLowerCase();
+    return text.includes('block')
+      || text.includes('failed')
+      || text.includes('error')
+      || text.includes('oldtext')
+      || text.includes('tsc')
+      || text.includes('retry');
+  });
+
+  const sections = [
+    '=== BUILDER TEAM CONTEXT PACK ===',
+    'Purpose: give the AI concrete memory, task history, role awareness, and assumptions before it acts.',
+    `role: ${role}`,
+    `task_id: ${task.id}`,
+    `active_mission: ${task.title || task.goal}`,
+    `mission_contract: intent=${contract.intent.kind}; lifecycle=${contract.lifecycle.phase}/${contract.lifecycle.attentionState}; team=${contract.team.activeInstances.join(', ')}; output=${contract.output.kind}/${contract.output.format}; codeLane=${contract.codeLane.phase}/${contract.codeLane.status}`,
+    `success_conditions: ${task.successConditions.length > 0 ? task.successConditions.join(' | ') : '(not explicit; infer from goal and evidence)'}`,
+    `budget: used=${task.budgetUsed}/${task.budgetIterations}; tokens=${task.tokenCount ?? 0}/${task.tokenBudget ?? 0}`,
+    listLines('recent_task_actions', actions.slice(0, 8).map(summarizeAction)),
+    listLines('known_risks_or_failed_attempts', recentHardSignals.slice(0, 5).map(summarizeAction)),
+    listLines('task_memory', taskMemories.slice(0, 4).map(summarizeMemory)),
+    listLines('global_builder_memory', globalMemories.slice(0, 4).map(summarizeMemory)),
+    listLines('agent_profiles', agentProfiles.map(summarizeAgent)),
+    listLines('accepted_assumptions', assumptions.map(summarizeAssumption)),
+    'working_rule: low uncertainty -> continue with a marked assumption; medium uncertainty -> @CLARIFY or @CONSULT and continue when safe; hard risk -> @BLOCK with options.',
+    'maya_rule: Maya is mission control and clarification hub. Ask Maya for intent/route conflicts; ask specialist roles for technical uncertainty.',
+    '=== END TEAM CONTEXT PACK ===',
+  ].filter(Boolean);
+
+  return sections.join('\n');
 }

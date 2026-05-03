@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { asc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
-import { builderActions, builderTasks } from '../schema/builder.js';
+import { builderActions, builderMemory, builderTasks } from '../schema/builder.js';
 import { BUILDER_POLICY_PROFILES, TASK_TYPE_TO_PROFILE } from './builderPolicyProfiles.js';
 import { callProvider } from './providers.js';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
@@ -32,7 +32,7 @@ import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js
 import { evaluateCanaryGate } from './builderCanary.js';
 import { setActiveBuilderTask, syncBuilderMemoryForTask } from './builderMemory.js';
 import { buildBuilderTaskContract } from './builderTaskContract.js';
-import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
+import { buildTeamAwarenessBrief, buildTeamContextPack } from './builderTeamAwareness.js';
 
 type ComplexityTier = 1 | 2 | 3;
 
@@ -60,11 +60,13 @@ async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promi
 async function runCollaborativeAnalysis(
   task: typeof builderTasks.$inferSelect,
   worktreePath: string,
+  contextPack = '',
 ): Promise<{ claudeAnalysis: string; chatgptAnalysis: string; combined: string }> {
   const scoutBrief = buildTeamAwarenessBrief(task, 'scout');
   const reviewerBrief = buildTeamAwarenessBrief(task, 'reviewer');
   const analysisPrompt = [
     scoutBrief,
+    contextPack,
     '',
     'Analysiere diesen Task OHNE ihn umzusetzen.',
     `Title: ${task.title}`,
@@ -206,13 +208,19 @@ function buildArchitectSystemPrompt(
     '  -> Fuehrt alle gepufferten @PATCH Befehle aus. PFLICHT nach @PATCH.',
     '@SEARCH query:"suchbegriff oder technische frage"',
     '  -> Web-Suche. Nutze wenn du eine API-Referenz, ein Pattern oder aktuelle Doku brauchst.',
+    '@ASSUMPTION { ... }',
+    '  -> Markiert niedrige Unsicherheit und erlaubt Weiterarbeit mit klarer Annahme.',
+    '@CLARIFY target:"maya" { ... }',
+    '  -> Kurze Rueckfrage an Maya bei Ziel-, Scope- oder Intent-Konflikt. Nicht automatisch blockierend.',
+    '@CONSULT target:"scout|reviewer|judge|maya" { ... }',
+    '  -> Fachliche Team-Rueckfrage, ohne den ganzen Lauf zu killen.',
     '',
     '=== VERBOTEN ===',
     '@EXECUTE, @READ_FILE, @VERIFY, @BASH - existieren NICHT.',
     'Nutze @READ statt @READ_FILE. Nutze @PATCH + @APPLY statt @EXECUTE.',
     '',
     '=== Ablauf ===',
-    '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
+    '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN plus ggf. @ASSUMPTION/@CLARIFY/@CONSULT -> 4. @PATCH -> 5. @APPLY',
     '',
     '=== Patch-Sicherheitsregeln ===',
     isVisualFix
@@ -637,6 +645,70 @@ async function executeArchitectCommands(
       continue;
     }
 
+    if (kind === 'ASSUMPTION') {
+      const text = command.body || command.params.text || command.params.arg1 || '';
+      const result: Record<string, unknown> = {
+        recorded: true,
+        nonBlocking: true,
+        text,
+        note: 'Low-risk uncertainty was marked and work may continue unless a hard risk boundary is reached.',
+      };
+
+      if (text.trim()) {
+        try {
+          await getDb().insert(builderMemory).values({
+            layer: 'assumption',
+            key: `assumption:${task.id}:${Date.now()}`,
+            taskId: task.id,
+            worker: 'architect',
+            summary: text.trim().slice(0, 500),
+            payload: {
+              source: 'bdl_assumption',
+              role: 'architect',
+              policy: 'continue_with_marked_assumption',
+            },
+            updatedAt: new Date(),
+          });
+        } catch (error) {
+          result.recorded = false;
+          result.memoryError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'CLARIFY') {
+      const question = command.body || command.params.question || command.params.arg1 || '';
+      const result = {
+        queued: true,
+        target: command.params.target || 'maya',
+        nonBlocking: true,
+        question,
+        note: 'Clarification need recorded. Continue with a safe assumption unless this is a hard risk boundary.',
+      };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'CONSULT') {
+      const target = command.params.target || command.params.role || command.params.arg1 || 'maya';
+      const question = command.body || command.params.question || '';
+      const result = {
+        queued: true,
+        target,
+        nonBlocking: true,
+        question,
+        note: 'Team consult recorded. Do not kill the run for consultable uncertainty.',
+      };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
     if (kind === 'PATCH') {
       const filePath = command.params.file;
       let result: Record<string, unknown>;
@@ -865,10 +937,11 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
   const rounds: DialogRound[] = [];
   const worktree = createWorktree(taskId);
+  const initialContextPack = await buildTeamContextPack(currentTask, 'architect');
   let totalTokens = 0;
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
-  let latestContext = '';
+  let latestContext = initialContextPack;
   let codeEvidenceReady = false;
   const needsPrototype = needsVisualPrototype(currentTask, laneFlags);
   const shouldRunPrototypeLane = needsPrototype && currentTask.status !== 'planning' && currentTask.status !== 'prototype_review';
@@ -941,7 +1014,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
     console.log(`[builder] Task ${taskId} classified as Tier ${tier}`);
 
     if (tier >= 2) {
-      const analysis = await runCollaborativeAnalysis(currentTask, worktree.worktreePath);
+      const analysis = await runCollaborativeAnalysis(currentTask, worktree.worktreePath, initialContextPack);
       latestContext = [latestContext, analysis.combined].filter(Boolean).join('\n\n');
 
       await recordContractAction({
@@ -1054,6 +1127,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               role: 'user',
               content: [
                 `Task goal: ${currentTask.goal}`,
+                latestContext ? `Task context and memory:\n${latestContext.slice(0, 12000)}` : '',
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
               ].join('\n\n'),
@@ -1110,6 +1184,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               role: 'user',
               content: [
                 `Task goal: ${currentTask.goal}`,
+                latestContext ? `Task context and memory:\n${latestContext.slice(0, 12000)}` : '',
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
                 `Erstes Review (ChatGPT):\n${reviewerResponse}`,
@@ -1209,6 +1284,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         latestContext = [
+          latestContext,
           architectExecution.contextText,
           reviewerResponse,
           claudeReviewerResponse,

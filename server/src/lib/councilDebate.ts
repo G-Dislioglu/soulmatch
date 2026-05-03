@@ -51,6 +51,8 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 };
 
 // Modelle: Jede Rolle hat einen anderen Provider fÃ¼r maximale Perspektivenvielfalt
+const TEAM_AUTONOMY_PROMPT = 'Arbeite nach der Anti-Bureaucracy & Team Autonomy Charter: verstehe die Mission, nutze Kontext, denke frei und konstruktiv, frage bei echter Unsicherheit, markiere Annahmen, und blockiere nur bei harten Risiko-Uebergaengen. Du bist Teil eines KI-Teams, kein Formularpruefer.';
+
 const ROLE_MODELS: Record<string, { provider: string; model: string }> = {
   architekt:        { provider: 'anthropic',  model: 'claude-opus-4-7' },
   skeptiker:        { provider: 'openai',     model: 'gpt-5.5' },
@@ -202,7 +204,7 @@ export async function runCouncilDebate({
     let content: string;
     try {
       content = await callProvider(provider, model, {
-        system: systemPrompt,
+        system: `${TEAM_AUTONOMY_PROMPT}\n\n${systemPrompt}`,
         messages: [
           { role: 'user', content: userPrompt },
         ],
