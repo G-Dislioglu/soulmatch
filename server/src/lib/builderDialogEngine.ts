@@ -137,6 +137,10 @@ function needsVisualPrototype(task: typeof builderTasks.$inferSelect, laneFlags:
     return false;
   }
 
+  if (task.goalKind === 'visual_fix') {
+    return false;
+  }
+
   return task.requestedOutputKind === 'html_artifact'
     || task.requestedOutputKind === 'presentation_artifact'
     || task.requestedOutputKind === 'visual_artifact'
