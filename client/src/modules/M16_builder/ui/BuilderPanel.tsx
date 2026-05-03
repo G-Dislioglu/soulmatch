@@ -15,25 +15,25 @@ export function BuilderPanel(props: BuilderPanelProps) {
   return (
     <section
       style={{
-        border: `2px solid ${TOKENS.b1}`,
+        border: `1.5px solid ${TOKENS.b1}`,
         borderRadius: 22,
-        background: TOKENS.card,
+        background: 'linear-gradient(180deg, rgba(22,22,34,0.96), rgba(22,22,34,0.92))',
         boxShadow: `${TOKENS.shadow.card}, 0 0 0 1px rgba(255,255,255,0.04) inset`,
         overflow: 'hidden',
       }}
     >
       <div
         style={{
-          padding: '16px 18px 14px',
-          borderBottom: `2px solid ${TOKENS.b1}`,
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+          padding: '14px 18px 12px',
+          borderBottom: `1px solid ${TOKENS.b1}`,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))',
         }}
       >
-        <div style={{ fontSize: 11, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
+        <div style={{ fontSize: 10.5, color: accent, textTransform: 'uppercase', letterSpacing: '0.16em', fontFamily: TOKENS.font.body, fontWeight: 700 }}>
           {title}
         </div>
         {subtitle ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: TOKENS.text2, lineHeight: 1.6, fontFamily: TOKENS.font.body }}>
+          <div style={{ marginTop: 5, fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.55, fontFamily: TOKENS.font.body }}>
             {subtitle}
           </div>
         ) : null}
