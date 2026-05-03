@@ -168,6 +168,25 @@ export function BuilderTaskDetailPanel(props: BuilderTaskDetailPanelProps) {
                 {executionState.detail}
               </div>
             </div>
+            {activeTask ? (
+              <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                  <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Status</div>
+                  <div style={{ fontSize: 13.5, color: TOKENS.text, fontWeight: 700 }}>{activeTask.status}</div>
+                  <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{activeTask.contract.lifecycle.phase}</div>
+                </div>
+                <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                  <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Intent / Output</div>
+                  <div style={{ fontSize: 13.5, color: TOKENS.text, fontWeight: 700 }}>{activeTask.intentKind}  ·  {activeTask.requestedOutputKind}</div>
+                  <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{activeTask.requestedOutputFormat}</div>
+                </div>
+                <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                  <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Team / Lanes</div>
+                  <div style={{ fontSize: 13.5, color: TOKENS.text, fontWeight: 700 }}>{activeTask.contract.team.activeInstances.length} Instanzen</div>
+                  <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{activeTask.contract.routing.activeLanes.join('  ·  ') || '-'}</div>
+                </div>
+              </div>
+            ) : null}
             <div
               style={{
                 fontFamily: TOKENS.font.display,
@@ -197,17 +216,16 @@ export function BuilderTaskDetailPanel(props: BuilderTaskDetailPanelProps) {
             >
               {activeTask?.goal ?? 'Links eine Task waehlen oder oben eine neue erstellen.'}
             </div>
-            <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
-              <span>Status: <strong style={{ color: TOKENS.text }}>{activeTask?.status ?? '-'}</strong></span>
-              <span>Risk: {activeTask?.risk ?? '-'}  -  Type: {activeTask?.taskType ?? '-'}</span>
-              <span>Intent: {activeTask?.intentKind ?? '-'}  -  Output: {activeTask?.requestedOutputKind ?? '-'}</span>
-              <span>Format: {activeTask?.requestedOutputFormat ?? '-'}  -  Phase: {activeTask?.contract.lifecycle.phase ?? '-'}</span>
-              <span>Execution: {executionSummaryText}</span>
-              <span>Lanes: {activeTask ? activeTask.contract.routing.activeLanes.join('  -  ') : '-'}</span>
-              <span>Team: {activeTask ? activeTask.contract.team.activeInstances.join('  -  ') : '-'}</span>
-              <span>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : '-'}</span>
-              <span>Policy: {activeTask?.policyProfile ?? '-'}</span>
-              <span>Updated: {formatDate(activeTask?.updatedAt)}</span>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Execution Facts</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '4px 8px', fontSize: 11.5 }}>Risk {activeTask?.risk ?? '-'}</span>
+                <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '4px 8px', fontSize: 11.5 }}>Type {activeTask?.taskType ?? '-'}</span>
+                <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '4px 8px', fontSize: 11.5 }}>Policy {activeTask?.policyProfile ?? '-'}</span>
+                <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', color: TOKENS.text2, padding: '4px 8px', fontSize: 11.5 }}>Updated {formatDate(activeTask?.updatedAt)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>Execution: {executionSummaryText}</div>
+              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>Plan: {activeTask ? activeTask.contract.output.plannedArtifacts.join(', ') : '-'}</div>
             </div>
             <input value={commitHash} onChange={(event) => onCommitHashChange(event.target.value)} placeholder="Commit-Hash fuer Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
             <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>

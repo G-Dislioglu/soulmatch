@@ -49,12 +49,26 @@ export function BuilderOutputPanels(props: BuilderOutputPanelsProps) {
         <BuilderPanel title="Delivery Surface" subtitle="Die passende Arbeits- und Ergebnisansicht pro Output-Typ statt nur generischer Technikdaten." accent={TOKENS.gold}>
           {activeTask ? (
             <div style={{ display: 'grid', gap: 12 }}>
-              <div style={{ display: 'grid', gap: 4 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
                   {activeTask.requestedOutputKind}
                 </div>
                 <div style={{ fontSize: 13, color: TOKENS.text2, lineHeight: 1.65 }}>
                   {activeTask.contract.output.summary}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Artifacts</div>
+                    <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{deliveryArtifacts.length}</div>
+                  </div>
+                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Preview</div>
+                    <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{previewUrl ? 'Verfuegbar' : 'Noch offen'}</div>
+                  </div>
+                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                    <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Latest Delivery</div>
+                    <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{formatDate(latestPrototypeArtifact?.createdAt ?? latestStructuredArtifact?.createdAt ?? latestApprovalArtifact?.createdAt)}</div>
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -179,7 +193,7 @@ export function BuilderOutputPanels(props: BuilderOutputPanelsProps) {
               ) : null}
               <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12, display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Artifact Stream</div>
-                {deliveryArtifacts.length > 0 ? deliveryArtifacts.map((artifact) => (
+                {deliveryArtifacts.length > 0 ? deliveryArtifacts.slice(0, 5).map((artifact) => (
                   <div key={artifact.id} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '9px 10px', display: 'grid', gap: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                       <strong style={{ fontSize: 12, color: TOKENS.text }}>{formatArtifactTypeLabel(artifact.artifactType)}</strong>
@@ -199,6 +213,11 @@ export function BuilderOutputPanels(props: BuilderOutputPanelsProps) {
                     Fuer diese Task liegt noch kein eigener Builder-Artefaktstrom vor.
                   </div>
                 )}
+                {deliveryArtifacts.length > 5 ? (
+                  <div style={{ fontSize: 11.5, color: TOKENS.text3 }}>
+                    Weitere {deliveryArtifacts.length - 5} Artefakte bleiben hier bewusst verborgen, damit die Delivery-Flaeche lesbar bleibt.
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : (

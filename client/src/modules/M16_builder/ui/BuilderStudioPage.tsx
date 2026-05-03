@@ -309,17 +309,6 @@ function extractNavigationDirective(content: string) {
   };
 }
 
-function formatPatrolAffectedFiles(files: string[] | undefined) {
-  const list = Array.isArray(files) ? files.filter(Boolean) : [];
-  if (list.length === 0) {
-    return 'Keine Dateien';
-  }
-
-  const visible = list.slice(0, 3);
-  const hiddenCount = list.length - visible.length;
-  return hiddenCount > 0 ? `${visible.join(', ')} +${hiddenCount} more` : visible.join(', ');
-}
-
 function sortPatrolFindings(findings: BuilderPatrolFinding[]) {
   return [...findings].sort((left, right) => {
     const severityDiff = PATROL_SEVERITY_ORDER[normalizePatrolSeverity(left.severity)] - PATROL_SEVERITY_ORDER[normalizePatrolSeverity(right.severity)];
@@ -3359,6 +3348,22 @@ export function BuilderStudioPage() {
                     })}
                   </div>
                 </div>
+                {patrolStatus ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Findings</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.totalFindings ?? 0}</div>
+                    </div>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Cross-confirmed</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.crossConfirmed ?? 0}</div>
+                    </div>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Triaged</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.triaged ?? 0}</div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div style={{ maxHeight: 400, overflowY: 'auto', display: 'grid', gap: 10, paddingRight: 2 }}>
                   {patrolLoading ? (
@@ -3394,7 +3399,7 @@ export function BuilderStudioPage() {
                               cursor: 'pointer',
                               padding: '12px 14px',
                               display: 'grid',
-                              gridTemplateColumns: compact ? '1fr' : '148px minmax(0, 1fr) minmax(0, 220px)',
+                              gridTemplateColumns: compact ? '1fr' : '160px minmax(0, 1fr) minmax(0, 180px)',
                               gap: 10,
                               alignItems: 'center',
                               textAlign: 'left',
@@ -3415,7 +3420,7 @@ export function BuilderStudioPage() {
                               </div>
                             </div>
                             <div style={{ minWidth: 0, fontSize: 11, color: TOKENS.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {formatPatrolAffectedFiles(finding.affectedFiles)}
+                              {(finding.affectedFiles?.length ?? 0) > 0 ? `${finding.affectedFiles!.length} Dateien` : 'Ohne Dateiliste'}
                             </div>
                           </button>
                           {expanded ? (

@@ -103,6 +103,24 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
     <div data-maya-target="visual-review">
       <BuilderPanel title="Visual Review" subtitle="Vision-Modelle, Browser-Screenshots und Maya-Synthese fuer UI- und UX-Pruefung." accent={TOKENS.cyan}>
         <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+            <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+              <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Context</div>
+              <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{selectedTaskId ? 'Task gebunden' : 'Noch offen'}</div>
+              <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{selectedTaskId ? 'Review landet auf einer echten Builder-Task.' : 'Vor dem Run braucht Vision einen sauberen Task-Anker.'}</div>
+            </div>
+            <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+              <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Coverage</div>
+              <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{selectedVisualModelIds.length} Modelle  /  {selectedVisualArtifactIds.length} Screens</div>
+              <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>Je mehr Screenshots und Gegenperspektiven, desto belastbarer wird Maya-Synthese.</div>
+            </div>
+            <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+              <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Reports</div>
+              <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{visualReviewReportArtifactsCount}</div>
+              <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>Persistierte Visual Reviews fuer Vergleich, Lernen und spaetere Auto-Auswahl.</div>
+            </div>
+          </div>
+
           <div style={{ borderRadius: 16, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
               Visual Pool
@@ -199,7 +217,7 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
 
           <div style={{ display: 'grid', gap: 8 }}>
             <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Vision Models</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
               {visionModels.map((model) => {
                 const active = selectedVisualModelIds.includes(model.id);
                 const score = visionScores.find((entry) => entry.modelId === model.id) ?? null;
@@ -209,17 +227,34 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                     type="button"
                     onClick={() => onToggleVisualModel(model.id)}
                     style={{
-                      borderRadius: 999,
+                      textAlign: 'left',
+                      borderRadius: 14,
                       border: `1.5px solid ${active ? model.color : TOKENS.b2}`,
-                      background: active ? `${model.color}22` : TOKENS.bg2,
+                      background: active ? `${model.color}18` : TOKENS.bg2,
                       color: active ? TOKENS.text : TOKENS.text2,
-                      padding: '7px 11px',
-                      fontSize: 11.5,
-                      fontWeight: 700,
+                      padding: '10px 12px',
                       cursor: 'pointer',
+                      display: 'grid',
+                      gap: 6,
                     }}
                   >
-                    {model.label}{score ? ` (${score.score.toFixed(2)})` : ''}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
+                      <div style={{ display: 'grid', gap: 3 }}>
+                        <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>{model.label}</div>
+                        <div style={{ fontSize: 11, color: TOKENS.text3 }}>{model.provider}</div>
+                      </div>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: model.color, boxShadow: active ? `0 0 12px ${model.color}66` : 'none', flexShrink: 0, marginTop: 2 }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>Q {model.quality}</span>
+                      <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>{model.speed}</span>
+                      {score ? <span style={{ borderRadius: 999, border: `1px solid ${model.color}55`, background: `${model.color}14`, padding: '2px 7px', fontSize: 10.5, color: active ? TOKENS.text : model.color }}>Score {score.score.toFixed(2)}</span> : null}
+                    </div>
+                    {model.recommendedVisualRoles && model.recommendedVisualRoles.length > 0 ? (
+                      <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.5 }}>
+                        {model.recommendedVisualRoles.join('  ·  ')}
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}
@@ -248,17 +283,21 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                       border: `1.5px solid ${active ? TOKENS.cyan : TOKENS.b2}`,
                       background: active ? 'rgba(34,211,238,0.1)' : TOKENS.bg2,
                       color: TOKENS.text,
-                      padding: '10px 12px',
+                      padding: '11px 12px',
                       display: 'grid',
-                      gap: 4,
+                      gap: 6,
                       cursor: 'pointer',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: 12 }}>{step}</strong>
+                      <strong style={{ fontSize: 12.5 }}>{step}</strong>
                       <span style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(artifact.createdAt)}</span>
                     </div>
                     <div style={{ fontSize: 11.5, color: TOKENS.text2 }}>{route}</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>{active ? 'Ausgewaehlt' : 'Verfuegbar'}</span>
+                      {artifact.path ? <span style={{ borderRadius: 999, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '2px 7px', fontSize: 10.5, color: TOKENS.text3 }}>Pfad vorhanden</span> : null}
+                    </div>
                   </button>
                 );
               })}
@@ -346,7 +385,10 @@ export function BuilderVisualReviewPanel(props: BuilderVisualReviewPanelProps) {
                   <div key={`${result.modelId}-${result.model}`} style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, padding: '12px 13px', display: 'grid', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                       <strong style={{ fontSize: 12.5, color: TOKENS.text }}>{result.modelId}</strong>
-                      <span style={{ fontSize: 11, color: TOKENS.text3 }}>{result.findings.length} Findings</span>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: TOKENS.text3 }}>{result.findings.length} Findings</span>
+                        {result.error ? <span style={{ fontSize: 11, color: '#fca5a5' }}>Fehler</span> : null}
+                      </div>
                     </div>
                     <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.6 }}>{result.summary || (result.error ? `Fehler: ${result.error}` : 'Keine Kurzfassung')}</div>
                     {displayedVisualRunResult.reportArtifactId ? (
