@@ -2123,6 +2123,14 @@ export function BuilderStudioPage() {
       };
     }
 
+    if (experienceMode === 'single_specialist' && activeTask) {
+      const focusEntry = tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0];
+      return {
+        left: `Single Specialist aktiv  -  ${activeTask.title}`,
+        right: focusEntry ? `${focusEntry.label}  -  ${focusEntry.detail}` : getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
+      };
+    }
+
     if (experienceMode === 'single_specialist') {
       return {
         left: getPipelineReadinessText(pools),
@@ -3204,7 +3212,11 @@ export function BuilderStudioPage() {
   const topbarStatus = builderStatus;
   const shouldShowSessionSummary = Boolean(sessionSummary) && !isVisualLaunchMode && (sidebarView === 'patrol' || compact || experienceMode === 'pipeline');
   const shouldShowInlineStageIntro = !activeTask;
-  const shouldShowDialogViewer = Boolean(activeTask) || isVisualLaunchMode || sidebarView === 'chat' || chatMessages.length > 0 || chatLoading;
+  const shouldShowDialogViewer = isVisualLaunchMode
+    || sidebarView === 'chat'
+    || chatMessages.length > 0
+    || chatLoading
+    || (Boolean(activeTask) && experienceMode === 'pipeline');
   const shouldShowFooterStrip = visibleTasks.length > 0 && !isVisualLaunchMode;
   
   return (
@@ -3538,6 +3550,7 @@ export function BuilderStudioPage() {
             ) : (
               <BuilderTribuneStage
                 compact={compact}
+                experienceMode={experienceMode}
                 activeTask={activeTask}
                 attentionTask={attentionTask}
                 attentionDetail={attentionDetail}
