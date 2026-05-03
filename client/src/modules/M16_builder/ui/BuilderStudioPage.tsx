@@ -2291,6 +2291,26 @@ export function BuilderStudioPage() {
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/maya/chat';
+  const hasOutputContext = Boolean(
+    activeTask
+    || latestPrototypeArtifact
+    || latestStructuredArtifact
+    || latestApprovalArtifact
+    || latestVisualReviewArtifact,
+  );
+  const currentFocusLabel = drawerView === 'visual'
+    ? (selectedTaskId ? 'Vision Review' : 'Vision Launchpad')
+    : drawerView === 'models'
+      ? 'Model Pool'
+      : drawerView === 'task'
+        ? 'Task Focus'
+        : drawerView === 'output'
+          ? 'Delivery Surface'
+          : experienceMode === 'pipeline'
+            ? 'Pipeline'
+            : experienceMode === 'single_specialist'
+              ? 'Single Specialist'
+              : 'Dialog';
   const directorStatusText = directorModel
     ? getDirectorStatusText(
         directorThinking,
@@ -3355,6 +3375,9 @@ export function BuilderStudioPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text3, fontSize: 12 }}>
+                <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}66`, padding: '6px 10px', background: 'rgba(34,211,238,0.10)', color: TOKENS.text }}>
+                  Fokus {currentFocusLabel}
+                </span>
                 <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>Token {maskToken(token)}</span>
                 <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>{tasks.length} Tasks</span>
                 <span style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b2}`, padding: '6px 10px', background: TOKENS.bg2 }}>{files.length} Files</span>
@@ -3370,12 +3393,16 @@ export function BuilderStudioPage() {
               <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `2px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 Maya Tour
               </button>
-              <button onClick={() => { setDrawerView((current) => current === 'task' ? null : 'task'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'task' ? TOKENS.green : TOKENS.b1}`, background: drawerView === 'task' ? 'rgba(74,222,128,0.12)' : TOKENS.bg2, color: drawerView === 'task' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Task
-              </button>
-              <button onClick={() => { setDrawerView((current) => current === 'output' ? null : 'output'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'output' ? TOKENS.gold : TOKENS.b1}`, background: drawerView === 'output' ? 'rgba(212,175,55,0.12)' : TOKENS.bg2, color: drawerView === 'output' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Output
-              </button>
+              {tasks.length > 0 ? (
+                <button onClick={() => { setDrawerView((current) => current === 'task' ? null : 'task'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'task' ? TOKENS.green : TOKENS.b1}`, background: drawerView === 'task' ? 'rgba(74,222,128,0.12)' : TOKENS.bg2, color: drawerView === 'task' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                  Task
+                </button>
+              ) : null}
+              {hasOutputContext ? (
+                <button onClick={() => { setDrawerView((current) => current === 'output' ? null : 'output'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'output' ? TOKENS.gold : TOKENS.b1}`, background: drawerView === 'output' ? 'rgba(212,175,55,0.12)' : TOKENS.bg2, color: drawerView === 'output' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                  Output
+                </button>
+              ) : null}
               <button onClick={() => { setDrawerView((current) => current === 'models' ? null : 'models'); setShowConfig(true); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'models' || showConfig ? '#7c6af7' : TOKENS.b1}`, background: drawerView === 'models' || showConfig ? 'rgba(124,106,247,0.14)' : TOKENS.bg2, color: drawerView === 'models' || showConfig ? '#c4b5fd' : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                 Models
               </button>
