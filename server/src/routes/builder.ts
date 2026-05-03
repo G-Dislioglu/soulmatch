@@ -163,6 +163,49 @@ type VisualFixTaskCandidate = {
   regionHint: string | null;
 };
 
+const BUILDER_VISUAL_FIX_SCOPE = [
+  'client/src/modules/M16_builder/ui/BuilderStudioPage.tsx',
+  'client/src/modules/M16_builder/ui/BuilderOutputPanels.tsx',
+  'client/src/modules/M16_builder/ui/BuilderVisualReviewPanel.tsx',
+  'client/src/modules/M16_builder/hooks/useMayaApi.ts',
+] as const;
+
+function inferVisualFixScope(candidate: VisualFixTaskCandidate, sourceTask: typeof builderTasks.$inferSelect): string[] {
+  if (Array.isArray(sourceTask.scope) && sourceTask.scope.length > 0) {
+    return sourceTask.scope;
+  }
+
+  const haystack = [
+    candidate.title,
+    candidate.description,
+    candidate.suggestedFix,
+    candidate.category,
+    candidate.regionHint,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  const scope = new Set<string>();
+
+  if (/\b(output|dialog|transition|preview|bestaetigt|bestätigt|delivery|tribune|sidebar|topbar|drawer|modal|status bar|button|navigation)\b/.test(haystack)) {
+    scope.add('client/src/modules/M16_builder/ui/BuilderStudioPage.tsx');
+  }
+
+  if (/\b(delivery|output|artifact|technical details|dialog snippet)\b/.test(haystack)) {
+    scope.add('client/src/modules/M16_builder/ui/BuilderOutputPanels.tsx');
+  }
+
+  if (/\b(visual review|vision|score|feedback|council|fix-task|fix task|model picker)\b/.test(haystack)) {
+    scope.add('client/src/modules/M16_builder/ui/BuilderVisualReviewPanel.tsx');
+    scope.add('client/src/modules/M16_builder/hooks/useMayaApi.ts');
+  }
+
+  if (scope.size === 0) {
+    scope.add('client/src/modules/M16_builder/ui/BuilderStudioPage.tsx');
+    scope.add('client/src/modules/M16_builder/ui/BuilderVisualReviewPanel.tsx');
+  }
+
+  return [...scope].filter((entry) => BUILDER_VISUAL_FIX_SCOPE.includes(entry as typeof BUILDER_VISUAL_FIX_SCOPE[number]));
+}
+
 function normalizeVisualReviewTaskType(value: unknown): VisualReviewTaskType {
   const allowed: VisualReviewTaskType[] = [
     'ui_review',
@@ -1780,10 +1823,21 @@ router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Requ
     for (const candidate of candidates) {
       const risk = visualRiskForSeverity(candidate.severity);
       const title = `[Visual ${candidate.severity}] ${compactText(candidate.title, 150)}`;
+      const fixScope = inferVisualFixScope(candidate, sourceTask);
+      const recommendedWorker = pickWorker([
+        candidate.title,
+        candidate.description,
+        candidate.suggestedFix ?? '',
+        candidate.category,
+        'UI tweak visual fix',
+      ].join('\n'));
       const goal = [
         `Fix this visual UI/UX finding from report ${report.id}.`,
         `Source task: ${sourceTask.title} (${sourceTask.id}).`,
         `Source model: ${candidate.sourceModelId}.`,
+        `Maya recommended worker: ${recommendedWorker.id} (${recommendedWorker.model}) for ${recommendedWorker.role}.`,
+        `Implementation scope: ${fixScope.join(', ')}.`,
+        'Do not read or patch guessed app paths such as /app/dashboard/page.tsx. Start with @FIND_PATTERN inside the implementation scope, then @READ the matching scoped file.',
         `Severity: ${candidate.severity}. Category: ${candidate.category}.`,
         `Finding: ${candidate.description}`,
         candidate.suggestedFix ? `Suggested fix: ${candidate.suggestedFix}` : null,
@@ -1821,6 +1875,13 @@ router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Requ
             reportArtifactId: report.id,
             sourceModelId: candidate.sourceModelId,
             severity: candidate.severity,
+            recommendedWorker: {
+              id: recommendedWorker.id,
+              provider: recommendedWorker.provider,
+              model: recommendedWorker.model,
+              role: recommendedWorker.role,
+            },
+            inferredScope: fixScope,
           }],
           budgetIterations: candidate.severity === 'critical' ? 3 : 2,
           budgetUsed: 0,
@@ -1831,6 +1892,7 @@ router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Requ
           requestedOutputFormat: creationDefaults.requestedOutputFormat,
           requiredLanes: creationDefaults.requiredLanes,
           policyProfile,
+          scope: fixScope,
         })
         .returning();
 
