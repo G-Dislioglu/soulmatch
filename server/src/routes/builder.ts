@@ -165,16 +165,13 @@ type VisualFixTaskCandidate = {
 
 const BUILDER_VISUAL_FIX_SCOPE = [
   'client/src/modules/M16_builder/ui/BuilderStudioPage.tsx',
+  'client/src/modules/M16_builder/ui/BuilderTribuneStage.tsx',
   'client/src/modules/M16_builder/ui/BuilderOutputPanels.tsx',
   'client/src/modules/M16_builder/ui/BuilderVisualReviewPanel.tsx',
   'client/src/modules/M16_builder/hooks/useMayaApi.ts',
 ] as const;
 
 function inferVisualFixScope(candidate: VisualFixTaskCandidate, sourceTask: typeof builderTasks.$inferSelect): string[] {
-  if (Array.isArray(sourceTask.scope) && sourceTask.scope.length > 0) {
-    return sourceTask.scope;
-  }
-
   const haystack = [
     candidate.title,
     candidate.description,
@@ -184,9 +181,20 @@ function inferVisualFixScope(candidate: VisualFixTaskCandidate, sourceTask: type
   ].filter(Boolean).join(' ').toLowerCase();
 
   const scope = new Set<string>();
+  if (Array.isArray(sourceTask.scope)) {
+    for (const entry of sourceTask.scope) {
+      if (BUILDER_VISUAL_FIX_SCOPE.includes(entry as typeof BUILDER_VISUAL_FIX_SCOPE[number])) {
+        scope.add(entry);
+      }
+    }
+  }
 
   if (/\b(output|dialog|transition|preview|bestaetigt|bestätigt|delivery|tribune|sidebar|topbar|drawer|modal|status bar|button|navigation)\b/.test(haystack)) {
     scope.add('client/src/modules/M16_builder/ui/BuilderStudioPage.tsx');
+  }
+
+  if (/\b(output|dialog|transition|preview|tribune|operator guidance|guidance|navigation|button|bestaetigt|bestätigt)\b/.test(haystack)) {
+    scope.add('client/src/modules/M16_builder/ui/BuilderTribuneStage.tsx');
   }
 
   if (/\b(delivery|output|artifact|technical details|dialog snippet)\b/.test(haystack)) {
