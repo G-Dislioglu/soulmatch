@@ -156,7 +156,7 @@ function readStoredValue(keys: string[]) {
 
 function getInitialBuilderToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('builderToken') || params.get('token')
+  return params.get('builderToken') || params.get('token') || params.get('opus_token')
     || readStoredValue([BUILDER_TOKEN_STORAGE_KEY, LEGACY_BUILDER_TOKEN_STORAGE_KEY]);
 }
 
@@ -1282,6 +1282,25 @@ function pickLatestArtifact(artifacts: BuilderArtifact[], types: string[]) {
   return artifacts.find((artifact) => types.includes(artifact.artifactType)) ?? null;
 }
 
+function getCollapsedSidebarLabel(key: SidebarView) {
+  switch (key) {
+    case 'chat':
+      return 'CH';
+    case 'tasks':
+      return 'QU';
+    case 'files':
+      return 'FI';
+    case 'patrol':
+      return 'PA';
+    case 'notes':
+      return 'NO';
+    case 'models':
+      return 'MO';
+    default:
+      return '--';
+  }
+}
+
 function isBrowserScreenshotArtifact(artifact: BuilderArtifact) {
   return artifact.artifactType === 'browser_screenshot';
 }
@@ -2127,6 +2146,10 @@ export function BuilderStudioPage() {
     () => (poolConfig?.models ?? []).filter((model) => model.visionCapable === true),
     [poolConfig],
   );
+  const visualReviewTaskCandidate = useMemo(
+    () => activeTask ?? attentionTask ?? visibleTasks[0] ?? tasks[0] ?? null,
+    [activeTask, attentionTask, tasks, visibleTasks],
+  );
   const displayedVisualRunResult = useMemo(() => {
     if (visualRunResult) {
       return visualRunResult;
@@ -2148,6 +2171,20 @@ export function BuilderStudioPage() {
         : { modelId: '-', provider: '-', model: '-', summary: '' }) as VisualReviewRunResponse['mayaSynthesis'],
     } satisfies VisualReviewRunResponse;
   }, [activeTask?.id, latestVisualReviewArtifact, visualRunResult]);
+  const visualReviewBlockingReason = useMemo(() => {
+    if (!selectedTaskId) {
+      return tasks.length === 0
+        ? 'Noch keine Builder-Task vorhanden. Starte den Flow zuerst ueber den Maya-Chat.'
+        : 'Waehle zuerst eine Task, damit Screenshots und Findings einem Builder-Lauf zugeordnet werden koennen.';
+    }
+    if (selectedVisualModelIds.length === 0) {
+      return 'Waehle mindestens ein Vision-Modell fuer den Review-Lauf.';
+    }
+    if (selectedVisualArtifactIds.length === 0) {
+      return 'Fuer die gewaehlte Task fehlen Browser-Screenshots. Erzeuge erst Browser-Artefakte im Lauf.';
+    }
+    return null;
+  }, [selectedTaskId, selectedVisualArtifactIds.length, selectedVisualModelIds.length, tasks.length]);
   const sidebarTasks = useMemo(() => sortTaskQueue(tasks, 'priority').slice(0, 8), [tasks]);
   const continuityNotes = mayaCtx?.continuityNotes ?? [];
   const builderStatus = useMemo(() => {
@@ -2979,6 +3016,23 @@ export function BuilderStudioPage() {
       : [...current, artifactId]);
   }, []);
 
+  const handleSelectVisualReviewTask = useCallback(() => {
+    if (!visualReviewTaskCandidate) {
+      return;
+    }
+    setSelectedTaskId(visualReviewTaskCandidate.id);
+    setSidebarExpanded(true);
+    setSidebarView('tasks');
+    setDrawerView('visual');
+  }, [visualReviewTaskCandidate]);
+
+  const handleSeedVisualCapturePrompt = useCallback(() => {
+    const taskLabel = visualReviewTaskCandidate?.title ?? 'die aktuelle Builder-Ansicht';
+    setSidebarExpanded(true);
+    setSidebarView('chat');
+    setChatInput(`Erzeuge fuer ${taskLabel} einen Browser-Lauf mit UI_RUN-Schritten und speichere mindestens drei browser_screenshot-Artefakte fuer einen Visual-Review-Lauf.`);
+  }, [visualReviewTaskCandidate]);
+
   const handleRunVisualReview = useCallback(async () => {
     if (!selectedTaskId) {
       setPageError('Keine Task fuer Visual Review gewaehlt');
@@ -3205,6 +3259,8 @@ export function BuilderStudioPage() {
                   <button
                     type="button"
                     onClick={() => setSidebarExpanded((current) => !current)}
+                    title={sidebarExpanded ? 'Sidebar einklappen' : 'Sidebar aufklappen'}
+                    aria-label={sidebarExpanded ? 'Sidebar einklappen' : 'Sidebar aufklappen'}
                     style={{
                       width: 40,
                       height: 40,
@@ -3247,16 +3303,16 @@ export function BuilderStudioPage() {
                 Maya Tour
               </button>
               <button onClick={() => { setDrawerView((current) => current === 'task' ? null : 'task'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'task' ? TOKENS.green : TOKENS.b1}`, background: drawerView === 'task' ? 'rgba(74,222,128,0.12)' : TOKENS.bg2, color: drawerView === 'task' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Task Drawer
+                Task
               </button>
               <button onClick={() => { setDrawerView((current) => current === 'output' ? null : 'output'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'output' ? TOKENS.gold : TOKENS.b1}`, background: drawerView === 'output' ? 'rgba(212,175,55,0.12)' : TOKENS.bg2, color: drawerView === 'output' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Output Drawer
+                Output
               </button>
               <button onClick={() => { setDrawerView((current) => current === 'models' ? null : 'models'); setShowConfig(true); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'models' || showConfig ? '#7c6af7' : TOKENS.b1}`, background: drawerView === 'models' || showConfig ? 'rgba(124,106,247,0.14)' : TOKENS.bg2, color: drawerView === 'models' || showConfig ? '#c4b5fd' : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Model & Config
+                Models
               </button>
               <button onClick={() => { setDrawerView((current) => current === 'visual' ? null : 'visual'); }} style={{ borderRadius: 999, border: `2px solid ${drawerView === 'visual' ? TOKENS.cyan : TOKENS.b1}`, background: drawerView === 'visual' ? 'rgba(34,211,238,0.12)' : TOKENS.bg2, color: drawerView === 'visual' ? TOKENS.text : TOKENS.text2, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                Visual Review
+                Vision
               </button>
               <a
                 data-maya-target="patrol-console"
@@ -3502,6 +3558,8 @@ export function BuilderStudioPage() {
                   <button
                     key={item.key}
                     type="button"
+                    title={item.label}
+                    aria-label={item.label}
                     onClick={() => {
                       setSidebarExpanded(true);
                       setSidebarView(item.key as SidebarView);
@@ -3519,7 +3577,7 @@ export function BuilderStudioPage() {
                       textAlign: sidebarExpanded || compact ? 'left' : 'center',
                     }}
                   >
-                    {sidebarExpanded || compact ? item.label : item.label.slice(0, 1)}
+                    {sidebarExpanded || compact ? item.label : getCollapsedSidebarLabel(item.key as SidebarView)}
                   </button>
                 ))}
               </div>
@@ -4806,6 +4864,58 @@ export function BuilderStudioPage() {
                     </div>
                   </div>
 
+                  <div style={{ display: 'grid', gap: 8, gridTemplateColumns: compact ? '1fr' : 'minmax(0, 1fr) auto' }}>
+                    <div style={{ borderRadius: 14, border: `1.5px solid ${selectedTaskId ? TOKENS.cyan : TOKENS.b2}`, background: selectedTaskId ? 'rgba(34,211,238,0.08)' : TOKENS.bg2, padding: '11px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Review Context</div>
+                      <div style={{ fontSize: 12.5, color: TOKENS.text, fontWeight: 700 }}>
+                        {selectedTaskId && activeTask ? activeTask.title : visualReviewTaskCandidate ? `Noch nicht gebunden  -  Vorschlag: ${visualReviewTaskCandidate.title}` : 'Noch keine Task fuer diesen Review gebunden'}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                        {selectedTaskId
+                          ? 'Vision-Reports werden an diese Task, ihre Screenshots und ihre Artefakte gebunden.'
+                          : tasks.length > 0
+                            ? 'Waehle zuerst eine Task, damit der Review-Lauf nicht im Leeren endet.'
+                            : 'Starte zuerst einen Builder-Lauf ueber Maya, bevor Vision-Modelle Screenshots pruefen koennen.'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
+                      <button
+                        type="button"
+                        onClick={handleSelectVisualReviewTask}
+                        disabled={!visualReviewTaskCandidate}
+                        style={{
+                          borderRadius: 999,
+                          border: `1.5px solid ${TOKENS.cyan}`,
+                          background: 'rgba(34,211,238,0.12)',
+                          color: TOKENS.text,
+                          padding: '10px 14px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: visualReviewTaskCandidate ? 'pointer' : 'not-allowed',
+                          opacity: visualReviewTaskCandidate ? 1 : 0.5,
+                        }}
+                      >
+                        {selectedTaskId ? 'Task wechseln' : 'Task fuer Review waehlen'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSeedVisualCapturePrompt}
+                        style={{
+                          borderRadius: 999,
+                          border: `1.5px solid ${TOKENS.gold}`,
+                          background: 'rgba(212,175,55,0.12)',
+                          color: TOKENS.text,
+                          padding: '10px 14px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Maya Capture Prompt
+                      </button>
+                    </div>
+                  </div>
+
                   <div style={{ display: 'grid', gap: 8 }}>
                     <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Review Type</div>
                     <select
@@ -4887,8 +4997,11 @@ export function BuilderStudioPage() {
                         );
                       })}
                       {browserScreenshotArtifacts.length === 0 ? (
-                        <div style={{ borderRadius: 14, border: `1.5px dashed ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text3, padding: '12px 13px', fontSize: 12.5 }}>
-                          Fuer diese Task gibt es noch keine Browser-Screenshots. Die Browser-Lane muss zuerst ein `browser_screenshot`-Artefakt erzeugen.
+                        <div style={{ borderRadius: 14, border: `1.5px dashed ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text3, padding: '12px 13px', fontSize: 12.5, display: 'grid', gap: 6 }}>
+                          <div>Fuer diese Task gibt es noch keine Browser-Screenshots. Die Browser-Lane muss zuerst ein `browser_screenshot`-Artefakt erzeugen.</div>
+                          <div style={{ fontSize: 11.5, color: TOKENS.text2, lineHeight: 1.6 }}>
+                            Nutze den Maya-Chat fuer einen UI-Lauf mit `UI_RUN`-Schritten oder wechsle auf eine Task, die bereits Browser-Artefakte mitbringt.
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -4928,6 +5041,12 @@ export function BuilderStudioPage() {
                       {visualRunLoading ? 'Visual Review laeuft...' : 'Visual Review starten'}
                     </button>
                   </div>
+
+                  {visualReviewBlockingReason ? (
+                    <div style={{ borderRadius: 14, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.bg2, color: TOKENS.text2, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.6 }}>
+                      {visualReviewBlockingReason}
+                    </div>
+                  ) : null}
 
                   {displayedVisualRunResult ? (
                     <div style={{ display: 'grid', gap: 10, borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 12 }}>
