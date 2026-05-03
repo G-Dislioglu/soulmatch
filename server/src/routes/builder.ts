@@ -206,6 +206,26 @@ function inferVisualFixScope(candidate: VisualFixTaskCandidate, sourceTask: type
   return [...scope].filter((entry) => BUILDER_VISUAL_FIX_SCOPE.includes(entry as typeof BUILDER_VISUAL_FIX_SCOPE[number]));
 }
 
+function pickVisualFixWorker(candidate: VisualFixTaskCandidate) {
+  const haystack = [
+    candidate.title,
+    candidate.description,
+    candidate.suggestedFix,
+    candidate.category,
+    candidate.regionHint,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (candidate.severity === 'critical' || /\b(modal|overlap|responsive|layout|multi.file|multi-file|redesign)\b/.test(haystack)) {
+    return WORKER_PROFILES.find((worker) => worker.id === 'gpt-5.5') ?? pickWorker(haystack);
+  }
+
+  if (/\b(ui|ux|button|label|tooltip|copy|navigation|status|legend|visual)\b/.test(haystack)) {
+    return WORKER_PROFILES.find((worker) => worker.id === 'glm-turbo') ?? pickWorker(haystack);
+  }
+
+  return pickWorker(haystack);
+}
+
 function normalizeVisualReviewTaskType(value: unknown): VisualReviewTaskType {
   const allowed: VisualReviewTaskType[] = [
     'ui_review',
@@ -1824,13 +1844,7 @@ router.post('/visual-perception/reports/:artifactId/fix-tasks', async (req: Requ
       const risk = visualRiskForSeverity(candidate.severity);
       const title = `[Visual ${candidate.severity}] ${compactText(candidate.title, 150)}`;
       const fixScope = inferVisualFixScope(candidate, sourceTask);
-      const recommendedWorker = pickWorker([
-        candidate.title,
-        candidate.description,
-        candidate.suggestedFix ?? '',
-        candidate.category,
-        'UI tweak visual fix',
-      ].join('\n'));
+      const recommendedWorker = pickVisualFixWorker(candidate);
       const goal = [
         `Fix this visual UI/UX finding from report ${report.id}.`,
         `Source task: ${sourceTask.title} (${sourceTask.id}).`,
