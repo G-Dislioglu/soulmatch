@@ -105,6 +105,30 @@ Pipeline: Scout (Pool) → Distiller (Pool) → Council (Pool, Maya-moderated) �
 
 Key files: `opusBridgeController.ts`, `opusRoundtable.ts`, `opusScoutRunner.ts`, `opusDistiller.ts`, `opusWorkerSwarm.ts`, `agentHabitat.ts`, `builderFusionChat.ts`, `builderStaleDetector.ts`.
 
+### Builder Team Awareness
+
+Builder should be treated as a role-aware AI team, not as a rigid gate machine.
+
+Canonical working policy: `docs/AI-TEAM-ANTI-BUREAUCRACY-CHARTER-v0.1.md`.
+
+This charter applies across Maya, Builder, AICOS, Design-IQ, Worker/Council
+flows, and future app-internal AI systems.
+
+Working posture:
+
+- Freedom in thinking, planning, context gathering, and local implementation is the default.
+- Hard coordination is reserved for real risk transitions.
+- Maya is Mission Control and the clarification hub for route, user intent, and mission conflicts.
+- Ambiguity should first trigger clarification, consultation, or an explicit assumption when risk is low.
+- New restrictions or tighter blocking rules must not be introduced silently.
+- Small local implementation decisions, file discovery, narrow helper work, and ordinary type-fix loops should not fail-closed the whole run.
+
+Preferred policy:
+
+- Ask-first for ambiguity.
+- Continue-with-assumption for low-risk uncertainty.
+- Block-only for hard risk.
+
 ### Key Systems
 
 **Scoring** (`server/src/shared/scoring.ts` is single source of truth):
