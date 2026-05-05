@@ -1,8 +1,9 @@
 import { getDb } from '../db.js';
 import { callProvider } from './providers.js';
-import { builderChatpool, builderTasks } from '../schema/builder.js';
+import { builderArtifacts, builderChatpool, builderTasks } from '../schema/builder.js';
 import { eq } from 'drizzle-orm';
 import { runScoutPhase } from './councilScout.js';
+import { createHash } from 'crypto';
 
 // â”€â”€â”€ Interfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -25,6 +26,32 @@ interface DebateRound {
   model: string;
   content: string;
   durationMs: number;
+}
+
+interface CouncilProvenanceEvent {
+  runId: string;
+  taskId: string;
+  round: number;
+  actor: string;
+  role: string;
+  requestedProvider: string;
+  requestedModel: string;
+  actualProvider: string | null;
+  actualModel: string | null;
+  actualProviderAvailable: boolean;
+  promptHash: string | null;
+  promptChars: number;
+  systemHash: string | null;
+  systemChars: number;
+  userHash: string | null;
+  userChars: number;
+  contentChars: number;
+  durationMs: number;
+  status: 'success' | 'failure';
+  attempt: number;
+  errorClass: string | null;
+  errorSnippet: string | null;
+  createdAt: string;
 }
 
 interface CouncilDebateResult {
@@ -113,6 +140,26 @@ function buildPrompt(
   return parts.join('\n');
 }
 
+function sha256(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function buildPromptHash(system: string, user: string): string {
+  return sha256(JSON.stringify({ system, user }));
+}
+
+function toErrorSnippet(error: unknown): string {
+  return error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
+}
+
+function hasFailureSignal(content: string): boolean {
+  return /Fehler|Error|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND/i.test(content);
+}
+
+function firstFailureSignal(content: string): string | null {
+  return content.match(/(?:Fehler|Error|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND)[^\n]*/i)?.[0]?.slice(0, 500) ?? null;
+}
+
 // â”€â”€â”€ Council Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function runCouncilDebate({
@@ -126,6 +173,7 @@ export async function runCouncilDebate({
   const overallStart = Date.now();
   const rounds: DebateRound[] = [];
   const db = getDb();
+  const provenanceEvents: CouncilProvenanceEvent[] = [];
 
   // Erstelle eine Builder-Task als Anker fuer die chatPool-Eintraege
   const [task] = await db
@@ -154,7 +202,39 @@ export async function runCouncilDebate({
   }
 
   // â”€â”€â”€ Scout Phase: Repo + Web + AICOS + Crush â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const scoutStart = Date.now();
   const scoutFindings = await runScoutPhase(topic, context || '');
+  const scoutContent = [
+    '## Repo-Scout\n' + scoutFindings.repoContext,
+    '## Web-Scout (Gemini + Google Search)\n' + scoutFindings.webInsights,
+    '## AICOS-Karten\n' + scoutFindings.aicosCards,
+    '## Crush-Zerlegung\n' + scoutFindings.crushStructure,
+  ].join('\n\n---\n\n');
+  provenanceEvents.push({
+    runId: debateId,
+    taskId,
+    round: 0,
+    actor: 'scout',
+    role: 'scout',
+    requestedProvider: 'multi',
+    requestedModel: 'repo+gemini+aicos+crush',
+    actualProvider: null,
+    actualModel: null,
+    actualProviderAvailable: false,
+    promptHash: null,
+    promptChars: 0,
+    systemHash: null,
+    systemChars: 0,
+    userHash: null,
+    userChars: 0,
+    contentChars: scoutContent.length,
+    durationMs: Date.now() - scoutStart,
+    status: hasFailureSignal(scoutContent) ? 'failure' : 'success',
+    attempt: 1,
+    errorClass: hasFailureSignal(scoutContent) ? 'scout_partial_failure' : null,
+    errorSnippet: firstFailureSignal(scoutContent),
+    createdAt: new Date().toISOString(),
+  });
 
   // Store scout findings in chatPool
   await db.insert(builderChatpool).values({
@@ -163,12 +243,7 @@ export async function runCouncilDebate({
     phase: 'scout',
     actor: 'scout',
     model: 'multi',
-    content: [
-      '## Repo-Scout\n' + scoutFindings.repoContext,
-      '## Web-Scout (Gemini + Google Search)\n' + scoutFindings.webInsights,
-      '## AICOS-Karten\n' + scoutFindings.aicosCards,
-      '## Crush-Zerlegung\n' + scoutFindings.crushStructure,
-    ].join('\n\n---\n\n'),
+    content: scoutContent,
     commands: [],
     executionResults: {},
     tokensUsed: 0,
@@ -198,13 +273,17 @@ export async function runCouncilDebate({
     const { provider, model } = ROLE_MODELS[actor];
     const systemPrompt = SYSTEM_PROMPTS[actor];
     const userPrompt = buildPrompt(actor, topic, enrichedContext, requirements, constraints, rounds);
+    const fullSystemPrompt = `${TEAM_AUTONOMY_PROMPT}\n\n${systemPrompt}`;
 
     const roundStart = Date.now();
 
     let content: string;
+    let status: CouncilProvenanceEvent['status'] = 'success';
+    let errorClass: string | null = null;
+    let errorSnippet: string | null = null;
     try {
       content = await callProvider(provider, model, {
-        system: `${TEAM_AUTONOMY_PROMPT}\n\n${systemPrompt}`,
+        system: fullSystemPrompt,
         messages: [
           { role: 'user', content: userPrompt },
         ],
@@ -213,10 +292,38 @@ export async function runCouncilDebate({
         forceJsonObject: false,
       });
     } catch (err) {
-      content = `[Fehler bei ${actor}: ${String(err).substring(0, 200)}]`;
+      status = 'failure';
+      errorClass = err instanceof Error ? err.name : 'Error';
+      errorSnippet = toErrorSnippet(err);
+      content = `[Fehler bei ${actor}: ${errorSnippet.substring(0, 200)}]`;
     }
 
     const roundDuration = Date.now() - roundStart;
+    provenanceEvents.push({
+      runId: debateId,
+      taskId,
+      round: i + 1,
+      actor,
+      role: actor,
+      requestedProvider: provider,
+      requestedModel: model,
+      actualProvider: provider,
+      actualModel: model,
+      actualProviderAvailable: false,
+      promptHash: buildPromptHash(fullSystemPrompt, userPrompt),
+      promptChars: fullSystemPrompt.length + userPrompt.length,
+      systemHash: sha256(fullSystemPrompt),
+      systemChars: fullSystemPrompt.length,
+      userHash: sha256(userPrompt),
+      userChars: userPrompt.length,
+      contentChars: content.length,
+      durationMs: roundDuration,
+      status,
+      attempt: 1,
+      errorClass,
+      errorSnippet,
+      createdAt: new Date().toISOString(),
+    });
 
     const round: DebateRound = { actor, provider, model, content, durationMs: roundDuration };
     rounds.push(round);
@@ -246,6 +353,20 @@ export async function runCouncilDebate({
     .update(builderTasks)
     .set({ status: 'done' })
     .where(eq(builderTasks.id, taskId));
+
+  await db.insert(builderArtifacts).values({
+    taskId,
+    artifactType: 'council_provenance',
+    lane: 'council',
+    path: null,
+    jsonPayload: {
+      debateId,
+      generatedAt: new Date().toISOString(),
+      schemaVersion: 'council-provenance-v0.1',
+      eventCount: provenanceEvents.length,
+      events: provenanceEvents,
+    },
+  });
 
   return {
     debateId,

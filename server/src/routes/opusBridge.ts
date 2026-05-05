@@ -1751,13 +1751,15 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
 opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res: Response) => {
   try {
     const db = (await import('../db.js')).getDb();
-    const { builderChatpool: cp, builderTasks: bt } = await import('../schema/builder.js');
+    const { builderArtifacts: ba, builderChatpool: cp, builderTasks: bt } = await import('../schema/builder.js');
     const { eq } = await import('drizzle-orm');
 
     const task = await db.select().from(bt).where(eq(bt.id, req.params.taskId)).limit(1);
     if (!task.length) { res.status(404).json({ error: 'not found' }); return; }
 
     const rounds = await db.select().from(cp).where(eq(cp.taskId, req.params.taskId)).orderBy(cp.round);
+    const artifacts = await db.select().from(ba).where(eq(ba.taskId, req.params.taskId));
+    const provenance = artifacts.find((artifact) => artifact.artifactType === 'council_provenance');
 
     const wantFull = req.query.full === 'true' || req.query.full === '1';
 
@@ -1766,6 +1768,11 @@ opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res:
       status: task[0].status,
       title: task[0].title,
       roundsCompleted: rounds.length,
+      provenance: provenance ? {
+        artifactId: provenance.id,
+        createdAt: provenance.createdAt,
+        payload: provenance.jsonPayload,
+      } : null,
       rounds: rounds.map(r => {
         const base = {
           round: r.round,
