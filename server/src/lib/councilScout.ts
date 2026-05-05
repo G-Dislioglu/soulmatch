@@ -1,4 +1,103 @@
 import { callProvider } from './providers.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const REPO_SCOUT_CANDIDATES = [
+  'server/src/lib/councilDebate.ts',
+  'server/src/lib/councilScout.ts',
+  'server/src/lib/opusRoundtable.ts',
+  'server/src/lib/opusWorkerRegistry.ts',
+  'server/src/lib/providers.ts',
+  'server/src/routes/opusBridge.ts',
+  'server/src/routes/builder.ts',
+  'server/src/schema/builder.ts',
+  'docs/AI-AUTONOMY-LAYER-v0.1.md',
+  'docs/AI-TEAM-AUTONOMY-CHARTER-v0.1.md',
+  'docs/AI-TEAM-ANTI-BUREAUCRACY-CHARTER-v0.1.md',
+] as const;
+
+function readRepoFile(filePath: string): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), filePath),
+    path.resolve(process.cwd(), '..', filePath),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return fs.readFileSync(candidate, 'utf8');
+      }
+    } catch {
+      // Try the next likely repo root.
+    }
+  }
+
+  return null;
+}
+
+function topicKeywords(topic: string, context: string): string[] {
+  return `${topic} ${context}`
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß_-]+/gi, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 5)
+    .filter((word, index, all) => all.indexOf(word) === index)
+    .slice(0, 18);
+}
+
+function scoreCandidate(filePath: string, content: string, keywords: string[]): number {
+  const haystack = `${filePath}\n${content.slice(0, 12000)}`.toLowerCase();
+  let score = 0;
+  for (const keyword of keywords) {
+    if (haystack.includes(keyword)) score += 1;
+  }
+  if (/council|provenance|provider|scout|roundtable/i.test(filePath)) score += 2;
+  return score;
+}
+
+function relevantExcerpt(content: string, keywords: string[]): string {
+  const lines = content.split(/\r?\n/);
+  const matched = lines
+    .map((line, index) => ({ line, index }))
+    .filter((entry) => keywords.some((keyword) => entry.line.toLowerCase().includes(keyword)))
+    .slice(0, 14)
+    .map((entry) => `${entry.index + 1}: ${entry.line.slice(0, 220)}`);
+
+  if (matched.length > 0) {
+    return matched.join('\n');
+  }
+
+  return lines.slice(0, 24).map((line, index) => `${index + 1}: ${line.slice(0, 220)}`).join('\n');
+}
+
+function buildRepoEvidence(topic: string, context: string): string {
+  const keywords = topicKeywords(topic, context);
+  const candidates = (REPO_SCOUT_CANDIDATES
+    .map((filePath) => {
+      const content = readRepoFile(filePath);
+      if (!content) return null;
+      return {
+        filePath,
+        score: scoreCandidate(filePath, content, keywords),
+        excerpt: relevantExcerpt(content, keywords),
+      };
+    })
+    .filter((entry) => entry !== null) as Array<{ filePath: string; score: number; excerpt: string }>)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+
+  if (candidates.length === 0) {
+    return '[Keine lokalen Repo-Dateien lesbar]';
+  }
+
+  return candidates
+    .map((candidate) => [
+      `### ${candidate.filePath}`,
+      `score: ${candidate.score}`,
+      candidate.excerpt,
+    ].join('\n'))
+    .join('\n\n---\n\n');
+}
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -94,7 +193,7 @@ async function webScout(topic: string): Promise<string> {
             ],
           },
         ],
-        tools: [{ google_search_retrieval: {} }],
+        tools: [{ google_search: {} }],
         generationConfig: {
           maxOutputTokens: 1500,
           temperature: 0.3,
@@ -145,6 +244,34 @@ async function repoScout(topic: string, context: string): Promise<string> {
 }
 
 // ─── Crush-Zerlegung ─────────────────────────────────────────────────────────
+
+async function repoScoutGrounded(topic: string, context: string): Promise<string> {
+  try {
+    const repoEvidence = buildRepoEvidence(topic, context);
+
+    if (repoEvidence.startsWith('[Keine lokalen Repo-Dateien')) {
+      return repoEvidence;
+    }
+
+    const analysis = await callProvider('openrouter', 'z-ai/glm-5-turbo', {
+      system:
+        'Du bist ein Code-Scout. Nutze AUSSCHLIESSLICH die unten gezeigten echten Repo-Dateien. Erfinde keine Dateinamen. Identifiziere die 3-5 wichtigsten Dateien, die ein Entwickler lesen muss, und erklaere kurz warum. Halte dich kurz, maximal 300 Worte. Antworte auf Deutsch.',
+      messages: [
+        {
+          role: 'user',
+          content: `Thema: ${topic}\n\nKontext: ${context}\n\nEchte Repo-Kandidaten mit Auszuegen:\n${repoEvidence}`,
+        },
+      ],
+      temperature: 0.3,
+      maxTokens: 1000,
+      forceJsonObject: false,
+    });
+
+    return analysis;
+  } catch (err) {
+    return `[Repo-Scout Fehler: ${String(err).substring(0, 150)}]\n\nFallback-Dateien:\n${buildRepoEvidence(topic, context)}`;
+  }
+}
 
 async function crushProblem(
   topic: string,
@@ -207,7 +334,7 @@ export async function runScoutPhase(
 
   // Run repo scout, web scout, and AICOS search in parallel
   const [repoContext, webInsights, aicosCards] = await Promise.all([
-    repoScout(topic, context),
+    repoScoutGrounded(topic, context),
     webScout(topic),
     searchAicosCards(topic),
   ]);
