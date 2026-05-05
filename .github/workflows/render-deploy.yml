@@ -49,7 +49,31 @@ jobs:
             exit 1
           fi
 
-          curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
+          curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL" | tee deploy-hook.json
+
+      - name: Check Render build state after fallback
+        if: steps.auto_deploy.outcome != 'success'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          DEPLOY_ID=$(jq -r '.deploy.id // .id // empty' deploy-hook.json 2>/dev/null || true)
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "No deploy id returned by hook; skipping direct Render API wait"
+            exit 0
+          fi
+
+          echo "Checking direct Render deploy state for $DEPLOY_ID"
+          if node tools/render-inspect.mjs wait "$DEPLOY_ID" 480 10; then
+            exit 0
+          fi
+
+          echo "Render deploy did not reach a healthy build state in the direct API wait window."
+          echo "Final deploy details:"
+          node tools/render-inspect.mjs deploy "$DEPLOY_ID" || true
+          echo "Recent build logs:"
+          node tools/render-inspect.mjs logs 50 || true
+          exit 1
 
       - name: Wait for live Render commit after fallback
         if: steps.auto_deploy.outcome != 'success'

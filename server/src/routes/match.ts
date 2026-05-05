@@ -450,6 +450,12 @@ interface MatchNarrativeBuildResult {
   usedAnchorIds: string[];
 }
 
+function normalizeNarrativeName(value: string | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function buildMatchNarrativePayload(request: MatchNarrativeRequest): MatchNarrativeBuildResult {
   const anchorsProvided = Array.isArray(request.anchorsProvided) ? request.anchorsProvided : [];
   const aspectHighlight = extractTopAspectHighlight(anchorsProvided);
@@ -719,7 +725,9 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
     const request: MatchCalculationRequest = req.body;
     
     // Validation
-    if (!request.aProfileId || !request.bProfileId) {
+    const aProfileId = (request.aProfileId ?? '').trim();
+    const bProfileId = (request.bProfileId ?? '').trim();
+    if (!aProfileId || !bProfileId) {
       return res.status(400).json({ 
         error: 'aProfileId and bProfileId are required' 
       });
@@ -737,10 +745,10 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
       });
     }
 
-    const result = calculateMatch(request);
+    const result = calculateMatch({ ...request, aProfileId, bProfileId });
     devLogger.info('api', 'Match calculated', { 
-      aProfileId: request.aProfileId,
-      bProfileId: request.bProfileId,
+      aProfileId,
+      bProfileId,
       matchOverall: result.matchOverall,
       astroAvailable: !result.meta.warnings?.includes('astro_unavailable_using_numerology_only')
     });
@@ -756,11 +764,25 @@ matchRouter.post('/calc', (req: Request, res: Response) => {
 matchRouter.post('/narrative', (req: Request, res: Response) => {
   try {
     const request = req.body as MatchNarrativeRequest;
-    const anchorsProvided = normalizeAnchorIds(request.anchorsProvided);
-    const reportedAnchors = normalizeAnchorIds(request.anchorsUsed);
+    const nameA = normalizeNarrativeName(request.profileA?.name);
+    const nameB = normalizeNarrativeName(request.profileB?.name);
+
+    if (!nameA || !nameB) {
+      res.status(400).json({ error: 'profileA.name and profileB.name are required' });
+      return;
+    }
+
+    const normalizedRequest: MatchNarrativeRequest = {
+      ...request,
+      profileA: { ...request.profileA, name: nameA },
+      profileB: { ...request.profileB, name: nameB },
+    };
+
+    const anchorsProvided = normalizeAnchorIds(normalizedRequest.anchorsProvided);
+    const reportedAnchors = normalizeAnchorIds(normalizedRequest.anchorsUsed);
     const anchorsUsed = reportedAnchors.length > 0 ? reportedAnchors : anchorsProvided.slice(0, 2);
 
-    const { payload, usedAnchorIds } = buildMatchNarrativePayload(request);
+    const { payload, usedAnchorIds } = buildMatchNarrativePayload(normalizedRequest);
     for (const id of usedAnchorIds) {
       if (!anchorsUsed.includes(id)) anchorsUsed.push(id);
     }
@@ -786,14 +808,14 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
       narrative: gated.output,
       qualityDebug: gated.qualityDebug,
       anchorsProvided,
-      anchorsUsed,
-      meta: {
-        engine: 'match_narrative',
-        engineVersion: 'v1',
-        scoringEngineVersion: request.scoringEngineVersion,
-        computedAt: new Date().toISOString(),
-        warnings,
-      },
+        anchorsUsed,
+        meta: {
+          engine: 'match_narrative',
+          engineVersion: 'v1',
+          scoringEngineVersion: normalizedRequest.scoringEngineVersion,
+          computedAt: new Date().toISOString(),
+          warnings,
+        },
     };
 
     res.json(response);
@@ -807,12 +829,14 @@ matchRouter.post('/narrative', (req: Request, res: Response) => {
 matchRouter.post('/single', async (req: Request, res: Response) => {
   try {
     const request = req.body as MatchSingleRequest;
-    if (!request?.profileA?.birthDate || !request?.profileB?.birthDate) {
+    const profileABirthDate = (request?.profileA?.birthDate ?? '').trim();
+    const profileBBirthDate = (request?.profileB?.birthDate ?? '').trim();
+    if (!profileABirthDate || !profileBBirthDate) {
       return res.status(400).json({ error: 'profileA.birthDate and profileB.birthDate are required' });
     }
 
-    const numerologyA = deriveNumerologyFromBirthDate(request.profileA.birthDate);
-    const numerologyB = deriveNumerologyFromBirthDate(request.profileB.birthDate);
+    const numerologyA = deriveNumerologyFromBirthDate(profileABirthDate);
+    const numerologyB = deriveNumerologyFromBirthDate(profileBBirthDate);
 
     const requestWarnings: string[] = [];
     const timezoneA = request.profileA.birthLocation?.timezone?.trim();
@@ -829,14 +853,14 @@ matchRouter.post('/single', async (req: Request, res: Response) => {
         const [astroResultA, astroResultB] = await Promise.all([
           calculateAstrologyForMatch({
             profileId: request.profileA.id ?? 'profile-a',
-            birthDate: request.profileA.birthDate,
+            birthDate: profileABirthDate,
             birthTime: request.profileA.birthTime,
             timezone: timezoneA!,
             location: request.profileA.birthLocation,
           }),
           calculateAstrologyForMatch({
             profileId: request.profileB.id ?? 'profile-b',
-            birthDate: request.profileB.birthDate,
+            birthDate: profileBBirthDate,
             birthTime: request.profileB.birthTime,
             timezone: timezoneB!,
             location: request.profileB.birthLocation,

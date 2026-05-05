@@ -1,0 +1,314 @@
+# Builder K2.6 Class_1 Release Corridor
+
+## Status
+
+- status: `free_class1_corridor_operational_single_file_green`
+- basis: `repo_visible_plus_runtime_probe`
+- scope: `narrow_free_class_1_only`
+- not included: `class_2`, `class_3`, multi-file, protected, builder-core
+
+## Purpose
+
+This document does **not** claim that Builder may now work freely in general.
+
+It defines the narrowest credible subset of `class_1` work that now has enough
+repo-visible and live-visible evidence to be considered for **free Builder
+execution**.
+
+## Evidence line
+
+The current corridor is based on:
+
+- local and live dry-run hardening through `K2.6a` and `K2.6b`
+- controlled push corridor `K2.6c`
+- first code-adjacent marker push `K2.6d`
+- first runtime cleanup push `K2.6e`
+- first runtime guard hardening push `K2.6f`
+- first public-route validation hardening push `K2.6g`
+- first free docs/helper subset `K2.7a`
+- first free non-governance anchored replacement landing `K2.7b`
+- first clean repeatability proof for that lane `K2.7c`
+- first free code-adjacent runtime validation proof `K2.7d`
+- second free code-adjacent runtime validation proof `K2.7e`
+- third free code-adjacent runtime validation proof `K2.7f`
+- first operational free-corridor boundary probe `K2.8a`
+- first narrowed operational free subset `K2.8b`
+- first real operational free runtime run inside that subset `K2.8c`
+- local builder-core hardening rerun for the two `K2.8a` fail-closed forms `K2.8d`
+- live dry-run approve proof for those two former fail-closed forms `K2.8e`
+- live T03 repeatability recheck on the hardened head `K2.8f`
+- live non-dry landing for the former T03 create-target `K2.8g`
+- live non-dry landing for the former T01 docs append `K2.8h`
+- live non-dry repeatability proof for both former rest shapes on fresh targets `K2.8i`
+- fifth free runtime validation family on `POST /api/guide` `K2.8j`
+- free-corridor boundary recheck on `studio.ts` plus three class widening probes `K2.8k` to `K2.8n`
+- smartPush payload hardening plus successful `studio.ts` landing rerun `K2.8r`
+- second large-file `studio.ts` validation proof on `/api/oracle` `K2.8s`
+- first supervised observer pilot with positive and negative controls `K2.9a`
+- first fresh-family observer runtime probe that widened to `class_2` `K2.9b`
+- first approval-backed fresh-family runtime landing on that widened seam
+  `K2.9c`
+
+Relevant verified commits:
+
+- `0738700`
+- `df13183`
+- `3b0236a`
+- `427235a`
+- `52a7175`
+- `adc593a`
+- `abd1d3f`
+- `7c3bce7`
+- `21d7a3d`
+- `0b2b8c3`
+- `ef100dd`
+- `1512f95`
+- `b6b85d0`
+- `0702adc`
+- `2dbab36`
+- `2ee184b`
+- `10d4e13`
+- `385cf22`
+- `7f95aac`
+- `88e2d5a`
+- `6e1ea41`
+- `beab7c7`
+- `99d8360`
+- `bdfce38`
+- `0d43164`
+- `0d12a4a`
+- `8d6470a`
+- `db1aa81`
+
+## Candidate free corridor
+
+### A. Exact single-file docs/helper edits
+
+Allowed:
+
+- one exact existing file or one explicit create-target helper file
+- no extra files
+- no product-surface logic change
+
+### B. Exact single-file anchored replacements
+
+Allowed:
+
+- one exact existing file
+- one local anchored replacement
+- no structural rewrite
+- no fallback overwrite outside the anchor
+
+Currently free only when all of these stay true:
+
+- target stays inside docs/helper-style paths
+- target is not itself a governance or policy document
+- replacement is exact and local
+
+### C. Single-file code-adjacent low-risk runtime edits
+
+Allowed:
+
+- one exact existing runtime file
+- one small cleanup, validation, or guard improvement
+- low-risk route or helper path
+- no product-semantics expansion
+- no additional touched files
+
+Controlled-push examples so far:
+
+- log cleanup in `server/src/routes/health.ts`
+- root guard hardening in `server/src/routes/health.ts`
+- whitespace validation hardening in `server/src/routes/numerology.ts`
+
+Free adoption is currently narrower than the controlled examples above.
+
+Currently free only when all of these stay true:
+
+- one exact existing public route file
+- one local validation or guard hardening only
+- no route-shape expansion
+- direct live probe exists before and after the landing
+
+First free proof so far:
+
+- whitespace-only `profileId` rejection in `server/src/routes/astro.ts`
+- whitespace-only `aProfileId` rejection in `server/src/routes/match.ts`
+- whitespace-only `profileId` rejection in `server/src/routes/scoring.ts`
+- whitespace-only `startDate` rejection in `server/src/routes/journey.ts`
+- whitespace-only `question` rejection in `server/src/routes/studio.ts`
+- unknown or whitespace-only `provider` rejection in `server/src/routes/studio.ts`
+
+## Corridor preconditions
+
+A task should count as free-corridor eligible only if all of these stay true:
+
+1. `taskClass=class_1`
+2. exactly one scope path or one explicit create target
+3. no protected/manual-only path
+4. no approval requirement
+5. judge approved
+6. changed files stay at `<=1`
+7. scope remains clean
+8. no follow-up commit drift
+9. server/client build lane stays green when applicable
+10. direct runtime proof exists when the path is externally testable
+
+## Explicit non-corridor
+
+The following remain outside free Builder operation:
+
+- any `class_2` task
+- any `class_3` or protected/manual-only path
+- any multi-file patch
+- any builder-core or gate-policy change
+- any auth, secrets, deploy, workflow, billing, or provider-core edit
+- any DB schema or migration edit
+- any instruction that implies broad product semantics
+- any task without clear scope or verifiable acceptance
+
+## Operational stop rules
+
+Stop free-corridor use immediately if any of these appear:
+
+- more than one changed file
+- any out-of-scope file
+- unexpected task-class widening
+- provider collapse dominating the run
+- no verifiable landed commit
+- no verifiable runtime proof where proof should exist
+
+## Recommended immediate use
+
+The currently adopted free Builder subset is:
+
+1. exact single-file docs/helper edits
+2. exact non-governance single-file anchored replacements inside docs/helper
+   paths
+3. exact single-file public-route validation/guard fixes with direct live proof
+4. tiny or larger exact docs append inside docs/helper paths
+5. explicit single-line or exact multi-line helper create-targets
+
+Do **not** start free operation with:
+
+- controller rewrites
+- product-surface features
+- builder-core
+- secrets/deploy/auth
+- multi-file consistency work
+- governance/policy docs as anchored-replacement targets
+- broader free code-adjacent runtime edits before a second narrow repeatability
+  proof
+
+## Decision output
+
+The narrow credible statement after `K2.8c` is:
+
+> Builder may freely execute a very narrow audited `class_1` corridor covering
+> exact single-file docs/helper edits including larger-file append and explicit
+> multi-line helper create-targets, exact non-governance anchored single-file
+> replacements inside docs/helper paths, plus exact single-file public-route
+> validation/guard fixes with direct live proof and repeatability across
+> multiple route families including a real operational runtime run in
+> `server/src/routes/journey.ts`, while multi-file work, broader runtime work
+> and all other categories remain outside free autonomy.
+
+Hardening and landing addendum after `K2.8d` to `K2.8h`:
+
+> The earlier `K2.8a` fail-closed cases for larger docs append and multi-line
+> helper create-target were in fact judge/snapshot evidence presentation
+> problems on the old head. `7f95aac` landed the narrow preview hardening,
+> `K2.8f` re-approved T03 on the hardened live head, and `K2.8g` plus
+> `K2.8h` then landed both former rest cases non-dry, scope-clean and
+> runtime-matching.
+
+Repeatability addendum after `K2.8i`:
+
+> The same two formerly brittle single-file shapes were then repeated on fresh
+> targets. `beab7c7` landed another exact docs append, and `99d8360` landed
+> another exact three-line helper create-target, both scope-clean and
+> runtime-matching.
+
+Runtime addendum after `K2.8j`:
+
+> `b2fcc3a` added trimmed prompt validation to `server/src/routes/guide.ts`.
+> Live `/api/guide` had accepted whitespace-only `systemPrompt` and
+> `userMessage` with `200` before the change; afterwards both invalid probes
+> returned `400`, while the valid control probe stayed `200`.
+
+Boundary addendum after `K2.8k` to `K2.8n`:
+
+> `K2.8k` showed that a still-open `/api/oracle` whitespace gap in the large
+> `server/src/routes/studio.ts` file can remain `class_1` in theory yet still
+> fail before commit at `patch-via-push`. `K2.8l` on the DB-backed
+> `POST /api/profile`, `K2.8m` on `POST /api/match/single`, and `K2.8n` on
+> `POST /api/journey/optimal-dates` each exposed real live input gaps, but all
+> three widened to `class_2` and stopped at `dry_run_only`. The current free
+> corridor therefore still does not generalize to large `studio.ts` landing
+> paths, DB-backed create routes, or computation-driving validation fixes.
+
+Approved-path addendum after `K2.8o` and `K2.8p`:
+
+> The non-free `class_2` approval lane is now live-proven. `5784528` landed the
+> approval-backed `match.ts` fix, and `c737ba7` landed the approval-backed
+> `journey.ts` fix on a second route family with runtime-matching heads. This
+> does not widen the free corridor, but it removes approval-lane uncertainty as
+> the main blocker.
+
+Studio rest addendum after `K2.8q`:
+
+> The remaining meaningful pipeline rest is currently the large
+> `server/src/routes/studio.ts` landing path. `/api/oracle` still exposes a real
+> whitespace-only input gap, stays `class_1` with `allow_push`, and yet fails
+> before commit at `patch-via-push`, even after an exact-line rerun.
+
+Closing addendum after `K2.8r`:
+
+> `bdfce38` hardened the SmartPush fallback so large single-file patch jobs no
+> longer inflate into oversize `/push` overwrite payloads when a compact
+> `search/replace` dispatch is sufficient. On that head the same `K2.8q` 
+> `/api/oracle` rerun then landed cleanly on `0d43164`, with exactly one changed
+> file, live `400` for whitespace-only `question`, and live `200` for the valid
+> control probe. The former `studio.ts` landing fragility is therefore no longer
+> a known free-corridor blocker.
+
+Confidence addendum after `K2.8s`:
+
+> `0d12a4a` carried a second narrow `/api/oracle` validation hardening across
+> the same large `server/src/routes/studio.ts` file after the SmartPush fix.
+> The new explicit unknown-provider guard moved whitespace-only and bogus
+> `provider` probes from live `502` to live `400`, while a direct follow-up
+> valid probe returned `200`. This upgrades the earlier `studio.ts` closure
+> from a one-off landing into a second confidence proof on the hardened large-
+> file path.
+
+Observer addendum after `K2.9a`:
+
+> `K2.9a` did not widen the corridor, but it did newly prove that the released
+> free single-file lane behaves usefully under direct observer supervision:
+> two exact positive controls landed scope-clean as `class_1` / `allow_push`
+> on `8d6470a` and `db1aa81`, while an intentional two-file ask widened to
+> `class_2`, stayed `dry_run_only`, and produced no commit. That is evidence
+> for supervised free operation inside the existing lane, not for broad Builder
+> freedom.
+
+Fresh-family boundary addendum after `K2.9b`:
+
+> `K2.9b` probed a fresh public route family with a real external-service
+> contract bug on `POST /api/zimage/generate`: invalid `type='bogus'` still
+> produced a live image response. Builder did not land the exact single-file
+> guard fix freely; it widened the task to `class_2`, stayed `dry_run_only`,
+> and produced no commit. This is strong evidence that the current free
+> corridor does not yet generalize from cheap route guards to provider-backed
+> image-generation seams.
+
+Approved fresh-family addendum after `K2.9c`:
+
+> `K2.9c` then reran that exact `zimage` fix through the explicit approval lane.
+> With a valid approval ticket, Builder classified the task as `class_2`,
+> switched to `allow_push`, landed `2bbc232` on exactly
+> `server/src/routes/zimage.ts`, and the live invalid-type probe moved from
+> `200` plus real fal output to `400 Unknown type: bogus` while
+> `/api/zimage/prompts` stayed `200`. This does not widen the free corridor,
+> but it does newly prove that the approval-backed `class_2` lane works on a
+> fresh provider-/cost-backed public route family.

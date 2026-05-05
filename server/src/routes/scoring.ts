@@ -17,9 +17,10 @@ export const scoringRouter = Router();
 scoringRouter.post('/calc', (req: Request, res: Response) => {
   try {
     const request: UnifiedScoringRequest = req.body;
+    const profileId = (request.profileId ?? '').trim();
     
     // Validation
-    if (!request.profileId || !request.numerologyA || !request.numerologyB) {
+    if (!profileId || !request.numerologyA || !request.numerologyB) {
       return res.status(400).json({ 
         error: 'profileId, numerologyA, and numerologyB are required' 
       });
@@ -31,9 +32,9 @@ scoringRouter.post('/calc', (req: Request, res: Response) => {
       });
     }
 
-    const result = calculateScore(request);
+    const result = calculateScore({ ...request, profileId });
     devLogger.info('api', 'Score calculated', { 
-      profileId: request.profileId, 
+      profileId, 
       scoreOverall: result.scoreOverall,
       astroAvailable: !result.warnings.includes('astro_unavailable_using_numerology_only')
     });

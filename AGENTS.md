@@ -95,6 +95,143 @@ Regeln:
 - Proposal-only Material darf nie so formuliert werden, als sei es bereits live.
 - Dirty-Tree-Artefakte sind kein Produktbeleg.
 
+## Externe KI-Auftraege
+
+Externe KI-Vorschlaege von Claude, ChatGPT oder weitergeleitete Spezifikationen
+des Users sind standardmaessig pruefpflichtige Entwuerfe, keine Blindbefehle.
+
+Grund:
+
+- externe KIs arbeiten oft mit verzoegertem Kontext
+- Repo-, Live- oder Deploy-Wahrheit kann sich seit der Formulierung geaendert haben
+- lokale Ausfuehrung sieht mehr als die externe Formulierung
+
+Vor jeder Ausfuehrung eines solchen Auftrags standardmaessig kurz pruefen:
+
+1. Repo-Cross-Check
+2. Live-Cross-Check, wenn der Auftrag Laufzeitverhalten behauptet
+3. Scope-Sanity-Check
+4. Dependency-Check
+
+### Repo-Cross-Check
+
+- Existieren genannte Dateien, Pfade, Funktionen, Endpoints oder Tabellen noch?
+- Stimmen benannte Befunde mit dem aktuellen Code ueberein?
+
+### Live-Cross-Check
+
+- Nur wenn der Auftrag auf aktuelles Live-Verhalten, Health, Logs, Preise,
+  Providerverhalten oder Production-Status Bezug nimmt
+- Live-Aussagen nie blind aus Chat-Gedaechtnis uebernehmen
+
+### Scope-Sanity-Check
+
+- Ist das wirklich der schmalste Weg zum Ziel?
+- Kann derselbe Effekt enger, sicherer oder mit weniger Kopplung erreicht werden?
+
+### Dependency-Check
+
+- Setzt der Auftrag etwas voraus, das inzwischen drifted oder widerlegt ist?
+- Haengt er an Dateien, Migrationspfaden, Branches oder Doku, die nicht mehr
+  kanonisch sind?
+
+### Reaktion auf Abweichungen
+
+- Klein und eindeutig:
+  selbst korrigieren, ausfuehren, im Ergebnis knapp erwaehnen
+- Signifikant, aber klar korrigierbar:
+  auf den besseren Weg verengen, ausfuehren, Begruendung knapp nennen
+- Fundamental:
+  stoppen, Befund dokumentieren, Nutzer melden
+
+### Was bei externen KI-Auftraegen nicht still passieren darf
+
+- Scope nicht erweitern
+- keine Nebenfixes in benachbarten Dateien nur weil sie auffallen
+- keine Truth-Sync-Edits an `STATE.md`, `RADAR.md`, `FEATURES.md`, wenn der
+  Block das nicht ausdruecklich verlangt
+- keine Schema-Aenderungen ausserhalb expliziter Schema-Bloecke
+- kein Commit/Push in Diagnose-, Verifikations- oder Review-Bloecken
+
+Bei Implementationsbloecken gilt:
+
+- Commit/Push nur, wenn der Nutzerwunsch oder der aktive Autonomiepfad das
+  deckt
+- ein Block, ein Commit, klare Message
+
+### Standardhaltung
+
+- Nicht reflexhaft read-only bleiben
+- Nicht blind implementieren
+- Erst pruefen, dann den engsten sicheren Weg ausfuehren
+
+### Vorausschauende Autonomie
+
+Nach jedem sauber abgeschlossenen und verifizierten Block aktiv pruefen, ob ein
+direkter enger Folgeblock logisch anschliesst.
+
+Autonom weiterziehen, wenn:
+
+- der naechste Schritt direkt aus dem gerade verifizierten Befund folgt
+- keine neue Produktentscheidung noetig ist
+- kein Risk-Class-Wechsel oder Scope-Sprung entsteht
+- keine neuen externen Zugaenge, Konten oder Freigaben gebraucht werden
+- der Folgeblock weiter eng formulierbar und lokal oder live verifizierbar ist
+
+Stoppen und melden, wenn:
+
+- der naechste Schritt eine Produkt- oder Prioritaetsentscheidung braucht
+- Risk-Class, Scope oder Systemgrenze sichtbar wechselt
+- Seiteneffekte nicht mehr eng abschaetzbar sind
+- Verifikation ohne neue Zugaenge oder Annahmen nicht sauber moeglich ist
+- der Folgeblock nicht mehr in 1-2 Saetzen ehrlich formulierbar ist
+
+Regel:
+
+- Nicht auf neue Nutzerfreigabe warten, wenn derselbe Arbeitsstrang eng und
+  klar weitergeht
+- Nicht "proaktiv" als Vorwand fuer Scope-Widening benutzen
+
+### Berichtformat fuer solche Bloecke
+
+- was gemacht
+- relevante Auftragsabweichungen und warum
+- Live-Verifikation, falls relevant
+- Stop-Punkt, falls erreicht
+
+## Builder-Gate vs Direct-Repo-Hotfix
+
+Builder-Gate-Klassifikationen sind bindend fuer Builder-executed runs.
+
+Sie sind nicht automatisch ein globales Verbot fuer jede andere direkte
+Repo-Arbeit.
+
+Regel:
+
+- Builder-Gates steuern, was Builder selbst pushen darf
+- direkte Repo-Hotfixes bleiben ein separater Pfad
+- ein direkter Repo-Hotfix darf niemals still als Builder-Corridor-Widening
+  ausgegeben werden
+
+Ein direkter Repo-Hotfix nach einem frueheren Builder-Block ist nur legitim,
+wenn alles davon gilt:
+
+1. aktiver Block ist normale Produkt-/Runtime-Reparatur, nicht Builder-Proof
+2. enger Single-File-Schnitt
+3. kein Builder-Core, kein Policy-/Governance-Ziel, kein Workflow/Deploy, keine
+   Auth-/Protected-Pfade, keine Schema-/Migrationsarbeit
+4. realer repo- oder live-sichtbarer Defekt
+5. direkte Vorher-/Nachher-Verifikation moeglich
+6. fruehere Builder-Klassifikation wird im Bericht explizit als Boundary-Datum
+   genannt
+
+Nicht erlaubt:
+
+- aus einem direkten Hotfix freie Builder-Erlaubnis abzuleiten
+- mehrere solche Faelle still zu einem neuen Korridor zu kumulieren
+- einen frueheren Builder-`class_2`/`class_3`-Befund nachtraeglich einfach als
+  "eigentlich class_1" umzudeuten ohne neue Builder-Evidence
+
 ## Soulmatch-spezifische Guardrails
 
 - `client/src/app/App.tsx` ist aktuell die Hauptschaltstelle. Nicht nebenbei eine neue globale State-Architektur behaupten.

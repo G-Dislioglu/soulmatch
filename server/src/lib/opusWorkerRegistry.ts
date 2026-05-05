@@ -31,6 +31,7 @@ export const DEFAULT_WORKERS = ['deepseek', 'minimax', 'glm', 'glm51', 'qwen', '
 
 // Judge: GPT-5.4 — bester Reviewer im Benchmark (82/100, spec-treu, defensiv)
 export const JUDGE_WORKER = 'gpt';
+export const JUDGE_FALLBACK_WORKERS = ['grok', 'gemini'] as const;
 
 export function getProvider(name: string): string {
   return WORKER_REGISTRY[name]?.provider || name;

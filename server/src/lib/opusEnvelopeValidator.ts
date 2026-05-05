@@ -38,6 +38,31 @@ export interface EditEnvelope {
   claims?: WorkerClaim[];
 }
 
+export interface AppliedDiffFileSnapshot {
+  path: string;
+  mode: 'patch';
+  changed: boolean;
+  changedSegmentsCount: number;
+  changedSegmentsPreview: string[];
+  sectionGuardApplied?: boolean;
+  sectionAnchor?: string;
+  sectionRangeStart?: number;
+  sectionRangeEnd?: number;
+  changedSegmentsOutsideSection?: number;
+  sectionGuardWarnings?: string[];
+}
+
+export interface AppliedDiffSnapshot {
+  actualChangedFiles: string[];
+  files: AppliedDiffFileSnapshot[];
+}
+
+export interface EnvelopeValidationResult {
+  valid: boolean;
+  errors: string[];
+  appliedDiffSnapshot?: AppliedDiffSnapshot;
+}
+
 type ParsedEdit = {
   path?: unknown;
   mode?: unknown;
@@ -272,6 +297,211 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
   return errors;
 }
 
+function countExactOccurrences(source: string, search: string): number {
+  if (search.length === 0) return 0;
+
+  let count = 0;
+  let fromIndex = 0;
+
+  while (fromIndex <= source.length - search.length) {
+    const foundIndex = source.indexOf(search, fromIndex);
+    if (foundIndex === -1) break;
+    count += 1;
+    fromIndex = foundIndex + search.length;
+  }
+
+  return count;
+}
+
+function compactDiffPreview(value: string): string {
+  const visible = value
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n')
+    .trim();
+  return visible.length > 160 ? `${visible.slice(0, 157)}...` : visible;
+}
+
+function normalizeInstructionSectionAnchor(instruction: string): string | null {
+  const matches = instruction.match(/(?:###\s*)?(?:K26-)?(T(?:0[1-9]|10))\b/gi) ?? [];
+  const uniqueAnchors = [...new Set(matches.map((match) => {
+    const normalized = match.toUpperCase().replace(/^###\s*/, '').replace(/^K26-/, '');
+    return normalized;
+  }))];
+
+  return uniqueAnchors.length === 1 ? uniqueAnchors[0] : null;
+}
+
+function isMarkdownPath(filePath: string): boolean {
+  return filePath.endsWith('.md') || filePath.endsWith('.markdown');
+}
+
+function findMarkdownSectionRange(source: string, anchor: string): { start: number; end: number } | null {
+  const headingRe = /^###\s+(T(?:0[1-9]|10))\s*$/gm;
+  const headings = [...source.matchAll(headingRe)].map((match) => ({
+    anchor: match[1],
+    index: match.index ?? 0,
+  }));
+  const currentHeadingIndex = headings.findIndex((heading) => heading.anchor === anchor);
+
+  if (currentHeadingIndex === -1) return null;
+
+  const currentHeading = headings[currentHeadingIndex];
+  const nextHeading = headings[currentHeadingIndex + 1];
+  return {
+    start: currentHeading.index,
+    end: nextHeading?.index ?? source.length,
+  };
+}
+
+function validatePatchEdits(
+  envelope: EditEnvelope,
+  edits: EditEnvelope['edits'],
+  originalFileContents?: Map<string, string>,
+  instruction?: string,
+): { errors: string[]; appliedDiffSnapshot?: AppliedDiffSnapshot } {
+  const errors: string[] = [];
+  const hasPatchEdits = edits.some((edit) => edit.mode === 'patch');
+  const sectionAnchor = instruction ? normalizeInstructionSectionAnchor(instruction) : null;
+
+  if (!hasPatchEdits || !originalFileContents) {
+    return { errors };
+  }
+
+  const files: AppliedDiffFileSnapshot[] = [];
+
+  for (const edit of edits) {
+    if (edit.mode !== 'patch') continue;
+
+    const originalContent = originalFileContents.get(edit.path);
+    const fileSnapshot: AppliedDiffFileSnapshot = {
+      path: edit.path,
+      mode: 'patch',
+      changed: false,
+      changedSegmentsCount: 0,
+      changedSegmentsPreview: [],
+      sectionGuardWarnings: [],
+    };
+
+    if (typeof originalContent !== 'string') {
+      errors.push(`Patch search anchor not found: ${edit.path}`);
+      files.push(fileSnapshot);
+      continue;
+    }
+
+    const patches = edit.patches ?? [];
+    let updatedContent = originalContent;
+    let patchFailed = false;
+    const changedSegmentPositions: number[] = [];
+    let sectionRange: { start: number; end: number } | null = null;
+
+    if (sectionAnchor && isMarkdownPath(edit.path)) {
+      fileSnapshot.sectionGuardApplied = true;
+      fileSnapshot.sectionAnchor = sectionAnchor;
+      sectionRange = findMarkdownSectionRange(originalContent, sectionAnchor);
+      if (sectionRange) {
+        fileSnapshot.sectionRangeStart = sectionRange.start;
+        fileSnapshot.sectionRangeEnd = sectionRange.end;
+      } else {
+        fileSnapshot.sectionGuardWarnings?.push(`Requested section ${sectionAnchor} not found in markdown file.`);
+      }
+    }
+
+    for (const patch of patches) {
+      const matchCount = countExactOccurrences(originalContent, patch.search);
+
+      if (matchCount === 0) {
+        errors.push(`Patch search anchor not found: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      if (matchCount > 1) {
+        errors.push(`Ambiguous patch search anchor in ${edit.path}: matched ${matchCount} times`);
+        patchFailed = true;
+        continue;
+      }
+
+      if (patch.search === patch.replace) {
+        errors.push(`Patch replace does not change content: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      const originalMatchIndex = originalContent.indexOf(patch.search);
+
+      if (!updatedContent.includes(patch.search)) {
+        errors.push(`Patch search anchor not found: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      const nextContent = updatedContent.replace(patch.search, patch.replace);
+      if (nextContent === updatedContent) {
+        errors.push(`Patch replace does not change content: ${edit.path}`);
+        patchFailed = true;
+        continue;
+      }
+
+      fileSnapshot.changedSegmentsCount += 1;
+      fileSnapshot.changedSegmentsPreview.push(
+        `${compactDiffPreview(patch.search)} => ${compactDiffPreview(patch.replace)}`,
+      );
+      if (originalMatchIndex >= 0) {
+        changedSegmentPositions.push(originalMatchIndex);
+      }
+      updatedContent = nextContent;
+    }
+
+    if (!patchFailed && updatedContent === originalContent) {
+      errors.push(`Patch replace does not change content: ${edit.path}`);
+    }
+
+    fileSnapshot.changed = !patchFailed && updatedContent !== originalContent;
+    if (fileSnapshot.sectionGuardApplied && sectionRange) {
+      const changedSegmentsOutsideSection = changedSegmentPositions.filter((position) =>
+        position < sectionRange!.start || position >= sectionRange!.end,
+      ).length;
+      fileSnapshot.changedSegmentsOutsideSection = changedSegmentsOutsideSection;
+      if (changedSegmentsOutsideSection > 0) {
+        errors.push(`Patch change outside requested section ${sectionAnchor}: ${edit.path}`);
+      }
+    }
+    files.push(fileSnapshot);
+
+    if (!fileSnapshot.changed) {
+      errors.push(`Patch edit path does not change content: ${edit.path}`);
+    }
+  }
+
+  const actualChangedFiles = files.filter((file) => file.changed).map((file) => file.path);
+  const appliedDiffSnapshot: AppliedDiffSnapshot = {
+    actualChangedFiles,
+    files,
+  };
+
+  if (actualChangedFiles.length === 0) {
+    errors.push('Applied patch diff is empty');
+    if ((envelope.claims?.length ?? 0) > 0) {
+      errors.push('Claims present without applied patch diff');
+    }
+    if (envelope.summary.trim().length > 0) {
+      errors.push('Summary present without applied patch diff');
+    }
+  }
+
+  for (const claim of envelope.claims ?? []) {
+    for (const ref of claim.evidence_refs) {
+      if (ref.type !== 'edit_path') continue;
+      if (!actualChangedFiles.includes(ref.ref)) {
+        errors.push(`Claim edit_path does not match applied diff: ${ref.ref}`);
+      }
+    }
+  }
+
+  return { errors, appliedDiffSnapshot };
+}
+
 // ─── Validate ───
 
 /**
@@ -279,7 +509,12 @@ export function checkTypeScriptSyntax(edits: EditEnvelope['edits']): string[] {
  * Checks that edits are in scope (unless create mode) and content is substantial.
  * Also runs TypeScript syntax check.
  */
-export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): { valid: boolean; errors: string[] } {
+export function validateEnvelope(
+  envelope: EditEnvelope,
+  scopeFiles: string[],
+  originalFileContents?: Map<string, string>,
+  instruction?: string,
+): EnvelopeValidationResult {
   const errors: string[] = [];
   for (const edit of envelope.edits) {
     // Scope = Kontext, nicht Beschränkung. Worker dürfen jede Datei anfassen.
@@ -293,6 +528,12 @@ export function validateEnvelope(envelope: EditEnvelope, scopeFiles: string[]): 
       errors.push(`"${edit.path}" content too short (${edit.content?.length ?? 0} chars)`);
     }
   }
+  const patchValidation = validatePatchEdits(envelope, envelope.edits, originalFileContents, instruction);
+  errors.push(...patchValidation.errors);
   errors.push(...checkTypeScriptSyntax(envelope.edits));
-  return { valid: errors.length === 0, errors };
+  return {
+    valid: errors.length === 0,
+    errors,
+    appliedDiffSnapshot: patchValidation.appliedDiffSnapshot,
+  };
 }

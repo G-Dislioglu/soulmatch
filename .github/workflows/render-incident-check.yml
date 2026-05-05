@@ -1,0 +1,113 @@
+name: Render Incident Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL of the live service
+        required: true
+        default: https://soulmatch-1.onrender.com
+      build_log_limit:
+        description: Number of build log lines/items to request
+        required: false
+        default: "50"
+      trigger_redeploy:
+        description: Trigger a redeploy through the live Builder proxy
+        required: false
+        type: boolean
+        default: false
+      clear_cache:
+        description: Ask Render API redeploy to clear cache
+        required: false
+        type: boolean
+        default: false
+      commit_id:
+        description: Optional commit SHA for a specific redeploy
+        required: false
+        default: ""
+
+jobs:
+  incident-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Health snapshot
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          echo "== /api/health =="
+          curl --fail --show-error --silent "$BASE_URL/api/health" | jq .
+
+      - name: Render service snapshot
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "== Render service =="
+          node tools/render-inspect.mjs service
+
+      - name: Render status snapshot
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "== Render deploy status =="
+          node tools/render-inspect.mjs status 10
+
+      - name: Render env keys snapshot
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "== Render env keys =="
+          node tools/render-inspect.mjs env
+
+      - name: Render build logs snapshot
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          BUILD_LOG_LIMIT: ${{ inputs.build_log_limit }}
+        run: |
+          echo "== Render build logs =="
+          node tools/render-inspect.mjs logs "$BUILD_LOG_LIMIT"
+
+      - name: Trigger render redeploy
+        if: ${{ inputs.trigger_redeploy }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          CLEAR_CACHE: ${{ inputs.clear_cache }}
+          COMMIT_ID: ${{ inputs.commit_id }}
+        run: |
+          echo "== Trigger Render redeploy =="
+          if [ "$CLEAR_CACHE" = "true" ] && [ -n "$COMMIT_ID" ]; then
+            echo "Choose either clear_cache or commit_id, not both"
+            exit 1
+          fi
+          if [ -n "$COMMIT_ID" ]; then
+            node tools/render-inspect.mjs redeploy --commit "$COMMIT_ID" | tee redeploy.json
+          elif [ "$CLEAR_CACHE" = "true" ]; then
+            node tools/render-inspect.mjs redeploy --clear-cache | tee redeploy.json
+          else
+            node tools/render-inspect.mjs redeploy | tee redeploy.json
+          fi
+
+      - name: Wait redeploy state
+        if: ${{ inputs.trigger_redeploy }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          DEPLOY_ID=$(jq -r '.id // .deployId // empty' redeploy.json)
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "No deploy id returned from redeploy step"
+            exit 1
+          fi
+          echo "== Wait Render deploy state =="
+          node tools/render-inspect.mjs wait "$DEPLOY_ID" 180 10 || true
+          echo "== Final deploy details =="
+          node tools/render-inspect.mjs deploy "$DEPLOY_ID"

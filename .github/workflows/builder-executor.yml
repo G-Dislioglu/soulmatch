@@ -161,7 +161,11 @@ jobs:
                 fi
 
                 curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
-                EXPECT_COMMIT="$HASH" bash tools/wait-for-deploy.sh
+                if EXPECT_COMMIT="$HASH" bash tools/wait-for-deploy.sh; then
+                  exit 0
+                fi
+
+                echo "Deploy did not verify live after push; commit already landed on $TARGET_BRANCH and Render Deploy remains the strict incident lane."
                 exit 0
               fi
               echo "Push conflict (attempt $i), rebasing..."

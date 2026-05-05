@@ -25,7 +25,7 @@
  */
 
 export interface PushResult {
-  landed: boolean;
+  landed?: boolean;
   commitHash?: string;
   reason?: string;
 }
@@ -39,8 +39,9 @@ const waiters = new Map<string, Waiter>();
 
 /**
  * Warte auf ein terminales Push-Signal für taskId.
- * Resolved mit landed:true bei committed:true, sonst landed:false mit Grund.
- * Ein Timeout zählt ebenfalls als landed:false mit reason: 'timeout_<ms>'.
+ * Resolved mit landed:true bei committed:true, mit landed:false bei einem
+ * terminalen committed:false-Callback und mit landed:undefined bei Timeout.
+ * Timeout bedeutet: die Landing-Wahrheit ist noch offen, nicht negativ bestaetigt.
  */
 export function waitForPushResult(
   taskId: string,
@@ -58,7 +59,7 @@ export function waitForPushResult(
 
     const timer = setTimeout(() => {
       waiters.delete(taskId);
-      resolve({ landed: false, reason: `timeout_${timeoutMs}ms` });
+      resolve({ reason: `timeout_${timeoutMs}ms` });
     }, timeoutMs);
 
     // setTimeout hält den Prozess nicht davon ab, normal zu beenden.

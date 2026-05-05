@@ -3,11 +3,14 @@
  * Keine Beschränkungen: jede Datei, jeder Pfad, jede Größe.
  */
 
+import { readFile as fsReadFile } from 'node:fs/promises';
+import path from 'node:path';
 import { decideChangeMode } from './opusChangeRouter.js';
-import { applyPatch, PatchEdit } from './opusPatchMode.js';
+import { applyPatch, applyPatches, PatchEdit } from './opusPatchMode.js';
 import { getAuthUrl } from './opusBridgeConfig.js';
 import { waitForPushResult } from './pushResultWaiter.js';
 import { outboundFetch } from './outboundHttp.js';
+import { type BuilderSideEffectsContract } from './builderSideEffects.js';
 
 // Wie lange wir maximal auf den execution-result-Callback aus der
 // GitHub Action warten, bevor wir den Push als nicht-gelandet werten.
@@ -36,12 +39,83 @@ interface SmartPushResult {
   durationMs: number;
   /** Verified commit SHA if the GitHub Actions run actually landed a commit on main. */
   commitHash?: string;
-  /** Set to true only after a terminal execution-result callback confirmed the commit. */
+  /** True after a terminal success callback, false after a terminal failure callback, undefined while callback truth is still pending. */
   landed?: boolean;
 }
 
 interface SmartPushOptions {
   acceptanceSmoke?: boolean;
+  sourceAsyncJobId?: string;
+  sideEffects?: BuilderSideEffectsContract;
+}
+
+type PushDispatchFile =
+  | { file: string; content: string }
+  | { file: string; search: string; replace: string };
+
+const PUSH_SINGLE_PATCH_LIMIT_BYTES = 50_000;
+
+function getJsonSize(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
+export function buildPatchViaPushFiles(
+  file: string,
+  patches: PatchEdit[],
+  overwriteContent: string,
+): PushDispatchFile[] {
+  const overwriteFiles: PushDispatchFile[] = [{ file, content: overwriteContent }];
+  if (getJsonSize(overwriteFiles) < PUSH_SINGLE_PATCH_LIMIT_BYTES) {
+    return overwriteFiles;
+  }
+
+  const replaceFiles: PushDispatchFile[] = patches.map((patch) => ({
+    file,
+    search: patch.search,
+    replace: patch.replace,
+  }));
+  const oversizedReplace = replaceFiles.some((patch) => getJsonSize([patch]) >= PUSH_SINGLE_PATCH_LIMIT_BYTES);
+  if (!oversizedReplace) {
+    return replaceFiles;
+  }
+
+  return overwriteFiles;
+}
+
+async function buildOverwriteFromPatch(file: string, patches: PatchEdit[]): Promise<string> {
+  const candidatePaths = [
+    path.resolve(process.cwd(), file),
+    path.resolve(process.cwd(), '..', file),
+  ];
+
+  let currentContent: string | null = null;
+
+  for (const candidatePath of candidatePaths) {
+    try {
+      currentContent = await fsReadFile(candidatePath, 'utf8');
+      break;
+    } catch {
+      // Try next candidate path.
+    }
+  }
+
+  if (currentContent === null) {
+    const remoteUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${file}`;
+    try {
+      const response = await outboundFetch(remoteUrl);
+      if (response.ok) {
+        currentContent = await response.text();
+      }
+    } catch {
+      // Keep currentContent null and fail below.
+    }
+  }
+
+  if (currentContent === null) {
+    throw new Error(`patch fallback could not read ${file} locally or from origin/main`);
+  }
+
+  return applyPatches(currentContent, patches);
 }
 
 export async function smartPush(
@@ -91,6 +165,8 @@ export async function smartPush(
           files: overwrites,
           message,
           acceptanceSmoke: options?.acceptanceSmoke === true,
+          sourceAsyncJobId: options?.sourceAsyncJobId,
+          sideEffects: options?.sideEffects,
         }),
       });
       const data = await res.json() as Record<string, unknown>;
@@ -111,13 +187,13 @@ export async function smartPush(
   for (const job of patchJobs) {
     if (!ghToken) {
       asyncDispatch = true;
-      // Fallback: convert patches to overwrite search/replace via /push
+      // Fallback: resolve the replacement locally. Small files go as
+      // deterministic full-file overwrites; large files stay as explicit
+      // search/replace payloads so the /push dispatcher stays under its
+      // single-patch size ceiling.
       try {
-        const pushFiles = job.patches.map(p => ({
-          file: job.file,
-          search: p.search,
-          replace: p.replace,
-        }));
+        const overwriteContent = await buildOverwriteFromPatch(job.file, job.patches);
+        const pushFiles = buildPatchViaPushFiles(job.file, job.patches, overwriteContent);
         const res = await outboundFetch(getAuthUrl('/push'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -125,11 +201,16 @@ export async function smartPush(
             files: pushFiles,
             message,
             acceptanceSmoke: options?.acceptanceSmoke === true,
+            sourceAsyncJobId: options?.sourceAsyncJobId,
+            sideEffects: options?.sideEffects,
           }),
         });
         const data = await res.json() as Record<string, unknown>;
         if (!data.triggered) {
-          errors.push(`patch-via-push failed for ${job.file}`);
+          const detail = typeof data.error === 'string' && data.error.length > 0
+            ? data.error
+            : JSON.stringify(data);
+          errors.push(`patch-via-push failed for ${job.file}: ${detail}`);
         } else if (typeof data.taskId === 'string' && data.taskId.length > 0) {
           dispatchedTaskIds.push(data.taskId);
         } else {
@@ -156,11 +237,16 @@ export async function smartPush(
         waitForPushResult(taskId, PUSH_CALLBACK_TIMEOUT_MS).then((r) => ({ taskId, r })),
       ),
     );
-    landed = results.every((entry) => entry.r.landed);
+    const hasPendingTruth = results.some((entry) => entry.r.landed === undefined);
+    landed = hasPendingTruth ? undefined : results.every((entry) => entry.r.landed === true);
     for (const entry of results) {
-      if (!entry.r.landed) {
+      if (entry.r.landed === false) {
         errors.push(
           `push did not land for task ${entry.taskId}: ${entry.r.reason ?? 'unknown_reason'}`,
+        );
+      } else if (entry.r.landed === undefined) {
+        errors.push(
+          `push callback timed out for task ${entry.taskId}: ${entry.r.reason ?? 'unknown_reason'}; landing truth still pending`,
         );
       } else if (entry.r.commitHash && !verifiedCommitHash) {
         verifiedCommitHash = entry.r.commitHash;

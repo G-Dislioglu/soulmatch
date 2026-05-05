@@ -68,11 +68,11 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
-- `quality`: `usable`
-- `known_gap`: Doku vereinfacht die Persistenz teilweise zu stark und blendet weitere DB-Tabellen aus.
-- `next_recommended_step`: Doku und Persistenzrealitaet synchron halten; spaeter Nutzungsgrad von Zusatz-Tabellen auditieren.
-- `evidence`: `server/src/routes/profile.ts`, `server/src/db.ts`, `migration.sql`.
+- `last_checked`: `2026-05-01`
+- `quality`: `hardened_for_trimmed_required_fields`
+- `known_gap`: Persistenz ist fuer getrimmte Pflichtfelder jetzt fail-closed, aber birthDate-Formatpolitik und breitere Profilschema-Haertung bleiben bewusst ausserhalb dieses engen Fix-Blocks.
+- `next_recommended_step`: Nur bei echtem Bedarf den naechsten engen Persistence-Kandidaten schneiden; kein stiller Schema-/Format-Drift nebenbei.
+- `evidence`: `server/src/routes/profile.ts` trimmt und validiert seit `7c2bf7b` `name` und `birthDate` auf `POST /api/profile` und `PUT /api/profile/:id`; live verifiziert in `docs/PROFILE-COVERAGE-DIAGNOSIS.md`.
 
 ### Studio / Multi-provider LLM orchestration
 
@@ -118,11 +118,21 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-03-29`
-- `quality`: `real_but_under-documented`
-- `known_gap`: Session-Memory ist real im Code, aber in Root-Dokumenten noch nicht sauber als aktive Persistenz erfasst.
-- `next_recommended_step`: Bei naechstem Persistenz-Audit Nutzungsgrenzen und Datenfluss genauer dokumentieren.
-- `evidence`: `server/src/lib/memoryService.ts` schreibt und liest `session_memories`.
+- `last_checked`: `2026-05-01`
+- `quality`: `phase_a_live_and_frontend_shaped_verified`
+- `known_gap`: Phase A ist jetzt schema-seitig, runtime-seitig und ueber den echten Frontend-Request-Shape bestaetigt, aber die spaeteren Habitat-Phasen (`source_kind`, statusgefilterter Read-Pfad, `being_id`) bleiben proposal-only.
+- `next_recommended_step`: Phase A nicht mehr als Hypothese behandeln. Phase B nur als bewusst separaten Proposal-/Migrationsblock schneiden.
+- `evidence`: `server/src/lib/memoryService.ts`, `server/migrations/0003_session_memories_phase_a.sql`, `docs/SESSION-MEMORIES-DIAGNOSIS.md`, `docs/PHASE-A-LIVE-VERIFICATION.md`, `docs/PHASE-A-FRONTEND-FLOW-VERIFICATION.md`.
+
+### Arcana persona API
+
+- `status`: `active`
+- `truth_basis`: `repo_visible`
+- `last_checked`: `2026-05-01`
+- `quality`: `cheap_boundary_contract_hardened`
+- `known_gap`: Die billigen Arcana-Routevertraege fuer system personas, Query-gebundene non-system lookups und invalid non-system IDs sind jetzt live fail-closed, aber TTS-preview, echte user-created persona lifecycles und Preset-/Moderationspfade sind damit noch nicht tief verifiziert.
+- `next_recommended_step`: Wenn Arcana weiter geprueft wird, dann nicht mehr auf denselben ID-/Query-Kanten, sondern auf echter user-created persona creation/update semantics oder TTS-preview degradation.
+- `evidence`: `server/src/routes/arcana.ts`; `5ad0a85` akzeptiert `userId` auf `GET /api/arcana/personas/:id` auch aus der Query, `f35d7ee` normalisiert invalid non-system `:id` auf `404 not_found` statt `500`, live verifiziert ueber `docs/ROUTE-COVERAGE-MAP.md`.
 
 ### Context Broker fuer Claude / Builder-Kontext
 
@@ -158,22 +168,38 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 
 - `status`: `active`
 - `truth_basis`: `repo_visible`
-- `last_checked`: `2026-04-26`
-- `quality`: `live_verified_with_resolve_based_commit_probe`
-- `known_gap`: Der Deploypfad ist fuer den aktuellen Block belastbar verifiziert. Verbleibende Unruhe liegt auf Operator-Ebene (sporadische lokale DNS-/TTY-Umgebungseffekte), nicht in der produktiven Runtime-Commit-Wahrheit.
-- `next_recommended_step`: Kein Deploy-Umbau auf Verdacht. Bei erneutem Incident nur den engen Operator-Pfad pruefen (EXPECT_COMMIT, resolve-basierter Health-Check, tokenisierte Route-Probe) und erst dann Script-Details anfassen.
-- `evidence`: `.github/workflows/render-deploy.yml`, `tools/wait-for-deploy.sh`, `README.md`, `DEPLOY.md`, `server/src/routes/health.ts`; finale Verifikation 2026-04-26: Runtime erreicht Commit `8469150186bebaa8d8a2d9052b1cc483ff32cbb2` ueber `/api/health`, danach erfolgreicher authentifizierter Check auf `/api/builder/opus-bridge/approval-validate` gegen denselben Live-Stand.
+- `last_checked`: `2026-04-29`
+- `quality`: `render_api_hardened_and_live_recovered`
+- `known_gap`: Der fruehere K2.6d-Live-Lag war am Ende kein Code- oder Hook-Defekt, sondern eine externe Render-Workspace-Sperre: erschopfte Pipeline-Minuten bei einem `$10`-Spend-Limit im Starter-Build-Pipeline-Tier. Der technische Gap ist damit enger geworden, aber die operative Abhaengigkeit von Render-Billing-/Spend-Settings bleibt real.
+- `next_recommended_step`: Den neuen direkten Render-API-Incident-Pfad beibehalten und bei kuenftigen Deploy-Ausfaellen zuerst Spend-/Quota-/Deploy-State pruefen, bevor neue Repo-Fixes geschnitten werden.
+- `evidence`: `.github/workflows/render-deploy.yml`, `.github/workflows/render-incident-check.yml`, `tools/render-inspect.mjs`, `server/src/routes/health.ts`; nach `ba50da4` und `67fa75c` nutzt der Workflow `RENDER_API_KEY` plus `RENDER_SERVICE_ID` fuer direkte Deploy-/Build-Inspektion. Manuell ausgeloester `Render Deploy`-Run `#207` auf `67fa75c` lief gruen; Resolve-Health-Check 2026-04-29 zeigt danach live `commit=67fa75cd8c00665c9b715f73990f12426a575a98`.
 
 ### Opus-Bridge orchestration
 
 - `status`: `active`
 - `truth_basis`: `repo_visible_plus_runtime_probe`
-- `last_checked`: `2026-04-27`
-- `quality`: `controlled_class_1_push_live_verified`
-- `known_gap`: Die Builder-Pipeline ist abgenommen fuer kontrollierte kleine class_1 Builder-Tasks ueber den kanonischen `/opus-task`-Pfad, inklusive Live-Governance, Approval-Readiness und strict-scope-clean Push. Das class_2-Approval-Governance-Verhalten ist lokal ueber zwei getrennte Belegformen verifiziert: das Approval-Paar T06/T07 prueft Accept-vs-Block-Semantik, und T03 Batch 1b prueft einen echten zwei-Dateien-class_2 dryRun mit frischem Approval bis judge gruen und nachgelagertem Cleanup. Ein akuter funktionaler K2.6a-Blocker ist damit nicht mehr offen; der relevante Restpunkt ist nur noch die bewusste Folgeentscheidung, weil auch gruenes class_2 weiter Approval- und Review-pflichtig bleibt und der T03-Winner nicht angewandt wurde. Der Builder ist weiter kein allgemeiner autonomer Feature-Autopilot: class_2 braucht frische gueltige Approval-Artifacts plus Reviewpflicht, class_3 bleibt `manual_only`/protected.
-- `next_recommended_step`: Nach Freigabe zwischen K2.6b Live-DryRun-Suite und kleiner realer class_1 Builder-Nutzung entscheiden; bis dahin keine weitere Benchmark-Execution in diesem docs-only Abschlussblock.
-- `evidence`: Block-1B-Konsolidierung abgeschlossen mit Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor). K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini` (swarm -> validate -> claim-gate -> judge -> safety). K2.2 live gruen fuer class_1/class_2/class_3 bei dryRun+skipDeploy. K2.3/K2.4 live gruen ueber Approval-Validate- und fail-closed-Readiness-Pfad. K2.5 Strict-Scope Push Smoke live gruen mit `status=success`, `taskClass=class_1`, `executionPolicy=allow_push`, `pushAllowed=true`, `requiredExternalApproval=false`, `landed=true`, `verifiedCommit=d31882257f91eb9ffecc729b5981450376539502`; Remote-Diff nur `docs/archive/push-test.md`, ohne `SESSION-LOG.md`, ohne `builder-repo-index.json`, ohne Folgecommits nach 90 Sekunden. K2.6a Batch 1 liegt repo-sichtbar vor; das lokale Approval-Paar T06/T07 ist verifiziert ueber `k26a-t06-result-1777261691167.json` (`approval-validation=ok`, `pushAllowed=false`) und `k26a-t07-result-1777261744811.json` (`requiredExternalApproval=true`, erwarteter `pushBlockedReason`), mit nachgelagertem Cleanup `beforeFound=true`, `deleted=true`, `afterCount=0` fuer das Test-Approval. Der T02-Retry ist lokal gruen ueber `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `taskClass=class_1`, `parsed=1`, `valid=1`, `requiredExternalApproval=false` und genau einer Docs-Datei im Ergebnis. T03 Batch 1b ist zusaetzlich lokal verifiziert ueber `k26a-t03-result-1777263868136.json` mit `status=dry_run`, `taskClass=class_2`, `approval-validation=ok`, `validate=ok`, `claim-gate=ok`, `judge=ok`, Winner `grok`, exakt zwei Judge-Files (`server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`) und separatem Cleanup-Nachweis `beforeFound=true`, `deleted=true`, `afterCount=0`.
+- `last_checked`: `2026-05-01`
+- `quality`: `supervised_free_class1_lane_operational_plus_approved_fresh_family_class2`
+- `known_gap`: Der released narrow free class_1 corridor ist jetzt nicht nur historisch, sondern auch ueber einen frischen Observer-Pilot direkt gemessen; die approval-backed class_2-Lane ist nun zusaetzlich auf einer frischen provider-/cost-backed Runtime-Family live bewiesen. Offen bleiben weiterhin die bewusst ausgeschlossenen Kategorien: Multi-File-Arbeit, Governance-/Policy-Ziele, Builder-Core, Secrets/Deploy/Provider-Core sowie jede breite freie class_2/class_3-Ausweitung.
+- `next_recommended_step`: Nicht noch einmal denselben docs/helper lane testen. Wenn der Builder-Pfad weitergehen soll, dann nur noch ueber einen zweiten approval-backed observer trial mit neuem Erkenntniswert oder einen bewussten Stop, der den aktuellen Builder-Stand als ausreichend charakterisiert.
+- `evidence`: Block-1B-Konsolidierung abgeschlossen mit Commit `9681fad` (`/execute` + Quick Mode -> orchestrateTask), Commit `86f5666` (`/chain` -> orchestrateTask), Commit `d0b6239` (`/build` nutzt orchestrateTask als inneren Executor). K2.1 lokal gruen fuer class_1/class_2/class_3 mit `grok`+`gemini` (swarm -> validate -> claim-gate -> judge -> safety). K2.2 live gruen fuer class_1/class_2/class_3 bei dryRun+skipDeploy. K2.3/K2.4 live gruen ueber Approval-Validate- und fail-closed-Readiness-Pfad. K2.5 Strict-Scope Push Smoke live gruen mit `status=success`, `taskClass=class_1`, `executionPolicy=allow_push`, `pushAllowed=true`, `requiredExternalApproval=false`, `landed=true`, `verifiedCommit=d31882257f91eb9ffecc729b5981450376539502`; Remote-Diff nur `docs/archive/push-test.md`, ohne `SESSION-LOG.md`, ohne `builder-repo-index.json`, ohne Folgecommits nach 90 Sekunden. Autonomie-Hardening auf `main` ueber `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767`, `9f978e6` und `7f95aac`. Repo-sichtige K2.6b bis K2.8c-Reports bleiben unveraendert belastbar. Lokaler K2.8d-Hardening-Report in `docs/BUILDER-BENCHMARK-K2.8D-LOCAL-JUDGE-HARDENING-REPORT.md`; `pnpm --dir server builder:k28d` lief gruen 2/2. Repo-sichtiger K2.8e-Live-Dry-Run-Report in `docs/BUILDER-BENCHMARK-K2.8E-LIVE-HARDENING-DRYRUN-REPORT.md`; beide frueheren K2.8a-Formen approvten auf Live im Dry-Run. Repo-sichtiger K2.8f-Repeatability-Report in `docs/BUILDER-BENCHMARK-K2.8F-LIVE-T03-REPEATABILITY-REPORT.md`; der mehrzeilige helper create-target approvte auf dem gehaerteten Live-Head `7f95aac` erneut als `dry_run`. Repo-sichtiger K2.8g-Landing-Report in `docs/BUILDER-BENCHMARK-K2.8G-LIVE-T03-LANDING-REPORT.md`; `88e2d5aeb32bb0420a48ca851e539b7f2abf8e22` landete exakt `docs/archive/k28a-free-class1-ops-smoke.txt` und die Runtime zog matching nach. Repo-sichtiger K2.8h-Landing-Report in `docs/BUILDER-BENCHMARK-K2.8H-LIVE-T01-LANDING-REPORT.md`; `6e1ea41a326dec0234d76d3222ced950b5597d33` landete exakt den einen Append auf `docs/archive/push-test.md` und die Runtime zog matching nach.
 
+- `evidence_addendum_2026_04_30`: Repo-sichtiger K2.8i-Repeatability-Report in `docs/BUILDER-BENCHMARK-K2.8I-LIVE-REPEATABILITY-REPORT.md`; `beab7c7c637d8da0a8faf26a7047b6bba9e91e94` landete einen weiteren exakten Docs-Append auf `docs/archive/push-test.md`, `99d83603c0b1c04d005506cd35bb382323f07354` einen weiteren mehrzeiligen helper create-target auf `docs/archive/k28i-free-class1-ops-smoke.txt`, jeweils scope-clean und runtime-matching.
+
+- `evidence_addendum_2026_04_30_b`: Repo-sichtiger K2.8o-Report in `docs/BUILDER-BENCHMARK-K2.8O-CLASS2-APPROVAL-REPORT.md`; `5784528118c43fccdbd1430d8b1eeb1efee69e97` landete den approval-backed `match.ts`-Fix. Repo-sichtiger K2.8p-Report in `docs/BUILDER-BENCHMARK-K2.8P-CLASS2-APPROVAL-REPORT.md`; `c737ba79025345902bae13438cded1eec2b32eda` landete den approval-backed `journey.ts`-Fix. Repo-sichtiger K2.8r-Report in `docs/BUILDER-BENCHMARK-K2.8R-SMARTPUSH-STUDIO-CLOSING-REPORT.md`; `bdfce38` haertete den grossdatei-sensitiven SmartPush-Fallback, und der direkte `K2.8q`-Rerun landete danach `0d4316478e4b2f2d46512abf36dba925df973c93` exakt auf `server/src/routes/studio.ts`, live mit `400` fuer whitespace-only `question` und weiter `200` fuer den gueltigen Kontrollprobe-Body.
+
+- `evidence_addendum_2026_04_30_c`: Repo-sichtiger K2.8s-Report in `docs/BUILDER-BENCHMARK-K2.8S-ORACLE-PROVIDER-GUARD-REPORT.md`; `0d12a4ae808e94ff64cd0bd557c1250e19b0a3be` landete einen zweiten engen `studio.ts`-Validation-Fall auf dem nun gehaerteten grossdatei-nahen Landing-Pfad. `/api/oracle` antwortet live fuer whitespace-only und bogus `provider` jetzt jeweils `400` statt des frueheren `502`-Failings, bei weiter scope-cleanem Einzeldatei-Landing auf `server/src/routes/studio.ts`.
+
+- `evidence_addendum_2026_04_30_d`: Die Render-Logs belegten auf Live ungefangene `TypeError`-Crashes in `resolveApiKey(...)` fuer ungueltige `provider`-Werte ausserhalb von `/api/oracle`. `7e43e4c5a4e2fe8a28a1edeeaf23b7bed9693875` haertete `/api/weekly-insight`; `52dbd201a5a7e8164c4e27ea07093dd61861cef3` haertete anschliessend `/api/soul-portrait`, `/api/monthly-horoscope` und `/api/compatibility-story` in derselben `server/src/routes/studio.ts`. Live prueften diese frueheren Crash-Bodies danach als `400`, waehrend gueltige Kontrollbodys weiter `200` lieferten.
+
+- `evidence_addendum_2026_04_30_e`: `06409f0b43e631be91ed0da9f507d3ad247a27eb` haertete danach whitespace-only Pflichtfelder in derselben `studio.ts`-Routenfamilie. Live liefern `/api/weekly-insight`, `/api/monthly-horoscope`, `/api/soul-portrait` und `/api/compatibility-story` fuer die zuvor gruenen whitespace-only Pflichtfeld-Probes jetzt jeweils `400`, waehrend der gueltige Kontrollbody auf `/api/monthly-horoscope` weiter `200` liefert.
+
+- `evidence_addendum_2026_04_30_f`: `a9a0587ba1d9258b3dc2ea0342d8d9bda2979ff7` haertete danach `/api/discuss` gegen whitespace-only `message`. Der frueher gruen durchlaufende Probe-Body `{ personas: ['maya'], message: '   ', stream: false }` liefert live jetzt `400` statt `200`, waehrend der gueltige Kontrollbody mit `message: 'hi'` weiter `200` liefert.
+
+- `evidence_addendum_2026_04_30_g`: `4d791de43d15266dfc4e8539a1ae25dec4d8d93a` haertete danach `/api/studio` selbst: `resolveApiKey(...)` nutzt jetzt einen fail-safe Config-Lookup, und der frueher semantisch leere Probe-Body mit whitespace-only `studioRequest.userMessage` liefert live `400` statt in unnoetige Providerarbeit zu laufen. Ein gueltiger Minimalbody auf `/api/studio` lieferte auf demselben Head weiter `200`.
+- `evidence_addendum_2026_05_01`: `docs/BUILDER-OBSERVER-TRIAL-v0.1.md` und `server/scripts/builder-k29a-observer-trial-runner.ts` definieren jetzt einen expliziten Observer-Modus fuer Builder-Batches. Der frische `K2.9a`-Pilot in `docs/BUILDER-BENCHMARK-K2.9A-OBSERVER-TRIAL-REPORT.md` landete `8d6470a06dc039c7f8fe8129e3dc873e45cdfa13` als exakte docs append positive control und `db1aa81e28453c4dfaa2802bf6c7b777223e3345` als exakten helper create-target positive control, waehrend die absichtliche zwei-Datei-Negativkontrolle auf `class_2` / `dry_run_only` fail-closed blieb. Das ist direkte Evidence dafuer, dass Builder im released narrow lane unter Observer-Regie bereits autonom und sicher arbeiten kann.
+- `evidence_addendum_2026_05_01_b`: `server/scripts/builder-k29b-observer-runtime-runner.ts` und `docs/BUILDER-BENCHMARK-K2.9B-OBSERVER-RUNTIME-REPORT.md` haben danach eine frische external-service Family gemessen. Live auf `52bdeac` nahm `/api/zimage/generate` invalid `type='bogus'` weiter als `200` plus reale fal-URL, aber Builder widente denselben exakten Single-File-Guard-Ask in `server/src/routes/zimage.ts` auf `class_2` / `dry_run_only` und landete nichts. Das ist direkte Evidence dafuer, dass die freie Builder-Lane noch nicht auf provider-/cost-backed image-generation seams generalisiert.
+- `evidence_addendum_2026_05_01_c`: `server/scripts/builder-k29c-class2-approved-runner.ts` und `docs/BUILDER-BENCHMARK-K2.9C-CLASS2-APPROVED-RUNTIME-REPORT.md` schlossen denselben `zimage`-Rest danach ueber den Builder selbst. Mit validiertem approval ticket `a236893b-5e13-4adc-8a23-4ac4f1ee8013` klassifizierte Builder den exakt gleichen Single-File-Guard-Ask als `class_2`, liess ihn als `allow_push` landen und zog `2bbc232a4825e541bd8f2ef6fabe8d0214b7837f` runtime-matching nach. Live kippte invalid `type='bogus'` dadurch von `200` plus realer fal-URL auf `400 {"error":"Unknown type: bogus"}`, waehrend `/api/zimage/prompts` weiter `200` blieb.
 ### Schema fuer persona_memories und voice_profiles
 
 - `status`: `schema_present_usage_unclear`

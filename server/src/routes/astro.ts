@@ -568,7 +568,11 @@ export const astrologyRouter = Router();
 // POST /api/astro/calc
 astrologyRouter.post('/calc', async (req: Request, res: Response) => {
   const rawBody = (req.body ?? {}) as AstroCalcRequest;
-  const request = normalizeRequest(rawBody);
+  const profileId = typeof rawBody.profileId === 'string' ? rawBody.profileId.trim() : '';
+  if (!profileId) {
+    return res.status(400).json(errorResponse('invalid_profile_id', 'profileId is required'));
+  }
+  const request = normalizeRequest({ ...rawBody, profileId });
 
   if (!request.birthDate || typeof request.birthDate !== 'string') {
     return res.status(400).json(errorResponse('invalid_birth_date', 'birthDate is required (YYYY-MM-DD)'));
@@ -699,6 +703,9 @@ astrologyRouter.get('/probe', async (req: Request, res: Response) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    res.status(500).json(errorResponse('probe_failed', message));
+    const code = message.includes('birthDate') || message.includes('birthTime')
+      ? 'invalid_request'
+      : 'probe_failed';
+    res.status(code === 'invalid_request' ? 400 : 500).json(errorResponse(code, message));
   }
 });

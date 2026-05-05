@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import { and, eq, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../db.js';
 import {
+  asyncJobs,
   builderActions,
   builderArtifacts,
   builderChatpool,
@@ -22,8 +23,10 @@ import { buildTaskAudit, getCanaryPromotionStatus, getCurrentCanaryStage } from 
 import { buildDirectorContext } from '../lib/directorContext.js';
 import { executeDirectorAction, executeDirectorActions, inferReadFileFallbackAction, parseDirectorActions, renderDirectorActionSummary, stripDirectorActions } from '../lib/directorActions.js';
 import { handleBuilderChat, looksLikeTaskRequest, type ChatMessage } from '../lib/builderFusionChat.js';
+import { reconcileAsyncJobResultWithCallback } from '../lib/builderAsyncJobReconciliation.js';
 import { runDialogEngine } from '../lib/builderDialogEngine.js';
 import { deleteBuilderMemoryForTask, syncBuilderMemoryForTask } from '../lib/builderMemory.js';
+import { getBuilderSideEffectsFromGoal } from '../lib/builderSideEffects.js';
 import { signalPushResult } from '../lib/pushResultWaiter.js';
 import { buildDirectorSystemPrompt, MAYA_NAVIGATION_GUIDANCE } from '../lib/directorPrompt.js';
 import { getPrototypeHtml, promotePrototype } from '../lib/builderPrototypeLane.js';
@@ -36,6 +39,43 @@ import { resolve } from 'path';
 
 const router = Router();
 const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
+
+function getLocalOpusBridgeUrl(endpoint: string): string {
+  const port = process.env.PORT || 10000;
+  const token = process.env.OPUS_BRIDGE_SECRET || '';
+  const sep = endpoint.includes('?') ? '&' : '?';
+  return `http://localhost:${port}/api/builder/opus-bridge${endpoint}${sep}opus_token=${encodeURIComponent(token)}`;
+}
+
+async function proxyOpusBridgeRequest<T = unknown>(
+  endpoint: string,
+  init: RequestInit = {},
+): Promise<{ ok: boolean; status: number; result: T | { status: number } }> {
+  const token = process.env.OPUS_BRIDGE_SECRET;
+  if (!token) {
+    return {
+      ok: false,
+      status: 500,
+      result: { status: 500 },
+    };
+  }
+
+  const response = await fetch(getLocalOpusBridgeUrl(endpoint), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(init.headers || {}),
+    },
+  });
+
+  const result = await response.json().catch(() => ({ status: response.status }));
+  return {
+    ok: response.ok,
+    status: response.status,
+    result: result as T | { status: number },
+  };
+}
 
 // GET /api/builder/preview/:taskId — prototype preview without dev token
 router.get('/preview/:taskId', async (req: Request, res: Response) => {
@@ -68,6 +108,61 @@ router.get('/preview/:taskId', async (req: Request, res: Response) => {
 });
 
 router.use(requireDevToken);
+
+router.get('/render/status', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/status');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/status error:', err);
+    res.status(500).json({ error: 'Render status proxy failed' });
+  }
+});
+
+router.get('/render/service', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/service');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/service error:', err);
+    res.status(500).json({ error: 'Render service proxy failed' });
+  }
+});
+
+router.get('/render/env', async (_req: Request, res: Response) => {
+  try {
+    const proxied = await proxyOpusBridgeRequest('/render/env');
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/env error:', err);
+    res.status(500).json({ error: 'Render env proxy failed' });
+  }
+});
+
+router.get('/render/logs/build', async (req: Request, res: Response) => {
+  try {
+    const rawLimit = typeof req.query.limit === 'string' ? req.query.limit : '50';
+    const proxied = await proxyOpusBridgeRequest(`/render/logs/build?limit=${encodeURIComponent(rawLimit)}`);
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] GET /render/logs/build error:', err);
+    res.status(500).json({ error: 'Render build logs proxy failed' });
+  }
+});
+
+router.post('/render/redeploy', async (req: Request, res: Response) => {
+  try {
+    const { clearCache, commitId } = req.body as { clearCache?: boolean; commitId?: string };
+    const proxied = await proxyOpusBridgeRequest('/render/redeploy', {
+      method: 'POST',
+      body: JSON.stringify({ clearCache, commitId }),
+    });
+    res.status(proxied.status).json(proxied.result);
+  } catch (err) {
+    console.error('[builder] POST /render/redeploy error:', err);
+    res.status(500).json({ error: 'Render redeploy proxy failed' });
+  }
+});
 
 // POST /api/builder/chat — natural language chat with Gemini
 router.post('/chat', async (req: Request, res: Response) => {
@@ -612,11 +707,12 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
     const db = getDb();
     const taskId = req.params.id;
     const [taskMeta] = await db
-      .select({ goal: builderTasks.goal })
+      .select({ goal: builderTasks.goal, sourceAsyncJobId: builderTasks.sourceAsyncJobId })
       .from(builderTasks)
       .where(eq(builderTasks.id, taskId))
       .limit(1);
     const isAcceptanceSmokeTask = typeof taskMeta?.goal === 'string' && taskMeta.goal.includes(ACCEPTANCE_SMOKE_MARKER);
+    const taskSideEffects = getBuilderSideEffectsFromGoal(taskMeta?.goal);
 
     await db.insert(builderActions).values({
       taskId,
@@ -645,11 +741,28 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
-      if (!isAcceptanceSmokeTask) {
+      if (!isAcceptanceSmokeTask && taskSideEffects.allowRepoIndex) {
         const { regenerateRepoIndex } = await import('../lib/opusIndexGenerator.js');
-        await regenerateRepoIndex().catch((regenErr) => {
+        await regenerateRepoIndex({ mode: taskSideEffects.mode }).catch((regenErr) => {
           console.error('[builder] index refresh after commit callback failed:', regenErr);
         });
+      }
+      if (taskMeta?.sourceAsyncJobId) {
+        const [asyncJob] = await db
+          .select({ result: asyncJobs.result })
+          .from(asyncJobs)
+          .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId))
+          .limit(1);
+        const reconciled = reconcileAsyncJobResultWithCallback(asyncJob?.result, {
+          committed: true,
+          commitHash: commit_hash,
+        });
+        if (reconciled.changed) {
+          await db
+            .update(asyncJobs)
+            .set({ result: reconciled.result, updatedAt: new Date() })
+            .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId));
+        }
       }
       signalPushResult(taskId, { landed: true, commitHash: commit_hash });
     } else if (committed === false) {
@@ -662,6 +775,23 @@ router.post('/tasks/:id/execution-result', requireDevToken, async (req: Request,
         .set({ status: 'review_needed', updatedAt: new Date() })
         .where(eq(builderTasks.id, taskId));
       await syncBuilderMemoryForTask(taskId);
+      if (taskMeta?.sourceAsyncJobId) {
+        const [asyncJob] = await db
+          .select({ result: asyncJobs.result })
+          .from(asyncJobs)
+          .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId))
+          .limit(1);
+        const reconciled = reconcileAsyncJobResultWithCallback(asyncJob?.result, {
+          committed: false,
+          reason: typeof reason === 'string' && reason.length > 0 ? reason : 'commit_not_landed',
+        });
+        if (reconciled.changed) {
+          await db
+            .update(asyncJobs)
+            .set({ result: reconciled.result, updatedAt: new Date() })
+            .where(eq(asyncJobs.id, taskMeta.sourceAsyncJobId));
+        }
+      }
       signalPushResult(taskId, {
         landed: false,
         reason: typeof reason === 'string' && reason.length > 0 ? reason : 'commit_not_landed',

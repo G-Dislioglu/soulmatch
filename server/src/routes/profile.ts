@@ -56,22 +56,33 @@ interface UpdateProfileRequest {
 
 export const profileRouter = Router();
 
+function normalizeRequiredField(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOptionalField(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return value.trim();
+}
+
 // POST /api/profile
 profileRouter.post('/', async (req: Request, res: Response) => {
   try {
     const db = getDb();
     const body: CreateProfileRequest = req.body;
-    
-    // Minimal validation
-    if (!body.name || !body.birthDate) {
+
+    const name = normalizeRequiredField(body.name);
+    const birthDate = normalizeRequiredField(body.birthDate);
+
+    if (!name || !birthDate) {
       return res.status(400).json({ error: 'name and birthDate are required' });
     }
 
     const now = new Date().toISOString();
     const profile: UserProfile = {
       id: randomUUID(),
-      name: body.name,
-      birthDate: body.birthDate,
+      name,
+      birthDate,
       birthTime: body.birthTime,
       birthPlace: body.birthPlace,
       birthLocation: body.birthLocation,
@@ -145,6 +156,18 @@ profileRouter.put('/:id', async (req: Request, res: Response) => {
     const db = getDb();
     const { id } = req.params;
     const updates: UpdateProfileRequest = req.body;
+    const hasName = Object.prototype.hasOwnProperty.call(updates, 'name');
+    const hasBirthDate = Object.prototype.hasOwnProperty.call(updates, 'birthDate');
+    const normalizedName = hasName ? normalizeOptionalField(updates.name) : undefined;
+    const normalizedBirthDate = hasBirthDate ? normalizeOptionalField(updates.birthDate) : undefined;
+
+    if (hasName && !normalizedName) {
+      return res.status(400).json({ error: 'name must be non-empty when provided' });
+    }
+
+    if (hasBirthDate && !normalizedBirthDate) {
+      return res.status(400).json({ error: 'birthDate must be non-empty when provided' });
+    }
     
     // Get existing profile
     const existingResult = await db
@@ -158,11 +181,17 @@ profileRouter.put('/:id', async (req: Request, res: Response) => {
     }
     
     const existingProfile: UserProfile = JSON.parse(existingResult[0]!.profileJson);
+
+    const normalizedUpdates: UpdateProfileRequest = {
+      ...updates,
+      ...(hasName ? { name: normalizedName } : {}),
+      ...(hasBirthDate ? { birthDate: normalizedBirthDate } : {}),
+    };
     
     // Update profile with new values
     const updated: UserProfile = {
       ...existingProfile,
-      ...updates,
+      ...normalizedUpdates,
       updatedAt: new Date().toISOString(),
     };
 

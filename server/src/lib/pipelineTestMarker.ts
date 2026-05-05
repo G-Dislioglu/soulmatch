@@ -1,3 +1,4 @@
+// K2.6d controlled class_1 code-adjacent smoke marker
 export const PIPELINE_TEST_MARKER = "S25-live-test-2026-04-16";
 export const TEST_VERIFIED_AT = new Date().toISOString();
 export const TEST_RUN_2 = "S25-second-run";

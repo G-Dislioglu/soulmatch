@@ -37,7 +37,10 @@ interface GuideRequestBody {
 guideRouter.post('/guide', async (req: Request, res: Response) => {
   const body = req.body as GuideRequestBody;
 
-  if (!body.systemPrompt || !body.userMessage) {
+  const systemPrompt = body.systemPrompt?.trim() ?? '';
+  const userMessage = body.userMessage?.trim() ?? '';
+
+  if (!systemPrompt || !userMessage) {
     res.status(400).json({ error: 'Missing systemPrompt or userMessage' });
     return;
   }
@@ -70,8 +73,8 @@ guideRouter.post('/guide', async (req: Request, res: Response) => {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: body.systemPrompt },
-          { role: 'user', content: body.userMessage },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
         ],
         ...(provider === 'openai'
           ? { max_completion_tokens: body.maxTokens ?? 100 }

@@ -4,7 +4,7 @@
 import type { EditEnvelope } from './opusEnvelopeValidator.js';
 import { extractExplicitPaths } from './opusAnchorPaths.js';
 import { callProvider } from './providers.js';
-import { WORKER_REGISTRY, JUDGE_WORKER } from './opusWorkerRegistry.js';
+import { WORKER_REGISTRY, JUDGE_FALLBACK_WORKERS, JUDGE_WORKER } from './opusWorkerRegistry.js';
 
 // ─── Types ───
 
@@ -32,6 +32,7 @@ export interface JudgeDecision {
   winner?: EditEnvelope;
   worker?: string;
   rejectedWorkers: string[];
+  judgeLane?: string;
 }
 
 function estimateEditSize(envelope: EditEnvelope): number {
@@ -43,17 +44,28 @@ function estimateEditSize(envelope: EditEnvelope): number {
   }, 0);
 }
 
-function previewEdit(envelope: EditEnvelope): string {
+const CREATE_PREVIEW_MAX_LENGTH = 200;
+const PATCH_PREVIEW_MAX_LENGTH = 240;
+
+function formatPreviewSnippet(value: string, maxLength = 160): string {
+  const visible = value
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '\\t')
+    .replace(/\n/g, '\\n');
+  return visible.length > maxLength
+    ? `${visible.slice(0, Math.max(0, maxLength - 3))}...`
+    : visible;
+}
+
+export function previewEditForJudge(envelope: EditEnvelope): string {
   return envelope.edits.slice(0, 3).map((edit) => {
     if (edit.mode === 'patch') {
       const patchPreview = (edit.patches ?? []).slice(0, 2)
-        .map((patch) => `${patch.search.slice(0, 60)} => ${patch.replace.slice(0, 60)}`)
+        .map((patch) => `${formatPreviewSnippet(patch.search, PATCH_PREVIEW_MAX_LENGTH)} => ${formatPreviewSnippet(patch.replace, PATCH_PREVIEW_MAX_LENGTH)}`)
         .join(' | ');
       return `- ${edit.path} [patch] ${patchPreview}`;
     }
-    const contentPreview = (edit.content ?? '')
-      .replace(/\s+/g, ' ')
-      .slice(0, 120);
+    const contentPreview = formatPreviewSnippet(edit.content ?? '', CREATE_PREVIEW_MAX_LENGTH);
     return `- ${edit.path} [${edit.mode}] ${contentPreview}`;
   }).join('\n');
 }
@@ -195,66 +207,82 @@ export async function judgeValidCandidates(
   const assessments = candidates.map((candidate) => assessCandidate(instruction, candidate, context));
   const heuristic = buildHeuristicDecision(assessments);
 
-  const judgeConfig = WORKER_REGISTRY[JUDGE_WORKER];
-  if (!judgeConfig) return heuristic;
+  const judgeWorkers = [JUDGE_WORKER, ...JUDGE_FALLBACK_WORKERS].filter(
+    (worker, index, all) => all.indexOf(worker) === index,
+  );
 
   const comparison = assessments.map((assessment, i) =>
-    `=== Candidate ${i + 1}: ${assessment.worker} ===\nFiles: ${assessment.editedPaths.join(', ')}\nSummary: ${assessment.envelope.summary}\nChars: ${estimateEditSize(assessment.envelope)}\nBlocking: ${assessment.blockingIssues.length > 0 ? assessment.blockingIssues.join('; ') : 'none'}\nWarnings: ${assessment.warnings.length > 0 ? assessment.warnings.join('; ') : 'none'}\nPreview:\n${previewEdit(assessment.envelope)}`
+    `=== Candidate ${i + 1}: ${assessment.worker} ===\nFiles: ${assessment.editedPaths.join(', ')}\nSummary: ${assessment.envelope.summary}\nChars: ${estimateEditSize(assessment.envelope)}\nBlocking: ${assessment.blockingIssues.length > 0 ? assessment.blockingIssues.join('; ') : 'none'}\nWarnings: ${assessment.warnings.length > 0 ? assessment.warnings.join('; ') : 'none'}\nPreview:\n${previewEditForJudge(assessment.envelope)}`
   ).join('\n\n');
 
-  try {
-    const response = await callProvider(judgeConfig.provider, judgeConfig.model, {
-      system: 'You are the final code judge. Approve only candidates that solve the task directly, respect explicit file paths, satisfy required create targets, and avoid unnecessary extra scope. Respond ONLY JSON: {"approved": true|false, "pick": 0|1|2, "reason": "..."}. Use pick 0 when every candidate should be rejected.',
-      messages: [{ role: 'user', content: `Task: ${instruction}\nScope files: ${context.scopeFiles.join(', ') || 'none'}\nRequired create targets: ${context.createTargets.join(', ') || 'none'}\n\n${comparison}` }],
-      maxTokens: 400,
-      temperature: 0.1,
-      forceJsonObject: false,
-      reasoning: { effort: 'high' },
-    });
-    const parsed = parseJudgeResponse(response, candidates.length);
-    if (!parsed) return heuristic;
-    if (parsed.decision === 'uncertain') {
-      const idx = Math.max(0, Math.min((parsed.pick || 1) - 1, candidates.length - 1));
+  for (const judgeWorker of judgeWorkers) {
+    const judgeConfig = WORKER_REGISTRY[judgeWorker];
+    if (!judgeConfig) {
+      continue;
+    }
+
+    try {
+      const response = await callProvider(judgeConfig.provider, judgeConfig.model, {
+        system: 'You are the final code judge. Approve only candidates that solve the task directly, respect explicit file paths, satisfy required create targets, and avoid unnecessary extra scope. Respond ONLY JSON: {"approved": true|false, "pick": 0|1|2, "reason": "..."}. Use pick 0 when every candidate should be rejected.',
+        messages: [{ role: 'user', content: `Task: ${instruction}\nScope files: ${context.scopeFiles.join(', ') || 'none'}\nRequired create targets: ${context.createTargets.join(', ') || 'none'}\n\n${comparison}` }],
+        maxTokens: 400,
+        temperature: 0.1,
+        forceJsonObject: false,
+        reasoning: { effort: 'high' },
+      });
+      const parsed = parseJudgeResponse(response, candidates.length);
+      if (!parsed) {
+        continue;
+      }
+      if (parsed.decision === 'uncertain') {
+        const idx = Math.max(0, Math.min((parsed.pick || 1) - 1, candidates.length - 1));
+        const winner = assessments[idx];
+        return {
+          decision: 'uncertain',
+          approved: false,
+          reason: parsed.reason || 'Judge uncertain. Requires external approval.',
+          winner: winner?.envelope,
+          worker: winner?.worker,
+          rejectedWorkers: assessments.filter((assessment) => assessment.worker !== winner?.worker).map((assessment) => assessment.worker),
+          judgeLane: judgeWorker,
+        };
+      }
+
+      if (!parsed.approved || parsed.pick === 0 || parsed.decision === 'block') {
+        return {
+          decision: 'block',
+          approved: false,
+          reason: parsed.reason || 'Judge rejected all candidates.',
+          rejectedWorkers: candidates.map((candidate) => candidate.worker),
+          judgeLane: judgeWorker,
+        };
+      }
+
+      const idx = Math.max(0, Math.min(parsed.pick - 1, candidates.length - 1));
       const winner = assessments[idx];
-      return {
-        decision: 'uncertain',
-        approved: false,
-        reason: parsed.reason || 'Judge uncertain. Requires external approval.',
-        winner: winner?.envelope,
-        worker: winner?.worker,
-        rejectedWorkers: assessments.filter((assessment) => assessment.worker !== winner?.worker).map((assessment) => assessment.worker),
-      };
-    }
+      if (winner.blockingIssues.length > 0) {
+        return {
+          decision: 'block',
+          approved: false,
+          reason: winner.blockingIssues.join('; '),
+          rejectedWorkers: candidates.map((candidate) => candidate.worker),
+          judgeLane: judgeWorker,
+        };
+      }
 
-    if (!parsed.approved || parsed.pick === 0 || parsed.decision === 'block') {
       return {
-        decision: 'block',
-        approved: false,
-        reason: parsed.reason || 'Judge rejected all candidates.',
-        rejectedWorkers: candidates.map((candidate) => candidate.worker),
+        decision: parsed.decision === 'approve' ? 'approve' : 'approve',
+        approved: true,
+        reason: parsed.reason || 'Judge approved the selected candidate.',
+        winner: winner.envelope,
+        worker: winner.worker,
+        rejectedWorkers: assessments.filter((assessment) => assessment.worker !== winner.worker).map((assessment) => assessment.worker),
+        judgeLane: judgeWorker,
       };
+    } catch {
+      continue;
     }
-
-    const idx = Math.max(0, Math.min(parsed.pick - 1, candidates.length - 1));
-    const winner = assessments[idx];
-    if (winner.blockingIssues.length > 0) {
-      return {
-        decision: 'block',
-        approved: false,
-        reason: winner.blockingIssues.join('; '),
-        rejectedWorkers: candidates.map((candidate) => candidate.worker),
-      };
-    }
-
-    return {
-      decision: parsed.decision === 'approve' ? 'approve' : 'approve',
-      approved: true,
-      reason: parsed.reason || 'Judge approved the selected candidate.',
-      winner: winner.envelope,
-      worker: winner.worker,
-      rejectedWorkers: assessments.filter((assessment) => assessment.worker !== winner.worker).map((assessment) => assessment.worker),
-    };
-  } catch {
-    return heuristic;
   }
+
+  return heuristic;
 }

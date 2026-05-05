@@ -84,6 +84,47 @@ Ein guter Soulmatch-Kandidat:
 
 ## Aktuell relevante Radar-Eintraege
 
+### Kandidat - Profile Persistenz Hardening
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `runtime_probe`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/routes/profile.ts`, `docs/PROFILE-COVERAGE-DIAGNOSIS.md`, `docs/ROUTE-COVERAGE-MAP.md`
+- `why_not_now`: `none`
+- `non_scope`: birthDate-Formatpolitik, breiter Profilschema-Umbau, neue DB-Tabellen oder Multi-File-Persistenzrefactor.
+- `risk`: reduziert; der fruehere Live-Gap liess whitespace-only `name` und `birthDate` auf `POST /api/profile` als `201` durch und erlaubte dieselbe Degradation auf `PUT /api/profile/:id`.`
+- `betroffene_bereiche`: `server/src/routes/profile.ts`
+- `kurzurteil`: Der enge Single-File-Persistenzfix ist live geschlossen. `7c2bf7b` trimmt und validiert die Pflichtfelder auf Create und Update fail-closed, ohne Format- oder Schema-Scope aufzuziehen.`
+- `evidence`: Vorher live `201` fuer whitespace-only `name` und `birthDate`, dazu `200` fuer whitespace-only Update; nach Deploy auf `7c2bf7b` live `400` fuer beide Create-Probes und `400` fuer whitespace-only Update, bei weiter gruener valid-control `201`. Dokumentiert in `docs/PROFILE-COVERAGE-DIAGNOSIS.md`.
+
+### Kandidat - Builder Gate Boundary vs Direct Repo Hotfix
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `review_followup`
+- `next_gate`: `archive`
+- `absorbed_into`: `docs/BUILDER-GATE-BOUNDARY-DECISION.md`, `AGENTS.md`, `STATE.md`
+- `why_not_now`: `none`
+- `non_scope`: neuer Builder-Core-Umbau, rueckwirkende Umdeutung alter K2.8-Klassifikationen, pauschale Freigabe fuer breite direkte Hotfixes oder stilles class_2/class_3-Widening.
+- `risk`: reduziert; die Frage ist jetzt als explizite Operating-Boundary entschieden statt als implizite Hintertuer offen zu bleiben.`
+- `betroffene_bereiche`: `AGENTS.md`, `STATE.md`, `RADAR.md`, Builder-Arbeitsvertrag
+- `kurzurteil`: Builder-Gates bleiben bindend fuer Builder-Laeufe, direkte Repo-Hotfixes bleiben ein separater Pfad unter harten Bedingungen. Solche Hotfixes duerfen nie als freie Builder-Evidence verkauft werden.
+- `evidence`: Historischer Builder-Befund `K2.8l` in `docs/BUILDER-BENCHMARK-K2.8L-FREE-RUNTIME-REPORT.md`; spaeterer direkter Repo-Fix `7c2bf7b`; formalisierte Entscheidung in `docs/BUILDER-GATE-BOUNDARY-DECISION.md` und AGENTS-Regel vom 2026-05-01.
+
+### Kandidat - Being Habitat Phase B
+
+- `status`: `parked`
+- `truth_class`: `proposal_only`
+- `source_type`: `spec_followup`
+- `next_gate`: `proposal`
+- `why_not_now`: `Phase A ist jetzt live repariert und frontend-shaped verifiziert. Phase B waere absichtlich ein Redesign-/Migrationsthema und darf nicht still in die Reparaturkette hineinrutschen.`
+- `non_scope`: sofortige `persona_id` -> `being_id`-Migration, `source_kind`-Write-Path, Read-Filter-Umbau, Cross-App-Memory-Transfer.
+- `risk`: moderat; das Konzept ist jetzt sauber dokumentiert, aber nicht als gebaut auszugeben. Proposal-only-Material darf nicht still in Produktwahrheit kippen.
+- `betroffene_bereiche`: `aicos-registry/specs/being-habitat-core-v0.2.md`, `aicos-registry/specs/being-habitat-extensions-reserve-v0.2.md`, `docs/SCHEMA-DELTA-FOR-SESSION-MEMORIES-v0.2.md`
+- `kurzurteil`: Die Habitat-Definition ist repo-sichtbar geparkt und bereinigt. Der naechste legitime Schritt waere ein bewusst geschnittener Phase-B-Proposal-/Migration-Block, nicht opportunistische Einzelspaltenarbeit.
+- `evidence`: Commits `4bc6cc9` und `9f898d9`; bereinigte Core-/Reserve-Specs in `aicos-registry/specs/`; bestehende korrigierte Schema-Delta-Referenz in `docs/SCHEMA-DELTA-FOR-SESSION-MEMORIES-v0.2.md`.
+
 ### Kandidat - Pipeline-Pfad-Konsolidierung (Orchestrator vs Council)
 
 - `status`: `adopted`
@@ -101,15 +142,150 @@ Ein guter Soulmatch-Kandidat:
 ### Kandidat - Builder Benchmark / Operating Boundary
 
 - `status`: `active`
-- `truth_class`: `runtime_verified`
+- `truth_class`: `repo_visible_plus_runtime_probe`
 - `source_type`: `user_request`
+- `next_gate`: `proposal`
+- `why_not_now`: `Die Kernfrage ist inzwischen enger als gestern: `K2.9a` hat den released free class_1 lane positiv bewiesen, `K2.9b` hat die Fresh-Family-Grenze fail-closed sichtbar gemacht, und `K2.9c` hat denselben offenen `zimage`-Bug approval-backed ueber Builder selbst geschlossen. Offen ist jetzt nicht mehr die Gate-Boundary gegen Direkt-Hotfixes, sondern nur noch, ob ein weiterer approval-backed Trial auf einer anderen frischen Family noch echten Erkenntniswert hat.`
+- `non_scope`: neue Builder-Features, Gate-Umbau ausserhalb der schmalen Hardening-Kette, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
+- `risk`: weiter reduziert, aber nicht null. Die aktuelle Kette blockiert jetzt mehrdeutige Search-Anker, Null-Diffs, falsche Datei-Claims und Markdown-Patches im falschen Txx-Abschnitt; kontrollierte Runs koennen Side-Effects inzwischen ueber `mode=none` unterdruecken, H2B fuegt vor dem Push einen konservativen Workflow-Simulations-Hook ein, H2C-1 macht diesen Pfad im kanonischen Orchestrator-Result verstaendlicher, H2D-1 zieht vorhandene Evidence-/Schema-Lock-Signale in einen expliziten Analysis-Layer zusammen, H2C-2 traegt dieselbe Wahrheit additiv auch in den Legacy-`/build`-Pfad, H3A behandelt den reinen Callback-Timeout jetzt nur noch als pending truth statt als harte Negativ-Aussage und H3-async-0/H3-async-1 ziehen fuer den Async-Health-Pfad die spaete Callback-Wahrheit jetzt bis in `async_jobs.result` nach. `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `9f978e6` und `7f95aac` haerten Scope-, Provider- und Judge-Evidence-Lane auf `main`. Mit `0738700`, `df13183`, `3b0236a`, `427235a`, `52a7175`, `adc593a`, `abd1d3f`, `7c3bce7`, `21d7a3d`, `0b2b8c3`, `ef100dd`, `1512f95`, `b6b85d0`, `0702adc`, `385cf22`, `88e2d5a`, `6e1ea41` und `b2fcc3a` ist der freie single-file class_1-Korridor jetzt deutlich staerker repo- und live-sichtbar belegt; `2bbc232` belegt zusaetzlich die approval-backed class_2-Lane auf einer frischen provider-/cost-backed Routefamilie. Offen bleiben bewusst nur die weiterhin ausgeschlossenen Familien: Multi-File, Governance-/Policy-Ziele, Builder-Core, Secrets/Deploy/Provider-Core und freie class_2/class_3-Ausweitung.`
+- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`, `server/src/lib/opusWorkerRegistry.ts`, `server/scripts/builder-k26b-live-runner.ts`, `docs/BUILDER-BENCHMARK-K2.6.md`, `docs/BUILDER-BENCHMARK-K2.6B-LIVE-SUBSET-REPORT.md`.
+- `kurzurteil`: Der Acceptance-Korridor ist jetzt vierfach geschaerft: historisch ueber die K2.6-K2.8-Linie, positiv ueber `K2.9a` im released docs/helper lane, negativ/aufschlussreich ueber `K2.9b` in einer frischen external-service Family und operativ geschlossen ueber `K2.9c` als approval-backed Landing genau auf diesem seam. Builder kann im released narrow free `class_1` lane bereits als kontrollierter Worker genutzt werden; die approval-backed `class_2`-Lane ist jetzt auch auf einer frischen provider-/cost-backed Runtime-Family live belegt.`
+- `evidence`: Nicht akzeptierte Landing-Evidence `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json` mit `status=partial`, spaeter repo-sichtbarem Commit-Landing und der eingegrenzten Timeout-Fehlklassifikation; Reparatur-Commit `24fc1b8`; H2A-Commit `b2d08ea`; H2B-Commits `5c76561` und `bd9c2ef`; H2C-1-Commit `c25a4e2`; H2D-1-Commit `acb2b1b`; H2C-2-Commit `cb5f510`; H3A-Commit `1d7c6bc`; H3-async-0-Commit `307fa3d`; H3-async-1-Commit `ed27349`; main-Autonomie-Hardening `1761f3e`, `4e4c72b`, `1272ccd`, `96fc618`, `fb6b767`, `9f978e6`; Deploy-/Incident-Hardening `f21d035`, `ba50da4`, `67fa75c`; Patch-Fallback-Hardening `fab0d97` und `1ea46d7`. Repo-sichtiger K2.6b-Live-Report in `docs/BUILDER-BENCHMARK-K2.6B-LIVE-SUBSET-REPORT.md`; externer Ergebnisreport `C:/Users/guerc/OneDrive/Desktop/soulmatch/k26b-live-results-post-provider-model-scope.json` mit `passCount=5`, `deviationCount=0`, `liveCommit=9f978e66039a0ab325c9b4ecd9acc43a1a343b70`. Repo-sichtiger K2.6c-Controlled-Push-Report in `docs/BUILDER-BENCHMARK-K2.6C-CONTROLLED-PUSH-REPORT.md`; verifiedCommits `073870033853e7fcdd306efe4b6833a1959079b9`, `df13183b2d05b421674d7c56806da9da1a8b27aa` und `3b0236a98f7ec1387b43dc34dda60dfb7bf6a420`, scope-clean nur auf `docs/archive/push-test.md` bzw. `docs/archive/k26c-helper-smoke.txt`. Repo-sichtiger K2.6d-Code-Adjacent-Report in `docs/BUILDER-BENCHMARK-K2.6D-CODE-ADJACENT-REPORT.md`; verifiedCommit `427235a32ca87300eecb74d35acf7fb32144420a`, changedFiles exakt `server/src/lib/pipelineTestMarker.ts`. Repo-sichtiger K2.6e-Code-Adjacent-Report in `docs/BUILDER-BENCHMARK-K2.6E-CODE-ADJACENT-REPORT.md`; verifiedCommit `52a7175f3818f6c52b715bdf137df49aef678a82`, changedFiles exakt `server/src/routes/health.ts`. Repo-sichtiger K2.6f-Code-Adjacent-Report in `docs/BUILDER-BENCHMARK-K2.6F-CODE-ADJACENT-REPORT.md`; verifiedCommit `adc593a2ea3325600f3696ee2bf365c56fdacda5`, changedFiles exakt `server/src/routes/health.ts`, preflight absolute-path probe `200`, post-deploy probe `403 path traversal blocked`. Repo-sichtiger K2.6g-Code-Adjacent-Report in `docs/BUILDER-BENCHMARK-K2.6G-CODE-ADJACENT-REPORT.md`; verifiedCommit `abd1d3f84fab8533baddfb076cf33f5d888c51ee`, changedFiles exakt `server/src/routes/numerology.ts`, whitespace-invalid probe davor `200`, live danach `400`, bei weiter gruenem Valid-Probe-Body. Repo-sichtiger K2.7a-Free-Subset-Report in `docs/BUILDER-BENCHMARK-K2.7A-FREE-CLASS1-SUBSET-REPORT.md`; freie Landings `7c3bce7943c2e0debacdeecf5783b4388d5e0e12` und `21d7a3d86332563f05fecba80b049d50eaec7c39` als exakte Docs-/Helper-Tasks, dazu ein bewusst blockiertes `T03` mit `recommendedAction=require_review` und `pushBlockedReason=Claim anchoring is incomplete for winner claims (1).` Repo-sichtiger K2.7b-Report in `docs/BUILDER-BENCHMARK-K2.7B-FREE-ANCHORED-REPLACEMENT-REPORT.md`; Landing `0b2b8c39d0a3a44a006773e8004d327302e1a7e7` auf `docs/archive/k26c-helper-smoke.txt` bei gleichzeitigem false-negative `empty_staged_diff`. Repo-sichtiger K2.7c-Report in `docs/BUILDER-BENCHMARK-K2.7C-FREE-ANCHORED-REPLACEMENT-REPORT.md`; free rerun gegen live `1ea46d7`, verifiedCommit `ef100dd1869db18f7efc306f2f8f5a0392233ebc`, changedFiles exakt `docs/archive/k27a-free-class1-smoke.txt`. Repo-sichtiger K2.7d-Report in `docs/BUILDER-BENCHMARK-K2.7D-FREE-RUNTIME-SUBSET-REPORT.md`; Landing `1512f95f0049a8b2f3e624d1e3e43338f2a595d7` auf `server/src/routes/astro.ts`, live Health danach `commit=1512f95f0049a8b2f3e624d1e3e43338f2a595d7`, whitespace-only `profileId` davor `200`, danach `400 invalid_profile_id`, bei weiter gruener Valid-Probe mit `profileId=abc`. Repo-sichtiger K2.7e-Report in `docs/BUILDER-BENCHMARK-K2.7E-FREE-RUNTIME-SUBSET-REPORT.md`; Landing `b6b85d0140d16a6274535689bbdab5507a2d0d11` auf `server/src/routes/match.ts`, live Health danach `commit=b6b85d0140d16a6274535689bbdab5507a2d0d11`, whitespace-only `aProfileId` davor `200`, danach `400 aProfileId and bProfileId are required`, bei weiter gruener Valid-Probe mit `aProfileId=a` und `bProfileId=b`. Repo-sichtiger K2.7f-Report in `docs/BUILDER-BENCHMARK-K2.7F-FREE-RUNTIME-SUBSET-REPORT.md`; Landing `0702adc175f4b2bdb07240084e0f1ce9cb239cca` auf `server/src/routes/scoring.ts`, live Health danach `commit=0702adc175f4b2bdb07240084e0f1ce9cb239cca`, whitespace-only `profileId` davor `200`, danach `400 profileId, numerologyA, and numerologyB are required`, bei weiter gruener Valid-Probe mit `profileId=abc`. Repo-sichtiger K2.8a-Free-Ops-Report in `docs/BUILDER-BENCHMARK-K2.8A-FREE-OPS-SUBSET-REPORT.md`; `2dbab36ad4d19661c0ca7112dcab2f2ca25f67ca` landete den non-governance helper anchored replacement, waehrend `K28A-T01` (groesserer Docs-Append) und `K28A-T03` (drei-zeiliger helper create-target) bewusst mit `executionPolicy=dry_run_only` fail-closed blockierten. Repo-sichtiger K2.8b-Free-Ops-Report in `docs/BUILDER-BENCHMARK-K2.8B-FREE-OPS-SUBSET-REPORT.md`; `2ee184b3fe8ab3f639fb292c8fbff5d81d43da50` landete den tiny helper append auf `docs/archive/k26c-helper-smoke.txt`, `10d4e13ef3e328d27eb2fe931686c12cd1665b56` den single-line helper create-target auf `docs/archive/k28b-free-class1-ops-smoke.txt`, bei `passCount=2`, `deviationCount=0` und live health danach `commit=10d4e13ef3e328d27eb2fe931686c12cd1665b56`.
+- `evidence_addendum`: Repo-sichtiger K2.8c-Free-Ops-Runtime-Report in `docs/BUILDER-BENCHMARK-K2.8C-FREE-OPS-RUNTIME-REPORT.md`; `385cf2261a9dcfb35e5158c82dadb585a891d7c9` landete den Journey-Validation-Fix auf `server/src/routes/journey.ts`, whitespace-only `startDate` kippte live von `200` auf `400 invalid_request`, der gueltige Kontrollprobe-Body blieb `200`, und `/api/health` zog danach auf `385cf2261a9dcfb35e5158c82dadb585a891d7c9` nach. Lokaler K2.8d-Hardening-Report in `docs/BUILDER-BENCHMARK-K2.8D-LOCAL-JUDGE-HARDENING-REPORT.md`; `pnpm --dir server builder:k28d` lief 2/2 gruen. Repo-sichtiger K2.8e-Live-Dry-Run-Report in `docs/BUILDER-BENCHMARK-K2.8E-LIVE-HARDENING-DRYRUN-REPORT.md`; beide frueheren K2.8a-Formen approvten auf Live im Dry-Run. Repo-sichtiger K2.8f-Repeatability-Report in `docs/BUILDER-BENCHMARK-K2.8F-LIVE-T03-REPEATABILITY-REPORT.md`; der mehrzeilige helper create-target approvte auf dem gehärteten Live-Head `7f95aac` erneut als `dry_run`. Repo-sichtiger K2.8g-Landing-Report in `docs/BUILDER-BENCHMARK-K2.8G-LIVE-T03-LANDING-REPORT.md`; `88e2d5aeb32bb0420a48ca851e539b7f2abf8e22` landete exakt den mehrzeiligen helper create-target scope-clean und live matching. Repo-sichtiger K2.8h-Landing-Report in `docs/BUILDER-BENCHMARK-K2.8H-LIVE-T01-LANDING-REPORT.md`; `6e1ea41a326dec0234d76d3222ced950b5597d33` landete exakt den groesseren Docs-Append scope-clean und live matching.
+
+- `evidence_addendum_2026_04_30`: Repo-sichtiger K2.8i-Repeatability-Report in `docs/BUILDER-BENCHMARK-K2.8I-LIVE-REPEATABILITY-REPORT.md`; `beab7c7c637d8da0a8faf26a7047b6bba9e91e94` und `99d83603c0b1c04d005506cd35bb382323f07354` bestaetigten dieselben beiden single-file-Formen non-dry erneut auf frischen Targets, jeweils scope-clean und runtime-matching.
+
+- `evidence_addendum_2026_04_30_b`: Repo-sichtiger K2.8j-Free-Runtime-Report in `docs/BUILDER-BENCHMARK-K2.8J-FREE-RUNTIME-REPORT.md`; `b2fcc3aa0f7253218537740f1a21a3600009c6b0` landete exakt `server/src/routes/guide.ts`, whitespace-only `systemPrompt` und `userMessage` kippten live jeweils von `200` auf `400 Missing systemPrompt or userMessage`, waehrend der gueltige Kontrollprobe-Body weiter `200` blieb.
+- `evidence_addendum_2026_04_30_c`: Repo-sichtiger K2.8k-Report in `docs/BUILDER-BENCHMARK-K2.8K-FREE-RUNTIME-REPORT.md`; `/api/oracle` blieb live offen (`200` fuer whitespace-only `question`), der Kandidat blieb zwar `class_1` + `allow_push`, scheiterte aber vor jedem Commit an `patch-via-push failed for server/src/routes/studio.ts`. Repo-sichtige K2.8l-, K2.8m- und K2.8n-Reports in `docs/BUILDER-BENCHMARK-K2.8L-FREE-RUNTIME-REPORT.md`, `docs/BUILDER-BENCHMARK-K2.8M-FREE-RUNTIME-REPORT.md` und `docs/BUILDER-BENCHMARK-K2.8N-FREE-RUNTIME-REPORT.md`; die drei Live-Gaps (`/api/profile`, `/api/match/single`, `/api/journey/optimal-dates`) wurden jeweils als `class_2`, `dry_run_only`, `pushAllowed=false` fail-closed gestoppt, ohne Commit-Landung oder Runtime-Aenderung.
+- `evidence_addendum_2026_04_30_d`: Repo-sichtiger K2.8o-Report in `docs/BUILDER-BENCHMARK-K2.8O-CLASS2-APPROVAL-REPORT.md`; `5784528118c43fccdbd1430d8b1eeb1efee69e97` landete den approval-backed `match.ts`-Fix scope-clean und runtime-matching. Repo-sichtiger K2.8p-Report in `docs/BUILDER-BENCHMARK-K2.8P-CLASS2-APPROVAL-REPORT.md`; `c737ba79025345902bae13438cded1eec2b32eda` landete den approval-backed `journey.ts`-Fix als zweiten `class_2`-Beleg, nachdem ein erster Versuch auf derselben Route nur an `checks_failed` scheiterte. Repo-sichtiger K2.8q-Report in `docs/BUILDER-BENCHMARK-K2.8Q-STUDIO-RERUN-REPORT.md`; der erneute exakte `/api/oracle`-Rerun blieb `class_1` + `allow_push`, scheiterte aber erneut vor Commit an `patch-via-push failed for server/src/routes/studio.ts`.
+- `evidence_addendum_2026_05_01`: Repo-sichtiger Observer-Report `docs/BUILDER-BENCHMARK-K2.9A-OBSERVER-TRIAL-REPORT.md`; `8d6470a06dc039c7f8fe8129e3dc873e45cdfa13` landete die exakte positive-control docs append auf `docs/archive/push-test.md`, `db1aa81e28453c4dfaa2802bf6c7b777223e3345` den exakten positive-control helper create-target auf `docs/archive/k29a-observer-helper.txt`, waehrend die intentionale zwei-Datei-Negativkontrolle `K29A-T03` auf `status=partial`, `taskClass=class_2`, `executionPolicy=dry_run_only`, `pushAllowed=false`, `landed=null` fail-closed blieb. Das ist neue Evidence fuer supervised free operation im released narrow lane, nicht fuer broad Builder freedom.
+- `evidence_addendum_2026_05_01_b`: Repo-sichtiger Observer-Report `docs/BUILDER-BENCHMARK-K2.9B-OBSERVER-RUNTIME-REPORT.md`; live auf `52bdeac` lieferte `POST /api/zimage/generate` mit `{"type":"bogus","id":"maya"}` weiter `200` plus reale fal-URL. Der exakt geschnittene Single-File-Guard-Ask auf `server/src/routes/zimage.ts` blieb im Builder-Run `status=partial`, `taskClass=class_2`, `executionPolicy=dry_run_only`, `pushAllowed=false`, `landed=null`. Das ist neue Evidence gegen eine freie Generalisierung des Korridors auf provider-/cost-backed image-generation routes.
+- `evidence_addendum_2026_05_01_c`: Repo-sichtiger Observer-Report `docs/BUILDER-BENCHMARK-K2.9C-CLASS2-APPROVED-RUNTIME-REPORT.md`; derselbe `zimage`-Rest wurde danach approval-backed ueber den Builder selbst geschlossen. Mit validiertem approval ticket `a236893b-5e13-4adc-8a23-4ac4f1ee8013` klassifizierte Builder den exakt gleichen Single-File-Guard-Ask als `class_2`, liess ihn als `allow_push` landen und zog `2bbc232a4825e541bd8f2ef6fabe8d0214b7837f` runtime-matching nach. Live kippte invalid `type='bogus'` dadurch von `200` plus realer fal-URL auf `400 {"error":"Unknown type: bogus"}`, waehrend `/api/zimage/prompts` weiter `200` blieb.
+
+### Kandidat - Builder Hardening 2 (Side-Effect Suppression)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `runtime_verify`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderSideEffects.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/lib/opusIndexGenerator.ts`, `server/src/routes/builder.ts`, `server/src/routes/opusBridge.ts`, `server/src/lib/opusBridgeController.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: `planned`-Modus voll ausbauen, Async-Truth-Reparatur, Claim-/Judge-Semantik, Workflow Simulation Gate bauen, weitere Builder-Nutzungsbelege.
+- `risk`: reduziert; der sichtbare Side-Effect-Leckpfad fuer kontrollierte Runs ist geschlossen, das bewusste V1-Risiko bleibt der pragmatische Marker im `task.goal`.
+- `betroffene_bereiche`: `server/src/lib/builderSideEffects.ts`, `server/src/routes/opusBridge.ts`, `server/src/routes/builder.ts`, `server/src/lib/opusIndexGenerator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusBridgeController.ts`
+- `kurzurteil`: H2A ist repo-sichtbar auf main abgeschlossen. `sideEffects.mode=none` unterdrueckt fuer kontrollierte Runs `SESSION-LOG.md`, den session-log SHA-Backfill und den repo-index Folgepush; fehlender Contract bzw. `mode=default` lassen das bisherige Verhalten unveraendert.
+- `evidence`: Folgecommits `c634249` und `25f84fc` markierten die urspruengliche Fehlerklasse; Read-only-H2A-Analyse, Branch-Review und Commit `b2d08ea` fuehren den additiven Contract ein und legen ihn auf `main`. Statischer Verify: Branch-Diff sauber, `pnpm build` gruen, kein Builder-Run.
+
+### Kandidat - Builder H2B (Pre-Push Workflow Simulation Gate v0.1)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `archive`
+- `absorbed_into`: `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`, `server/src/lib/builderWorkflowSimulation.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: echten Workflow-Simulator bauen, Callback-/Truth-Reparatur, neue Builder-Nutzungsbelege, weiterer Push-Smoke, Architekturgraph- oder Telemetrie-Pflichtinputs.
+- `risk`: reduziert; der neue Hook bleibt lokal und additiv, das offene Risiko liegt eher in spaeterer Recommendation/Clarification-Semantik und in getrennten Truth-/Telemetry-Themen als in einem offenen Pre-Push-Leckpfad.
+- `betroffene_bereiche`: `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`, `server/src/lib/builderWorkflowSimulation.ts`, `server/src/lib/opusTaskOrchestrator.ts`
+- `kurzurteil`: H2B ist repo-sichtbar auf main abgeschlossen. `5c76561` fuehrt das minimale Pre-Push Workflow Simulation Gate v0.1 additiv in den Orchestrator ein; `bd9c2ef` korrigiert die Dry-Run-Semantik auf konsequent `dry_run_only`. Pushes werden bei non-allow Entscheidungen vor dem Dispatch gestoppt, ohne H2A, H3 oder breitere Pipeline-Architektur zu oeffnen.
+- `evidence`: Read-only-H2B-Scan gegen `docs/PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md`; Commit `5c76561` (`fix(builder): add pre-push workflow simulation gate`); Folgecommit `bd9c2ef` (`fix(builder): keep workflow simulation dry-run only`); lokaler Static-Verify mit `pnpm build` und helper checks fuer `dryRun`, `manual_only`, protected paths, `pushAllowed=false`, clean allow und outside-scope; kein Builder-Run.
+
+### Kandidat - Builder H2C-1 (Recommendation Output on canonical orchestrator result)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderRecommendationOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: Legacy-`/build`-Mapping, H3 Async-Truth-Reparatur, neuer Workflow-Simulator, neuer Builder-Test, `requires_clarification` als neuer Gate-Wert.
+- `risk`: reduziert; Recommendation-Output bleibt ein additiver Presentation-Layer auf der bestehenden `workflowSimulation`, ohne die Gate-Semantik selbst zu aendern.
+- `betroffene_bereiche`: `server/src/lib/builderRecommendationOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`
+- `kurzurteil`: H2C-1 ist repo-sichtbar auf main abgeschlossen. `c25a4e2` fuehrt fuer den kanonischen Orchestrator-Pfad ein eigenes `recommendation`-Objekt mit deterministischen Feldern fuer User-/Operator-Sprache, naechste Aktion, Entscheidungspflicht und sichere Optionen ein; `recommendation.kind` bleibt exakt an `workflowSimulation.recommendedAction` gebunden.
+- `evidence`: Read-only-H2C-Scan identifizierte `workflowSimulation` als vorhandene Wahrheit und den Legacy-`/build`-Pfad als getrennten Folgepunkt; Commit `c25a4e2` (`fix(builder): add recommendation output for workflow simulation`); lokaler Static-Verify mit `pnpm build` und helper checks fuer `allow_push`, `dry_run_only`, `require_review`, `block_push`; kein Builder-Run.
+
+### Kandidat - Builder H2C-2 (Legacy /build Result Mapping)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `repo_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/opusBuildPipeline.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: neuer Gate-Wert, H3 Async-Truth-Reparatur, neuer Builder-Test, `requires_clarification`.
+- `risk`: reduziert; der Legacy-Build-Pfad traegt jetzt dieselben additiven Result-Felder wie der kanonische Orchestrator-Pfad, ohne seine Status- oder Governance-Mapping-Logik zu aendern.
+- `betroffene_bereiche`: `server/src/lib/opusBuildPipeline.ts`
+- `kurzurteil`: H2C-2 ist repo-sichtbar auf main abgeschlossen. `cb5f510` reicht `workflowSimulation`, `recommendation` und `analysis` additiv durch Snapshot- und Build-Result-Typen des Legacy-`/build`-Pfads, statt diese Wahrheit weiter auf `summary` und `pushBlockedReason` zu verflachen.
+- `evidence`: H2C-Read-only-Befund zeigte, dass `health.ts` Orchestrator-Result roh durchreicht, waehrend `opusBuildPipeline.ts` nur Governance-Felder spiegelte; Commit `cb5f510` (`fix(builder): carry workflow outputs through legacy build path`); lokaler Static-Verify mit `pnpm build` und Typ-/Shape-Pruefung ueber den Legacy-Pfad; kein Builder-Run.
+
+### Kandidat - Builder H2D-1 (Analysis Before Schema on canonical orchestrator result)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `user_request`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderAnalysisOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: Legacy-`/build`-Mapping, H3 Async-Truth-Reparatur, neuer Builder-Test, neue Gate-Werte oder Recommendation-Semantik.
+- `risk`: reduziert; Analysis-Layer bleibt ein additiver canonical-result-Hook auf Basis schon vorhandener `workflowSimulation`-Signale und aendert die Push-Entscheidung nicht.
+- `betroffene_bereiche`: `server/src/lib/builderAnalysisOutput.ts`, `server/src/lib/opusTaskOrchestrator.ts`
+- `kurzurteil`: H2D-1 ist repo-sichtbar auf main abgeschlossen. `acb2b1b` fuehrt fuer denselben kanonischen Orchestrator-Pfad ein eigenes `analysis`-Objekt ein, das Evidence-Level, Schema-Lock-Risiko, offene Fragen und Vorsichtsgruende deterministisch aus `confidence`, `missingEvidence`, `ambiguityRisk`, `claimAnchoringRisk`, `scopeRisk` und `protectedPathRisk` ableitet.
+- `evidence`: Read-only-H2D-Scan gegen `PRE_PUSH_WORKFLOW_SIMULATION_GATE_V0_1.md` und den bestehenden Orchestrator-/Workflow-Simulation-Pfad; Commit `acb2b1b` (`fix(builder): add analysis output for workflow simulation`); lokaler Static-Verify mit `pnpm build` und helper checks fuer `converged`, `limited`, `fragile`; kein Builder-Run.
+
+### Kandidat - Builder H3A (Pending callback truth on timeout)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `runtime_verify`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/opusSmartPush.ts`, `server/src/lib/pushResultWaiter.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: spaete Callback->Result-/DB-Reconciliation, neuer Builder-Test, Deploy-Pfad-Neubau, Side-effect-Contract-Umbau.
+- `risk`: reduziert; der konkrete False-Negative-Fall fuer reine Callback-Timeouts ist enger gezogen, aber die tiefere Async-Truth-Reparatur bleibt offen.
+- `betroffene_bereiche`: `server/src/lib/opusSmartPush.ts`, `server/src/lib/pushResultWaiter.ts`
+- `kurzurteil`: H3A ist repo-sichtbar auf main abgeschlossen. `1d7c6bc` behandelt einen reinen Waiter-Timeout nicht mehr als harte Negativ-Wahrheit `landed=false`, sondern als `landed=undefined` mit explizitem pending-truth-Hinweis; terminale committed:false-Callbacks bleiben unveraendert echte Negativ-Signale.
+- `evidence`: H3-Read-only-Scan ueber Waiter, `smartPush` und den execution-result-Callback; Commit `1d7c6bc` (`fix(builder): keep callback timeout truth pending`); lokaler Static-Verify mit `pnpm build` und Waiter-Helper (`undefined|timeout_10ms|true|abc123|false|commit_not_landed`); kein Builder-Run.
+
+### Kandidat - Builder H3-async-0 (Async job callback bridge)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `derived_from_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/schema/builder.ts`, `server/src/routes/health.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/routes/opusBridge.ts`, `server/migrations/0002_builder_tasks_source_async_job_id.sql`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: allgemeine `/opus-task`-/`/execute`-/`/build`-Reconciliation, neuer Builder-Test, Gate-Umbau.
+- `risk`: reduziert; die fehlende Identitaetsbruecke zwischen `async_jobs.id` und spaeterem `builder_tasks.id` ist jetzt explizit und persistent, bleibt aber vorerst nur fuer den Async-Health-Pfad benutzt.
+- `betroffene_bereiche`: `server/src/schema/builder.ts`, `server/src/routes/health.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`, `server/src/routes/opusBridge.ts`, `server/migrations/0002_builder_tasks_source_async_job_id.sql`
+- `kurzurteil`: H3-async-0 ist repo-sichtbar auf main abgeschlossen. `307fa3d` fuehrt die neue nullable Bruecke `builder_tasks.sourceAsyncJobId` ein und traegt sie vom Async-Health-Job ueber Orchestrator, SmartPush und `/push` bis in die spaet callback-lesbare Builder-Task.
+- `evidence`: Read-only-Designscan in `docs/H3-ASYNC-0-DESIGNSCAN.md`; Commit `307fa3d` (`fix(builder): add async job callback bridge`); additive DB-Anwendung lokal ueber `pnpm db:push`; lokaler Static-Verify mit `pnpm build`; kein Builder-Run.
+
+### Kandidat - Builder H3-async-1 (Async job result reconciliation)
+
+- `status`: `adopted`
+- `truth_class`: `repo_visible`
+- `source_type`: `derived_from_review`
+- `next_gate`: `archive`
+- `absorbed_into`: `server/src/lib/builderAsyncJobReconciliation.ts`, `server/src/routes/builder.ts`, `STATE.md`, `RADAR.md`
+- `why_not_now`: `none`
+- `non_scope`: allgemeine synchrone Result-Persistenz fuer `/opus-task`, `/execute` oder `/build`, neuer Builder-Test, neuer Gate-Wert.
+- `risk`: reduziert; der Async-Health-Pfad traegt spaete committed:true|false-Callback-Wahrheit jetzt in `async_jobs.result`, bleibt dabei aber bewusst konservativ und dreht spaet gelandete Jobs nicht still auf vollstaendiges `success`.
+- `betroffene_bereiche`: `server/src/lib/builderAsyncJobReconciliation.ts`, `server/src/routes/builder.ts`
+- `kurzurteil`: H3-async-1 ist repo-sichtbar auf main abgeschlossen. `ed27349` zieht im execution-result-Callback `landed`, `verifiedCommit`, Summary, Blocker-Lesart und Push-Phase fuer den Async-Health-Pfad nach, wenn ein bereits als pending/partial persistierter Job spaeter terminal bestaetigt wird.
+- `evidence`: Read-only-Proposal in `docs/H3-ASYNC-1-PROPOSAL.md`; Commit `ed27349` (`fix(builder): reconcile async job callback truth`); lokaler Static-Verify mit `pnpm build` und `tsx`-Helper fuer spaetes Erfolgs-/Fehler-Merging; kein Builder-Run.
+
+### Kandidat - Builder Hardening 3 (Async Truth Repair)
+
+- `status`: `active`
+- `truth_class`: `repo_visible`
+- `source_type`: `runtime_verify`
 - `next_gate`: `decision_gate`
-- `why_not_now`: `kein technischer Blocker mehr in K2.6a local dryRun; offen ist jetzt nur die bewusst freizugebende Folgeentscheidung nach dem docs-only Closeout.`
-- `non_scope`: neue Builder-Features, Gate-Umbau, weitere Live-Push-Smokes ohne explizite Freigabe, Produktarbeit ausserhalb des Builder-Acceptance-Pfads, grosse autonome Featurearbeit oder multi-file Architekturumbauten ohne neuen Plan plus Approval.
-- `risk`: reduziert auf Findings-Ebene; Sicherheits-Invarianten (landed=false, pushAllowed=false) haben ueber T02, T03 und das class_2-Approval-Paar gehalten. T09 wird als akzeptierte manual_only-Semantik gefuehrt (Preview in dryRun moeglich, kein Push/Landing). Offenes Risiko ist aktuell nicht ein weiterer lokaler Benchmark-Fail, sondern nur die falsche Schlussfolgerung aus gruenen dryRuns: Der T03-Winner ist reviewbar, aber weiterhin nicht angewandt und wuerde als echter Multi-File-Eingriff erneut Approval brauchen.
-- `betroffene_bereiche`: `server/src/lib/builderSafetyPolicy.ts`, `server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusJudge.ts`, `server/src/lib/opusEnvelopeValidator.ts`, `docs/BUILDER-BENCHMARK-K2.6A-RUNNER-PREFLIGHT.md`, `docs/BUILDER-BENCHMARK-K2.6A-EXECUTION-PLAN.md`.
-- `kurzurteil`: K2.6a ist lokal fuer den aktuellen Acceptance-Korridor sauber zusammengezogen: T06/T07 Approval-Paar blieb gruen, T02 ist lokal funktional repariert, und T03 Batch 1b lief als class_2 dryRun mit frischem Approval und nachgelagertem Cleanup ebenfalls gruen durch. Der naechste Schritt ist keine weitere Execution, sondern die freigegebene Wahl des Folgeblocks.
-- `evidence`: K2.6a Batch 1 Ergebnis-Datei `k26a-batch1-results-2026-04-26-19-02-43.json`; lokale Approval-Pair-Evidence `k26a-t06-result-1777261691167.json` und `k26a-t07-result-1777261744811.json` mit T06 `approval-validation=ok`, T07 `requiredExternalApproval=true` und `pushBlockedReason=class_2 requires approved plan + approvalId before live push.`; Cleanup-Evidence fuer das Test-Approval ueber `k26a-approval-cleanup.ts` mit `beforeFound=true`, `deleted=true`, `afterCount=0`; T02-Retry-Evidence `k26a-t02-retry-result-2026-04-27-04-18-44.json` mit `parsed=1`, `valid=1`, `taskClass=class_1`, `requiredExternalApproval=false` und `changedFiles=["docs/CLAUDE-CONTEXT.md"]`; T03-Evidence `k26a-t03-result-1777263868136.json` mit `status=dry_run`, `taskClass=class_2`, `approval-validation=ok`, `validate=ok`, `claim-gate=ok`, `judge=ok`, Winner `grok` und Judge-Files nur `server/src/lib/opusJudge.ts` plus `server/src/lib/opusEnvelopeValidator.ts`; T03-Cleanup lokal verifiziert mit `beforeFound=true`, `deleted=true`, `afterCount=0`; origin/main verifiziert auf `4d6aa07` ohne Folgebewegung.
+- `why_not_now`: `Bleibt bewusst getrennt von der Hardening-1-Kette und vom Side-effect-Pfad, weil sonst Push-, Callback- und Waiter-Wahrheit in einem Mischblock kippen wuerden.`
+- `non_scope`: neue Side-effect-Suppression, Claim-/Judge-Umbau, neue Builder-Nutzungsbelege, Deploy-Pfad-Neubau.
+- `risk`: deutlich reduziert, aber als Gesamtlinie noch nicht voll geschlossen. H3A sowie H3-async-0/1 nehmen dem Async-Health-Pfad jetzt den False-Negative- und Persistenz-Drift; offen bleibt nur noch die spaetere Entscheidung, ob synchrone Caller ebenfalls eine persistierte Reconciliation-Wahrheit brauchen.
+- `betroffene_bereiche`: `server/src/lib/opusSmartPush.ts`, `server/src/lib/pushResultWaiter.ts`, `server/src/routes/builder.ts`, `server/src/routes/health.ts`, `server/src/routes/opusBridge.ts`, `server/src/schema/builder.ts`
+- `kurzurteil`: H3 ist repo-sichtbar deutlich enger. Timeout bleibt seit `1d7c6bc` pending statt false; `307fa3d` baut die explizite Async-Job-Bruecke; `ed27349` zieht fuer `/api/health/opus-task-async` die spaete Callback-Wahrheit jetzt bis in `async_jobs.result` nach. Nicht automatisch geloest ist damit die breitere Frage, ob `/opus-task`, `/execute` und `/build` je einen spaet reconcileten Persistenzpfad brauchen.
+- `evidence`: `class1-builder-run-k26-t03-docfix-after-wiring-20260427-230936.json`, analysierter Timeout `timeout_180000ms`, spaeter repo-sichtbarer Commit-Landing-Widerspruch, H3A-Commit `1d7c6bc`, H3-async-0-Commit `307fa3d`, H3-async-1-Commit `ed27349`, additive DB-Anwendung fuer `source_async_job_id`; Live-Health auf Render antwortete danach ebenfalls mit `commit=ed27349`.
 
 ### Kandidat - Builder Operator Gate v1.2 (External Approval & Plan Gate)
 

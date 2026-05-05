@@ -21,6 +21,9 @@ interface PipelineExecutionSnapshot {
   approvalReason?: string;
   pushBlockedReason?: string;
   protectedPathsTouched?: string[];
+  workflowSimulation?: OpusTaskResult['workflowSimulation'];
+  recommendation?: OpusTaskResult['recommendation'];
+  analysis?: OpusTaskResult['analysis'];
 }
 
 function mapOrchestratorToSnapshot(input: BuildInput, result: OpusTaskResult): PipelineExecutionSnapshot {
@@ -40,6 +43,9 @@ function mapOrchestratorToSnapshot(input: BuildInput, result: OpusTaskResult): P
     approvalReason: result.approvalReason,
     pushBlockedReason: result.pushBlockedReason,
     protectedPathsTouched: result.protectedPathsTouched,
+    workflowSimulation: result.workflowSimulation,
+    recommendation: result.recommendation,
+    analysis: result.analysis,
   };
 }
 
@@ -72,6 +78,9 @@ export interface BuildResult {
   pushAllowed?: boolean;
   pushBlockedReason?: string;
   protectedPathsTouched?: string[];
+  workflowSimulation?: OpusTaskResult['workflowSimulation'];
+  recommendation?: OpusTaskResult['recommendation'];
+  analysis?: OpusTaskResult['analysis'];
   deploy?: {
     status: string;
     commitId?: string;
@@ -173,6 +182,9 @@ export async function runBuildPipeline(input: BuildInput): Promise<BuildResult> 
     pushAllowed: execResult.pushAllowed,
     pushBlockedReason: execResult.pushBlockedReason,
     protectedPathsTouched: execResult.protectedPathsTouched,
+    workflowSimulation: execResult.workflowSimulation,
+    recommendation: execResult.recommendation,
+    analysis: execResult.analysis,
   };
 
   // Governance-first mapping: safety/approval gating must not be flattened into build_failed.

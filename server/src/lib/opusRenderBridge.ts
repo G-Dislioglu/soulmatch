@@ -39,6 +39,58 @@ export interface DeployInfo {
   finishedAt?: string;
 }
 
+export interface RenderServiceInfo {
+  id: string;
+  name: string;
+  type: string;
+  ownerId?: string;
+  slug?: string;
+  autoDeploy?: string;
+  branch?: string;
+  buildCommand?: string;
+  startCommand?: string;
+}
+
+export interface RenderLogEntry {
+  timestamp: string;
+  level?: string;
+  labels?: Record<string, string>;
+  message: string;
+}
+
+function mapDeployInfo(input: Record<string, unknown>): DeployInfo {
+  const deploy = input.deploy && typeof input.deploy === 'object'
+    ? input.deploy as Record<string, unknown>
+    : input;
+
+  return {
+    id: String(deploy.id ?? ''),
+    status: String(deploy.status ?? 'unknown'),
+    commit: deploy.commit
+      ? {
+          id: String((deploy.commit as Record<string, unknown>).id ?? ''),
+          message: String((deploy.commit as Record<string, unknown>).message ?? ''),
+          createdAt: String((deploy.commit as Record<string, unknown>).createdAt ?? ''),
+        }
+      : undefined,
+    createdAt: String(deploy.createdAt ?? ''),
+    updatedAt: String(deploy.updatedAt ?? ''),
+    finishedAt: deploy.finishedAt ? String(deploy.finishedAt) : undefined,
+  };
+}
+
+function buildRenderLogQuery(params: Record<string, string | undefined>): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      query.append(key, value);
+    }
+  }
+
+  return query.toString();
+}
+
 export async function getDeployStatus(): Promise<{
   configured: boolean;
   latest?: DeployInfo;
@@ -62,24 +114,8 @@ export async function getDeployStatus(): Promise<{
       return { configured: true, error: `Render API ${res.status}: ${text.slice(0, 200)}` };
     }
 
-    const deploys = (await res.json()) as Array<{ deploy: Record<string, unknown> }>;
-    const mapped: DeployInfo[] = deploys.map((d) => {
-      const deploy = d.deploy ?? d;
-      return {
-        id: String(deploy.id ?? ''),
-        status: String(deploy.status ?? 'unknown'),
-        commit: deploy.commit
-          ? {
-              id: String((deploy.commit as Record<string, unknown>).id ?? ''),
-              message: String((deploy.commit as Record<string, unknown>).message ?? ''),
-              createdAt: String((deploy.commit as Record<string, unknown>).createdAt ?? ''),
-            }
-          : undefined,
-        createdAt: String(deploy.createdAt ?? ''),
-        updatedAt: String(deploy.updatedAt ?? ''),
-        finishedAt: deploy.finishedAt ? String(deploy.finishedAt) : undefined,
-      };
-    });
+    const deploys = (await res.json()) as Array<Record<string, unknown>>;
+    const mapped = deploys.map(mapDeployInfo);
 
     return {
       configured: true,
@@ -93,7 +129,133 @@ export async function getDeployStatus(): Promise<{
 
 // ==================== Trigger Redeploy ====================
 
-export async function triggerRedeploy(): Promise<{
+export async function getDeployDetails(deployId: string): Promise<{
+  deploy?: DeployInfo;
+  error?: string;
+}> {
+  const { apiKey, serviceId } = getConfig();
+  if (!apiKey || !serviceId) {
+    return { error: 'RENDER_API_KEY or RENDER_SERVICE_ID not set' };
+  }
+
+  try {
+    const res = await renderFetch(`/services/${serviceId}/deploys/${deployId}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { error: `Render API ${res.status}: ${text.slice(0, 200)}` };
+    }
+
+    const deploy = mapDeployInfo((await res.json()) as Record<string, unknown>);
+    return { deploy };
+  } catch (err) {
+    return { error: `fetch failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+export async function getServiceInfo(): Promise<{
+  service?: RenderServiceInfo;
+  error?: string;
+}> {
+  const { apiKey, serviceId } = getConfig();
+  if (!apiKey || !serviceId) {
+    return { error: 'RENDER_API_KEY or RENDER_SERVICE_ID not set' };
+  }
+
+  try {
+    const res = await renderFetch(`/services/${serviceId}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { error: `Render API ${res.status}: ${text.slice(0, 200)}` };
+    }
+
+    const data = (await res.json()) as Record<string, unknown>;
+    const owner = data.owner && typeof data.owner === 'object'
+      ? data.owner as Record<string, unknown>
+      : null;
+
+    return {
+      service: {
+        id: String(data.id ?? serviceId),
+        name: String(data.name ?? ''),
+        type: String(data.type ?? ''),
+        ownerId: owner ? String(owner.id ?? '') : undefined,
+        slug: typeof data.slug === 'string' ? data.slug : undefined,
+        autoDeploy: typeof data.autoDeploy === 'string' ? data.autoDeploy : undefined,
+        branch: typeof data.branch === 'string' ? data.branch : undefined,
+        buildCommand: typeof data.buildCommand === 'string' ? data.buildCommand : undefined,
+        startCommand: typeof data.startCommand === 'string' ? data.startCommand : undefined,
+      },
+    };
+  } catch (err) {
+    return { error: `fetch failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+export async function listRecentBuildLogs(limit = 50): Promise<{
+  logs?: RenderLogEntry[];
+  error?: string;
+}> {
+  const { apiKey, serviceId } = getConfig();
+  if (!apiKey || !serviceId) {
+    return { error: 'RENDER_API_KEY or RENDER_SERVICE_ID not set' };
+  }
+
+  const serviceInfo = await getServiceInfo();
+  const ownerId = serviceInfo.service?.ownerId;
+  if (!ownerId) {
+    return { error: serviceInfo.error || 'owner id unavailable for log query' };
+  }
+
+  try {
+    const query = buildRenderLogQuery({
+      ownerId,
+      resource: serviceId,
+      type: 'build',
+      limit: String(Math.max(1, Math.min(limit, 100))),
+    });
+    const res = await renderFetch(`/logs?${query}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { error: `Render API ${res.status}: ${text.slice(0, 200)}` };
+    }
+
+    const payload = (await res.json()) as Record<string, unknown>;
+    const data = Array.isArray(payload.logs)
+      ? payload.logs
+      : Array.isArray(payload.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+
+    const logs: RenderLogEntry[] = data
+      .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null)
+      .map((entry) => {
+        const labels = entry.labels && typeof entry.labels === 'object'
+          ? Object.fromEntries(
+              Object.entries(entry.labels as Record<string, unknown>)
+                .filter(([, value]) => typeof value === 'string'),
+            ) as Record<string, string>
+          : undefined;
+
+        return {
+          timestamp: String(entry.timestamp ?? entry.time ?? ''),
+          level: typeof entry.level === 'string' ? entry.level : undefined,
+          labels,
+          message: String(entry.message ?? entry.text ?? entry.msg ?? ''),
+        };
+      });
+
+    return { logs };
+  } catch (err) {
+    return { error: `fetch failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+export async function triggerRedeploy(options: {
+  clearCache?: boolean;
+  commitId?: string;
+} = {}): Promise<{
   triggered: boolean;
   deployId?: string;
   error?: string;
@@ -104,9 +266,17 @@ export async function triggerRedeploy(): Promise<{
   }
 
   try {
+    const body: Record<string, string> = {
+      clearCache: options.clearCache ? 'clear' : 'do_not_clear',
+    };
+    if (options.commitId) {
+      body.commitId = options.commitId;
+      delete body.clearCache;
+    }
+
     const res = await renderFetch(`/services/${serviceId}/deploys`, {
       method: 'POST',
-      body: JSON.stringify({ clearCache: 'do_not_clear' }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {

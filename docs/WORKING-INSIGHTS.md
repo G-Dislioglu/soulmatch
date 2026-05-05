@@ -1,0 +1,400 @@
+# Working Insights
+
+## Zweck
+
+Dieses Dokument sammelt laufende, knappe Arbeitsbeobachtungen, die fuer die
+naechsten Soulmatch-Bloecke relevant sein koennen, aber noch nicht automatisch
+volle `STATE.md`-, `FEATURES.md`- oder `RADAR.md`-Wahrheit sind.
+
+Es ist:
+
+- ein Arbeitsjournal fuer relevante neue Erkenntnisse
+- ein Rueckgriffspunkt fuer naechste Builder-, Review- oder Research-Bloecke
+- ein Filter gegen Kontextverlust zwischen Tasks oder Chats
+
+Es ist nicht:
+
+- Ersatz fuer `STATE.md`
+- Ablage fuer belanglose Notizen
+- Ort fuer unbelegte Spekulation als scheinbare Wahrheit
+
+## Update-Regel
+
+Nach jedem relevanten Task kurz pruefen:
+
+- Gab es neue operative, technische oder review-relevante Erkenntnisse?
+- Koennen sie den naechsten Block sinnvoll beeinflussen?
+- Sind sie noch nicht sauber in `STATE.md`, `FEATURES.md` oder `RADAR.md`
+  aufgegangen?
+
+Wenn ja:
+
+- genau einen knappen Eintrag hinzufuegen
+- Datum, Kontext, Befund und Relevanz nennen
+- keine langen Prosa-Logs schreiben
+
+## Eintragsformat
+
+### YYYY-MM-DD - Kurztitel
+
+- Kontext:
+- Befund:
+- Relevanz:
+- Naechster Nutzen:
+
+## Eintraege
+
+### 2026-04-30 - /api/studio now matches the stricter trim semantics and fail-safe provider lookup
+
+- Kontext: Konsistenzhärtung nach `/api/discuss` und den gehärteten
+  `studio.ts`-Schwesterpfaden.
+- Befund: `/api/studio` akzeptierte whitespace-only
+  `studioRequest.userMessage` noch und lief dann in unnötige Providerarbeit.
+  `4d791de` stellte den Guard dort auf trim-basierte Prüfung um und machte
+  zugleich `resolveApiKey(...)` fail-safe gegen unbekannte Provider-Keys.
+  Live liefert der whitespace-only-Body jetzt `400`, ein gültiger Minimalbody
+  weiter `200`.
+- Relevanz: Die zentrale Studio-Einstiegsroute ist damit nicht mehr lockerer
+  als die bereits gehärteten Schwesterpfade.
+- Naechster Nutzen: Der nächste Konsistenzblock kann jetzt auf neue
+  Inputgrenzen oder wieder auf eine andere Routefamilie zielen statt auf
+  dieselbe Trim-/Provider-Klasse.
+
+### 2026-04-30 - discuss message trimming is a separate studio.ts confidence proof
+
+- Kontext: Neuer Boundary-Block nach der gehaerteten Studio-Pflichtfeld- und
+  Provider-Guard-Familie.
+- Befund: `/api/discuss` behandelte whitespace-only `message` noch als gueltig
+  und erzeugte live echte Antworten mit `200`. `a9a0587` stellte die Guard-
+  Bedingung dort auf `trim().length === 0`; derselbe Probe-Body liefert live
+  jetzt `400`, waehrend der gueltige Kontrollbody weiter `200` liefert.
+- Relevanz: Das ist ein neuer Route-Fall ausserhalb der zuvor gehaerteten
+  `soul-portrait`-/`weekly-insight`-/`monthly-horoscope`-/`compatibility-story`
+  Pflichtfeldfamilie.
+- Naechster Nutzen: Weitere Builder-Arbeit kann jetzt noch gezielter auf
+  frische Studio-/Discuss-Inputgrenzen oder wieder auf andere Routefamilien
+  wechseln.
+
+### 2026-04-30 - studio.ts validation hardening moved from crash closure to input-trim closure
+
+- Kontext: Nach dem Unknown-Provider-Crash-Sweep auf denselben grossen
+  Studio-Routen.
+- Befund: Mehrere Pflichtfelder in `/weekly-insight`,
+  `/monthly-horoscope`, `/soul-portrait` und
+  `/compatibility-story` akzeptierten whitespace-only Eingaben noch als `200`.
+  `06409f0` stellte die Pflichtfeldpruefungen dort auf trim-basierte Guards
+  um; die frueher gruenen whitespace-only Probes liefern live jetzt `400`.
+- Relevanz: Die grosse `studio.ts`-Landing-Lane ist damit nicht nur gegen
+  Unknown-Provider-Crashes, sondern auch gegen eine zweite sichtbare
+  Input-Validation-Familie gehaertet.
+- Naechster Nutzen: Weitere Builder-/Runtime-Arbeit in `studio.ts` kann jetzt
+  bewusster auf neue Routefamilien oder echte Boundary-Faelle gehen statt auf
+  dieselbe simple Pflichtfeldklasse.
+
+### 2026-04-30 - Render crash family in studio.ts was invalid-provider dereference, not deploy drift
+
+- Kontext: Render zeigte wiederholte `Instance failed`-Events rund um
+  `0d12a4a`, waehrend der `8e2488f`-Deploy noch nicht live war.
+- Befund: Die Crash-Logs zeigten einen ungefangenen `TypeError` in
+  `resolveApiKey(...)`, weil mehrere Studio-Routen `PROVIDER_CONFIGS[provider]`
+  ohne vorgelagerten `if (!config)`-Guard dereferenzierten. Nach `7e43e4c`
+  fuer `/weekly-insight` und `52dbd20` fuer `/soul-portrait`,
+  `/monthly-horoscope` und `/compatibility-story` liefern diese Pfade fuer
+  bogus oder whitespace-only `provider` live `400` statt Prozessabsturz.
+- Relevanz: Das war kein Builder-Runner- oder Deploy-Hook-Problem, sondern ein
+  echter Runtime-Crashpfad in derselben grossen `studio.ts`-Datei.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt wieder auf neue
+  Confidence- oder Boundary-Faelle gehen, nicht mehr auf dieselbe
+  Unknown-Provider-Crashklasse.
+
+### 2026-04-30 - K2.8s upgrades the studio.ts closure from one-off fix to second confidence proof
+
+- Kontext: Builder-Confidence-Block direkt nach dem repo-sichtigen SmartPush-
+  Closure-Commit fuer `K2.8r`.
+- Befund: `POST /api/oracle` in `server/src/routes/studio.ts` hatte fuer
+  whitespace-only und bogus `provider` noch keinen expliziten Guard und fiel
+  deshalb live in `502`. `0d12a4a` landete danach scope-clean exakt dieselbe
+  Route-Datei mit einem Unknown-Provider-Guard; beide invaliden Probes liefern
+  jetzt `400`, und der gueltige Kontrollprobe-Body antwortete in der direkten
+  Nachpruefung wieder `200`.
+- Relevanz: Der grosse `studio.ts`-Landing-Pfad steht damit nicht mehr nur auf
+  einem einzelnen reparierten `question`-Fall, sondern auf einem zweiten engen
+  Validation-Beleg nach derselben SmartPush-Haertung.
+- Naechster Nutzen: Weitere Builder-Arbeit muss jetzt keinen bekannten
+  Kernrest mehr flicken; die naechste Bewegung kann bewusst als neuer
+  Boundary- oder Confidence-Block gewaehlt werden.
+
+### 2026-04-30 - SmartPush payload hardening closes the last studio.ts pipeline rest
+
+- Kontext: Builder-Nacharbeit nach `K2.8q`, nachdem Approval bereits ueber
+  `K2.8o` und `K2.8p` live beantwortet war.
+- Befund: Die eigentliche Ursache fuer den `studio.ts`-Rest lag nicht im
+  Classing, sondern im SmartPush-Fallback: `server/src/routes/studio.ts` ist
+  als Full-File-Overwrite zu gross fuer den `/push`-Single-Patch-Dispatch,
+  waehrend derselbe exakte `search/replace`-Payload klein genug bleibt.
+  `bdfce38` haertete deshalb `server/src/lib/opusSmartPush.ts`, und der
+  direkte `K2.8q`-Rerun landete danach `server/src/routes/studio.ts`
+  scope-clean auf `0d43164`.
+- Relevanz: Der zuvor letzte meaningful Builder-Rest ist damit geschlossen. Die
+  Pipeline ist fuer den bisher belegten freien class_1-Korridor, den
+  approval-backed class_2-Pfad und den grossdatei-nahen `studio.ts`-Fall
+  operativ gruen.
+- Naechster Nutzen: Weitere Builder-Arbeit muss jetzt nicht mehr ein bekanntes
+  Leck reparieren, sondern bewusst einen neuen Confidence- oder Boundary-Block
+  waehlen.
+
+### 2026-04-30 - Class_2 approval is live; studio.ts remains the last meaningful pipeline rest
+
+- Kontext: Builder-Pfad nach der geschaerften freien Korridorgrenze aus `K2.8k`
+  bis `K2.8n`.
+- Befund: `K2.8o` landete den `match.ts`-Fix mit echtem approval ticket auf
+  `5784528`; `K2.8p` bestaetigte denselben approval-backed `class_2`-Pfad auf
+  `journey.ts` mit einem zweiten Landing auf `c737ba7`, nachdem die
+  Worker-Instruktion dort auf exakte Zielzeilen geschaerft wurde. `K2.8q`
+  zeigte danach erneut, dass `/api/oracle` in `studio.ts` trotz `class_1` und
+  `allow_push` weiter vor Commit an `patch-via-push` scheitert.
+- Relevanz: Der Builder ist nicht mehr an fehlender `class_2`-Approval-
+  Operationalitaet blockiert. Der verbleibende Pipeline-Rest ist jetzt enger
+  und konkreter: `studio.ts`-Landing-Faelle auf dem grossen File.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt nicht mehr Approval als
+  Hauptfrage behandeln, sondern die `studio.ts`-Patch-/Executor-Fragilitaet
+  isolieren oder einen bewusst noch kleineren grossfile-nahen Rerun schneiden.
+
+### 2026-04-30 - K2.8k to K2.8n sharpen the current free-corridor edge
+
+- Kontext: Neue freie Runtime-Kandidaten nach dem gruenen `K2.8j`-Landing auf
+  Live `7744905`.
+- Befund: `K2.8k` hielt den `/api/oracle`-Whitespace-Fix in `studio.ts`
+  weiterhin als `class_1` + `allow_push`, scheiterte aber vor jedem Commit an
+  `patch-via-push failed`. `K2.8l` (`profile.ts` create route), `K2.8m`
+  (`match.ts` single route) und `K2.8n` (`journey.ts` eventType route) waren
+  live jeweils echte Input-Gaps, wurden aber alle drei vom Workflow-Simulation-
+  Gate als `class_2` auf `dry_run_only` gezogen.
+- Relevanz: Der freie Builder-Korridor ist derzeit enger als "jede schmale
+  single-file Validation". Grosse `studio.ts`-Push-Pfade bleiben landing-
+  fragil, DB-backed create routes bleiben ausserhalb, und computation-driving
+  Validation-Faelle widen aktuell auf `class_2`.
+- Naechster Nutzen: Weitere freie Grenzarbeit sollte nicht blind weitere
+  Kandidaten nachschieben. Erstens die neue Grenze repo-sichtbar halten;
+  zweitens nur noch Kandidaten aus einer bereits belegten `class_1`-Familie
+  schneiden oder bewusst einen separaten `class_2`-Track mit Approval fahren.
+
+### 2026-04-30 - K2.8j erweitert den freien Runtime-Korridor auf guide prompt validation
+
+- Kontext: Neuer enger single-file class_1-Kandidat nach Abschluss von
+  `K2.8g` bis `K2.8i`.
+- Befund: Live `/api/guide` liess whitespace-only `systemPrompt` und
+  whitespace-only `userMessage` davor jeweils mit `200` durch. `K2.8j`
+  landete auf `b2fcc3a` eine scope-cleane Einzeldatei-Aenderung in
+  `server/src/routes/guide.ts`; danach kippten beide Invalid-Probes auf `400`,
+  waehrend der gueltige Kontrollprobe-Body weiter `200` mit normalem
+  Text-Response lieferte.
+- Relevanz: Der freie class_1-Korridor ist jetzt nicht nur fuer docs/helper
+  und vier fruehere Runtime-Validation-Familien belastbar, sondern auch fuer
+  einen provider-backed Prompt-Validation-Fall.
+- Naechster Nutzen: Weitere Builder-Grenzarbeit sollte wieder nur ueber genau
+  einen neuen engen Kandidaten laufen, nicht ueber kuenstliches Widening aus
+  diesem Einzelbefund.
+
+### 2026-04-30 - K2.8i bestaetigt beide frueheren Restformen mit frischen non-dry Targets
+
+- Kontext: Gezielter Repeatability-Block nach `K2.8g` und `K2.8h` auf dem
+  gehaerteten Live-Head.
+- Befund: `K2.8i` lief 2/2 gruen. `beab7c7` landete einen weiteren exakten
+  Docs-Append auf `docs/archive/push-test.md`; `99d8360` landete einen
+  weiteren mehrzeiligen helper create-target auf
+  `docs/archive/k28i-free-class1-ops-smoke.txt`. In beiden Faellen stimmten
+  `verifiedCommit`, changed-files, Scope-Cleanliness und Runtime-Head ueberein.
+- Relevanz: Die fruehere K2.8a-Restoffenheit ist nicht nur punktuell geloest,
+  sondern auf frischen Targets operativ wiederholt.
+- Naechster Nutzen: Weitere Builder-Arbeit sollte jetzt nicht mehr dieselben
+  Formen re-validieren, sondern nur ueber einen neuen engen class_1-Kandidaten
+  oder ueber einen bewusst getrennten Produkt-/Runtime-Block weitergehen.
+
+### 2026-04-30 - Preview-Hardening ist live und schliesst beide K2.8a-Restformen
+
+- Kontext: Repo-/Live-Nachzug nach `7f95aac` plus enger non-dry-Folgeschnitt
+  fuer T03 und T01.
+- Befund: Die gehärtete Judge-/Snapshot-Preview ist jetzt live. Auf dieser
+  Basis landete `K2.8g` den frueheren T03-Fall scope-clean auf `88e2d5a` mit
+  exakt einem neuen File `docs/archive/k28a-free-class1-ops-smoke.txt`;
+  direkt danach landete `K2.8h` den frueheren T01-Fall scope-clean auf
+  `6e1ea41` mit exakt einem Append in `docs/archive/push-test.md`. In beiden
+  Faellen matchten `verifiedCommit`, Remote-Head und Runtime-Head.
+- Relevanz: Die alte K2.8a-Restfrage ist damit nicht nur erklaert, sondern
+  operativ geschlossen. Der relevante Unterschied war die Evidence-
+  Praesentation des alten Heads, nicht eine grundsaetzliche Sperre gegen diese
+  single-file class_1-Formen.
+- Naechster Nutzen: Weitere Builder-Grenzarbeit sollte nicht mehr auf T03/T01
+  herumreiten, sondern nur ueber einen neuen engen Kandidaten oder ueber
+  explizite Repeatability-Nachweise auf dem nun gehärteten Live-Head laufen.
+
+### 2026-04-30 - T03-Diskrepanz ist alte Live-Preview-Fragilitaet, nicht der non-dry-Zweig
+
+- Kontext: Repo-/Live-Truth-Recheck zu Beginn des naechsten Chats plus gezielte
+  T03-Stability-Nachprobe.
+- Befund: Die Live-Runtime steht weiterhin auf `385cf22`; im Orchestrator
+  verzweigen `dryRun` und non-dry erst **nach** Judge und
+  `workflowSimulation`. Ein direkter Live-T03-Dry-Run blockte am 2026-04-30
+  zunaechst erneut mit `judgeReason`: `previews show single-line content
+  without newlines`; der danach materialisierte repo-sichtbare `K2.8f`-Runner
+  approvte denselben Fall am selben Tag gegen denselben Live-Head `385cf22`
+  wieder als `dry_run` mit `decision=approve`. Die lokale Drift mit sichtbaren
+  Newlines und laengerer Patch-Preview baut und laeuft weiter gruen
+  (`pnpm build`, `pnpm tsx src/lib/opusJudge.test.ts`,
+  `pnpm tsx src/lib/opusEnvelopeValidator.test.ts`, `pnpm builder:k28d`).
+- Relevanz: Die offene T03-Frage ist damit noch enger geschnitten. Der
+  Kernwiderspruch ist nicht primaer ein eigener non-dry-Codepfad, sondern
+  oszillierende Judge-Evidence auf dem noch ungehaerteten Live-Head sogar schon
+  im Dry-Run.
+- Naechster Nutzen: Wenn T03 live stabil werden soll, muss der bereits lokal
+  verifizierte Preview-/Snapshot-Hardening-Schnitt zuerst repo- und
+  deploy-sichtbar werden; weitere Vergleichslaeufe auf `385cf22` erzeugen sonst
+  hauptsaechlich neue Varianzbelege.
+
+### 2026-04-29 - Render-DNS und Runner-Resolve-Pfad
+
+- Kontext: Live-Verifikation und freier Builder-Run gegen Render.
+- Befund: Die Shell konnte `soulmatch-1.onrender.com` lokal teils nicht direkt
+  aufloesen, waehrend explizite DNS-Queries und der Runner-Mechanismus mit
+  festem Resolve-IP-Pfad funktionierten.
+- Relevanz: Ein fehlgeschlagener Shell-`curl` ist hier nicht automatisch
+  Runtime-Ausfall. Fuer belastbare Live-Probes ist der Runner-nahe
+  Resolve-Mechanismus die ehrlichere Referenz.
+- Naechster Nutzen: Bei kuenftigen Live-Probes oder Hardening-Runs DNS nicht mit
+  Produktfehler verwechseln; bei Bedarf direkt `--resolve` oder den
+  Undici-Lookup-Pfad nutzen.
+
+### 2026-04-29 - Repo-Truth kann hinter Commit-Message zurueckbleiben
+
+- Kontext: K2.8b-Handoff-Aufnahme und Repo-/Live-Abgleich.
+- Befund: `STATE.md` trug sichtbar alte Headerwerte, obwohl spaetere Commits
+  bereits einen Header-Align behaupteten. Commit-Message und tatsaechlicher
+  Dateiinhalt muessen daher weiter getrennt verifiziert werden.
+- Relevanz: Fuer Builder- und Handoff-Arbeit reicht Commit-Narrativ nicht;
+  Dateiinhalt bleibt Truth.
+- Naechster Nutzen: Vor jedem neuen Block weiter Repo-Header, Live-Head und
+  Commit-Range explizit gegeneinander pruefen.
+
+### 2026-04-29 - K2.8c als echter freier Runtime-Run
+
+- Kontext: Erster enger operativer Free-Run nach K2.8a/K2.8b.
+- Befund: `server/src/routes/journey.ts` konnte als stateless single-file
+  public-route validation case frei gruen landen (`385cf22`), live von `200`
+  auf `400` kippen und den gueltigen Kontrollprobe-Body intakt lassen.
+- Relevanz: Der enge freie `class_1`-Korridor ist nicht nur fuer Docs/Helper
+  und alte Runtime-Beweise tragfaehig, sondern jetzt auch fuer einen echten
+  operativen Runtime-Run.
+- Naechster Nutzen: Der naechste Erkenntnisgewinn liegt eher in gezieltem
+  Hardening der `K2.8a`-Fail-Closed-Formen als in weiterer nahezu identischer
+  Corridor-Wiederholung.
+
+### 2026-04-29 - Overnight-Arbeitsmodus
+
+- Kontext: Nutzerwunsch nach autonomer Nachtarbeit bis zum Morgenbericht.
+- Befund: Der sinnvolle Autonomiepfad bleibt ein enger Builder-Nachtmodus mit
+  einem Block nach dem anderen, laufendem Truth-Sync und fortgeschriebenem
+  Insight-Journal statt breiter Parallel-Scope.
+- Relevanz: Die Nachtarbeit braucht nicht mehr Themenbreite, sondern mehr eng
+  geschnittene, verifizierte Schritte im bestehenden Korridor.
+- Naechster Nutzen: Overnight zuerst Hardening der `K2.8a`-bruechigen Formen
+  pruefen; nur wenn ein anderer enger Block klar mehr Erkenntniswert hat,
+  innerhalb desselben freien `class_1`-Korridors abweichen.
+
+### 2026-04-29 - K2.8a-T03 blockiert an Judge-Preview, nicht an Scope oder Claims
+
+- Kontext: Gezielte Dry-Run-Nachprobe fuer den drei-zeiligen
+  `helper create-target` aus `K2.8a-T03`.
+- Befund: Alle sechs Kandidaten waren valide, `class_1`, claim-seitig
+  kompatibel und mit sauberem Create-Target; der Block kam allein daher, dass
+  `previewEdit()` im Judge Whitespace kollabierte und drei Zeilen als
+  einzeilige Vorschau zeigte.
+- Relevanz: Der Fail-Closed-Fall war kein Scope-, Safety- oder Claim-Gate-Problem,
+  sondern ein schmaler Darstellungsfehler in der Judge-Evidenz.
+- Naechster Nutzen: Newline-sichtbare Judge-Preview ist ein sauber geschnittener
+  Hardening-Block; derselbe Fix kann auch fuer `groesserer docs append` relevant
+  sein, falls dort die Exactness-Evidenz ebenfalls an kollabierter Vorschau
+  haengt.
+
+### 2026-04-29 - K2.8a-T01 blockiert an abgeschnittener Patch-Preview
+
+- Kontext: Live-Dry-Run-Nachprobe fuer den groesseren `docs append`-Fall aus
+  `K2.8a-T01`.
+- Befund: Die Patch-Kandidaten waren valide und scope-clean, wurden vom Judge
+  aber mit der Begruendung blockiert, die exakte Append-Line sei in der Preview
+  abgeschnitten; daneben fielen zwei Overwrite-Kandidaten erwartbar aus.
+- Relevanz: Auch `T01` war damit kein Scope- oder Claim-Gate-Problem, sondern
+  ein zweiter Judge-Preview-Evidence-Gap.
+- Naechster Nutzen: Patch-Preview darf exakte Append-Lines nicht kuerzen; mit
+  sichtbaren Newlines plus laengerer Patch-Vorschau deckt derselbe enge
+  Hardening-Block jetzt beide `K2.8a`-Fail-Closed-Formen ab.
+
+### 2026-04-29 - Preview-Fix hebt beide K2.8a-Formen im echten Local Judge an
+
+- Kontext: Lokale Verifikation mit `judgeValidCandidates()` nach dem
+  Preview-Hardening in `opusJudge.ts`.
+- Befund: `grok` approvte sowohl den drei-zeiligen `helper create-target` als
+  auch den exakten `docs append`-Patch, sobald die Judge-Preview sichtbare
+  Newlines und ungekappte Append-Evidenz bekam.
+- Relevanz: Der Hardening-Block ist nicht nur syntaktisch gruen, sondern wirkt
+  auf der eigentlichen Judge-Entscheidung fuer beide offenen `K2.8a`-Formen.
+- Naechster Nutzen: Naechster sinnvoller Nachweis ist ein echter Builder-Run
+  oder mindestens eine orchestratornahe End-to-End-Probe auf Basis des lokalen
+  Builder-Cores, bevor daraus neue Repo-Wahrheit gemacht wird.
+
+### 2026-04-29 - Autonomie braucht Blockkette plus klares Final-Verbot
+
+- Kontext: Korrektur eines zu frueh geschlossenen Turns trotz weiter bearbeitbarem
+  Builder-Pfad.
+- Befund: Autonomie scheitert weniger an fehlender Arbeit als an falscher
+  Abschluss-Signalisierung; Heartbeat-Automation allein setzt keine Arbeit im
+  aktuellen Turn fort.
+- Relevanz: Fuer laengere autonome Phasen muss `final` bis zum echten Stopppunkt
+  gesperrt sein, solange noch ein naechster enger Block ohne Rueckfrage
+  bearbeitbar ist.
+- Naechster Nutzen: Der Repo-Arbeitsmodus traegt jetzt einen expliziten
+  Autonomie-Vertrag in `AGENTS.md`; kuenftige Nacht- oder Fokuslaeufe sollten
+  daran gemessen werden.
+
+### 2026-04-29 - Lokale E2E-Verifikation braucht verengten Worker-Swarm
+
+- Kontext: Orchestratornahe Dry-Runs fuer die beiden `K2.8a`-Formen nach dem
+  Judge-Preview-Fix.
+- Befund: Der lokale Default-Swarm scheiterte nicht am Builder-Core, sondern an
+  Environment-Limits (`OPENROUTER_API_KEY` fehlt, `deepseek` DNS/Transport lokal
+  instabil). Mit `workers: ['grok']` liefen beide Dry-Runs im echten lokalen
+  Orchestrator gruen durch.
+- Relevanz: Fuer lokale Hardening-Nachweise muss zwischen Builder-Logik und
+  lokaler Multi-Provider-Verfuegbarkeit sauber getrennt werden.
+- Naechster Nutzen: Reproduzierbare lokale Hardening-Runs sollten bewusst eine
+  verfuegbare Worker-Lane pinnen, statt den Default-Swarm still vorauszusetzen.
+
+### 2026-04-29 - K2.8d ist jetzt als lokaler Repro-Pfad materialisiert
+
+- Kontext: Nach den ad-hoc Dry-Runs wurde ein wiederholbarer lokaler
+  Hardening-Runner fuer die beiden `K2.8a`-Formen angelegt.
+- Befund: `pnpm --dir server builder:k28d` lief gruen 2/2 auf der `grok`-Lane;
+  Ergebnisdatei liegt unter
+  `C:/Users/guerc/OneDrive/Desktop/soulmatch/k28d-local-hardening-results.json`,
+  Repo-Report unter
+  `docs/BUILDER-BENCHMARK-K2.8D-LOCAL-JUDGE-HARDENING-REPORT.md`.
+- Relevanz: Der lokale Hardening-Nachweis haengt nicht mehr an transienten
+  Inline-Skripten, sondern ist als wiederholbarer Builder-Checkpfad konserviert.
+- Naechster Nutzen: Der naechste enge Beweisblock kann jetzt gezielt fragen,
+  ob und wie dieser lokale `K2.8d`-Schnitt kontrolliert in repo-/live-seitige
+  Verifikation ueberfuehrt werden soll.
+
+### 2026-04-29 - Live-Dry-Run und echter Push-Versuch sind fuer T03 noch nicht stabil deckungsgleich
+
+- Kontext: Sicherer Live-Dry-Run `K2.8e` und anschliessender echter
+  non-dry Push-Versuch fuer den mehrzeiligen Helper-Create-Target-Fall.
+- Befund: `K2.8e` approvte beide frueheren `K2.8a`-Formen auf der Live-Pipeline
+  im Dry-Run. Ein anschliessender echter non-dry Lauf fuer `T03` blockte
+  dagegen erneut auf der bekannten Judge-Begruendung, dass die drei Zeilen nur
+  als zusammengezogene Einzeile sichtbar seien.
+- Relevanz: Dry-run approval auf Live ist im aktuellen Zustand noch kein
+  hinreichender Push-Beweis; die Judge-Stabilitaet bleibt fuer genau diese Form
+  run-to-run fragil.
+- Naechster Nutzen: Der naechste ehrliche Live-Block ist nicht Korridor-Widening,
+  sondern Repeatability-/Stability-Analyse derselben Form oder gezielte
+  Ueberfuehrung des lokalen K2.8d-Hardening-Schnitts in echte Live-Wahrheit.

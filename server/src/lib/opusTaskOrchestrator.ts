@@ -30,6 +30,10 @@ import { classifyBuilderTask, guardBuilderPush, type BuilderGateDecision, type B
 import { validateApprovalArtifact, type ApprovalArtifactValidationResult } from './builderApprovalArtifacts.js';
 import { hardenInstruction, type SpecHardeningReport } from './specHardening.js';
 import { assembleArchitectInstruction, type ArchitectTaskAugmentations } from './architectPhase1.js';
+import { type BuilderSideEffectsContract } from './builderSideEffects.js';
+import { buildWorkflowSimulation, type BuilderWorkflowSimulation } from './builderWorkflowSimulation.js';
+import { buildRecommendationOutput, type BuilderRecommendationOutput } from './builderRecommendationOutput.js';
+import { buildAnalysisOutput, type BuilderAnalysisOutput } from './builderAnalysisOutput.js';
 import { devLogger } from '../devLogger.js';
 
 // ─── Types ───
@@ -39,6 +43,8 @@ export interface OpusTaskInput {
   scope?: string[];
   targetFile?: string;
   acceptanceSmoke?: boolean;
+  sourceAsyncJobId?: string;
+  sideEffects?: BuilderSideEffectsContract;
   workers?: string[];
   maxTokens?: number;
   skipDeploy?: boolean;
@@ -77,6 +83,9 @@ export interface OpusTaskResult {
   landed?: boolean;
   /** Verified commit SHA from GitHub Actions execution-result callback, if available. */
   verifiedCommit?: string;
+  workflowSimulation?: BuilderWorkflowSimulation;
+  recommendation?: BuilderRecommendationOutput;
+  analysis?: BuilderAnalysisOutput;
   hardening?: SpecHardeningReport;
   dispatchHardening?: SpecHardeningReport;
 }
@@ -288,15 +297,19 @@ async function runWorkerSwarm(
     if (!config) return { worker, response: '', durationMs: 0, error: `Unknown worker: ${worker}` };
     const start = Date.now();
     try {
-      const response = await Promise.race([
-        callProvider(config.provider, config.model, {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(new Error('Timeout 150s')), 150_000);
+      try {
+        const response = await callProvider(config.provider, config.model, {
           system: 'You are a senior TypeScript developer. Respond ONLY with valid JSON. No markdown, no explanation.',
           messages: [{ role: 'user', content: prompt }],
           maxTokens, temperature: 0.3, forceJsonObject: false,
-        }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout 150s')), 150_000)),
-      ]) as string;
-      return { worker, response, durationMs: Date.now() - start };
+          signal: controller.signal,
+        });
+        return { worker, response, durationMs: Date.now() - start };
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       return { worker, response: '', durationMs: Date.now() - start, error: msg.slice(0, 200) };
@@ -313,6 +326,8 @@ async function pushEdits(
   instruction: string,
   safetyDecision: BuilderSafetyDecision,
   acceptanceSmoke?: boolean,
+  sourceAsyncJobId?: string,
+  sideEffects?: BuilderSideEffectsContract,
 ): Promise<{
   pushed: boolean;
   filesCount: number;
@@ -343,6 +358,8 @@ async function pushEdits(
       files,
       result: await smartPush(files, `feat(opus-task): ${instruction.slice(0, 80)}`, {
         acceptanceSmoke,
+        sourceAsyncJobId,
+        sideEffects,
       }),
     };
   });
@@ -451,6 +468,29 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       hardening,
       totalDurationMs: Date.now() - totalStart,
       summary: 'Instruction blocked: ' + hardening.stats.blockCount + ' blocking finding(s)',
+    };
+  }
+
+  if (preflightSafety.taskClass === 'class_3') {
+    phases.push({
+      phase: 'safety-preflight',
+      status: 'error',
+      durationMs: 0,
+      detail: {
+        taskClass: preflightSafety.taskClass,
+        executionPolicy: preflightSafety.executionPolicy,
+        reasons: preflightSafety.reasons,
+        protectedPathsTouched: preflightSafety.protectedPathsTouched,
+      },
+    });
+    return {
+      runId,
+      status: 'failed',
+      phases,
+      hardening,
+      totalDurationMs: Date.now() - totalStart,
+      summary: preflightSafety.reasons[0] ?? 'Protected/manual-only builder task blocked before worker dispatch.',
+      ...buildSafetyResultFields(preflightSafety),
     };
   }
 
@@ -617,19 +657,35 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
 
   // Phase 4: Parse + Validate
   const s4 = Date.now();
-  const allParsed: Array<{ envelope: EditEnvelope; worker: string; errors: string[] }> = [];
+  const allParsed: Array<{ envelope: EditEnvelope; worker: string; errors: string[]; appliedDiffSnapshot?: import('./opusEnvelopeValidator.js').AppliedDiffSnapshot }> = [];
   for (const r of okResults) {
     console.log(`[validate] raw worker output (${r.worker}):`, r.response.slice(0, 500));
     const envelope = parseEnvelope(r.response, r.worker);
     if (!envelope) continue;
-    const v = validateEnvelope(envelope, scope.files);
-    allParsed.push({ envelope, worker: r.worker, errors: v.errors });
+    const v = validateEnvelope(envelope, scope.files, fileContents, input.instruction);
+    allParsed.push({ envelope, worker: r.worker, errors: v.errors, appliedDiffSnapshot: v.appliedDiffSnapshot });
   }
   const valid = allParsed.filter(c => c.errors.length === 0);
   phases.push({ phase: 'validate', status: valid.length > 0 ? 'ok' : 'error',
     durationMs: Date.now() - s4,
     detail: { parsed: allParsed.length, valid: valid.length, total: okResults.length,
-      errors: allParsed.filter(c => c.errors.length > 0).map(c => ({ worker: c.worker, errors: c.errors })) } });
+      errors: allParsed.filter(c => c.errors.length > 0).map(c => ({ worker: c.worker, errors: c.errors })),
+      snapshots: allParsed.map(c => ({
+        worker: c.worker,
+        actualChangedFiles: c.appliedDiffSnapshot?.actualChangedFiles ?? [],
+        files: c.appliedDiffSnapshot?.files.map((file) => ({
+          path: file.path,
+          changed: file.changed,
+          changedSegmentsCount: file.changedSegmentsCount,
+          changedSegmentsPreview: file.changedSegmentsPreview,
+          sectionGuardApplied: file.sectionGuardApplied,
+          sectionAnchor: file.sectionAnchor,
+          sectionRangeStart: file.sectionRangeStart,
+          sectionRangeEnd: file.sectionRangeEnd,
+          changedSegmentsOutsideSection: file.changedSegmentsOutsideSection,
+          sectionGuardWarnings: file.sectionGuardWarnings,
+        })) ?? [],
+      })) } });
 
   if (valid.length === 0) {
     return { status: 'failed', runId, phases, totalDurationMs: Date.now() - totalStart,
@@ -705,8 +761,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
   });
   phases.push({ phase: 'judge', status: judge.approved && judge.winner ? 'ok' : 'error', durationMs: Date.now() - s4b,
     detail: judge.approved && judge.winner
-      ? { winner: judge.worker, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
-      : { reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
+      ? { winner: judge.worker, judgeLane: judge.judgeLane, files: judge.winner.edits.map(e => e.path), summary: judge.winner.summary, reason: judge.reason }
+      : { judgeLane: judge.judgeLane, reason: judge.reason, rejectedWorkers: judge.rejectedWorkers } });
   const judgeDecision: BuilderGateDecision = judge.decision ?? (judge.approved ? 'approve' : 'block');
   if (judgeDecision === 'block' || !judge.winner) {
     const judgeFailureSafety = classifyBuilderTask({
@@ -731,6 +787,8 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     };
   }
   const best = judge.winner;
+  const winnerValidation = valid.find((candidate) => candidate.envelope === best);
+  const winnerGate = gateResults.find((entry) => entry.worker === best.worker)?.result;
   const finalSafety = classifyBuilderTask({
     instruction: input.instruction,
     scope: scope.files,
@@ -744,6 +802,28 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     judgeDecision,
   });
   const pushBlockedReason = finalSafety.reasons[0] ?? 'Autonomous push blocked by builder safety policy.';
+  const s4c = Date.now();
+  const workflowSimulation = buildWorkflowSimulation({
+    scopeFiles: scope.files,
+    createTargets: fileModes.filter((entry) => entry.mode === 'create').map((entry) => entry.path),
+    winner: best,
+    winnerClaimGate: winnerGate,
+    finalSafety,
+    dryRun: input.dryRun === true,
+    appliedDiffSnapshot: winnerValidation?.appliedDiffSnapshot,
+    sideEffectsMode: input.sideEffects?.mode === 'none' ? 'none' : 'default',
+  });
+  const recommendation = buildRecommendationOutput(workflowSimulation);
+  const analysis = buildAnalysisOutput(workflowSimulation);
+  phases.push({
+    phase: 'workflow-simulation',
+    status: workflowSimulation.recommendedAction === 'allow_push'
+      || (input.dryRun === true && workflowSimulation.recommendedAction === 'dry_run_only')
+      ? 'ok'
+      : 'error',
+    durationMs: Date.now() - s4c,
+    detail: workflowSimulation,
+  });
 
   // Dry run?
   if (input.dryRun) {
@@ -759,15 +839,55 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
       approvalReason: finalSafety.approvalReason,
       pushBlockedReason,
       protectedPathsTouched: finalSafety.protectedPathsTouched,
+      workflowSimulation,
+      recommendation,
+      analysis,
       hardening,
       dispatchHardening: architectAssembly.dispatchHardening };
+  }
+
+  if (workflowSimulation.recommendedAction !== 'allow_push') {
+    const workflowSimulationSummary = workflowSimulation.recommendedAction === 'block_push'
+      ? `Workflow simulation gate blocked push: ${workflowSimulation.simulatedFindings[0] ?? 'pre-push workflow violation'}`
+      : workflowSimulation.recommendedAction === 'dry_run_only'
+        ? `Workflow simulation gate downgraded this run to dry-run-only: ${workflowSimulation.simulatedFindings[0] ?? 'pre-push caution'}`
+        : `Workflow simulation gate requires review before push: ${workflowSimulation.simulatedFindings[0] ?? workflowSimulation.recommendedAction}`;
+    return {
+      status: workflowSimulation.recommendedAction === 'block_push' ? 'failed' : 'partial',
+      runId,
+      phases,
+      edits: best,
+      totalDurationMs: Date.now() - totalStart,
+      summary: workflowSimulationSummary,
+      taskClass: finalSafety.taskClass,
+      executionPolicy: finalSafety.executionPolicy,
+      decision: finalSafety.decision,
+      pushAllowed: false,
+      requiredExternalApproval: finalSafety.requiredExternalApproval,
+      approvalId: finalSafety.approvalId,
+      approvalReason: finalSafety.approvalReason,
+      pushBlockedReason: workflowSimulation.simulatedFindings[0] ?? pushBlockedReason,
+      protectedPathsTouched: finalSafety.protectedPathsTouched,
+      workflowSimulation,
+      recommendation,
+      analysis,
+      hardening,
+      dispatchHardening: architectAssembly.dispatchHardening,
+    };
   }
 
   // Phase 5: Push
   if (input.skipDeploy) {
     phases.push({ phase: 'push', status: 'skipped', durationMs: 0 });
   } else {
-    const push = await pushEdits(best, input.instruction, finalSafety, input.acceptanceSmoke);
+    const push = await pushEdits(
+      best,
+      input.instruction,
+      finalSafety,
+      input.acceptanceSmoke,
+      input.sourceAsyncJobId,
+      input.sideEffects,
+    );
     phases.push({ phase: 'push', status: push.pushed ? 'ok' : 'error', durationMs: push.durationMs, detail: push });
     if (!push.pushed) {
       return { status: 'partial', runId, phases, edits: best,
@@ -786,6 +906,9 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
         protectedPathsTouched: push.protectedPathsTouched,
         landed: push.landed,
         verifiedCommit: push.verifiedCommit,
+        workflowSimulation,
+        recommendation,
+        analysis,
         hardening,
         dispatchHardening: architectAssembly.dispatchHardening,
       };
@@ -855,6 +978,9 @@ export async function orchestrateTask(input: OpusTaskInput): Promise<OpusTaskRes
     protectedPathsTouched: finalSafety.protectedPathsTouched,
     landed: pushDetail?.landed,
     verifiedCommit: pushDetail?.verifiedCommit,
+    workflowSimulation,
+    recommendation,
+    analysis,
     hardening,
     dispatchHardening: architectAssembly.dispatchHardening,
   };

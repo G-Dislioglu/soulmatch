@@ -24,6 +24,18 @@ interface RepoIndex {
 }
 
 const CREATE_SIGNAL_RE = /erstell|create|neue|hinzufueg|new file/i;
+const WEAK_SCOPE_TOKENS = new Set([
+  'and',
+  'or',
+  'not',
+  'input',
+  'index',
+  'match',
+  'error',
+  'route',
+  'routes',
+  'data',
+]);
 
 export type ScopeMethod = 'deterministic' | 'hybrid' | 'create';
 
@@ -37,6 +49,22 @@ export interface ScopeResult {
 export type RepoFilePresence = 'found' | 'not_found' | 'unreachable';
 
 let cachedIndex: RepoIndex | null = null;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasWholeWord(text: string, token: string): boolean {
+  if (token.length === 0) {
+    return false;
+  }
+
+  return new RegExp(`\\b${escapeRegExp(token)}\\b`, 'i').test(text);
+}
+
+function isWeakScopeToken(token: string): boolean {
+  return WEAK_SCOPE_TOKENS.has(token.toLowerCase());
+}
 
 function hasPlausiblePrefix(path: string, index: RepoIndex): boolean {
   const segments = path.split('/').filter(Boolean);
@@ -94,6 +122,7 @@ export function resolveScope(instruction: string): ScopeResult {
   const reasoning: string[] = [];
   const rejectedPaths: string[] = [];
   const scored = new Map<string, number>();
+  const exactPathMatches: string[] = [];
   let method: ScopeMethod = 'deterministic';
 
   const instrLower = instruction.toLowerCase();
@@ -109,18 +138,19 @@ export function resolveScope(instruction: string): ScopeResult {
     if (instruction.includes(file.path)) {
       score += 100;
       reasons.push(`exact path "${file.path}"`);
+      exactPathMatches.push(file.path);
     }
 
     // 2. Filename match
     const filename = file.path.split('/').pop()?.replace(/\.(ts|tsx)$/, '') || '';
-    if (instrLower.includes(filename.toLowerCase()) && filename.length > 3) {
+    if (filename.length > 3 && !isWeakScopeToken(filename) && hasWholeWord(instrLower, filename.toLowerCase())) {
       score += 50;
       reasons.push(`filename "${filename}"`);
     }
 
     // 3. Export/symbol match
     for (const exp of file.exports) {
-      if (instrLower.includes(exp.toLowerCase())) {
+      if (exp.length >= 4 && !isWeakScopeToken(exp) && hasWholeWord(instrLower, exp.toLowerCase())) {
         score += 30;
         reasons.push(`export "${exp}"`);
       }
@@ -149,10 +179,12 @@ export function resolveScope(instruction: string): ScopeResult {
   const sorted = [...scored.entries()].sort((a, b) => b[1] - a[1]);
   
   // Take files with score >= 20, max 8 files
-  const files = sorted
-    .filter(([, s]) => s >= 20)
-    .slice(0, 8)
-    .map(([path]) => path);
+  const files = exactPathMatches.length > 0
+    ? [...new Set(exactPathMatches)]
+    : sorted
+      .filter(([, s]) => s >= 20)
+      .slice(0, 8)
+      .map(([path]) => path);
 
   if (files.length === 0) {
     const pm = instruction.match(/(?:server|client)\/src\/[\w/. -]+\.tsx?/i);

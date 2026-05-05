@@ -5,6 +5,7 @@ Cross-system registry for AICOS cards, Treegraphos specs, and related reference 
 ## Structure
 
 - `cards/` — active AICOS card inventory
+- `specs/` — proposal-first cross-system drafts and concept specs
 - `templates/` — reusable registry templates
 - `treegraphos/` — Cross-System architecture spec, hardening runs, and legacy references
 

@@ -348,7 +348,8 @@ interface StudioRequestBody {
 }
 
 function resolveApiKey(provider: ProviderName, clientApiKey?: string): string | undefined {
-  return process.env[PROVIDER_CONFIGS[provider].envKey] || clientApiKey || undefined;
+  const envKey = PROVIDER_CONFIGS[provider]?.envKey;
+  return (envKey ? process.env[envKey] : undefined) || clientApiKey || undefined;
 }
 
 async function callOpenAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string) {
@@ -451,7 +452,10 @@ async function callChatCompletions(
 studioRouter.post('/studio', async (req: Request, res: Response) => {
   const body = req.body as StudioRequestBody;
 
-  if (!body.studioRequest?.userMessage) {
+  if (
+    typeof body.studioRequest?.userMessage !== 'string'
+    || body.studioRequest.userMessage.trim().length === 0
+  ) {
     res.status(400).json({ error: 'Missing studioRequest.userMessage' });
     return;
   }
@@ -1150,7 +1154,7 @@ studioRouter.post('/discuss', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'Maximal 6 Personas pro Diskussion' });
     return;
   }
-  if (!body.message) {
+  if (typeof body.message !== 'string' || body.message.trim().length === 0) {
     res.status(400).json({ error: 'message required' });
     return;
   }
@@ -1726,13 +1730,22 @@ interface SoulPortraitRequestBody {
 
 studioRouter.post('/soul-portrait', async (req: Request, res: Response) => {
   const body = req.body as SoulPortraitRequestBody;
-  if (!body.name || !body.birthDate) {
+  if (
+    typeof body.name !== 'string'
+    || body.name.trim().length === 0
+    || typeof body.birthDate !== 'string'
+    || body.birthDate.trim().length === 0
+  ) {
     res.status(400).json({ error: 'name and birthDate required' });
     return;
   }
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} or provide key in Settings.` });
@@ -1786,13 +1799,17 @@ interface WeeklyInsightRequestBody {
 
 studioRouter.post('/weekly-insight', async (req: Request, res: Response) => {
   const body = req.body as WeeklyInsightRequestBody;
-  if (!body.name || !body.lifePath) {
+  if (typeof body.name !== 'string' || body.name.trim().length === 0 || !body.lifePath) {
     res.status(400).json({ error: 'name and lifePath required' });
     return;
   }
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) { res.status(500).json({ error: `No API key for ${providerName}.` }); return; }
 
@@ -1846,13 +1863,22 @@ interface MonthlyHoroRequestBody {
 
 studioRouter.post('/monthly-horoscope', async (req: Request, res: Response) => {
   const body = req.body as MonthlyHoroRequestBody;
-  if (!body.sunSign || !body.name) {
+  if (
+    typeof body.sunSign !== 'string'
+    || body.sunSign.trim().length === 0
+    || typeof body.name !== 'string'
+    || body.name.trim().length === 0
+  ) {
     res.status(400).json({ error: 'sunSign and name required' });
     return;
   }
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) { res.status(500).json({ error: `No API key for ${providerName}.` }); return; }
 
@@ -1906,13 +1932,22 @@ interface CompatStoryRequestBody {
 
 studioRouter.post('/compatibility-story', async (req: Request, res: Response) => {
   const body = req.body as CompatStoryRequestBody;
-  if (!body.nameA || !body.nameB) {
+  if (
+    typeof body.nameA !== 'string'
+    || body.nameA.trim().length === 0
+    || typeof body.nameB !== 'string'
+    || body.nameB.trim().length === 0
+  ) {
     res.status(400).json({ error: 'nameA and nameB required' });
     return;
   }
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}.` });
@@ -1960,13 +1995,18 @@ interface OracleRequestBody {
 
 studioRouter.post('/oracle', async (req: Request, res: Response) => {
   const body = req.body as OracleRequestBody;
-  if (!body.question) {
+  const question = typeof body.question === 'string' ? body.question.trim() : '';
+  if (!question) {
     res.status(400).json({ error: 'question required (purpose | soulperson | turning_point)' });
     return;
   }
 
   const providerName: ProviderName = body.provider ?? 'openai';
   const config = PROVIDER_CONFIGS[providerName];
+  if (!config) {
+    res.status(400).json({ error: `Unknown provider: ${providerName}` });
+    return;
+  }
   const apiKey = resolveApiKey(providerName, body.clientApiKey);
   if (!apiKey) {
     res.status(500).json({ error: `No API key for ${providerName}. Set ${config.envKey} on server or provide key in Settings.` });
@@ -1974,7 +2014,7 @@ studioRouter.post('/oracle', async (req: Request, res: Response) => {
   }
 
   const model = body.model || config.defaultModel;
-  const { system, user } = buildOraclePrompt(body.question, body.profileExcerpt ?? '');
+  const { system, user } = buildOraclePrompt(question as OracleQuestionType, body.profileExcerpt ?? '');
 
   try {
     let parsed: Record<string, unknown>;
@@ -1984,7 +2024,7 @@ studioRouter.post('/oracle', async (req: Request, res: Response) => {
       parsed = await callChatCompletions(config, apiKey, model, system, user) as Record<string, unknown>;
     }
     const answer = typeof parsed.answer === 'string' ? parsed.answer : JSON.stringify(parsed);
-    res.json({ question: body.question, answer });
+    res.json({ question, answer });
   } catch (err) {
     res.status(500).json({ error: `Oracle-Aufruf fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
   }

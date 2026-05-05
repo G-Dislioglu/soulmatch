@@ -11,16 +11,33 @@ Diese Datei ersetzt weder `README.md`, `CLAUDE.md`, `BRIEFING_PART1.md` noch
 
 ## STATE HEADER
 
-- `current_repo_head`: `a50c903`
-- `last_verified_origin_main`: `4d6aa07`
-- `current_branch`: `main`
-- `last_verified_against_code`: `2026-04-26`
+- `current_repo_head`: `2bbc232`
+- `last_verified_origin_main`: `2bbc232`
+- `last_live_runtime_head`: `2bbc232`
+- `current_branch`: `codex/k28j-truth-sync`
+- `last_verified_against_code`: `2026-05-01`
 - `truth_scope`: `repo_visible_plus_reviewed_inference`
-- `local_drift_present`: `yes`
+- `local_drift_present`: `no`
 - `hybrid_architecture`: `yes`
 - `primary_runtime_seams`: `client/src/app/App.tsx | server/src/routes/studio.ts | server/src/lib/personaRouter.ts | server/src/lib/memoryService.ts | server/src/lib/opusBridgeController.ts | server/src/lib/opusTaskOrchestrator.ts | server/src/lib/architectPhase1.ts | server/src/routes/architect.ts | server/src/lib/builderFusionChat.ts | server/src/studioPrompt.ts`
-- `last_completed_block`: `K2.6a T03 Batch 1b ist jetzt lokal ausgewertet und docs-seitig nachgezogen. Der bereits ausgefuehrte class_2 dryRun lief mit frischem Approval-Artefakt ueber approval-validation=ok, validate=ok, claim-gate=ok und judge=ok sauber durch; pushAllowed blieb false, landed blieb aus, und der Scope blieb exakt auf `server/src/lib/opusJudge.ts` plus `server/src/lib/opusEnvelopeValidator.ts` begrenzt. Das temporaere T03-Approval wurde danach verifiziert entfernt (`beforeFound=true`, `deleted=true`, `afterCount=0`). T02 bleibt dabei nicht offen, sondern lokal behoben und verifiziert.`
-- `next_recommended_block`: `Kein weiterer Benchmark-Run in diesem Block. Naechster echte Folgeentscheid ist nach Freigabe entweder K2.6b Live-DryRun-Suite oder eine kleine reale class_1 Builder-Nutzung; weiterhin keine Soulmatch-Featurearbeit und jedes neue class_2-Szenario nur mit frischem Approval plus Cleanup.`
+- `last_completed_block`: `Der approval-backed observer trial `K2.9c` hat den offenen `zimage`-Cost-Bug sauber ueber den Builder selbst geschlossen. Vor dem Run lieferte `POST /api/zimage/generate` fuer `{"type":"bogus","id":"maya"}` live `200` plus echte fal-URL. Mit gueltigem approval ticket `a236893b-5e13-4adc-8a23-4ac4f1ee8013` klassifizierte Builder denselben exakt geschnittenen Single-File-Ask in `server/src/routes/zimage.ts` als `class_2`, wechselte auf `executionPolicy=allow_push`, landete `2bbc232` scope-clean auf genau einer Datei und zog die Runtime matching nach. Dieselbe Invalid-Probe liefert live jetzt `400 {"error":"Unknown type: bogus"}`, waehrend `/api/zimage/prompts` weiter `200` bleibt. Die belastbare Builder-Aussage ist damit jetzt dreigeteilt: der released narrow free class_1 corridor bleibt real, frische provider-/cost-backed Familien widen nicht frei mit, und die approval-backed class_2-Lane ist auf genau so einer frischen Family jetzt ebenfalls live bewiesen.`
+- `next_recommended_block`: `Kein akuter Builder- oder Produktreparaturrest ist aus `K2.9c` offen. Wenn der Builder-Pfad weiter vermessen werden soll, ist der naechste ehrliche Schritt jetzt ein zweiter approval-backed observer trial auf einer anderen frischen Family oder ein bewusster Stop mit der neuen Arbeitswahrheit: free narrow class_1 plus approved fresh-family class_2 sind operativ belegt, breite freie Autonomie aber weiterhin nicht.`
+- `last_completed_block_addendum_2026_04_30`: `K2.8i` bestaetigte die beiden frueher bruechigen single-file-Formen erneut auf frischen non-dry Targets: `beab7c7` landete einen weiteren exakten Docs-Append auf `docs/archive/push-test.md`, `99d8360` einen weiteren mehrzeiligen helper create-target auf `docs/archive/k28i-free-class1-ops-smoke.txt`, jeweils scope-clean und runtime-matching.`
+- `last_completed_block_addendum_2026_04_30_b`: `K2.8j` erweiterte den freien Runtime-Korridor um einen fuenften public-route validation case: `b2fcc3a` haertete `server/src/routes/guide.ts`, sodass whitespace-only `systemPrompt` und `userMessage` live von `200` auf `400` kippten, waehrend der gueltige Kontrollprobe-Body weiter `200` blieb.`
+- `last_completed_block_addendum_2026_04_30_c`: `K2.8k` bis `K2.8n` haben die aktuelle freie Korridorgrenze geschaerft. `K2.8k` hielt einen echten `/api/oracle`-Whitespace-Gap in `server/src/routes/studio.ts` weiter als `class_1`, scheiterte aber vor jeder Commit-Landung an `patch-via-push`. `K2.8l` (`POST /api/profile`), `K2.8m` (`POST /api/match/single`) und `K2.8n` (`POST /api/journey/optimal-dates`) zeigten jeweils reale Live-Input-Gaps, wurden aber alle drei vom Workflow-Simulation-Gate als `class_2` fail-closed auf `dry_run_only` gezogen. Die freie Linie generalisiert damit aktuell noch nicht auf grosse `studio.ts`-Push-Pfade, DB-backed create routes oder computation-driving Validation-Faelle.`
+- `last_completed_block_addendum_2026_04_30_d`: `K2.8o` und `K2.8p` haben den approval-backed class_2-Pfad live geschlossen. `5784528` landete den `match.ts`-Fix, `c737ba7` den `journey.ts`-Fix, jeweils mit gueltigem approval ticket, `taskClass=class_2`, `executionPolicy=allow_push`, scope-cleanem Einzeldatei-Landing und runtime-matching Head. Der verbleibende operative Rest ist damit enger: `K2.8q` bestaetigte erneut, dass der `/api/oracle`-Fix in `server/src/routes/studio.ts` zwar `class_1` + `allow_push` bleibt, aber weiter vor Commit an `patch-via-push` scheitert.`
+- `last_completed_block_addendum_2026_04_30_e`: `bdfce38` haertete den grossdatei-sensitiven SmartPush-Fallback in `server/src/lib/opusSmartPush.ts`; auf diesem Head landete der erneute `K2.8q`-Rerun danach exakt `server/src/routes/studio.ts` auf `0d43164`, live mit `400` fuer whitespace-only `question` und weiter `200` fuer den gueltigen Kontrollprobe-Body.`
+- `last_completed_block_addendum_2026_04_30_f`: `K2.8s` bestaetigte den nun gehaerteten grossen `studio.ts`-Landing-Pfad mit einem zweiten engen `/api/oracle`-Validation-Fall. `0d12a4a` fuegte den expliziten Unknown-Provider-Guard hinzu; whitespace-only und bogus `provider` kippen live von `502` auf `400`, der validierte Kontrollprobe-Body antwortete in der direkten Nachpruefung wieder `200`, und der Landing blieb scope-clean auf genau `server/src/routes/studio.ts`.`
+- `last_completed_block_addendum_2026_04_30_g`: `7e43e4c` und `52dbd20` schlossen danach die verbleibende identische Crash-Familie in `server/src/routes/studio.ts`: zuerst `/weekly-insight`, dann `/soul-portrait`, `/monthly-horoscope` und `/compatibility-story`. Die Render-Logs belegten ungefangene `TypeError`-Crashes in `resolveApiKey(...)` fuer ungueltige `provider`-Werte; live liefern diese Routen jetzt fuer bogus oder whitespace-only `provider` fail-closed `400` statt Prozessabsturz, waehrend gueltige Kontrollbodys weiter `200` liefern.`
+- `last_completed_block_addendum_2026_04_30_h`: `06409f0` haertete danach dieselbe `studio.ts`-Routefamilie gegen whitespace-only Pflichtfelder. Live kippen jetzt whitespace-only `name` in `/weekly-insight`, whitespace-only `sunSign` oder `name` in `/monthly-horoscope`, whitespace-only `name` oder `birthDate` in `/soul-portrait` sowie whitespace-only `nameA` oder `nameB` in `/compatibility-story` jeweils von `200` auf `400`, waehrend der gueltige Kontrollbody weiter `200` liefert.`
+- `last_completed_block_addendum_2026_04_30_i`: `a9a0587` haertete danach einen neuen, engeren Boundary-Fall ausserhalb der vorherigen Pflichtfeldfamilie: `/api/discuss` akzeptierte whitespace-only `message` noch als `200` und produzierte reale Antworten. Nach dem Trim-Guard liefert derselbe Probe-Body live `400`, waehrend der gueltige Kontrollbody auf `/api/discuss` weiter `200` liefert.`
+- `last_completed_block_addendum_2026_04_30_j`: `4d791de` haertete danach `/api/studio` selbst weiter fuer Konsistenz und Safety: `resolveApiKey(...)` dereferenziert unbekannte Provider jetzt fail-safe statt crash-prone, und whitespace-only `studioRequest.userMessage` kippt live von Hangs/unnuetigen Provider-Aufrufen auf `400`, waehrend ein gueltiger Minimalbody auf demselben Head weiter `200` liefert.`
+- `last_completed_block_addendum_2026_05_01`: `ac25708` materialisierte mit `docs/ROUTE-COVERAGE-MAP.md` die aktuelle Produkt-/Probe-Wahrheit: `/guide`, `/studio`, `/match/narrative`, `/numerology/calc` und `/scoring/calc` sind auf den getesteten Input-Grenzen live gruen; `/discuss` war kein Provider-Guard-Bug, sondern ein Probe-Case-Fehler. `7c2bf7b` haertete danach `server/src/routes/profile.ts`, sodass whitespace-only `name` oder `birthDate` auf `POST /api/profile` und whitespace-only Updates auf `PUT /api/profile/:id` jetzt live `400` statt persistiertem `201`/`200` liefern. `4bc6cc9` legte die bereinigten proposal-first Habitat-Specs in `aicos-registry/specs/being-habitat-core-v0.2.md` und `aicos-registry/specs/being-habitat-extensions-reserve-v0.2.md` ab; `9f898d9` dokumentierte anschliessend die staerkere Phase-A-Frontend-Flow-Verifikation sowie die abgeschlossene Profile-Diagnose in `docs/PHASE-A-FRONTEND-FLOW-VERIFICATION.md` und `docs/PROFILE-COVERAGE-DIAGNOSIS.md`.`
+- `last_completed_block_addendum_2026_05_01_b`: `233ea55` haertete `server/src/routes/astro.ts`, sodass `/api/astro/probe` denselben invalid-request-Schnitt wie `/api/astro/calc` traegt; ungueltige `birthDate` kippt live jetzt von `500 probe_failed` auf `400 invalid_request`, waehrend gueltige Probe- und Today-Calls weiter `200` bleiben. `458153c` und `f3e6ff9` zogen anschliessend `docs/ROUTE-COVERAGE-MAP.md` auf den neuen Geo-/Astro-Stand nach. Im selben Zug wurde die offene Arbeitsgrenze zwischen Builder-Gate-Klassifikation und direkten engen Repo-Hotfixes explizit geklaert: `docs/BUILDER-GATE-BOUNDARY-DECISION.md` und `AGENTS.md` halten jetzt fest, dass Builder-Gates fuer Builder-Laeufe bindend bleiben, direkte Repo-Hotfixes aber als separater enger Produkt-/Runtime-Pfad unter harten Bedingungen zulaessig sind und nie als freie Builder-Evidence gelten.`
+- `last_completed_block_addendum_2026_05_01_c`: `5ad0a85` haertete `server/src/routes/arcana.ts`, sodass `GET /api/arcana/personas/:id` `userId` fuer non-system Personas jetzt auch aus der Query akzeptiert. Auf dem dadurch erst sichtbar gewordenen zweiten Boundary-Fall haertete `f35d7ee` dieselbe Datei weiter: invalid non-system `:id` liefern auf `GET`, `PUT` und `DELETE` jetzt live `404 not_found` statt `500 internal_server_error`. `e93b482`, `84e2c60` und `603153a` zogen danach `docs/ROUTE-COVERAGE-MAP.md` auf den ehrlichen Arcana-Zwischen- und Abschlussstand nach. Damit ist auch die Arcana-Einzelroute jetzt im aktuell geprobten Cheap-Boundary-Satz live gruen.`
+- `last_completed_block_addendum_2026_05_01_d`: `52bdeac` legte das Observer-Protokoll `docs/BUILDER-OBSERVER-TRIAL-v0.1.md` und den Runner `server/scripts/builder-k29a-observer-trial-runner.ts` repo-sichtbar an. Der Live-Batch `K2.9a` landete danach `8d6470a` als exakten single-file Docs-Append und `db1aa81` als exakten single-file helper create-target; die absichtliche zwei-Datei-Negativkontrolle blieb `class_2`, `dry_run_only`, `landed=null`. Der belastbare neue Satz ist damit nicht "Builder ist frei allgemein", sondern "Builder arbeitet im freigegebenen narrow free class_1 corridor unter Observer-Regie bereits autonom, sicher und fail-closed".`
+- `last_completed_block_addendum_2026_05_01_e`: `ce16473` dokumentierte den zweiten Observer-Benchmark `K2.9b` in einer frischen Routefamilie. Auf dem Live-Head `52bdeac` antwortete `/api/zimage/generate` fuer invalid `type='bogus'` weiter mit `200` plus realer fal-URL; der Builder-Run mit dem exakt geschnittenen Single-File-Guard-Ask auf `server/src/routes/zimage.ts` blieb `status=partial`, `taskClass=class_2`, `executionPolicy=dry_run_only`, `pushAllowed=false`, `landed=null`. Das ist neue Evidence dafuer, dass die freie Builder-Lane zwar real ist, aber noch nicht auf provider-/cost-backed image-generation seams generalisiert.`
+- `last_completed_block_addendum_2026_05_01_f`: `2bbc232` schloss diesen offenen `zimage`-Rest danach bewusst nicht per Direkt-Hotfix, sondern ueber den approval-backed Builder-Pfad `K2.9c`. Mit validiertem approval ticket klassifizierte Builder den exakt gleichen Single-File-Guard-Ask als `class_2`, liess ihn als `allow_push` landen und zog die Runtime matching nach. Live kippte `POST /api/zimage/generate` fuer invalid `type='bogus'` dadurch von `200` plus realer fal-URL auf `400 {"error":"Unknown type: bogus"}`, waehrend `GET /api/zimage/prompts` weiter `200` blieb. Das ist neue Evidence dafuer, dass die approval-backed Builder-Lane auf einer frischen provider-/cost-backed Routefamilie operativ funktioniert, ohne daraus freie Korridor-Evidence zu machen.`
 - `read_order_version`: `v2`
 
 ## Update-Vertrag
@@ -84,18 +101,126 @@ migriert. Ein spaeter Live-Smoke deckte dabei einen echten False-Positive im
 Exfiltration-Regex auf; `4a072ec` haertet diesen Guard nach, ohne harmlose
 Meta-Karten weiter zu blocken.
 
-Die Builder-Pipeline ist abgenommen fuer kontrollierte kleine class_1 Builder-
-Tasks ueber den kanonischen `/opus-task`-Pfad, inklusive Live-Governance,
-Approval-Readiness und strict-scope-clean Push.
+Die Builder-Pipeline ist repo-sichtbar ueber den kanonischen `/opus-task`-Pfad
+haerter geworden, aber nicht als allgemein sicher freigegeben. Ein nicht
+akzeptierter T03-Landing-Run auf `docs/BUILDER-BENCHMARK-K2.6.md` erzeugte
+sichtbaren Doku-Schaden, der ueber `24fc1b8` repariert wurde; danach haerten
+die Folgeschnitte `77fbdd3`, `0619640` und `53af22a` die Validierung gegen
+mehrdeutige Patch-Anker, Null-Diffs bzw. falsche Datei-Claims und Markdown-
+Patches ausserhalb eines eindeutig angeforderten Txx-Abschnitts.
 
-Der Builder ist damit aktuell ein eng gefuehrtes Ausfuehrungssystem fuer
-kontrollierte kleine class_1 Tasks mit explizitem Scope und bestehenden Gates,
-nicht aber ein allgemeiner autonomer Feature-Autopilot.
+Direkt danach ist auch H2A repo-sichtbar auf `main` gelandet: `b2d08ea`
+fuehrt einen additiven Side-Effect-Contract ueber Orchestrator, SmartPush,
+Bridge- und Repo-Index-Pfade ein. Fuer kontrollierte Runs unterdrueckt
+`sideEffects.mode=none` jetzt `SESSION-LOG.md`, den session-log SHA-Backfill
+und den `builder-repo-index`-Folgepush; fehlender Contract und
+`mode=default` lassen das bisherige Verhalten unveraendert. Das bewusste
+V1-Risiko bleibt ein pragmatischer Marker im `task.goal`, nicht ein
+weiter offener sichtbarer Side-Effect-Leckpfad.
 
-Nicht freigegeben sind grosse autonome Featurearbeit, multi-file
+Seitdem ist auch H2B repo-sichtbar auf `main`: `5c76561` fuehrt in
+`server/src/lib/builderWorkflowSimulation.ts` und
+`server/src/lib/opusTaskOrchestrator.ts` ein enges Pre-Push Workflow
+Simulation Gate v0.1 ein, das nach Judge und `finalSafety` einen
+deterministischen `workflowSimulation`-Block erzeugt und bei
+`require_review`, `dry_run_only` oder `block_push` den Push vor dem Dispatch
+stoppt. `bd9c2ef` haertet direkt danach die vereinbarte Dry-Run-Semantik:
+`dryRun=true` bleibt immer `dry_run_only`, auch wenn dieselben Findings auf
+Protected Paths, Scope-Verletzungen oder `manual_only` hinweisen. Das ist
+bewusst noch kein Architekturgraph-/Telemetry-Simulator, sondern ein lokaler
+Orchestrator-Hook mit konservativer Confidence und explizit benannter
+Missing-Evidence.
+
+Direkt danach ist auch H2C-1 repo-sichtbar auf `main`: `c25a4e2` fuehrt in
+`server/src/lib/builderRecommendationOutput.ts` und
+`server/src/lib/opusTaskOrchestrator.ts` einen additiven Recommendation-
+Output auf Basis der bestehenden `workflowSimulation` ein. Das Ergebnis traegt
+jetzt im kanonischen Orchestrator-Pfad ein eigenes `recommendation`-Objekt mit
+deterministischen Feldern fuer kurze User-Sprache, Operator-Zusammenfassung,
+naechste sichere Aktion, Entscheidungspflicht und sichere Optionen. Wichtig:
+dieser Block fuehrt keine neue Gate-Klasse ein, aendert die Push-Entscheidung
+selbst nicht und laesst den Legacy-`/build`-Pfad bewusst unberuehrt.
+
+Direkt danach ist auch H2D-1 repo-sichtbar auf `main`: `acb2b1b` fuehrt in
+`server/src/lib/builderAnalysisOutput.ts` und
+`server/src/lib/opusTaskOrchestrator.ts` einen additiven Analysis-Before-
+Schema-Layer fuer denselben kanonischen Result-Pfad ein. Das neue `analysis`-
+Objekt zieht die schon vorhandenen Signale `confidence`, `missingEvidence`,
+`ambiguityRisk`, `claimAnchoringRisk`, `scopeRisk` und
+`protectedPathRisk` zu einer expliziteren Evidence-/Schema-Lock-Lesart
+zusammen, ohne Recommendation oder Push-Entscheidung selbst umzubauen.
+
+Direkt danach ist auch H2C-2 repo-sichtbar auf `main`: `cb5f510` zieht
+denselben Satz aus `workflowSimulation`, `recommendation` und `analysis`
+additiv in `server/src/lib/opusBuildPipeline.ts` nach, damit der Legacy-
+`/build`-Pfad die bereits vorhandene Orchestrator-Wahrheit nicht mehr auf
+`summary` und `pushBlockedReason` verflacht. Auch dieser Block fuehrt keine
+neue Gate-Semantik ein und aendert keine Push- oder Review-Entscheidung.
+
+Direkt danach ist auch H3A repo-sichtbar auf `main`: `1d7c6bc` zieht einen
+kleinen, aber wichtigen Async-Truth-Fix in `server/src/lib/opusSmartPush.ts`
+und `server/src/lib/pushResultWaiter.ts` nach. Ein reiner Waiter-Timeout wird
+jetzt nicht mehr als harte Negativ-Wahrheit `landed=false` behandelt, sondern
+bleibt explizit `landed=undefined` mit pending Callback-Truth. Das vermeidet
+falsche Negativ-Aussagen, ohne schon die spaetere Callback-Result-
+Reconciliation selbst zu bauen.
+
+Direkt danach ist auch H3-async-0 repo-sichtbar auf `main`: `307fa3d` fuehrt
+in `server/src/schema/builder.ts`, `server/src/routes/health.ts`,
+`server/src/lib/opusTaskOrchestrator.ts`, `server/src/lib/opusSmartPush.ts`
+und `server/src/routes/opusBridge.ts` die neue nullable Bruecke
+`builder_tasks.sourceAsyncJobId` ein. Diese Kette verbindet den
+Async-Health-Job (`async_jobs.id`) explizit mit dem spaeteren
+GitHub-Callback-Task (`builder_tasks.id`), ohne die vorhandenen
+`sourceTaskId`/`sourceRunId`-Semantiken still umzudeuten. Die zugehoerige
+additive DB-Aenderung wurde lokal ueber `pnpm db:push` gegen die konfigurierte
+DB angewandt; ein eigener Index war fuer diesen Schnitt bewusst noch nicht
+noetig, weil H3-async-1 spaeter ueber `builder_tasks.id` einsteigt und nur dann
+`sourceAsyncJobId` dereferenziert.
+
+Direkt danach ist auch H3-async-1 repo-sichtbar auf `main`: `ed27349` fuehrt
+in `server/src/lib/builderAsyncJobReconciliation.ts` und
+`server/src/routes/builder.ts` die spaete Callback-Reconciliation fuer den
+Async-Health-Pfad ein. Wenn ein Job wegen Timeout/pending truth bereits als
+`partial` in `async_jobs.result` persistiert wurde und spaeter doch noch ein
+terminaler committed:true|false-Callback eintrifft, zieht der Callback jetzt
+`landed`, `verifiedCommit`, `pushBlockedReason`, die lesbare Summary und die
+Push-Phase konsistent nach. Der Schnitt bleibt bewusst konservativ:
+`async_jobs.status` bleibt dem Health-Lifecycle ueberlassen, und
+`async_jobs.result.status` bleibt auch nach spaetem Erfolg `partial`, weil
+deploy-wait/self-test nach dem spaeten Callback nicht erneut ausgefuehrt werden.
+Repo-Wahrheit steht damit auf `main`; die Live-Runtime antwortete danach ueber
+den resolve-Pfad ebenfalls mit `commit=ed27349` und zieht den neuen H3-Stand
+damit jetzt auch sichtbar auf Render.
+
+Der Builder ist damit aktuell kein allgemeiner autonomer Feature-Autopilot,
+aber der enge Autonomie-Korridor ist deutlich weiter als auf dem alten
+H3-Stand. `1761f3e`, `4e4c72b` und `1272ccd` haerten fail-closed
+Scope-Klassifikation, degraded-provider-Verhalten und die Judge-Lane auf
+`main`; `96fc618` fuehrt den K2.6b-Live-DryRun-Runner fuer den echten
+`/api/health/opus-task-async`-Pfad ein; `fb6b767` richtet den T07-Runner-
+Contract auf ehrliches class_2 fail-closed aus; `9f978e6` entkoppelt den
+degraded-state danach auf Provider+Model-Ebene, damit ein einzelner
+Mehrmodell-Lane-Ausfall nicht pauschal alle Geschaeftsmodelle desselben
+Providers blockiert. Gegen die matching Live-Runtime `9f978e6` lief derselbe
+K2.6b-Subset weiterhin gruen mit 5/5 Passes: class_1 bleibt bei exakten
+Single-File- und Create-Targets scope-clean, class_2 failt ohne Approval
+ehrlich closed, class_3 blockt frueh und Ambiguitaetsfaelle raten keine
+Dateien mehr.
+
+Nicht freigegeben sind weiterhin grosse autonome Featurearbeit, multi-file
 Architekturumbauten ohne neuen Plan plus Approval, class_3-Pfade
 (`manual_only`/protected), Featurearbeit ohne expliziten Produktauftrag sowie
-weitere Live-Push-Smokes ohne explizite Freigabe.
+freie class_2/class_3-Nutzung ohne die bestehenden Approval- und Review-Gates.
+
+Offen bleiben nach dieser Kette bewusst getrennte Restthemen: die bewusste
+Freigabegrenze fuer freie class_1-Familien, weiter beobachtete provider
+independence ausserhalb des engen K2.6b-Subsets, der spaetere `planned`-Modus
+des Side-Effect-Contracts, die tiefere Async-Truth-Reparatur fuer spaete
+Callback->Result-/DB-Reconciliation nach Timeout, spaetere
+TS/JSON/Intra-Code-Section-Guards und jede staerkere semantische
+Diff-Pruefung. Der vorhandene Deploy-Wait ist lokal weiter kein belastbarer
+Produktbeleg, solange er nur im bekannten `HTTP 000`-Operatorpfad endet.
 
 class_2 bleibt an gueltige Approval-Artefakte und anschliessende Reviewpflicht
 gebunden; class_3 bleibt `manual_only`/protected.
@@ -600,7 +725,7 @@ Runtime-Wahrheit fuer Soulmatch.
   `BRIEFING_PART1.md`, `BRIEFING_PART2.md`, `README.md`
 - Code hat bei Widerspruch Vorrang vor groben Docs
 
-## Last Completed Block
+## Historical Archive Snapshot
 
 ### Name
 
@@ -637,7 +762,7 @@ Drift 12 in `docs/CLAUDE-CONTEXT.md` dokumentiert die Token-Limitation.
 - kein Anruehren des fire-and-forget `regenerateRepoIndex()` in `/push` (als Nebenbefund dokumentiert)
 - keine Kaya-Code-Rename-Arbeit (wartet weiter auf Maya-Core-Migration)
 
-## Next Recommended Block
+## Historical Next Recommended Block Snapshot
 
 ### Name
 
