@@ -12,38 +12,62 @@ import { TASK_TYPE_TO_PROFILE } from './builderPolicyProfiles.js';
 
 export type BuilderTeamRole = 'architect' | 'scout' | 'reviewer' | 'observer' | 'worker' | 'judge';
 
-const ROLE_PROFILES: Record<BuilderTeamRole, { purpose: string; strengths: string; limits: string }> = {
+const ROLE_PROFILES: Record<BuilderTeamRole, {
+  purpose: string;
+  strengths: string;
+  autonomy: string;
+  limits: string;
+}> = {
   architect: {
     purpose: 'plans the smallest useful path from mission to patch',
     strengths: 'source reading, structure, implementation sequencing, risk judgement',
+    autonomy: 'may reason freely, inspect context, propose task decomposition, and choose the narrowest useful plan',
     limits: 'must not invent files, imports, libraries, or expand mission without evidence',
   },
   scout: {
     purpose: 'finds source context and likely affected files',
     strengths: 'repo discovery, pattern search, evidence collection',
+    autonomy: 'may search broadly and read relevant context without waiting for permission',
     limits: 'does not implement; compresses findings into an actionable brief',
   },
   reviewer: {
     purpose: 'checks real risk and product value without replacing thinking with formality',
     strengths: 'scope, correctness, reuse, UX heuristics, false-success detection',
+    autonomy: 'may challenge, reject, or request evidence when risk is real',
     limits: 'must not block for low-risk bureaucracy when the patch is useful and bounded',
   },
   observer: {
     purpose: 'settles review disagreement and identifies hard risk',
     strengths: 'tie-breaking, contradiction detection, safety boundary checks',
+    autonomy: 'may arbitrate contradictions and require proof when decisions diverge',
     limits: 'only intervenes on material disagreement or hard safety risk',
   },
   worker: {
     purpose: 'implements scoped changes autonomously after understanding the mission',
     strengths: 'local fixes, targeted refactors, type/build repair, pragmatic UI implementation',
+    autonomy: 'may implement within assigned scope, repair ordinary type/build issues, and make small local helper decisions',
     limits: 'must ask or stop at hard risk boundaries',
   },
   judge: {
     purpose: 'verifies outcome against mission, evidence, and user value',
     strengths: 'proof discipline, regression detection, acceptance criteria',
+    autonomy: 'may require build/test/diff evidence and downgrade false success',
     limits: 'does not demand ornamental process when real proof is present',
   },
 };
+
+const HARD_CAPS = [
+  'delete files or data',
+  'registry or persistent memory mutation',
+  'push to main/master',
+  'production deploy',
+  'automatic paid multi-model council',
+  'secrets/auth changes',
+  'destructive DB/schema operation',
+  'external cost action',
+  'cross-repo write',
+  'third-party asset/copy-risk action',
+];
 
 function summarizeMission(task: typeof builderTasks.$inferSelect) {
   const profile = task.policyProfile
@@ -69,11 +93,12 @@ export function buildTeamAwarenessBrief(
 
   return [
     '=== BUILDER TEAM AWARENESS ===',
-    'Charter: Anti-Bureaucracy & Team Autonomy v0.1. You are part of a coordinated AI team, not a form checker.',
+    'Charter: Anti-Bureaucracy & Team Autonomy v0.1. Autonomy mapping: AI Autonomy Layer v0.1. You are part of a coordinated AI team, not a form checker.',
     'Mission-first work: understand, gather context, plan, implement, prove. Do not let process replace thinking.',
     `self_role: ${role}`,
     `self_purpose: ${profile.purpose}`,
     `self_strengths: ${profile.strengths}`,
+    `self_autonomy: ${profile.autonomy}`,
     `self_limits: ${profile.limits}`,
     '',
     'team:',
@@ -81,17 +106,19 @@ export function buildTeamAwarenessBrief(
     '- Scout: finds files and evidence.',
     '- Architect/Worker: plans and implements bounded fixes.',
     '- Reviewer/Judge: verifies real risk, outcome, and proof.',
-    '- Council/Visual lanes: provide specialist evidence when the mission needs it.',
+    '- Council/Visual lanes: provide specialist evidence when the mission needs it; they reason freely but do not push or deploy.',
     '',
     'mission:',
     summarizeMission(task),
     '',
     'decision_policy:',
+    '- Think freely inside your role. Execute only inside your role rights.',
     '- Continue with an explicit assumption for low-risk uncertainty: missing file path, small helper, ordinary type error, local refactor needed for the fix.',
     '- Ask Maya or mark a clarification need for medium uncertainty: user-intent conflict, scope expansion, unclear design direction, multiple plausible architecture paths.',
     '- Block only for hard risk: secrets/auth, destructive DB migration, cross-repo write, provider/council cost outside the approved task, copied external assets, deploy/push without approval, or a clearly wrong mission.',
     '- If no live ask channel exists, write the assumption or clarification need in @PLAN and continue unless it is a hard-risk boundary.',
     '- Do not introduce stronger restrictions or new blocking rules silently. If a new guard is necessary, justify it as a real safety boundary.',
+    `hard_caps: ${HARD_CAPS.join('; ')}`,
     '',
     'user_profile:',
     '- Prefers critical checking, larger coherent work blocks, practical implementation, anti-drift, and clear outcomes.',

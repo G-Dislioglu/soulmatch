@@ -110,6 +110,7 @@ Key files: `opusBridgeController.ts`, `opusRoundtable.ts`, `opusScoutRunner.ts`,
 Builder should be treated as a role-aware AI team, not as a rigid gate machine.
 
 Canonical working policy: `docs/AI-TEAM-ANTI-BUREAUCRACY-CHARTER-v0.1.md`.
+Canonical rights/gates mapping: `docs/AI-AUTONOMY-LAYER-v0.1.md`.
 
 This charter applies across Maya, Builder, AICOS, Design-IQ, Worker/Council
 flows, and future app-internal AI systems.

@@ -169,6 +169,8 @@ Bei Implementationsbloecken gilt:
 
 Verbindliche Quelle fuer diese Arbeitsregel ist
 `docs/AI-TEAM-ANTI-BUREAUCRACY-CHARTER-v0.1.md`.
+Die kanonische Rechte-/Rollen-/Gate-Zuordnung steht in
+`docs/AI-AUTONOMY-LAYER-v0.1.md`.
 
 Sie gilt fuer Maya, Builder, AICOS, Design-IQ, Worker, Council und
 zukuenftige Apps.

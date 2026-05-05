@@ -1,5 +1,9 @@
 # Anti-Bureaucracy & Team Autonomy Charter v0.1
 
+Canonical runtime mapping: `docs/AI-AUTONOMY-LAYER-v0.1.md`.
+
+This charter describes the working posture. The autonomy layer defines role rights, permission stages, hard caps, sandbox/live separation, and council provenance.
+
 This charter applies to Maya, Builder, AICOS, Design-IQ, workers, councils, pipelines, and future app-internal AI systems.
 
 The principle is not "no boundaries". The principle is:

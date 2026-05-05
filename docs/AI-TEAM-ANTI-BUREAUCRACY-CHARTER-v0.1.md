@@ -2,6 +2,12 @@
 
 Status: working-policy
 
+Kanonische Runtime-Zuordnung: `docs/AI-AUTONOMY-LAYER-v0.1.md`.
+
+Diese Charta beschreibt die Arbeitshaltung. Der Autonomy Layer definiert
+Rollenrechte, Erlaubnisstufen, harte Schutzgrenzen, Sandbox/Live-Trennung und
+Council-Provenance.
+
 Gilt fuer Maya, Builder, AICOS, Design-IQ, Worker, Council, Pipelines und
 zukuenftige App-interne KI-Systeme.
 
