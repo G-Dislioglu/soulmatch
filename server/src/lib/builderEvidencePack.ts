@@ -7,11 +7,15 @@ import {
   builderTasks,
   builderTestResults,
 } from '../schema/builder.js';
+import { buildBuilderTaskContract } from './builderTaskContract.js';
 
 export interface EvidencePack {
   taskId: string;
   title: string;
   goal: string;
+  intent_kind: string;
+  requested_output_kind: string;
+  requested_output_format: string;
   intent: {
     why: string;
     user_outcome: string;
@@ -42,6 +46,32 @@ export interface EvidencePack {
     verdict: string;
     notes: string | null;
   }>;
+  contract_snapshot: {
+    lifecycle_phase: string;
+    attention_state: string;
+    active_lanes: string[];
+    team_instances: string[];
+    output_kind: string;
+    output_format: string;
+    planned_artifacts: string[];
+    code_lane_phase: string;
+  };
+  status_transitions: Array<{
+    from_status: string | null;
+    to_status: string;
+    lifecycle_phase: string;
+    lane: string;
+    reason: string | null;
+    at: string;
+  }>;
+  execution_summary: {
+    channel: string;
+    last_transition_reason: string | null;
+    last_transition_lane: string | null;
+    last_transition_at: string | null;
+    transition_count: number;
+    latest_status_source: string | null;
+  };
   agreement_level: string | null;
   final_status: string;
   false_success_detected: boolean;
@@ -194,6 +224,105 @@ function deriveReviews(reviews: Array<typeof builderReviews.$inferSelect>) {
   };
 }
 
+function deriveContractSnapshot(
+  task: typeof builderTasks.$inferSelect,
+  actions: Array<typeof builderActions.$inferSelect>,
+) {
+  const latestTransition = [...actions].reverse().find((action) => action.kind === 'STATUS_TRANSITION');
+  const latestPayload = latestTransition ? parseActionPayload(latestTransition) : null;
+  const payloadContract = latestPayload?.contract as Record<string, unknown> | undefined;
+  const fallbackContract = buildBuilderTaskContract(task);
+  const routing = (payloadContract?.routing ?? fallbackContract.routing) as Record<string, unknown>;
+  const team = (payloadContract?.team ?? fallbackContract.team) as Record<string, unknown>;
+  const output = (payloadContract?.output ?? fallbackContract.output) as Record<string, unknown>;
+  const lifecycle = (payloadContract?.lifecycle ?? fallbackContract.lifecycle) as Record<string, unknown>;
+  const codeLane = (payloadContract?.codeLane ?? fallbackContract.codeLane) as Record<string, unknown>;
+
+  return {
+    lifecycle_phase: typeof lifecycle.phase === 'string' ? lifecycle.phase : fallbackContract.lifecycle.phase,
+    attention_state: typeof lifecycle.attentionState === 'string' ? lifecycle.attentionState : fallbackContract.lifecycle.attentionState,
+    active_lanes: Array.isArray(routing.activeLanes) ? routing.activeLanes.filter((lane): lane is string => typeof lane === 'string') : fallbackContract.routing.activeLanes,
+    team_instances: Array.isArray(team.activeInstances) ? team.activeInstances.filter((entry): entry is string => typeof entry === 'string') : fallbackContract.team.activeInstances,
+    output_kind: typeof output.kind === 'string' ? output.kind : fallbackContract.output.kind,
+    output_format: typeof output.format === 'string' ? output.format : fallbackContract.output.format,
+    planned_artifacts: Array.isArray(output.plannedArtifacts) ? output.plannedArtifacts.filter((entry): entry is string => typeof entry === 'string') : fallbackContract.output.plannedArtifacts,
+    code_lane_phase: typeof codeLane.phase === 'string' ? codeLane.phase : fallbackContract.codeLane.phase,
+  };
+}
+
+function deriveStatusTransitions(actions: Array<typeof builderActions.$inferSelect>): EvidencePack['status_transitions'] {
+  return actions
+    .filter((action) => action.kind === 'STATUS_TRANSITION')
+    .map((action) => {
+      const payload = parseActionPayload(action);
+      const contract = payload.contract as Record<string, unknown> | undefined;
+      const lifecycle = contract?.lifecycle as Record<string, unknown> | undefined;
+
+      return {
+        from_status: typeof payload.fromStatus === 'string' ? payload.fromStatus : null,
+        to_status: typeof payload.toStatus === 'string' ? payload.toStatus : 'unknown',
+        lifecycle_phase: typeof lifecycle?.phase === 'string' ? lifecycle.phase : 'unknown',
+        lane: action.lane,
+        reason: typeof payload.reason === 'string' ? payload.reason : null,
+        at: action.createdAt.toISOString(),
+      };
+    });
+}
+
+function inferExecutionChannel(reason: string | null, lane: string | null) {
+  if (reason?.startsWith('opus_')) {
+    return 'bridge';
+  }
+
+  if (reason?.startsWith('retry_pipeline_') || reason?.startsWith('pipeline_')) {
+    return 'pipeline';
+  }
+
+  if (reason?.startsWith('retry_quick_mode_') || reason?.startsWith('quick_mode_')) {
+    return 'quick';
+  }
+
+  if (
+    reason?.startsWith('human_')
+    || reason?.startsWith('manual_')
+    || reason?.startsWith('chat_')
+  ) {
+    return 'manual';
+  }
+
+  if (
+    reason?.includes('prototype_')
+    || reason === 'review_round_started'
+    || reason === 'browser_lane_started'
+    || reason === 'counterexample_lane_started'
+    || reason === 'dialog_engine_completed'
+    || reason === 'canary_gate_blocked'
+    || lane === 'prototype'
+    || lane === 'review'
+    || lane === 'runtime'
+  ) {
+    return 'dialog';
+  }
+
+  return 'unknown';
+}
+
+function deriveExecutionSummary(
+  transitions: EvidencePack['status_transitions'],
+): EvidencePack['execution_summary'] {
+  const latest = transitions[transitions.length - 1] ?? null;
+  const channel = inferExecutionChannel(latest?.reason ?? null, latest?.lane ?? null);
+
+  return {
+    channel,
+    last_transition_reason: latest?.reason ?? null,
+    last_transition_lane: latest?.lane ?? null,
+    last_transition_at: latest?.at ?? null,
+    transition_count: transitions.length,
+    latest_status_source: latest ? `${channel}:${latest.lane}` : null,
+  };
+}
+
 export async function generateEvidencePack(taskId: string): Promise<EvidencePack> {
   const db = getDb();
   const [task] = await db.select().from(builderTasks).where(eq(builderTasks.id, taskId));
@@ -229,11 +358,17 @@ export async function generateEvidencePack(taskId: string): Promise<EvidencePack
   const commitBounds = deriveCommitBounds(actions, task.commitHash ?? null);
   const counterexamples = deriveCounterexamples(actions);
   const reviewSummary = deriveReviews(reviews);
+  const contractSnapshot = deriveContractSnapshot(task, actions);
+  const statusTransitions = deriveStatusTransitions(actions);
+  const executionSummary = deriveExecutionSummary(statusTransitions);
 
   return {
     taskId: task.id,
     title: task.title,
     goal: task.goal,
+    intent_kind: task.intentKind,
+    requested_output_kind: task.requestedOutputKind,
+    requested_output_format: task.requestedOutputFormat,
     intent: parseIntent(planBody),
     scope_files: task.scope,
     base_commit: commitBounds.base_commit,
@@ -250,6 +385,9 @@ export async function generateEvidencePack(taskId: string): Promise<EvidencePack
     counterexamples_tested: counterexamples.tested,
     counterexamples_passed: counterexamples.passed,
     reviews: reviewSummary.reviews,
+    contract_snapshot: contractSnapshot,
+    status_transitions: statusTransitions,
+    execution_summary: executionSummary,
     agreement_level: reviewSummary.agreement_level,
     final_status: task.status,
     false_success_detected: reviewSummary.false_success_detected,

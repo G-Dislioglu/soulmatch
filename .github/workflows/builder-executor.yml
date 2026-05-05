@@ -34,6 +34,7 @@ jobs:
         run: pnpm --dir client install --frozen-lockfile
 
       - name: Apply patches
+        id: apply
         env:
           PATCHES_JSON: ${{ toJson(github.event.client_payload.patches) }}
         run: |
@@ -112,19 +113,39 @@ jobs:
           BUILDER_API: ${{ github.event.client_payload.callback_url }}
           BUILDER_TOKEN: ${{ secrets.BUILDER_SECRET }}
           TASK_ID: ${{ github.event.client_payload.task_id }}
+          APPLY_OUTCOME: ${{ steps.apply.outcome }}
+          TSC_OK: ${{ steps.check.outputs.tsc_ok }}
+          BUILD_OK: ${{ steps.check.outputs.build_ok }}
+          DIFF_STAT: ${{ steps.diff.outputs.diff }}
+          RUN_ID_VALUE: ${{ github.run_id }}
+          RUN_URL_VALUE: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          REASON=""
+          if [ "$APPLY_OUTCOME" != "success" ]; then
+            REASON="patch_apply_failed"
+          fi
+          PAYLOAD=$(jq -n \
+            --arg tsc "$TSC_OK" \
+            --arg build "$BUILD_OK" \
+            --arg diff "$DIFF_STAT" \
+            --arg run_id "$RUN_ID_VALUE" \
+            --arg run_url "$RUN_URL_VALUE" \
+            --arg patch_apply "$APPLY_OUTCOME" \
+            --arg reason "$REASON" \
+            '{
+              tsc: $tsc,
+              build: $build,
+              diff: $diff,
+              run_id: $run_id,
+              run_url: $run_url,
+              patch_apply: $patch_apply
+            } + (if $reason != "" then {reason: $reason, committed: false} else {} end)')
           curl -s -X POST "$BUILDER_API/api/builder/tasks/$TASK_ID/execution-result?token=$BUILDER_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"tsc\": \"${{ steps.check.outputs.tsc_ok }}\",
-              \"build\": \"${{ steps.check.outputs.build_ok }}\",
-              \"diff\": $(echo '${{ steps.diff.outputs.diff }}' | jq -Rs .),
-              \"run_id\": \"${{ github.run_id }}\",
-              \"run_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
-            }"
+            -d "$PAYLOAD"
 
       - name: Commit and push
-        if: always()
+        if: steps.apply.outcome == 'success'
         env:
           TASK_ID: ${{ github.event.client_payload.task_id }}
           BUILDER_API: ${{ github.event.client_payload.callback_url }}

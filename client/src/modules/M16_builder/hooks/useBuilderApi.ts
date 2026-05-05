@@ -1,11 +1,108 @@
 import { useCallback } from 'react';
 
+export type BuilderTaskIntentKind =
+  | 'app_build'
+  | 'code_change'
+  | 'debug'
+  | 'technical_review'
+  | 'research'
+  | 'analysis'
+  | 'strategy'
+  | 'clarification'
+  | 'general';
+
+export type BuilderUniversalLifecyclePhase =
+  | 'requested'
+  | 'understood'
+  | 'routed'
+  | 'active'
+  | 'synthesizing'
+  | 'delivered'
+  | 'confirmed'
+  | 'stopped';
+
+export type BuilderAttentionState = 'active' | 'waiting' | 'complete' | 'blocked';
+
+export type BuilderLaneKey = 'code' | 'runtime' | 'review' | 'prototype';
+
+export type BuilderOutputKind =
+  | 'chat_answer'
+  | 'structured_answer'
+  | 'html_artifact'
+  | 'markdown_artifact'
+  | 'json_artifact'
+  | 'code_artifact'
+  | 'presentation_artifact'
+  | 'visual_artifact';
+
+export type BuilderOutputFormat = 'chat' | 'markdown' | 'html' | 'json' | 'code' | 'mixed';
+
+export type BuilderInstanceMode = 'maya' | 'council' | 'distiller' | 'worker' | 'judge' | 'scout';
+
+export type BuilderCodeLanePhase =
+  | 'idle'
+  | 'scope_resolved'
+  | 'prototype_building'
+  | 'workers_editing'
+  | 'checks_running'
+  | 'review_pending'
+  | 'push_candidate'
+  | 'runtime_verified'
+  | 'completed'
+  | 'stopped';
+
+export interface BuilderTaskContract {
+  intent: {
+    kind: BuilderTaskIntentKind;
+    summary: string;
+    preservesCodeLane: boolean;
+  };
+  lifecycle: {
+    phase: BuilderUniversalLifecyclePhase;
+    attentionState: BuilderAttentionState;
+    summary: string;
+  };
+  routing: {
+    primaryLane: BuilderLaneKey;
+    supportingLanes: BuilderLaneKey[];
+    activeLanes: BuilderLaneKey[];
+    summary: string;
+  };
+  team: {
+    activeInstances: BuilderInstanceMode[];
+    summary: string;
+  };
+  output: {
+    kind: BuilderOutputKind;
+    format: BuilderOutputFormat;
+    plannedArtifacts: string[];
+    needsUserConfirmation: boolean;
+    summary: string;
+  };
+  codeLane: {
+    enabled: boolean;
+    status: BuilderAttentionState;
+    phase: BuilderCodeLanePhase;
+    summary: string;
+    commitHash: string | null;
+  };
+}
+
 export interface BuilderTask {
   id: string;
   title: string;
   goal: string;
   risk: string;
   taskType: string;
+  intentKind: BuilderTaskIntentKind;
+  requestedOutputKind: BuilderOutputKind;
+  requestedOutputFormat: BuilderOutputFormat;
+  parentTaskId?: string | null;
+  goalKind?: string | null;
+  successConditions?: string[];
+  revisionLog?: Record<string, unknown>[];
+  budgetIterations?: number;
+  budgetUsed?: number;
   policyProfile: string | null;
   scope: string[];
   notScope: string[];
@@ -16,6 +113,7 @@ export interface BuilderTask {
   tokenBudget: number | null;
   createdAt: string;
   updatedAt: string;
+  contract: BuilderTaskContract;
 }
 
 export interface BuilderAction {
@@ -31,6 +129,16 @@ export interface BuilderAction {
   text?: string;
 }
 
+export interface BuilderArtifact {
+  id: string;
+  taskId: string;
+  artifactType: string;
+  lane: string;
+  path: string | null;
+  jsonPayload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface BuilderFileContent {
   content: string;
   lines: number;
@@ -41,6 +149,9 @@ export interface BuilderCreateTaskInput {
   goal: string;
   risk?: string;
   taskType: string;
+  intentKind: BuilderTaskIntentKind;
+  requestedOutputKind: BuilderOutputKind;
+  requestedOutputFormat: BuilderOutputFormat;
 }
 
 export interface BuilderChatMessage {
@@ -59,6 +170,9 @@ export interface BuilderEvidencePack {
   taskId: string;
   title: string;
   goal: string;
+  intent_kind: BuilderTaskIntentKind;
+  requested_output_kind: BuilderOutputKind;
+  requested_output_format: BuilderOutputFormat;
   intent: {
     why: string;
     user_outcome: string;
@@ -86,6 +200,32 @@ export interface BuilderEvidencePack {
   counterexamples_tested: number;
   counterexamples_passed: number;
   reviews: Record<string, { verdict: string; notes: string | null }>;
+  contract_snapshot: {
+    lifecycle_phase: string;
+    attention_state: string;
+    active_lanes: string[];
+    team_instances: string[];
+    output_kind: string;
+    output_format: string;
+    planned_artifacts: string[];
+    code_lane_phase: string;
+  };
+  status_transitions: Array<{
+    from_status: string | null;
+    to_status: string;
+    lifecycle_phase: string;
+    lane: string;
+    reason: string | null;
+    at: string;
+  }>;
+  execution_summary: {
+    channel: string;
+    last_transition_reason: string | null;
+    last_transition_lane: string | null;
+    last_transition_at: string | null;
+    transition_count: number;
+    latest_status_source: string | null;
+  };
   agreement_level: string | null;
   final_status: string;
   false_success_detected: boolean;
@@ -133,6 +273,7 @@ export interface BuilderTaskObservation {
     tokenCount: number | null;
     createdAt: string;
     updatedAt: string;
+    contract?: BuilderTaskContract;
   };
   chatPool: BuilderChatPoolEntry[];
   actions: BuilderObservedAction[];
@@ -222,6 +363,10 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     const text = await response.text();
     const parsed = text ? JSON.parse(text) as T | { error?: string } : null;
 
+    if (!response.ok && response.status === 500 && window.location.hostname === 'localhost' && text.trim().length === 0) {
+      throw new Error('Builder-Backend nicht erreichbar. Starte den Server mit "cd server" und "pnpm dev" auf Port 3001.');
+    }
+
     if (!response.ok) {
       const message = parsed && typeof parsed === 'object' && 'error' in parsed
         ? parsed.error
@@ -270,6 +415,10 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
 
   const getEvidence = useCallback((taskId: string) => {
     return requestJson<BuilderEvidencePack>(`/tasks/${encodeURIComponent(taskId)}/evidence`);
+  }, [requestJson]);
+
+  const getArtifacts = useCallback((taskId: string) => {
+    return requestJson<BuilderArtifact[]>(`/tasks/${encodeURIComponent(taskId)}/artifacts`);
   }, [requestJson]);
 
   const getTaskObservation = useCallback((taskId: string) => {
@@ -345,6 +494,7 @@ export function useBuilderApi(token: string | null, opusToken?: string | null) {
     runTask,
     getDialog,
     getEvidence,
+    getArtifacts,
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,

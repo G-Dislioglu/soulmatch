@@ -1,32 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 
-import { CosmicTrail } from '../../M02_ui-kit/CosmicTrail';
 import { TOKENS } from '../../../design/tokens';
 import { useSpeechToText } from '../../../hooks/useSpeechToText';
 import './maya-highlight.css';
-import {
-  BuilderConfigPanel,
-  loadPools,
-  savePools,
-  syncPoolsToServer,
-  type PoolState,
-  type PoolType,
-} from './BuilderConfigPanel';
-import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext } from '../hooks/useMayaApi';
+import { BuilderPanel } from './BuilderPanel';
+import { BuilderContextPanel } from './BuilderContextPanel';
+import { BuilderDialogViewerPanel } from './BuilderDialogViewerPanel';
+import { BuilderFileExplorerPanel } from './BuilderFileExplorerPanel';
+import { BuilderModelConfigDrawer } from './BuilderModelConfigDrawer';
+import { BuilderOutputPanels } from './BuilderOutputPanels';
+import { BuilderSidebarNav } from './BuilderSidebarNav';
+import { BuilderStageIntro } from './BuilderStageIntro';
+import { BuilderStudioTopbar } from './BuilderStudioTopbar';
+import { BuilderTaskDetailPanel } from './BuilderTaskDetailPanel';
+import { BuilderTaskFooterStrip } from './BuilderTaskFooterStrip';
+import { BuilderTaskListPanel } from './BuilderTaskListPanel';
+import { BuilderTribuneStage } from './BuilderTribuneStage';
+import { BuilderVisualReviewPanel } from './BuilderVisualReviewPanel';
+import { useMayaApi, type DirectorModel, type MayaActionResult, type MayaContext, type MayaPoolConfig, type MayaPoolModel, type PoolState, type PoolType, type VisionModelScoreAggregate, type VisualCouncilEscalationResponse, type VisualFixTaskCreationResponse, type VisualReviewRunResponse, type VisualReviewTaskType } from '../hooks/useMayaApi';
 import { useMayaFigureGuide } from '../hooks/useMayaFigureGuide';
 import { useMayaTargetRegistry } from '../hooks/useMayaTargetRegistry';
 import {
   useBuilderApi,
   type BuilderAction,
+  type BuilderArtifact,
   type BuilderChatMessage,
   type BuilderChatPoolEntry,
-  type BuilderCreateTaskInput,
   type BuilderEvidencePack,
+  type BuilderTaskObservation,
   type BuilderPatrolFinding,
   type BuilderPatrolSeverity,
   type BuilderPatrolStatus,
   type BuilderTask,
+  type BuilderUniversalLifecyclePhase,
 } from '../hooks/useBuilderApi';
 import { MayaFigure } from './MayaFigure';
 import { PoolChatWindow } from './PoolChatWindow';
@@ -90,35 +97,10 @@ const ACTOR_COLORS: Record<string, string> = {
   system: TOKENS.rose,
 };
 
-const POOL_MODEL_META: Record<string, { label: string; quality: number }> = {
-  opus: { label: 'Opus 4.6', quality: 95 },
-  sonnet: { label: 'Sonnet 4.6', quality: 85 },
-  'gpt-5.4': { label: 'GPT-5.4', quality: 88 },
-  'glm-turbo': { label: 'GLM 5 Turbo', quality: 68 },
-  glm51: { label: 'GLM 5.1', quality: 90 },
-  grok: { label: 'Grok 4.1', quality: 80 },
-  deepseek: { label: 'DeepSeek Chat', quality: 72 },
-  minimax: { label: 'MiniMax M2.7', quality: 60 },
-  kimi: { label: 'Kimi K2.5', quality: 65 },
-  qwen: { label: 'Qwen 3.6+', quality: 58 },
-  'glm-flash': { label: 'GLM FlashX', quality: 72 },
-  'gemini-flash': { label: 'Gemini Flash', quality: 78 },
-  'deepseek-scout': { label: 'DeepSeek Chat', quality: 70 },
-  'qwen-scout': { label: 'Qwen 3.6+', quality: 55 },
-};
-
 const DIRECTOR_MODEL_META: Record<DirectorModel, { label: string }> = {
-  opus: { label: 'Opus 4.6' },
+  opus: { label: 'Opus 4.7' },
   'gpt5.4': { label: 'GPT 5.4' },
   'glm5.1': { label: 'GLM 5.1' },
-};
-
-const POOL_OPTIONS: Record<PoolType, string[]> = {
-  maya: ['opus', 'sonnet', 'gpt-5.4', 'glm-turbo', 'glm51', 'grok'],
-  council: ['opus', 'sonnet', 'gpt-5.4', 'grok', 'deepseek', 'glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen'],
-  distiller: ['glm-flash', 'deepseek-scout', 'gemini-flash', 'qwen-scout'],
-  worker: ['glm-turbo', 'glm51', 'minimax', 'kimi', 'qwen', 'deepseek'],
-  scout: ['deepseek-scout', 'glm-flash', 'gemini-flash', 'qwen-scout'],
 };
 
 const POOL_LABELS: Record<PoolType, { label: string; accent: string }> = {
@@ -138,11 +120,11 @@ const PATROL_SEVERITY_ORDER: Record<BuilderPatrolSeverity, number> = {
 };
 
 const PATROL_SEVERITY_CONFIG: Record<BuilderPatrolSeverity, { color: string; bg: string; icon: string; label: string }> = {
-  critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '⛔', label: 'Kritisch' },
-  high: { color: '#ff8c42', bg: '#ff8c4218', icon: '🔴', label: 'Hoch' },
-  medium: { color: '#ffd166', bg: '#ffd16618', icon: '🟡', label: 'Mittel' },
-  low: { color: '#6ec6ff', bg: '#6ec6ff18', icon: '🔵', label: 'Niedrig' },
-  info: { color: '#8b8fa3', bg: '#8b8fa318', icon: '⚪', label: 'Info' },
+  critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '!!', label: 'Kritisch' },
+  high: { color: '#ff8c42', bg: '#ff8c4218', icon: '!', label: 'Hoch' },
+  medium: { color: '#ffd166', bg: '#ffd16618', icon: '~', label: 'Mittel' },
+  low: { color: '#6ec6ff', bg: '#6ec6ff18', icon: 'i', label: 'Niedrig' },
+  info: { color: '#8b8fa3', bg: '#8b8fa318', icon: 'o', label: 'Info' },
 };
 
 const PATROL_CATEGORY_LABELS: Record<string, string> = {
@@ -159,6 +141,16 @@ const BUILDER_TOKEN_STORAGE_KEY = 'builder_token';
 const LEGACY_BUILDER_TOKEN_STORAGE_KEY = 'maya-token';
 const OPUS_TOKEN_STORAGE_KEY = 'builder_opus_token';
 const LEGACY_OPUS_TOKEN_STORAGE_KEY = 'opus-bridge-token';
+const BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY = 'builder_task_queue_filter';
+const BUILDER_TASK_QUEUE_SORT_STORAGE_KEY = 'builder_task_queue_sort';
+
+const EMPTY_POOL_STATE: PoolState = {
+  maya: [],
+  council: [],
+  distiller: [],
+  worker: [],
+  scout: [],
+};
 
 function readStoredValue(keys: string[]) {
   try {
@@ -177,7 +169,7 @@ function readStoredValue(keys: string[]) {
 
 function getInitialBuilderToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('builderToken') || params.get('token')
+  return params.get('builderToken') || params.get('token') || params.get('opus_token')
     || readStoredValue([BUILDER_TOKEN_STORAGE_KEY, LEGACY_BUILDER_TOKEN_STORAGE_KEY]);
 }
 
@@ -198,20 +190,55 @@ function getInitialOpusToken() {
   return legacyOpusToken && legacyOpusToken !== storedBuilderToken ? legacyOpusToken : '';
 }
 
+function getInitialTaskQueueFilter(): TaskQueueFilter {
+  const params = new URLSearchParams(window.location.search);
+  const urlValue = params.get('queue');
+  if (urlValue === 'attention' || urlValue === 'active' || urlValue === 'ready' || urlValue === 'delivered' || urlValue === 'done') {
+    return urlValue;
+  }
+
+  const stored = readStoredValue([BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY]);
+  return stored === 'attention' || stored === 'active' || stored === 'ready' || stored === 'delivered' || stored === 'done'
+    ? stored
+    : 'all';
+}
+
+function getInitialTaskQueueSort(): TaskQueueSort {
+  const params = new URLSearchParams(window.location.search);
+  const urlValue = params.get('queue_sort');
+  if (urlValue === 'updated' || urlValue === 'title' || urlValue === 'priority') {
+    return urlValue;
+  }
+
+  const stored = readStoredValue([BUILDER_TASK_QUEUE_SORT_STORAGE_KEY]);
+  return stored === 'updated' || stored === 'title' ? stored : 'priority';
+}
+
+function getInitialSelectedTaskId() {
+  const params = new URLSearchParams(window.location.search);
+  const taskId = params.get('task');
+  return taskId && taskId.trim().length > 0 ? taskId.trim() : null;
+}
+
 async function validateBuilderToken(token: string) {
   const response = await fetch(`/api/builder/maya/context?token=${encodeURIComponent(token)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  const bodyText = await response.text().catch(() => '');
 
   if (response.status === 401 || response.status === 404) {
-    throw new Error('Ungültiger Token');
+    throw new Error('Ungueltiger Token');
+  }
+
+  if (!response.ok && response.status === 500 && window.location.hostname === 'localhost' && bodyText.trim().length === 0) {
+    throw new Error('Builder-Backend nicht erreichbar. Starte den Server mit "cd server" und "pnpm dev" auf Port 3001.');
   }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
 
-  const payload = await response.json() as { tasks?: unknown[] };
+  const payload = (bodyText ? JSON.parse(bodyText) : {}) as { tasks?: unknown[] };
   return { canonicalExecutor: '/opus-task', tasks: payload.tasks };
 }
 
@@ -229,7 +256,7 @@ function useViewportWidth() {
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
-    return '—';
+    return '-';
   }
 
   const date = new Date(value);
@@ -247,10 +274,10 @@ function formatDate(value: string | null | undefined) {
 
 function maskToken(token: string) {
   if (token.length <= 6) {
-    return '••••••';
+    return '******';
   }
 
-  return `${token.slice(0, 3)}…${token.slice(-2)}`;
+  return `${token.slice(0, 3)}...${token.slice(-2)}`;
 }
 
 function normalizePatrolSeverity(value: string | null | undefined): BuilderPatrolSeverity {
@@ -267,7 +294,7 @@ function shortenGuideLabel(value: string, maxLength = 48) {
     return normalized;
   }
 
-  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
 function extractNavigationDirective(content: string) {
@@ -280,17 +307,6 @@ function extractNavigationDirective(content: string) {
     targetId,
     cleanContent,
   };
-}
-
-function formatPatrolAffectedFiles(files: string[] | undefined) {
-  const list = Array.isArray(files) ? files.filter(Boolean) : [];
-  if (list.length === 0) {
-    return 'Keine Dateien';
-  }
-
-  const visible = list.slice(0, 3);
-  const hiddenCount = list.length - visible.length;
-  return hiddenCount > 0 ? `${visible.join(', ')} +${hiddenCount} more` : visible.join(', ');
 }
 
 function sortPatrolFindings(findings: BuilderPatrolFinding[]) {
@@ -344,24 +360,24 @@ function getDirectorRunStatus(thinking: boolean, elapsedMs: number) {
 
   if (thinking) {
     if (elapsedSeconds < 4) {
-      return `Deep scannt Kontext und Scope · ${elapsedSeconds}s`;
+      return `Deep scannt Kontext und Scope  -  ${elapsedSeconds}s`;
     }
     if (elapsedSeconds < 10) {
-      return `Deep prueft Tasks, Memory und Toolweg · ${elapsedSeconds}s`;
+      return `Deep prueft Tasks, Memory und Toolweg  -  ${elapsedSeconds}s`;
     }
     if (elapsedSeconds < 18) {
-      return `Deep baut den naechsten Builder-Schritt · ${elapsedSeconds}s`;
+      return `Deep baut den naechsten Builder-Schritt  -  ${elapsedSeconds}s`;
     }
-    return `Deep verdichtet Antwort und Actions · ${elapsedSeconds}s`;
+    return `Deep verdichtet Antwort und Actions  -  ${elapsedSeconds}s`;
   }
 
   if (elapsedSeconds < 3) {
-    return `Fast scannt den Auftrag · ${elapsedSeconds}s`;
+    return `Fast scannt den Auftrag  -  ${elapsedSeconds}s`;
   }
   if (elapsedSeconds < 7) {
-    return `Fast waehlt den kuerzesten Toolweg · ${elapsedSeconds}s`;
+    return `Fast waehlt den kuerzesten Toolweg  -  ${elapsedSeconds}s`;
   }
-  return `Fast finalisiert Antwort und Actions · ${elapsedSeconds}s`;
+  return `Fast finalisiert Antwort und Actions  -  ${elapsedSeconds}s`;
 }
 
 function getDirectorStatusText(
@@ -385,7 +401,7 @@ function getDirectorStatusText(
     return status.message ?? 'Fehler im Maya-Brain-Lauf.';
   }
 
-  return status.tool ? `fertig · ${status.tool}` : 'fertig';
+  return status.tool ? `fertig  -  ${status.tool}` : 'fertig';
 }
 
 function getReadFilePreview(action: MayaActionResult): ReadFilePreview | null {
@@ -466,58 +482,998 @@ function groupFiles(files: string[]) {
   return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'de'));
 }
 
-function BuilderPanel(props: { title: string; subtitle?: string; children: React.ReactNode; accent?: string; }) {
-  const { title, subtitle, children, accent = TOKENS.gold } = props;
-
-  return (
-    <section
-      style={{
-        border: `1.5px solid ${TOKENS.b2}`,
-        borderRadius: 22,
-        background: TOKENS.card,
-        boxShadow: TOKENS.shadow.card,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          padding: '16px 18px 14px',
-          borderBottom: `2px solid ${TOKENS.b1}`,
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
-        }}
-      >
-        <div style={{ fontSize: 11, color: accent, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
-          {title}
-        </div>
-        {subtitle ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: TOKENS.text2, lineHeight: 1.6, fontFamily: TOKENS.font.body }}>
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-      <div style={{ padding: 18 }}>{children}</div>
-    </section>
-  );
+interface ExecutionStateSummary {
+  label: string;
+  detail: string;
+  accent: string;
 }
 
-function poolScore(ids: string[]) {
+type BuilderExperienceMode = 'default' | 'single_specialist' | 'pipeline';
+
+type SidebarView = 'chat' | 'tasks' | 'patrol' | 'models' | 'files' | 'notes';
+
+type DrawerView = 'models' | 'task' | 'output' | 'visual';
+
+type TribunePhaseKey =
+  BuilderUniversalLifecyclePhase;
+
+interface TribuneTimelineEntry {
+  key: TribunePhaseKey;
+  label: string;
+  detail: string;
+  meta: string;
+  accent: string;
+  state: 'done' | 'current' | 'pending' | 'waiting' | 'blocked';
+}
+
+interface TribunePhaseDetail {
+  title: string;
+  summary: string;
+  source: string;
+  lines: string[];
+  note?: string;
+  notRequired?: boolean;
+}
+
+type OperatorActionKey =
+  | 'run'
+  | 'approve'
+  | 'approve_prototype'
+  | 'revise_prototype'
+  | 'revert'
+  | 'inspect';
+
+interface OperatorActionSuggestion {
+  key: OperatorActionKey;
+  label: string;
+  tone: 'primary' | 'warning' | 'neutral' | 'danger';
+}
+
+interface OperatorGuidance {
+  title: string;
+  summary: string;
+  detail: string;
+  accent: string;
+  actions: OperatorActionSuggestion[];
+}
+
+interface TaskQueueSignal {
+  label: string;
+  summary: string;
+  accent: string;
+  priority: 'attention' | 'active' | 'ready' | 'delivered' | 'done';
+}
+
+type TaskQueueFilter = 'all' | TaskQueueSignal['priority'];
+type TaskQueueSort = 'priority' | 'updated' | 'title';
+
+interface TaskCardTone {
+  border: string;
+  background: string;
+  glow: string;
+  chipBg: string;
+}
+
+const TRIBUNE_PHASE_ORDER: TribunePhaseKey[] = [
+  'requested',
+  'understood',
+  'routed',
+  'active',
+  'synthesizing',
+  'delivered',
+  'confirmed',
+  'stopped',
+];
+
+const UNIVERSAL_PHASE_COLORS: Record<TribunePhaseKey, string> = {
+  requested: TOKENS.text2,
+  understood: TOKENS.cyan,
+  routed: '#8b5cf6',
+  active: TOKENS.purple,
+  synthesizing: TOKENS.green,
+  delivered: TOKENS.gold,
+  confirmed: TOKENS.green,
+  stopped: TOKENS.rose,
+};
+
+function formatLaneList(lanes: string[]) {
+  return lanes.length > 0 ? lanes.join('  -  ') : 'Noch keine Lane zugewiesen';
+}
+
+function formatInstanceList(instances: string[]) {
+  return instances.length > 0 ? instances.join('  -  ') : 'Noch kein Team sichtbar';
+}
+
+function formatArtifacts(list: string[]) {
+  return list.length > 0 ? list.join(', ') : 'Noch keine geplanten Artefakte';
+}
+
+function formatExecutionChannelLabel(channel: string | null | undefined) {
+  switch (channel) {
+    case 'dialog':
+      return 'Dialog';
+    case 'quick':
+      return 'Quick';
+    case 'pipeline':
+      return 'Pipeline';
+    case 'bridge':
+      return 'Opus Bridge';
+    case 'manual':
+      return 'Manual';
+    default:
+      return 'Unknown';
+  }
+}
+
+function formatExecutionSummary(evidence: BuilderEvidencePack | null) {
+  if (!evidence) {
+    return 'Noch keine Execution-Spur verfuegbar';
+  }
+
+  const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+  const reason = evidence.execution_summary.last_transition_reason ?? 'kein letzter Grund';
+  return `${channel}  -  ${reason}`;
+}
+
+function formatExecutionMeta(evidence: BuilderEvidencePack | null) {
+  if (!evidence) {
+    return 'Noch keine sichtbare Transition';
+  }
+
+  const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+  const lane = evidence.execution_summary.last_transition_lane ?? 'unknown';
+  const reason = evidence.execution_summary.last_transition_reason ?? 'ohne Grund';
+  return `${channel}  -  ${lane}  -  ${reason}`;
+}
+
+function deriveOperatorGuidance(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  waitingCount: number,
+): OperatorGuidance | null {
+  if (!task) {
+    return null;
+  }
+
+  const channel = evidence?.execution_summary.channel ?? 'unknown';
+  const channelLabel = formatExecutionChannelLabel(channel);
+  const reason = evidence?.execution_summary.last_transition_reason ?? 'ohne klaren Uebergangsgrund';
+  const moreWaiting = waitingCount > 1 ? ` Es warten noch ${waitingCount - 1} weitere Tasks.` : '';
+
+  if (task.status === 'prototype_review') {
+    return {
+      title: 'Prototype braucht Entscheidung',
+      summary: 'Dieser Lauf hat bewusst vor dem Weiterbau angehalten, damit du den sichtbaren Zwischenstand freigibst, ueberarbeiten laesst oder verwirfst.',
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.${moreWaiting}`,
+      accent: TOKENS.gold,
+      actions: [
+        { key: 'approve_prototype', label: 'Prototype freigeben', tone: 'primary' },
+        { key: 'revise_prototype', label: 'Revision anfordern', tone: 'warning' },
+        { key: 'revert', label: 'Prototype verwerfen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return {
+      title: 'Maya wartet auf deine Freigabe',
+      summary: 'Das Ergebnis liegt bereit, aber dieser Vertrag verlangt vor dem naechsten Schritt eine menschliche Entscheidung.',
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.${moreWaiting}`,
+      accent: TOKENS.gold,
+      actions: [
+        { key: 'approve', label: 'Freigeben', tone: 'primary' },
+        { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+        { key: 'revert', label: 'Zuruecknehmen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.status === 'queued' || task.status === 'classifying' || task.status === 'planning') {
+    return {
+      title: 'Task ist bereit zum Start',
+      summary: 'Der Vertrag ist angelegt, aber der Lauf wurde noch nicht aktiv gestartet.',
+      detail: 'Empfohlener Schritt: Task anwerfen und danach den Routing-Pfad beobachten.',
+      accent: TOKENS.cyan,
+      actions: [
+        { key: 'run', label: 'Task starten', tone: 'primary' },
+        { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+      ],
+    };
+  }
+
+  if (task.status === 'blocked' || task.contract.lifecycle.phase === 'stopped' || task.contract.lifecycle.attentionState === 'blocked') {
+    return {
+      title: channel === 'bridge' ? 'Bridge-Pfad ist angehalten' : 'Lauf ist angehalten',
+      summary: channel === 'bridge'
+        ? 'Ein externer Bridge- oder Override-Pfad hat den Task in einen gestoppten Zustand gebracht.'
+        : 'Der aktuelle Lauf ist nicht mehr aktiv und braucht jetzt eine bewusste Entscheidung.',
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
+      accent: TOKENS.rose,
+      actions: [
+        { key: 'inspect', label: 'Ursache ansehen', tone: 'neutral' },
+        { key: 'run', label: 'Erneut starten', tone: 'warning' },
+        { key: 'revert', label: 'Zuruecknehmen', tone: 'danger' },
+      ],
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'delivered') {
+    return {
+      title: 'Ergebnis ist geliefert',
+      summary: 'Maya betrachtet den Stand als lieferbar. Der naechste sinnvolle Schritt ist jetzt Pruefung oder Abschluss.',
+      detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
+      accent: TOKENS.green,
+      actions: task.contract.output.needsUserConfirmation
+        ? [
+            { key: 'approve', label: 'Abschliessen', tone: 'primary' },
+            { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+          ]
+        : [
+            { key: 'inspect', label: 'Details ansehen', tone: 'neutral' },
+          ],
+    };
+  }
+
+  if (channel === 'bridge') {
+    return {
+      title: 'Bridge-Pfad aktiv',
+      summary: 'Dieser Task wird gerade ueber einen externen Bridge-Kontext mitgesteuert. Eingriffe sollten bewusst und sparsam sein.',
+      detail: `Letzter Uebergang ${reason}. Beobachte zuerst die Details, bevor du neu startest oder revertierst.`,
+      accent: '#8b5cf6',
+      actions: [
+        { key: 'inspect', label: 'Bridge-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  if (channel === 'quick') {
+    return {
+      title: 'Quick-Pfad aktiv',
+      summary: 'Maya versucht hier einen kurzen, direkten Durchlauf statt eines schweren Multi-Lane-Baums.',
+      detail: `Letzter Uebergang ${reason}. Solange nichts blockiert ist, ist Beobachten sinnvoller als Eingreifen.`,
+      accent: TOKENS.cyan,
+      actions: [
+        { key: 'inspect', label: 'Quick-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  if (channel === 'pipeline') {
+    return {
+      title: 'Pipeline-Pfad aktiv',
+      summary: 'Diese Task laeuft ueber einen mehrstufigen Ausfuehrungspfad. Der relevante Operator-Schritt ist meist Kontrolle statt Soforteingriff.',
+      detail: `Letzter Uebergang ${reason}.`,
+      accent: TOKENS.purple,
+      actions: [
+        { key: 'inspect', label: 'Pipeline-Details ansehen', tone: 'primary' },
+      ],
+    };
+  }
+
+  return {
+    title: 'Kein Eingriff noetig',
+    summary: 'Maya arbeitet aktuell in einem normalen Lauf und hat keinen expliziten Bedienbedarf signalisiert.',
+    detail: `Modus ${channelLabel}  -  letzter Uebergang ${reason}.`,
+    accent: TOKENS.text3,
+    actions: [
+      { key: 'inspect', label: 'Task verfolgen', tone: 'neutral' },
+    ],
+  };
+}
+
+function deriveTaskQueueSignal(task: BuilderTask): TaskQueueSignal {
+  if (task.status === 'prototype_review') {
+    return {
+      label: 'Entscheidung',
+      summary: 'Prototype liegt vor und wartet auf Freigabe, Revision oder Verwerfung.',
+      accent: TOKENS.gold,
+      priority: 'attention',
+    };
+  }
+
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return {
+      label: 'Wartet auf dich',
+      summary: 'Der aktuelle Vertrag verlangt vor dem naechsten Schritt eine menschliche Freigabe.',
+      accent: TOKENS.gold,
+      priority: 'attention',
+    };
+  }
+
+  if (task.status === 'queued' || task.status === 'classifying' || task.status === 'planning') {
+    return {
+      label: 'Startklar',
+      summary: 'Task ist angelegt und kann jetzt in den aktiven Lauf geschickt werden.',
+      accent: TOKENS.cyan,
+      priority: 'ready',
+    };
+  }
+
+  if (task.status === 'blocked' || task.contract.lifecycle.phase === 'stopped' || task.contract.lifecycle.attentionState === 'blocked') {
+    return {
+      label: 'Angehalten',
+      summary: 'Der Lauf ist gestoppt und braucht eine bewusste Operator-Entscheidung.',
+      accent: TOKENS.rose,
+      priority: 'attention',
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'delivered') {
+    return {
+      label: 'Bereit',
+      summary: 'Ergebnis ist geliefert und kann jetzt geprueft oder abgeschlossen werden.',
+      accent: TOKENS.green,
+      priority: 'delivered',
+    };
+  }
+
+  if (task.contract.lifecycle.phase === 'confirmed' || task.status === 'done') {
+    return {
+      label: 'Abgeschlossen',
+      summary: 'Diese Task ist bestaetigt und braucht aktuell keinen Eingriff.',
+      accent: TOKENS.text3,
+      priority: 'done',
+    };
+  }
+
+  return {
+    label: 'Laeuft',
+    summary: `Maya arbeitet aktiv in der Phase ${task.contract.lifecycle.phase} mit den Lanes ${formatLaneList(task.contract.routing.activeLanes)}.`,
+    accent: TOKENS.purple,
+    priority: 'active',
+  };
+}
+
+function deriveTaskCardTone(task: BuilderTask, selected: boolean): TaskCardTone {
+  const signal = deriveTaskQueueSignal(task);
+  const base = selected ? TOKENS.gold : signal.accent;
+
+  if (signal.priority === 'attention') {
+    return {
+      border: selected ? TOKENS.gold : `${base}88`,
+      background: selected ? 'rgba(212,175,55,0.12)' : `linear-gradient(135deg, ${base}18, rgba(255,255,255,0.03))`,
+      glow: `${base}33`,
+      chipBg: `${base}18`,
+    };
+  }
+
+  if (signal.priority === 'delivered') {
+    return {
+      border: selected ? TOKENS.gold : `${base}66`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}12, rgba(255,255,255,0.03))`,
+      glow: `${base}22`,
+      chipBg: `${base}14`,
+    };
+  }
+
+  if (signal.priority === 'ready') {
+    return {
+      border: selected ? TOKENS.gold : `${base}55`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}10, rgba(255,255,255,0.025))`,
+      glow: `${base}18`,
+      chipBg: `${base}12`,
+    };
+  }
+
+  if (signal.priority === 'active') {
+    return {
+      border: selected ? TOKENS.gold : `${base}44`,
+      background: selected ? 'rgba(212,175,55,0.10)' : `linear-gradient(135deg, ${base}0f, rgba(255,255,255,0.02))`,
+      glow: `${base}18`,
+      chipBg: `${base}10`,
+    };
+  }
+
+  return {
+    border: selected ? TOKENS.gold : TOKENS.b2,
+    background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
+    glow: 'transparent',
+    chipBg: 'rgba(255,255,255,0.04)',
+  };
+}
+
+function sortTaskQueue(tasks: BuilderTask[], sortMode: TaskQueueSort) {
+  const priorityOrder: Record<TaskQueueSignal['priority'], number> = {
+    attention: 0,
+    active: 1,
+    ready: 2,
+    delivered: 3,
+    done: 4,
+  };
+
+  return [...tasks].sort((left, right) => {
+    if (sortMode === 'title') {
+      return left.title.localeCompare(right.title, 'de');
+    }
+
+    if (sortMode === 'updated') {
+      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+    }
+
+    const leftSignal = deriveTaskQueueSignal(left);
+    const rightSignal = deriveTaskQueueSignal(right);
+    const priorityDiff = priorityOrder[leftSignal.priority] - priorityOrder[rightSignal.priority];
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+  });
+}
+
+function deriveExecutionState(task: BuilderTask | null, evidence: BuilderEvidencePack | null): ExecutionStateSummary {
+  if (!task) {
+    return {
+      label: 'Keine Task aktiv',
+      detail: 'Waehle eine Task, um den laufenden Builder-Zustand und die aktuelle Workflow-Lage zu sehen.',
+      accent: TOKENS.text3,
+    };
+  }
+
+  const runtimeFailures = (evidence?.runtime_results ?? []).filter((result) => result.result !== 'pass').length;
+  const runtimeSummary = evidence
+    ? `${evidence.runtime_results.length} Runtime-Checks, ${runtimeFailures} nicht gruen`
+    : 'Noch kein Evidence Pack verfuegbar';
+  const counterexampleSummary = evidence
+    ? `${evidence.counterexamples_passed}/${evidence.counterexamples_tested} Gegenbeispiele bestanden`
+    : 'Keine Counterexample-Werte verfuegbar';
+  const { contract } = task;
+
+  switch (contract.lifecycle.phase) {
+    case 'requested':
+      return { label: 'Auftrag eingegangen', detail: contract.lifecycle.summary, accent: UNIVERSAL_PHASE_COLORS.requested };
+    case 'understood':
+      return { label: 'Versteht den Auftrag', detail: `${contract.lifecycle.summary} ${contract.intent.summary}`, accent: UNIVERSAL_PHASE_COLORS.understood };
+    case 'routed':
+      return { label: 'Routet in Lanes', detail: `${contract.routing.summary} Team: ${formatInstanceList(contract.team.activeInstances)}.`, accent: UNIVERSAL_PHASE_COLORS.routed };
+    case 'active':
+      return {
+        label: contract.codeLane.phase === 'prototype_building' ? 'Baut einen Prototyp' : 'Arbeitet aktiv',
+        detail: `${contract.codeLane.summary} ${contract.team.summary}`,
+        accent: UNIVERSAL_PHASE_COLORS.active,
+      };
+    case 'synthesizing':
+      return { label: 'Verdichtet Signale', detail: `${contract.lifecycle.summary} ${runtimeSummary}. ${counterexampleSummary}.`, accent: UNIVERSAL_PHASE_COLORS.synthesizing };
+    case 'delivered':
+      return { label: 'Ergebnis bereit', detail: `${contract.output.summary} ${contract.lifecycle.summary}`, accent: UNIVERSAL_PHASE_COLORS.delivered };
+    case 'confirmed':
+      if (evidence?.false_success_detected) {
+        return { label: 'Formal bestaetigt, aber fraglich', detail: 'Der Stand ist bestaetigt, aber das Evidence Pack markiert moeglichen False Success.', accent: '#ef4444' };
+      }
+      return {
+        label: task.commitHash ? 'Bestaetigt und verankert' : 'Bestaetigt',
+        detail: task.commitHash
+          ? `${contract.codeLane.summary} Commit ${task.commitHash.slice(0, 7)} ist sichtbar.`
+          : contract.lifecycle.summary,
+        accent: UNIVERSAL_PHASE_COLORS.confirmed,
+      };
+    case 'stopped':
+      return { label: 'Gestoppt', detail: contract.lifecycle.summary, accent: '#ef4444' };
+    default:
+      return { label: task.status, detail: `${runtimeSummary}. ${counterexampleSummary}.`, accent: STATUS_COLORS[task.status] ?? TOKENS.text2 };
+  }
+}
+
+function needsUserAttention(task: BuilderTask | null) {
+  return Boolean(task && task.contract.lifecycle.attentionState === 'waiting');
+}
+
+function deriveExperienceMode(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+): BuilderExperienceMode {
+  if (!task) {
+    return 'default';
+  }
+
+  const executionChannel = evidence?.execution_summary.channel ?? null;
+  const teamSize = task.contract.team.activeInstances.length;
+  const laneCount = task.contract.routing.activeLanes.length;
+
+  if (
+    executionChannel === 'pipeline'
+    || teamSize >= 3
+    || (laneCount >= 2 && task.contract.lifecycle.phase !== 'requested')
+  ) {
+    return 'pipeline';
+  }
+
+  return 'single_specialist';
+}
+
+function getPipelineReadinessText(pools: PoolState) {
+  const connectedModels = Object.values(pools).reduce((sum, entries) => sum + entries.length, 0);
+  return `Pipeline bereit  -  ${connectedModels} Modelle verbunden`;
+}
+
+function getSpecialistTransparencyLabel(
+  pools: PoolState,
+  modelMap: Record<string, MayaPoolModel>,
+  directorModel: DirectorModel | null,
+) {
+  if (directorModel) {
+    return `Maya nutzt ${DIRECTOR_MODEL_META[directorModel].label}`;
+  }
+
+  const mayaLead = pools.maya[0];
+  const mayaLabel = mayaLead ? modelMap[mayaLead]?.label ?? mayaLead : 'ein Spezialmodell';
+  return `Maya nutzt ${mayaLabel}`;
+}
+
+function formatObservationMeta(observation: BuilderTaskObservation | null) {
+  if (!observation) {
+    return 'Noch keine Live-Signale geladen.';
+  }
+
+  const latestChat = observation.chatPool[observation.chatPool.length - 1];
+  if (latestChat) {
+    return `${latestChat.actor}  -  ${latestChat.phase}  -  ${formatDate(latestChat.createdAt)}`;
+  }
+
+  const latestAction = observation.actions[observation.actions.length - 1];
+  if (latestAction) {
+    return `${latestAction.actor}  -  ${latestAction.kind}  -  ${formatDate(latestAction.createdAt)}`;
+  }
+
+  const latestLog = observation.opusLogs[observation.opusLogs.length - 1];
+  if (latestLog) {
+    return `${latestLog.action}  -  ${formatDate(latestLog.createdAt)}`;
+  }
+
+  return 'Live-Feed noch ohne einzelne Events.';
+}
+
+function summarizeWorkerModels(observation: BuilderTaskObservation | null) {
+  if (!observation || observation.chatPool.length === 0) {
+    return 'Noch keine Worker- oder Council-Signale im Live-Feed.';
+  }
+
+  const models = [...new Set(
+    observation.chatPool
+      .map((entry) => entry.model?.trim())
+      .filter((entry): entry is string => Boolean(entry) && entry !== 'manual'),
+  )];
+
+  if (models.length === 0) {
+    return 'Live-Feed aktiv, aber noch ohne sichtbare Modellnamen.';
+  }
+
+  const visible = models.slice(0, 6);
+  const hidden = models.length - visible.length;
+  return `${models.length} Modelle aktiv: ${visible.join(', ')}${hidden > 0 ? ` +${hidden}` : ''}`;
+}
+
+function deriveTribuneCurrentPhase(
+  task: BuilderTask,
+): TribunePhaseKey {
+  return task.contract.lifecycle.phase;
+}
+
+function deriveTribuneTimeline(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+): TribuneTimelineEntry[] {
+  if (!task) {
+    return [];
+  }
+
+  const currentPhase = deriveTribuneCurrentPhase(task);
+  const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
+  const latestMeta = formatObservationMeta(observation);
+  const executionMeta = formatExecutionMeta(evidence);
+  const runtimePasses = (evidence?.runtime_results ?? []).filter((result) => result.result === 'pass').length;
+  const runtimeFailures = (evidence?.runtime_results ?? []).filter((result) => result.result !== 'pass').length;
+  const { contract } = task;
+  const phaseContent: Record<TribunePhaseKey, Omit<TribuneTimelineEntry, 'state'>> = {
+    requested: {
+      key: 'requested',
+      label: 'Angefragt',
+      detail: `Task angelegt am ${formatDate(task.createdAt)} und fuer Maya registriert.`,
+      meta: `Status ${task.status}  -  Updated ${formatDate(task.updatedAt)}`,
+      accent: UNIVERSAL_PHASE_COLORS.requested,
+    },
+    understood: {
+      key: 'understood',
+      label: 'Verstanden',
+      detail: contract.intent.summary,
+      meta: latestMeta,
+      accent: UNIVERSAL_PHASE_COLORS.understood,
+    },
+    routed: {
+      key: 'routed',
+      label: 'Geroutet',
+      detail: `${contract.routing.summary} Aktive Lanes: ${formatLaneList(contract.routing.activeLanes)}.`,
+      meta: executionMeta,
+      accent: UNIVERSAL_PHASE_COLORS.routed,
+    },
+    active: {
+      key: 'active',
+      label: 'Aktiv',
+      detail: `${contract.team.summary} ${summarizeWorkerModels(observation)}`,
+      meta: `${contract.codeLane.phase}  -  ${executionMeta}`,
+      accent: UNIVERSAL_PHASE_COLORS.active,
+    },
+    synthesizing: {
+      key: 'synthesizing',
+      label: 'Verdichtet',
+      detail: evidence
+        ? `${evidence.checks.tsc}/${evidence.checks.build} bei TSC/Build  -  Runtime ${runtimePasses} gruen, ${runtimeFailures} nicht gruen.`
+        : contract.lifecycle.summary,
+      meta: evidence
+        ? `Agreement ${evidence.agreement_level ?? '-'}  -  Counterexamples ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`
+        : latestMeta,
+      accent: UNIVERSAL_PHASE_COLORS.synthesizing,
+    },
+    delivered: {
+      key: 'delivered',
+      label: 'Bereit',
+      detail: contract.output.summary,
+      meta: `${contract.output.format}  -  ${formatArtifacts(contract.output.plannedArtifacts)}  -  ${executionMeta}`,
+      accent: UNIVERSAL_PHASE_COLORS.delivered,
+    },
+    confirmed: {
+      key: 'confirmed',
+      label: 'Bestaetigt',
+      detail: task.commitHash
+        ? `Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Aufgabe gilt als bestaetigt.`
+        : contract.lifecycle.summary,
+      meta: task.commitHash ? `Updated ${formatDate(task.updatedAt)}` : formatArtifacts(contract.output.plannedArtifacts),
+      accent: UNIVERSAL_PHASE_COLORS.confirmed,
+    },
+    stopped: {
+      key: 'stopped',
+      label: 'Gestoppt',
+      detail: contract.lifecycle.summary,
+      meta: `Updated ${formatDate(task.updatedAt)}`,
+      accent: UNIVERSAL_PHASE_COLORS.stopped,
+    },
+  };
+
+  return TRIBUNE_PHASE_ORDER.map((phase, index) => {
+    let state: TribuneTimelineEntry['state'] = 'pending';
+    if (phase === currentPhase) {
+      state = contract.lifecycle.attentionState === 'waiting'
+        ? 'waiting'
+        : phase === 'stopped' || contract.lifecycle.attentionState === 'blocked'
+          ? 'blocked'
+          : 'current';
+    } else if (phase === 'stopped') {
+      state = currentPhase === 'stopped' ? 'blocked' : 'pending';
+    } else if (index < currentIndex) {
+      state = 'done';
+    }
+
+    return {
+      ...phaseContent[phase],
+      state,
+    };
+  });
+}
+
+function deriveMayaTribuneSentence(
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+) {
+  if (!task) {
+    return 'Waehle eine Task, dann erklaere ich dir den laufenden Builder-Ablauf in normaler Sprache.';
+  }
+
+  if (task.contract.lifecycle.attentionState === 'waiting') {
+    return task.contract.output.needsUserConfirmation
+      ? 'Ich habe einen verwertbaren Stand vorbereitet und brauche jetzt deine Entscheidung zum naechsten Schritt.'
+      : 'Ich halte das Ergebnis bereit und warte auf dein Signal fuer den Abschluss.';
+  }
+
+  if (task.contract.lifecycle.phase === 'confirmed' && task.commitHash && evidence?.runtime_results.length) {
+    return `Ich bin mit dieser Aufgabe durch; Commit ${task.commitHash.slice(0, 7)} ist sichtbar und die Runtime-Signale sehen gruen aus.`;
+  }
+
+  if (evidence?.execution_summary.transition_count) {
+    const channel = formatExecutionChannelLabel(evidence.execution_summary.channel);
+    const reason = evidence.execution_summary.last_transition_reason ?? 'ohne klaren Uebergangsgrund';
+    return `Ich arbeite gerade im ${channel}-Modus; der letzte sichtbare Uebergang war ${reason}.`;
+  }
+
+  const latestChat = observation?.chatPool[observation.chatPool.length - 1];
+  if (latestChat) {
+    return `Ich arbeite gerade in ${latestChat.phase} und der letzte sichtbare Beitrag kam von ${latestChat.actor}.`;
+  }
+
+  return task.contract.lifecycle.summary;
+}
+
+function deriveAttentionDetail(task: BuilderTask | null, waitingCount: number) {
+  if (!task) {
+    return null;
+  }
+
+  const moreCount = Math.max(0, waitingCount - 1);
+  const tail = moreCount > 0 ? ` Dazu kommen noch ${moreCount} weitere wartende Tasks.` : '';
+
+  if (task.contract.output.kind === 'html_artifact') {
+    return `Diese Task wartet bewusst auf eine Prototype-Entscheidung. Ohne dein Signal lande ich hier nichts.${tail}`;
+  }
+
+  return `Diese Task braucht vor dem naechsten Schritt deinen Blick oder deine Zustimmung.${tail}`;
+}
+
+function toArtifactPayload(artifact: BuilderArtifact | null | undefined) {
+  if (!artifact?.jsonPayload || typeof artifact.jsonPayload !== 'object') {
+    return null;
+  }
+
+  return artifact.jsonPayload;
+}
+
+function getArtifactPayloadString(artifact: BuilderArtifact | null | undefined, key: string) {
+  const payload = toArtifactPayload(artifact);
+  const value = payload?.[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function getArtifactPreviewText(artifact: BuilderArtifact | null | undefined) {
+  const payload = toArtifactPayload(artifact);
+  if (!payload) {
+    return null;
+  }
+
+  const directFields = ['summary', 'notes', 'html', 'step', 'route', 'kind'] as const;
+  for (const field of directFields) {
+    const value = payload[field];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  const compact = JSON.stringify(payload, null, 2);
+  return compact.length > 1200 ? `${compact.slice(0, 1200).trimEnd()}...` : compact;
+}
+
+function formatArtifactTypeLabel(type: string) {
+  switch (type) {
+    case 'prototype':
+      return 'Prototype';
+    case 'promoted_prototype':
+      return 'Promoted Prototype';
+    case 'browser_screenshot':
+      return 'Browser Screenshot';
+    case 'approval_ticket':
+      return 'Approval Ticket';
+    default:
+      return type.replace(/_/g, ' ');
+  }
+}
+
+function pickLatestArtifact(artifacts: BuilderArtifact[], types: string[]) {
+  return artifacts.find((artifact) => types.includes(artifact.artifactType)) ?? null;
+}
+
+function getCollapsedSidebarLabel(key: SidebarView) {
+  switch (key) {
+    case 'chat':
+      return 'CH';
+    case 'tasks':
+      return 'QU';
+    case 'files':
+      return 'FI';
+    case 'patrol':
+      return 'PA';
+    case 'notes':
+      return 'NO';
+    case 'models':
+      return 'MO';
+    default:
+      return '--';
+  }
+}
+
+function isBrowserScreenshotArtifact(artifact: BuilderArtifact) {
+  return artifact.artifactType === 'browser_screenshot';
+}
+
+function isVisualReviewReportArtifact(artifact: BuilderArtifact) {
+  return artifact.artifactType === 'visual_review_report';
+}
+
+function matchObservationSignals(
+  observation: BuilderTaskObservation | null,
+  patterns: string[],
+) {
+  if (!observation) {
+    return [];
+  }
+
+  const loweredPatterns = patterns.map((pattern) => pattern.toLowerCase());
+  return observation.chatPool.filter((entry) => {
+    const haystack = `${entry.phase} ${entry.actor} ${entry.content}`.toLowerCase();
+    return loweredPatterns.some((pattern) => haystack.includes(pattern));
+  });
+}
+
+function deriveTribunePhaseDetail(
+  phase: TribunePhaseKey,
+  task: BuilderTask | null,
+  evidence: BuilderEvidencePack | null,
+  observation: BuilderTaskObservation | null,
+  timeline: TribuneTimelineEntry[],
+): TribunePhaseDetail | null {
+  if (!task) {
+    return null;
+  }
+
+  const timelineEntry = timeline.find((entry) => entry.key === phase);
+  const currentPhase = deriveTribuneCurrentPhase(task);
+  const currentIndex = TRIBUNE_PHASE_ORDER.indexOf(currentPhase);
+  const phaseIndex = TRIBUNE_PHASE_ORDER.indexOf(phase);
+  const beforeCurrent = phaseIndex < currentIndex;
+  const afterCurrent = phaseIndex > currentIndex;
+  const { contract } = task;
+  const isManualReviewLane = contract.lifecycle.attentionState === 'waiting';
+
+  switch (phase) {
+    case 'requested':
+      return {
+        title: 'Auftrag wurde angelegt',
+        summary: 'Hier beginnt der Builder-Lauf. Ziel, Intent und Startkontext sind registriert, aber noch nicht vertieft.',
+        source: 'task',
+        lines: [
+          `Titel: ${task.title}`,
+          `Intent: ${contract.intent.kind}  -  Risk: ${task.risk ?? '-'}`,
+          `Erstellt: ${formatDate(task.createdAt)}  -  Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
+        ],
+      };
+    case 'understood': {
+      const planningSignals = matchObservationSignals(observation, ['architect', 'scope', 'plan', 'classify', 'understand']);
+      return {
+        title: 'Maya versteht den Auftrag',
+        summary: beforeCurrent || currentPhase === 'understood'
+          ? 'Maya klaert hier Problemkern, Risiko und die richtige Rahmung fuer die Aufgabe.'
+          : 'Diese Verstehensphase ist vorbei; der weitere Lauf baut auf diesem Zuschnitt auf.',
+        source: 'observe',
+        lines: planningSignals.length > 0
+          ? planningSignals.slice(-3).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
+          : [
+              contract.intent.summary,
+              timelineEntry?.meta ?? `Status ${task.status}`,
+            ],
+      };
+    }
+    case 'routed': {
+      const routeSignals = matchObservationSignals(observation, ['route', 'scope', 'lane', 'council', 'distiller']);
+      return {
+        title: 'Routing unter dem universellen Dach',
+        summary: currentPhase === 'routed'
+          ? 'Maya legt hier Lane, Team und geplante Outputform fuer den naechsten Schritt fest.'
+          : 'Diese Phase beschreibt den Uebergang von Verstehen zu gezielter Ausfuehrung.',
+        source: 'observe',
+        lines: [
+          `Lanes: ${formatLaneList(contract.routing.activeLanes)}`,
+          `Team: ${formatInstanceList(contract.team.activeInstances)}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
+          ...(routeSignals.length > 0
+            ? routeSignals.slice(-2).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
+            : [contract.routing.summary]),
+        ],
+      };
+    }
+    case 'active': {
+      const buildSignals = matchObservationSignals(observation, ['roundtable', 'worker', 'distiller', 'scout', 'swarm', 'patch']);
+      return {
+        title: 'Aktive Ausfuehrung',
+        summary: currentPhase === 'active'
+          ? 'Hier arbeitet das aktive Team in der spezialisierten Lane am eigentlichen Artefakt.'
+          : 'Diese Phase beschreibt den konkreten Arbeitsabschnitt der Aufgabe.',
+        source: 'observe',
+        lines: [
+          `Code-Lane: ${contract.codeLane.phase}  -  ${contract.codeLane.summary}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
+          summarizeWorkerModels(observation),
+          ...(buildSignals.length > 0
+            ? buildSignals.slice(-3).map((entry) => `${entry.actor}  -  ${entry.phase}  -  ${shortenGuideLabel(entry.content, 96)}`)
+            : [timelineEntry?.meta ?? 'Noch keine sichtbaren Worker-Signale.']),
+        ],
+      };
+    }
+    case 'synthesizing':
+      return {
+        title: 'Synthese und Pruefung',
+        summary: evidence
+          ? 'Hier verdichtet Maya Build-, Runtime-, Gegenbeispiel- und Review-Signale zu einem belastbaren Stand.'
+          : afterCurrent
+            ? 'Diese Phase ist noch nicht erreicht.'
+            : 'Noch kein Evidence Pack sichtbar; die Synthesephase hat noch nichts Verdichtetes geschrieben.',
+        source: 'evidence',
+        lines: evidence
+          ? [
+              `TSC: ${evidence.checks.tsc}  -  Build: ${evidence.checks.build}`,
+              `Runtime: ${evidence.runtime_results.length} Signale, ${evidence.runtime_results.filter((result) => result.result !== 'pass').length} nicht gruen`,
+              `Counterexamples: ${evidence.counterexamples_passed}/${evidence.counterexamples_tested}`,
+              `Execution: ${formatExecutionMeta(evidence)}`,
+              `Agreement: ${evidence.agreement_level ?? '-'}`,
+            ]
+          : [timelineEntry?.detail ?? 'Noch keine Check-Signale sichtbar.'],
+      };
+    case 'delivered':
+      return {
+        title: 'Ergebnis liegt vor',
+        summary: isManualReviewLane
+          ? 'Maya hat einen verwertbaren Stand vorbereitet und haelt ihn fuer Entscheidung oder Freigabe bereit.'
+          : 'Maya betrachtet das Ergebnis als bereit fuer Auslieferung oder Abschluss.',
+        source: 'task + contract',
+        lines: [
+          `Output: ${contract.output.kind}  -  Format: ${contract.output.format}`,
+          `Artefakte: ${formatArtifacts(contract.output.plannedArtifacts)}`,
+          `Execution: ${formatExecutionMeta(evidence)}`,
+          ...(isManualReviewLane
+          ? [
+              task.contract.output.kind === 'html_artifact'
+                ? 'Prototype liegt sichtbar vor und wartet auf Freigabe, Revision oder Verwerfung.'
+                : 'Builder meldet eine Review- oder Approval-Pflicht vor dem naechsten Schritt.',
+            ]
+          : [contract.output.summary]),
+        ],
+        notRequired: !isManualReviewLane,
+      };
+    case 'confirmed':
+      return {
+        title: 'Bestaetigter Stand',
+        summary: task.commitHash
+          ? 'Der Builder hat einen bestaetigten Stand mit sichtbarem Commit verankert.'
+          : afterCurrent
+            ? 'Diese Phase ist noch nicht erreicht.'
+            : 'Die Aufgabe gilt als bestaetigt, auch wenn noch kein Commit-Hash sichtbar ist.',
+        source: task.commitHash ? 'task + contract' : 'task',
+        lines: task.commitHash
+          ? [
+              `Commit: ${task.commitHash}`,
+              `Code-Lane: ${contract.codeLane.phase}`,
+              `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`,
+              contract.codeLane.summary,
+            ]
+          : [
+              contract.lifecycle.summary,
+              `Output: ${contract.output.kind}`,
+            ],
+      };
+    case 'stopped':
+      return {
+        title: 'Fail-closed / gestoppt',
+        summary: currentPhase === 'stopped'
+          ? 'Der Workflow wurde bewusst gestoppt oder rueckgaengig gemacht.'
+          : 'Diese Phase wurde fuer die aktuelle Task nicht benoetigt.',
+        source: 'task',
+        lines: currentPhase === 'stopped'
+          ? [`Status: ${task.status}`, `Zuletzt aktualisiert: ${formatDate(task.updatedAt)}`, contract.codeLane.summary]
+          : ['Kein Stop-Signal fuer diese Task sichtbar.'],
+        notRequired: currentPhase !== 'stopped',
+      };
+    default:
+      return null;
+  }
+}
+
+function poolScore(ids: string[], modelMap: Record<string, MayaPoolModel>) {
   if (ids.length === 0) {
     return 0;
   }
 
-  const scores = ids.map((id) => POOL_MODEL_META[id]?.quality ?? 0);
+  const scores = ids.map((id) => modelMap[id]?.quality ?? 0);
   return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
 }
 
 function PoolBar(props: {
   pools: PoolState;
+  poolConfig: MayaPoolConfig | null;
+  modelMap: Record<string, MayaPoolModel>;
   openPool: PoolType | null;
   onTogglePool: (pool: PoolType) => void;
   onToggleModel: (pool: PoolType, modelId: string) => void;
   taskId: string | null;
   fetchObservation: (taskId: string) => Promise<import('../hooks/useBuilderApi').BuilderTaskObservation>;
 }) {
-  const { pools, openPool, onTogglePool, onToggleModel, taskId, fetchObservation } = props;
+  const { pools, poolConfig, modelMap, openPool, onTogglePool, onToggleModel, taskId, fetchObservation } = props;
   const [openPoolChat, setOpenPoolChat] = useState<OpenPoolChat | null>(null);
   const chatAnchorsRef = useRef<Partial<Record<PoolChatType, HTMLDivElement | null>>>({});
 
@@ -608,14 +1564,14 @@ function PoolBar(props: {
 
   return (
     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-      <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 22, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '14px 16px' }}>
+      <div style={{ border: `2px solid ${TOKENS.b1}`, borderRadius: 22, background: TOKENS.card, boxShadow: `${TOKENS.shadow.card}, 0 0 0 1px rgba(255,255,255,0.04) inset`, padding: '14px 16px' }}>
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
           {(Object.keys(POOL_LABELS) as PoolType[]).map((pool) => {
             const meta = POOL_LABELS[pool];
             const activeIds = pools[pool];
             const leadId = activeIds[0];
-            const leadLabel = leadId ? POOL_MODEL_META[leadId]?.label ?? leadId : 'leer';
-            const score = poolScore(activeIds);
+            const leadLabel = leadId ? modelMap[leadId]?.label ?? leadId : 'leer';
+            const score = poolScore(activeIds, modelMap);
             const supportsChat = pool === 'scout' || pool === 'council' || pool === 'distiller' || pool === 'worker';
             const chatPool = supportsChat ? pool : null;
             const chatConfig = chatPool ? poolChatConfig[chatPool] : null;
@@ -673,7 +1629,7 @@ function PoolBar(props: {
                         textTransform: 'uppercase',
                       }}
                     >
-                      Live ▾
+                      Live {'>'}
                     </button>
                     {isChatOpen ? (
                       <div
@@ -711,12 +1667,12 @@ function PoolBar(props: {
         <div style={{ border: `1.5px solid ${TOKENS.b2}`, borderRadius: 22, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '16px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: POOL_LABELS[openPool].accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>{POOL_LABELS[openPool].label}</div>
-            <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>✕</button>
+            <button onClick={() => onTogglePool(openPool)} style={{ border: 'none', background: 'transparent', color: TOKENS.text2, cursor: 'pointer', fontSize: 16 }}>x</button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {POOL_OPTIONS[openPool].map((modelId) => {
+            {(poolConfig?.available[openPool] ?? []).map((modelId) => {
               const active = pools[openPool].includes(modelId);
-              const model = POOL_MODEL_META[modelId];
+              const model = modelMap[modelId];
               return (
                 <button
                   key={modelId}
@@ -740,96 +1696,6 @@ function PoolBar(props: {
           </div>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function ContextPanel(props: {
-  ctx: MayaContext | null;
-  onDeleteMemory: (id: string) => void;
-  onAddNote: (summary: string) => void;
-}) {
-  const { ctx, onDeleteMemory, onAddNote } = props;
-  const [showAdd, setShowAdd] = useState(false);
-  const [newNote, setNewNote] = useState('');
-
-  if (!ctx) {
-    return <div style={{ fontSize: 12, color: TOKENS.text3 }}>Kein Maya-Kontext geladen.</div>;
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Continuity Notes</div>
-          <button onClick={() => setShowAdd((current) => !current)} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, background: 'transparent', color: TOKENS.gold, cursor: 'pointer', fontWeight: 600 }}>+ Notiz</button>
-        </div>
-        {showAdd ? (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <input
-              value={newNote}
-              onChange={(event) => setNewNote(event.target.value)}
-              placeholder="Session-Notiz..."
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && newNote.trim()) {
-                  onAddNote(newNote.trim());
-                  setNewNote('');
-                  setShowAdd(false);
-                }
-              }}
-              style={{ flex: 1, background: TOKENS.bg, border: `1.5px solid ${TOKENS.b1}`, borderRadius: 10, padding: '6px 10px', color: TOKENS.text, fontSize: 11, outline: 'none' }}
-            />
-            <button onClick={() => {
-              if (!newNote.trim()) {
-                return;
-              }
-              onAddNote(newNote.trim());
-              setNewNote('');
-              setShowAdd(false);
-            }} style={{ fontSize: 10, padding: '6px 12px', borderRadius: 10, border: 'none', background: TOKENS.gold, color: '#000', cursor: 'pointer', fontWeight: 600 }}>OK</button>
-          </div>
-        ) : null}
-        <div style={{ display: 'grid', gap: 6 }}>
-          {ctx.continuityNotes.map((note, index) => (
-            <div key={note.id || index} style={{ display: 'flex', gap: 6, padding: '5px 0', fontSize: 11, color: TOKENS.text2, lineHeight: 1.5, borderBottom: `1px solid ${TOKENS.b3}` }}>
-              <div style={{ flex: 1 }}>
-                <span style={{ color: TOKENS.text3, fontFamily: 'monospace', fontSize: 9 }}>{formatDate(note.updatedAt)}</span>{' '}
-                {note.summary}
-              </div>
-              {note.id ? <button onClick={() => onDeleteMemory(note.id!)} style={{ border: 'none', background: 'transparent', color: TOKENS.text3, cursor: 'pointer', fontSize: 10 }}>✕</button> : null}
-            </div>
-          ))}
-          {ctx.continuityNotes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Continuity Notes.</div> : null}
-        </div>
-      </div>
-
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ fontSize: 11, color: TOKENS.purple, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>Memory Episodes</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {ctx.memory.episodes.slice(0, 6).map((entry, index) => (
-            <div key={entry.id || index} style={{ borderRadius: 12, border: `1px solid ${TOKENS.b3}`, background: TOKENS.card2, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{entry.key}</span>
-                <span style={{ fontSize: 10, color: TOKENS.text3, fontFamily: 'monospace' }}>{formatDate(entry.updatedAt)}</span>
-              </div>
-              <div style={{ fontSize: 12, color: TOKENS.text2, lineHeight: 1.5 }}>{entry.summary}</div>
-            </div>
-          ))}
-          {ctx.memory.episodes.length === 0 ? <div style={{ fontSize: 11, color: TOKENS.text3, fontStyle: 'italic' }}>Keine Memory Episodes.</div> : null}
-        </div>
-      </div>
-
-      <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-        <div style={{ fontSize: 11, color: TOKENS.cyan, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>System Status</div>
-        <div style={{ display: 'flex', gap: 12, fontSize: 11, fontFamily: 'monospace', color: TOKENS.text2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: TOKENS.green, boxShadow: `0 0 8px ${TOKENS.green}60`, display: 'inline-block' }} />
-            Render
-          </span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.tasks.length} Tasks</span>
-          <span style={{ border: `1px solid ${TOKENS.b3}`, borderRadius: 999, padding: '2px 8px' }}>{ctx.workerStats.length} Worker</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -916,7 +1782,7 @@ function BuilderAuthGate(props: {
                 transition: 'transform 0.18s ease, filter 0.18s ease, background 0.18s ease',
               }}
             >
-              {tokenVisible ? '🙈' : '👁'}
+              {tokenVisible ? 'Hide' : 'Show'}
             </button>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -956,7 +1822,7 @@ function BuilderAuthGate(props: {
               {loading ? 'Verbinde...' : 'Verbinden'}
             </button>
             <button onClick={onBack} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '11px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              Zurück
+              Zurueck
             </button>
           </div>
         </div>
@@ -978,12 +1844,30 @@ export function BuilderStudioPage() {
   const [tasks, setTasks] = useState<BuilderTask[]>([]);
   const [taskDetail, setTaskDetail] = useState<BuilderTask | null>(null);
   const [files, setFiles] = useState<string[]>([]);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => getInitialSelectedTaskId());
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [selectedFileContent, setSelectedFileContent] = useState<string>('');
   const [dialogFormat, setDialogFormat] = useState<DialogFormat>('dsl');
   const [dialogActions, setDialogActions] = useState<BuilderAction[]>([]);
   const [evidencePack, setEvidencePack] = useState<BuilderEvidencePack | null>(null);
+  const [taskArtifacts, setTaskArtifacts] = useState<BuilderArtifact[]>([]);
+  const [selectedVisualModelIds, setSelectedVisualModelIds] = useState<string[]>(['opus', 'gpt-5.5', 'qwen-vl']);
+  const [selectedVisualArtifactIds, setSelectedVisualArtifactIds] = useState<string[]>([]);
+  const [visualTaskType, setVisualTaskType] = useState<VisualReviewTaskType>('ui_review');
+  const [visualPrompt, setVisualPrompt] = useState('');
+  const [visualRunLoading, setVisualRunLoading] = useState(false);
+  const [visualAutoPicking, setVisualAutoPicking] = useState(false);
+  const [visualCouncilLoading, setVisualCouncilLoading] = useState(false);
+  const [visualFixTasksLoading, setVisualFixTasksLoading] = useState(false);
+  const [visualRunResult, setVisualRunResult] = useState<VisualReviewRunResponse | null>(null);
+  const [visualCouncilResult, setVisualCouncilResult] = useState<VisualCouncilEscalationResponse | null>(null);
+  const [visualFixTaskResult, setVisualFixTaskResult] = useState<VisualFixTaskCreationResponse | null>(null);
+  const [visionScores, setVisionScores] = useState<VisionModelScoreAggregate[]>([]);
+  const [visualFeedbackSavingKey, setVisualFeedbackSavingKey] = useState<string | null>(null);
+  const [taskObservation, setTaskObservation] = useState<BuilderTaskObservation | null>(null);
+  const [selectedTribunePhase, setSelectedTribunePhase] = useState<TribunePhaseKey | null>(null);
+  const [taskQueueFilter, setTaskQueueFilter] = useState<TaskQueueFilter>(() => getInitialTaskQueueFilter());
+  const [taskQueueSort, setTaskQueueSort] = useState<TaskQueueSort>(() => getInitialTaskQueueSort());
   const [pageError, setPageError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -996,12 +1880,9 @@ export function BuilderStudioPage() {
   const [directorModel, setDirectorModel] = useState<DirectorModel | null>(null);
   const [directorThinking, setDirectorThinking] = useState(false);
   const [commitHash, setCommitHash] = useState('');
-  const [draft, setDraft] = useState<BuilderCreateTaskInput>({
-    title: '',
-    goal: '',
-    risk: 'low',
-    taskType: 'A',
-  });
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarView, setSidebarView] = useState<SidebarView>('chat');
+  const [drawerView, setDrawerView] = useState<DrawerView | null>(null);
   const builderRef = useRef<HTMLDivElement | null>(null);
   const registryState = useMayaTargetRegistry(builderRef);
   const targetRegistry = useMemo(() => ({
@@ -1026,11 +1907,11 @@ export function BuilderStudioPage() {
     listFiles: listBuilderFiles,
     readFile: readBuilderFile,
     getTasks: getBuilderTasks,
-    createTask: createBuilderTask,
     getTask: getBuilderTask,
     runTask: runBuilderTask,
     getDialog: getBuilderDialog,
     getEvidence: getBuilderEvidence,
+    getArtifacts: getBuilderArtifacts,
     getTaskObservation,
     getPatrolStatus,
     getPatrolFindings,
@@ -1040,11 +1921,11 @@ export function BuilderStudioPage() {
     discardPrototype: discardBuilderPrototype,
     revertTask: revertBuilderTask,
     deleteTask: deleteBuilderTask,
-  } = useBuilderApi(token || null, opusToken || token || null);
-  const { getContext: getMayaContext, createMemory, deleteMemory, chat: mayaChat, directorChat } = useMayaApi(token || null);
+  } = useBuilderApi(token || null, opusToken || null);
+  const { getContext: getMayaContext, getVisionScores, autoPickVisionModels, updatePools: updateMayaPools, createMemory, deleteMemory, chat: mayaChat, directorChat, runVisualPerception, submitVisualFeedback, escalateVisualReportToCouncil, createVisualFixTasks } = useMayaApi(token || null);
   const [showConfig, setShowConfig] = useState(false);
   const [mayaCtx, setMayaCtx] = useState<MayaContext | null>(null);
-  const [pools, setPools] = useState<PoolState>(() => loadPools());
+  const [pools, setPools] = useState<PoolState>(EMPTY_POOL_STATE);
   const [openPool, setOpenPool] = useState<PoolType | null>(null);
   const [patrolOpen, setPatrolOpen] = useState(false);
   const [patrolLoading, setPatrolLoading] = useState(false);
@@ -1052,6 +1933,17 @@ export function BuilderStudioPage() {
   const [patrolStatus, setPatrolStatus] = useState<BuilderPatrolStatus | null>(null);
   const [patrolFindings, setPatrolFindings] = useState<BuilderPatrolFinding[]>([]);
   const [expandedPatrolFindingId, setExpandedPatrolFindingId] = useState<string | null>(null);
+  const poolConfig = mayaCtx?.poolConfig ?? null;
+  const poolModelMap = useMemo<Record<string, MayaPoolModel>>(
+    () => Object.fromEntries((poolConfig?.models ?? []).map((model) => [model.id, model])),
+    [poolConfig],
+  );
+  const activeCouncilModels = useMemo(() => {
+    const configuredIds = poolConfig?.active.council ?? [];
+    const fallbackIds = ['opus', 'sonnet', 'gpt-5.5'];
+    const ids = configuredIds.length > 0 ? configuredIds : fallbackIds;
+    return ids.map((id) => poolModelMap[id]).filter((model): model is MayaPoolModel => Boolean(model)).slice(0, 5);
+  }, [poolConfig, poolModelMap]);
   const groupedFiles = useMemo(() => groupFiles(files), [files]);
   const activeTask = useMemo(() => taskDetail ?? tasks.find((task) => task.id === selectedTaskId) ?? null, [taskDetail, tasks, selectedTaskId]);
   const dialogBubbles = useMemo(() => groupDialog(dialogActions, dialogFormat), [dialogActions, dialogFormat]);
@@ -1060,6 +1952,225 @@ export function BuilderStudioPage() {
   const isRunDisabled = isBusy || !selectedTaskId || isPrototypeReview;
   const sessionSummary = mayaCtx?.continuityNotes?.[0]?.summary ?? null;
   const sortedPatrolFindings = useMemo(() => sortPatrolFindings(patrolFindings), [patrolFindings]);
+  const visibleTasks = useMemo(() => {
+    const filtered = taskQueueFilter === 'all'
+      ? tasks
+      : tasks.filter((task) => deriveTaskQueueSignal(task).priority === taskQueueFilter);
+    return sortTaskQueue(filtered, taskQueueSort);
+  }, [taskQueueFilter, taskQueueSort, tasks]);
+  const executionState = useMemo(() => deriveExecutionState(activeTask, evidencePack), [activeTask, evidencePack]);
+  const experienceMode = useMemo(() => deriveExperienceMode(activeTask, evidencePack), [activeTask, evidencePack]);
+  const tribuneTimeline = useMemo(() => deriveTribuneTimeline(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
+  const waitingTasks = useMemo(() => tasks.filter((task) => needsUserAttention(task)), [tasks]);
+  const attentionTask = useMemo(() => {
+    if (needsUserAttention(activeTask)) {
+      return activeTask;
+    }
+    return waitingTasks[0] ?? null;
+  }, [activeTask, waitingTasks]);
+  const mayaTribuneSentence = useMemo(() => deriveMayaTribuneSentence(activeTask, evidencePack, taskObservation), [activeTask, evidencePack, taskObservation]);
+  const attentionDetail = useMemo(() => deriveAttentionDetail(attentionTask, waitingTasks.length), [attentionTask, waitingTasks.length]);
+  const operatorGuidance = useMemo(
+    () => deriveOperatorGuidance(activeTask, evidencePack, waitingTasks.length),
+    [activeTask, evidencePack, waitingTasks.length],
+  );
+  const latestDialogSnippet = useMemo(() => {
+    const latest = dialogBubbles[dialogBubbles.length - 1]?.content?.trim();
+    if (!latest) {
+      return null;
+    }
+
+    return latest.length > 420 ? `${latest.slice(0, 420).trimEnd()}...` : latest;
+  }, [dialogBubbles]);
+  const nonEvidenceArtifacts = useMemo(
+    () => taskArtifacts.filter((artifact) => artifact.artifactType !== 'evidence_pack'),
+    [taskArtifacts],
+  );
+  const browserScreenshotArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter(isBrowserScreenshotArtifact),
+    [nonEvidenceArtifacts],
+  );
+  const visualReviewReportArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter(isVisualReviewReportArtifact),
+    [nonEvidenceArtifacts],
+  );
+  const latestPrototypeArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['promoted_prototype', 'prototype']),
+    [nonEvidenceArtifacts],
+  );
+  const latestScreenshotArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['browser_screenshot']),
+    [nonEvidenceArtifacts],
+  );
+  const latestApprovalArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['approval_ticket']),
+    [nonEvidenceArtifacts],
+  );
+  const latestStructuredArtifact = useMemo(
+    () => nonEvidenceArtifacts.find((artifact) => {
+      const payload = toArtifactPayload(artifact);
+      if (!payload) {
+        return false;
+      }
+
+      return typeof payload.html !== 'string' && typeof payload.dataBase64 !== 'string';
+    }) ?? null,
+    [nonEvidenceArtifacts],
+  );
+  const latestVisualReviewArtifact = useMemo(
+    () => pickLatestArtifact(nonEvidenceArtifacts, ['visual_review_report']),
+    [nonEvidenceArtifacts],
+  );
+  const screenshotPreviewSrc = useMemo(() => {
+    const payload = toArtifactPayload(latestScreenshotArtifact);
+    const dataBase64 = typeof payload?.dataBase64 === 'string' ? payload.dataBase64 : null;
+    const contentType = typeof payload?.contentType === 'string' ? payload.contentType : 'image/png';
+    return dataBase64 ? `data:${contentType};base64,${dataBase64}` : null;
+  }, [latestScreenshotArtifact]);
+  const deliveryArtifacts = useMemo(
+    () => nonEvidenceArtifacts.filter((artifact) => artifact.artifactType !== 'approval_ticket').slice(0, 6),
+    [nonEvidenceArtifacts],
+  );
+  const visionModels = useMemo(
+    () => (poolConfig?.models ?? []).filter((model) => model.visionCapable === true),
+    [poolConfig],
+  );
+  const visualReviewTaskCandidate = useMemo(
+    () => activeTask ?? attentionTask ?? visibleTasks[0] ?? tasks[0] ?? null,
+    [activeTask, attentionTask, tasks, visibleTasks],
+  );
+  const displayedVisualRunResult = useMemo(() => {
+    if (visualRunResult) {
+      return visualRunResult;
+    }
+    const payload = toArtifactPayload(latestVisualReviewArtifact);
+    if (!payload) {
+      return null;
+    }
+    const reportArtifactId = typeof latestVisualReviewArtifact?.id === 'string' ? latestVisualReviewArtifact.id : null;
+    return {
+      success: true,
+      taskId: typeof latestVisualReviewArtifact?.taskId === 'string' ? latestVisualReviewArtifact.taskId : activeTask?.id ?? '',
+      reportArtifactId,
+      taskType: (typeof payload.taskType === 'string' ? payload.taskType : 'ui_review') as VisualReviewTaskType,
+      screenshotArtifactIds: Array.isArray(payload.screenshotArtifactIds) ? payload.screenshotArtifactIds.filter((entry): entry is string => typeof entry === 'string') : [],
+      modelResults: Array.isArray(payload.modelResults) ? payload.modelResults as VisualReviewRunResponse['modelResults'] : [],
+      mayaSynthesis: (payload.mayaSynthesis && typeof payload.mayaSynthesis === 'object'
+        ? payload.mayaSynthesis
+        : { modelId: '-', provider: '-', model: '-', summary: '' }) as VisualReviewRunResponse['mayaSynthesis'],
+    } satisfies VisualReviewRunResponse;
+  }, [activeTask?.id, latestVisualReviewArtifact, visualRunResult]);
+  const visualReviewBlockingReason = useMemo(() => {
+    if (!selectedTaskId) {
+      return tasks.length === 0
+        ? 'Noch keine Builder-Task vorhanden. Starte den Flow zuerst ueber den Maya-Chat.'
+        : 'Waehle zuerst eine Task, damit Screenshots und Findings einem Builder-Lauf zugeordnet werden koennen.';
+    }
+    if (selectedVisualModelIds.length === 0) {
+      return 'Waehle mindestens ein Vision-Modell fuer den Review-Lauf.';
+    }
+    if (selectedVisualArtifactIds.length === 0) {
+      return 'Fuer die gewaehlte Task fehlen Browser-Screenshots. Erzeuge erst Browser-Artefakte im Lauf.';
+    }
+    return null;
+  }, [selectedTaskId, selectedVisualArtifactIds.length, selectedVisualModelIds.length, tasks.length]);
+  const isVisualLaunchMode = drawerView === 'visual' && !selectedTaskId;
+  const visualLaunchChecklist = useMemo<Array<{ id: string; label: string; status: 'done' | 'ready' | 'waiting'; description: string }>>(
+    () => [
+      {
+        id: 'task',
+        label: 'Task binden',
+        status: selectedTaskId ? 'done' : visualReviewTaskCandidate ? 'ready' : 'waiting',
+        description: selectedTaskId
+          ? 'Der Review ist bereits an eine Builder-Task gebunden.'
+          : visualReviewTaskCandidate
+            ? `Nimm ${visualReviewTaskCandidate.title} als Startpunkt oder starte direkt im Chat.`
+            : 'Starte im Maya-Chat mit einer klaren UI-Aufgabe, damit Builder eine Task anlegt.',
+      },
+      {
+        id: 'capture',
+        label: 'Screenshots erzeugen',
+        status: browserScreenshotArtifacts.length > 0 ? 'done' : selectedTaskId || visualReviewTaskCandidate ? 'ready' : 'waiting',
+        description: browserScreenshotArtifacts.length > 0
+          ? `${browserScreenshotArtifacts.length} Browser-Screenshot(s) stehen fuer den Review bereit.`
+          : 'Lass Maya einen UI-Lauf mit UI_RUN-Schritten starten und browser_screenshot-Artefakte speichern.',
+      },
+      {
+        id: 'review',
+        label: 'Vision-Review laufen lassen',
+        status: selectedVisualArtifactIds.length > 0 ? 'ready' : 'waiting',
+        description: selectedVisualArtifactIds.length > 0
+          ? `${selectedVisualModelIds.length} Modell(e) koennen jetzt auf die gewaehlten Screenshots laufen.`
+          : 'Waehle danach Screenshots und 1..N Vision-Modelle fuer den eigentlichen Review-Lauf.',
+      },
+    ],
+    [
+      browserScreenshotArtifacts.length,
+      selectedTaskId,
+      selectedVisualArtifactIds.length,
+      selectedVisualModelIds.length,
+      visualReviewTaskCandidate,
+    ],
+  );
+  const sidebarTasks = useMemo(() => sortTaskQueue(tasks, 'priority').slice(0, 8), [tasks]);
+  const continuityNotes = mayaCtx?.continuityNotes ?? [];
+  const builderStatus = useMemo(() => {
+    if (experienceMode === 'pipeline' && activeTask) {
+      const activeIndex = Math.max(0, tribuneTimeline.findIndex((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked'));
+      return {
+        left: `Pipeline aktiv  -  ${activeTask.title}  -  Phase ${activeIndex + 1} von ${tribuneTimeline.length}`,
+        right: evidencePack ? `${formatExecutionChannelLabel(evidencePack.execution_summary.channel)}  -  ${evidencePack.total_tokens} Tokens` : 'Maya orchestriert gerade',
+      };
+    }
+
+    if (experienceMode === 'single_specialist' && activeTask) {
+      const focusEntry = tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0];
+      return {
+        left: `Single Specialist aktiv  -  ${activeTask.title}`,
+        right: focusEntry ? `${focusEntry.label}  -  ${focusEntry.detail}` : getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
+      };
+    }
+
+    if (experienceMode === 'single_specialist') {
+      return {
+        left: getPipelineReadinessText(pools),
+        right: getSpecialistTransparencyLabel(pools, poolModelMap, directorModel),
+      };
+    }
+
+    if (isVisualLaunchMode) {
+      return {
+        left: getPipelineReadinessText(pools),
+        right: 'Vision-Flow wartet auf Task, Browser-Screenshots und deinen Startimpuls',
+      };
+    }
+
+    return {
+      left: getPipelineReadinessText(pools),
+      right: 'Maya wartet auf deine naechste Aufgabe',
+    };
+  }, [activeTask, directorModel, evidencePack, experienceMode, isVisualLaunchMode, poolModelMap, pools, tribuneTimeline]);
+  const currentTribuneEntry = useMemo(
+    () => tribuneTimeline.find((entry) => entry.state === 'current' || entry.state === 'waiting' || entry.state === 'blocked') ?? tribuneTimeline[0] ?? null,
+    [tribuneTimeline],
+  );
+  const effectiveTribunePhase = selectedTribunePhase ?? currentTribuneEntry?.key ?? null;
+  const tribuneHeroTitle = activeTask
+    ? `Maya arbeitet gerade an: ${activeTask.title}`
+    : 'Im Moment laeuft keine Task.';
+  const tribuneHeroPhaseLabel = currentTribuneEntry?.label ?? executionState.label;
+  const tribuneHeroPhaseTone = currentTribuneEntry?.accent ?? executionState.accent;
+  const tribuneHeroSummary = attentionTask && attentionTask.id === activeTask?.id
+    ? `${tribuneHeroPhaseLabel}. Maya wartet gerade bewusst auf deine Entscheidung.`
+    : activeTask
+      ? `${tribuneHeroPhaseLabel}. ${executionState.detail}`
+      : 'Maya wartet auf die naechste sinnvolle Aufgabe.';
+  const tribunePhaseDetail = useMemo(
+    () => effectiveTribunePhase
+      ? deriveTribunePhaseDetail(effectiveTribunePhase, activeTask, evidencePack, taskObservation, tribuneTimeline)
+      : null,
+    [activeTask, effectiveTribunePhase, evidencePack, taskObservation, tribuneTimeline],
+  );
   const effectiveOpusToken = opusToken.trim().length > 0 ? opusToken : null;
   const previewUrl = activeTask
     ? (() => {
@@ -1077,6 +2188,26 @@ export function BuilderStudioPage() {
     : null;
   const activeChatLabel = directorModel ? getDirectorLabel(directorModel, directorThinking) : 'Maya Standard';
   const activeChatEndpoint = directorModel ? '/api/builder/maya/director' : '/api/builder/maya/chat';
+  const hasOutputContext = Boolean(
+    activeTask
+    || latestPrototypeArtifact
+    || latestStructuredArtifact
+    || latestApprovalArtifact
+    || latestVisualReviewArtifact,
+  );
+  const currentFocusLabel = drawerView === 'visual'
+    ? (selectedTaskId ? 'Vision Review' : 'Vision Launchpad')
+    : drawerView === 'models'
+      ? 'Model Pool'
+      : drawerView === 'task'
+        ? 'Task Focus'
+        : drawerView === 'output'
+          ? 'Delivery Surface'
+          : experienceMode === 'pipeline'
+            ? 'Pipeline'
+            : experienceMode === 'single_specialist'
+              ? 'Specialist Run'
+              : 'Dialog';
   const directorStatusText = directorModel
     ? getDirectorStatusText(
         directorThinking,
@@ -1124,6 +2255,12 @@ export function BuilderStudioPage() {
   }, [compact, dialogBubbles.length, patrolOpen, refreshMayaTargets, selectedTaskId, showConfig, tasks.length]);
 
   useEffect(() => {
+    if (compact) {
+      setSidebarExpanded(false);
+    }
+  }, [compact]);
+
+  useEffect(() => {
     const el = chatContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatLoading, chatMessages]);
@@ -1154,6 +2291,10 @@ export function BuilderStudioPage() {
       confirmDeleteTimer.current = null;
     }
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    setSelectedTribunePhase(currentTribuneEntry?.key ?? null);
+  }, [currentTribuneEntry?.key, selectedTaskId]);
 
   const refreshTasks = useCallback(async () => {
     const nextTasks = await getBuilderTasks();
@@ -1196,14 +2337,55 @@ export function BuilderStudioPage() {
     }
   }, [getBuilderEvidence]);
 
+  const refreshArtifacts = useCallback(async (taskId: string) => {
+    try {
+      const nextArtifacts = await getBuilderArtifacts(taskId);
+      setTaskArtifacts(Array.isArray(nextArtifacts) ? nextArtifacts : []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        setTaskArtifacts([]);
+        return;
+      }
+      throw error;
+    }
+  }, [getBuilderArtifacts]);
+
+  const refreshObservation = useCallback(async (taskId: string) => {
+    try {
+      const nextObservation = await getTaskObservation(taskId);
+      setTaskObservation(nextObservation);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        setTaskObservation(null);
+        return;
+      }
+      throw error;
+    }
+  }, [getTaskObservation]);
+
   const refreshMayaContext = useCallback(async () => {
     const nextContext = await getMayaContext();
     setMayaCtx(nextContext);
+    setPools(nextContext.poolConfig.active);
   }, [getMayaContext]);
+
+  const refreshVisionScores = useCallback(async () => {
+    const next = await getVisionScores();
+    setVisionScores(next.scores);
+  }, [getVisionScores]);
 
   const refreshPatrolFeed = useCallback(async () => {
     setPatrolLoading(true);
     setPatrolError(null);
+    if (!effectiveOpusToken) {
+      setPatrolStatus(null);
+      setPatrolFindings([]);
+      setPatrolError('Patrol braucht einen gueltigen Opus-Token. Oeffne Builder mit ?opus_token=... oder speichere ihn zuerst.');
+      setPatrolLoading(false);
+      return;
+    }
     try {
       const [nextStatus, nextFindings] = await Promise.all([
         getPatrolStatus(),
@@ -1216,7 +2398,7 @@ export function BuilderStudioPage() {
     } finally {
       setPatrolLoading(false);
     }
-  }, [getPatrolFindings, getPatrolStatus]);
+  }, [effectiveOpusToken, getPatrolFindings, getPatrolStatus]);
 
   useEffect(() => {
     const trimmedToken = token.trim();
@@ -1263,7 +2445,7 @@ export function BuilderStudioPage() {
         bootstrappedTokenRef.current = null;
         setAuthenticated(false);
         const message = error instanceof Error ? error.message : 'Builder-Authentifizierung fehlgeschlagen';
-        setAuthError(message === 'HTTP 401' ? 'Ungültiger Token' : message);
+        setAuthError(message === 'HTTP 401' ? 'Ungueltiger Token' : message);
       } finally {
         if (!cancelled) {
           setAuthLoading(false);
@@ -1276,12 +2458,55 @@ export function BuilderStudioPage() {
     };
   }, [effectiveOpusToken, token]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(BUILDER_TASK_QUEUE_FILTER_STORAGE_KEY, taskQueueFilter);
+    } catch {
+      // noop
+    }
+  }, [taskQueueFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(BUILDER_TASK_QUEUE_SORT_STORAGE_KEY, taskQueueSort);
+    } catch {
+      // noop
+    }
+  }, [taskQueueSort]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (taskQueueFilter === 'all') {
+      params.delete('queue');
+    } else {
+      params.set('queue', taskQueueFilter);
+    }
+
+    if (taskQueueSort === 'priority') {
+      params.delete('queue_sort');
+    } else {
+      params.set('queue_sort', taskQueueSort);
+    }
+
+    if (selectedTaskId) {
+      params.set('task', selectedTaskId);
+    } else {
+      params.delete('task');
+    }
+
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [selectedTaskId, taskQueueFilter, taskQueueSort]);
+
   // Initial load: fetch tasks and files once authenticated
   useEffect(() => {
     if (!authenticated) return;
     void refreshTasks().catch(() => {});
     void refreshFiles().catch(() => {});
     void refreshMayaContext().catch(() => {});
+    void refreshVisionScores().catch(() => {});
   }, [authenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1336,7 +2561,13 @@ export function BuilderStudioPage() {
     void refreshEvidence(selectedTaskId).catch((error) => {
       setPageError(error instanceof Error ? error.message : 'Evidence Pack konnte nicht geladen werden');
     });
-  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence]);
+    void refreshArtifacts(selectedTaskId).catch((error) => {
+      setPageError(error instanceof Error ? error.message : 'Artefakte konnten nicht geladen werden');
+    });
+    void refreshObservation(selectedTaskId).catch((error) => {
+      setPageError(error instanceof Error ? error.message : 'Live-Beobachtung konnte nicht geladen werden');
+    });
+  }, [authenticated, selectedTaskId, dialogFormat, refreshTaskDetail, refreshDialog, refreshEvidence, refreshArtifacts, refreshObservation]);
 
   useEffect(() => {
     if (!authenticated || !selectedTaskId) {
@@ -1351,6 +2582,51 @@ export function BuilderStudioPage() {
 
     return () => window.clearInterval(intervalId);
   }, [authenticated, selectedTaskId, refreshDialog]);
+
+  useEffect(() => {
+    if (!authenticated || !selectedTaskId) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshArtifacts(selectedTaskId).catch((error) => {
+        setPageError(error instanceof Error ? error.message : 'Artefakte konnten nicht aktualisiert werden');
+      });
+    }, 4000);
+
+    return () => window.clearInterval(intervalId);
+  }, [authenticated, selectedTaskId, refreshArtifacts]);
+
+  useEffect(() => {
+    const nextIds = browserScreenshotArtifacts.map((artifact) => artifact.id);
+    setSelectedVisualArtifactIds((current) => {
+      const stillValid = current.filter((id) => nextIds.includes(id));
+      if (stillValid.length > 0) {
+        return stillValid;
+      }
+      return nextIds.slice(0, 3);
+    });
+  }, [browserScreenshotArtifacts]);
+
+  useEffect(() => {
+    setVisualRunResult(null);
+    setVisualCouncilResult(null);
+    setVisualFixTaskResult(null);
+  }, [selectedTaskId]);
+
+  useEffect(() => {
+    if (!authenticated || !selectedTaskId) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshObservation(selectedTaskId).catch((error) => {
+        setPageError(error instanceof Error ? error.message : 'Live-Beobachtung konnte nicht aktualisiert werden');
+      });
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [authenticated, selectedTaskId, refreshObservation]);
 
   useEffect(() => {
     if (!authenticated || !selectedFilePath) {
@@ -1373,6 +2649,32 @@ export function BuilderStudioPage() {
     setOpenPool((current) => current === pool ? null : pool);
   }, []);
 
+  const focusTaskDetail = useCallback(() => {
+    const target = document.querySelector('[data-maya-target="task-detail"]');
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  const focusMayaTarget = useCallback((targetKey: string) => {
+    const target = document.querySelector(`[data-maya-target="${targetKey}"]`);
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  const handleOpenAttentionTask = useCallback(() => {
+    if (!attentionTask) {
+      return;
+    }
+
+    setSelectedTaskId(attentionTask.id);
+    setDrawerView('task');
+    window.setTimeout(() => {
+      focusTaskDetail();
+    }, 80);
+  }, [attentionTask, focusTaskDetail]);
+
   const handleTogglePoolModel = useCallback((pool: PoolType, modelId: string) => {
     setPools((current) => {
       const isSingle = pool === 'maya';
@@ -1382,11 +2684,15 @@ export function BuilderStudioPage() {
           ? current[pool].filter((entry) => entry !== modelId)
           : [...current[pool], modelId];
       const nextPools = { ...current, [pool]: nextIds };
-      savePools(nextPools);
-      void syncPoolsToServer(token, nextPools);
+      void updateMayaPools(nextPools)
+        .then((response) => {
+          setPools(response.poolConfig.active);
+          setMayaCtx((currentContext) => currentContext ? { ...currentContext, poolConfig: response.poolConfig } : currentContext);
+        })
+        .catch(() => {});
       return nextPools;
     });
-  }, [token]);
+  }, [updateMayaPools]);
 
   const handleAddNote = useCallback(async (summary: string) => {
     await createMemory('continuity', `note-${Date.now()}`, summary);
@@ -1397,21 +2703,6 @@ export function BuilderStudioPage() {
     await deleteMemory(id);
     await refreshMayaContext();
   }, [deleteMemory, refreshMayaContext]);
-
-  const handleCreateTask = useCallback(async () => {
-    setIsBusy(true);
-    setPageError(null);
-    try {
-      const created = await createBuilderTask(draft);
-      setDraft({ title: '', goal: '', risk: draft.risk, taskType: draft.taskType });
-      await refreshTasks();
-      setSelectedTaskId(created.id);
-    } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht erstellt werden');
-    } finally {
-      setIsBusy(false);
-    }
-  }, [createBuilderTask, draft, refreshTasks]);
 
   const handleRunTask = useCallback(async () => {
     if (!selectedTaskId) {
@@ -1474,7 +2765,7 @@ export function BuilderStudioPage() {
       return;
     }
 
-    const notes = window.prompt('Revisionshinweis für den Prototype', 'Bitte Layout oder Flow überarbeiten.') ?? undefined;
+    const notes = window.prompt('Revisionshinweis fuer den Prototype', 'Bitte Layout oder Flow ueberarbeiten.') ?? undefined;
 
     setIsBusy(true);
     setPageError(null);
@@ -1542,13 +2833,88 @@ export function BuilderStudioPage() {
       setTaskDetail(null);
       setDialogActions([]);
       setEvidencePack(null);
+      setTaskArtifacts([]);
+      setTaskObservation(null);
       await refreshTasks();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelöscht werden');
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht geloescht werden');
     } finally {
       setIsBusy(false);
     }
   }, [confirmDelete, deleteBuilderTask, refreshTasks, selectedTaskId]);
+
+  const isOperatorActionDisabled = useCallback((action: OperatorActionKey) => {
+    switch (action) {
+      case 'run':
+        return isRunDisabled;
+      case 'approve':
+      case 'approve_prototype':
+      case 'revise_prototype':
+      case 'revert':
+        return isBusy || !selectedTaskId;
+      case 'inspect':
+        return !activeTask;
+      default:
+        return true;
+    }
+  }, [activeTask, isBusy, isRunDisabled, selectedTaskId]);
+
+  const handleOperatorAction = useCallback((action: OperatorActionKey) => {
+    switch (action) {
+      case 'run':
+        void handleRunTask();
+        break;
+      case 'approve':
+        void handleApproveTask();
+        break;
+      case 'approve_prototype':
+        void handleApprovePrototype();
+        break;
+      case 'revise_prototype':
+        void handleRevisePrototype();
+        break;
+      case 'revert':
+        void handleRevertTask();
+        break;
+      case 'inspect':
+        focusTaskDetail();
+        break;
+      default:
+        break;
+    }
+  }, [
+    focusMayaTarget,
+    focusTaskDetail,
+    handleApprovePrototype,
+    handleApproveTask,
+    handleRevisePrototype,
+    handleRevertTask,
+    handleRunTask,
+  ]);
+
+  const handleTransitionJump = useCallback((lane: string, reason: string | null) => {
+    if (reason?.includes('prototype') || activeTask?.status === 'prototype_review') {
+      focusMayaTarget('preview-panel');
+      return;
+    }
+
+    if (lane === 'review') {
+      focusMayaTarget('technical-details');
+      return;
+    }
+
+    if (lane === 'runtime') {
+      focusMayaTarget('pruefstand');
+      return;
+    }
+
+    if (lane === 'prototype') {
+      focusMayaTarget('delivery-surface');
+      return;
+    }
+
+    focusMayaTarget('dialog-viewer');
+  }, [activeTask?.status, focusMayaTarget]);
 
   const handleCancelTask = useCallback(async (taskId: string) => {
     setIsBusy(true);
@@ -1591,14 +2957,189 @@ export function BuilderStudioPage() {
         setTaskDetail(null);
         setDialogActions([]);
         setEvidencePack(null);
+        setTaskArtifacts([]);
+        setTaskObservation(null);
       }
       await refreshTasks();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : 'Task konnte nicht gelöscht werden');
+      setPageError(error instanceof Error ? error.message : 'Task konnte nicht geloescht werden');
     } finally {
       setIsBusy(false);
     }
   }, [deleteBuilderTask, refreshTasks, selectedTaskId]);
+
+  const handleToggleVisualModel = useCallback((modelId: string) => {
+    setSelectedVisualModelIds((current) => current.includes(modelId)
+      ? current.filter((id) => id !== modelId)
+      : [...current, modelId]);
+  }, []);
+
+  const handleToggleVisualArtifact = useCallback((artifactId: string) => {
+    setSelectedVisualArtifactIds((current) => current.includes(artifactId)
+      ? current.filter((id) => id !== artifactId)
+      : [...current, artifactId]);
+  }, []);
+
+  const handleSelectVisualReviewTask = useCallback(() => {
+    if (!visualReviewTaskCandidate) {
+      return;
+    }
+    setSelectedTaskId(visualReviewTaskCandidate.id);
+    setSidebarExpanded(true);
+    setSidebarView('tasks');
+    setDrawerView('visual');
+  }, [visualReviewTaskCandidate]);
+
+  const handleAutoPickVisualModels = useCallback(async () => {
+    setVisualAutoPicking(true);
+    setPageError(null);
+    try {
+      const result = await autoPickVisionModels({ taskType: visualTaskType, limit: 3 });
+      setSelectedVisualModelIds(result.modelIds);
+      setVisionScores(result.scores);
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Vision Auto-Pick konnte nicht ausgefuehrt werden');
+    } finally {
+      setVisualAutoPicking(false);
+    }
+  }, [autoPickVisionModels, visualTaskType]);
+
+  const buildVisualCaptureMessage = useCallback(() => {
+    if (visualReviewTaskCandidate) {
+      return `Uebernimm ${visualReviewTaskCandidate.title} als Visual-Review-Startpunkt. Fuehre anschliessend einen Browser-Lauf mit UI_RUN-Schritten gegen die Builder-Oberflaeche aus und speichere mindestens drei browser_screenshot-Artefakte fuer einen Vision-Review-Lauf.`;
+    }
+
+    return 'Ich moechte einen Visual-Review-Flow starten. Lege eine passende Builder-Task fuer die aktuelle Builder-UI an, fuehre danach einen Browser-Lauf mit UI_RUN-Schritten gegen /builder aus und speichere mindestens drei browser_screenshot-Artefakte fuer einen Vision-Review-Lauf.';
+  }, [visualReviewTaskCandidate]);
+
+  const handleSeedVisualCapturePrompt = useCallback(() => {
+    setSidebarExpanded(true);
+    setSidebarView('chat');
+    setChatInput(buildVisualCaptureMessage());
+  }, [buildVisualCaptureMessage]);
+
+  const handleRunVisualReview = useCallback(async () => {
+    if (!selectedTaskId) {
+      setPageError('Keine Task fuer Visual Review gewaehlt');
+      return;
+    }
+    if (selectedVisualModelIds.length === 0) {
+      setPageError('Waehle mindestens ein Vision-Modell');
+      return;
+    }
+    if (selectedVisualArtifactIds.length === 0) {
+      setPageError('Waehle mindestens einen Browser-Screenshot');
+      return;
+    }
+
+    setVisualRunLoading(true);
+    setPageError(null);
+    try {
+      const result = await runVisualPerception({
+        taskId: selectedTaskId,
+        artifactIds: selectedVisualArtifactIds,
+        modelIds: selectedVisualModelIds,
+        taskType: visualTaskType,
+        prompt: visualPrompt.trim() || undefined,
+      });
+      setVisualRunResult(result);
+      setVisualCouncilResult(null);
+      setVisualFixTaskResult(null);
+      await refreshArtifacts(selectedTaskId);
+      await refreshVisionScores();
+      setDrawerView('visual');
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Review konnte nicht gestartet werden');
+    } finally {
+      setVisualRunLoading(false);
+    }
+  }, [refreshArtifacts, refreshVisionScores, runVisualPerception, selectedTaskId, selectedVisualArtifactIds, selectedVisualModelIds, visualPrompt, visualTaskType]);
+
+  const handleEscalateVisualCouncil = useCallback(async () => {
+    const reportArtifactId = displayedVisualRunResult?.reportArtifactId;
+    if (!reportArtifactId) {
+      setPageError('Kein Visual Report fuer Council-Eskalation vorhanden');
+      return;
+    }
+
+    const councilLabels = activeCouncilModels.map((model) => `${model.label} (${model.provider})`);
+    const confirmed = window.confirm([
+      'Visual Council startet Provider-Aufrufe.',
+      `Council-Modelle: ${activeCouncilModels.length || 'aktive Pool-Auswahl'}`,
+      councilLabels.length > 0 ? `Auswahl: ${councilLabels.join(', ')}` : null,
+      'Kostenmodus: manuell bestaetigter Council-Lauf plus Maya-Synthese.',
+      'Council-Runde jetzt wirklich starten?',
+    ].filter(Boolean).join('\n'));
+    if (!confirmed) {
+      return;
+    }
+
+    setVisualCouncilLoading(true);
+    setPageError(null);
+    try {
+      const result = await escalateVisualReportToCouncil(reportArtifactId, {
+        prompt: visualPrompt.trim() || undefined,
+        confirmed: true,
+      });
+      setVisualCouncilResult(result);
+      if (selectedTaskId) {
+        await refreshArtifacts(selectedTaskId);
+      }
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Council konnte nicht gestartet werden');
+    } finally {
+      setVisualCouncilLoading(false);
+    }
+  }, [activeCouncilModels, displayedVisualRunResult?.reportArtifactId, escalateVisualReportToCouncil, refreshArtifacts, selectedTaskId, visualPrompt]);
+
+  const handleSubmitVisualFeedback = useCallback(async (
+    reportArtifactId: string,
+    modelId: string,
+    verdict: 'confirmed' | 'mixed' | 'false_positive',
+  ) => {
+    const feedbackKey = `${reportArtifactId}:${modelId}:${verdict}`;
+    setVisualFeedbackSavingKey(feedbackKey);
+    setPageError(null);
+    try {
+      await submitVisualFeedback(reportArtifactId, { modelId, verdict });
+      await refreshVisionScores();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Feedback konnte nicht gespeichert werden');
+    } finally {
+      setVisualFeedbackSavingKey(null);
+    }
+  }, [refreshVisionScores, submitVisualFeedback]);
+
+  const handleCreateVisualFixTasks = useCallback(async () => {
+    const reportArtifactId = displayedVisualRunResult?.reportArtifactId;
+    if (!reportArtifactId) {
+      setPageError('Kein Visual Report fuer Fix-Task-Erzeugung vorhanden');
+      return;
+    }
+
+    const confirmed = window.confirm('Maya erzeugt aus den Visual Findings neue Builder-Fix-Tasks. Es werden noch keine Worker gestartet und nichts gepusht. Fortfahren?');
+    if (!confirmed) {
+      return;
+    }
+
+    setVisualFixTasksLoading(true);
+    setPageError(null);
+    try {
+      const result = await createVisualFixTasks(reportArtifactId, {
+        maxTasks: 5,
+        severities: ['critical', 'high', 'medium'],
+      });
+      setVisualFixTaskResult(result);
+      await refreshTasks();
+      if (selectedTaskId) {
+        await refreshArtifacts(selectedTaskId);
+      }
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Visual Fix-Tasks konnten nicht erzeugt werden');
+    } finally {
+      setVisualFixTasksLoading(false);
+    }
+  }, [createVisualFixTasks, displayedVisualRunResult?.reportArtifactId, refreshArtifacts, refreshTasks, selectedTaskId]);
 
   const sendMayaMessage = useCallback(async (rawMessage: string) => {
     const message = rawMessage.trim();
@@ -1693,6 +3234,22 @@ export function BuilderStudioPage() {
     }
   }, [activeChatEndpoint, activeChatLabel, chatLoading, chatMessages, directorChat, directorModel, directorThinking, guideMayaTo, mayaChat, refreshMayaContext, refreshMayaTargets, refreshTasks]);
 
+  const handleRunVisualCaptureFlow = useCallback(async () => {
+    const message = buildVisualCaptureMessage();
+    if (!message.trim()) {
+      return;
+    }
+
+    if (visualReviewTaskCandidate && !selectedTaskId) {
+      setSelectedTaskId(visualReviewTaskCandidate.id);
+    }
+
+    setSidebarExpanded(true);
+    setSidebarView('chat');
+    setDrawerView('visual');
+    void sendMayaMessage(message);
+  }, [buildVisualCaptureMessage, selectedTaskId, sendMayaMessage, visualReviewTaskCandidate]);
+
   const speech = useSpeechToText('de', (text) => {
     void sendMayaMessage(text);
   });
@@ -1734,6 +3291,20 @@ export function BuilderStudioPage() {
     );
   }
 
+  const greetingHour = new Date().getHours();
+  const greeting = greetingHour < 12 ? 'Guten Morgen' : greetingHour < 18 ? 'Guten Tag' : 'Guten Abend';
+  const sidebarWidth = sidebarExpanded && !compact ? 248 : 72;
+  const showDrawerColumn = Boolean(drawerView) && !compact;
+  const topbarStatus = builderStatus;
+  const shouldShowSessionSummary = Boolean(sessionSummary) && !isVisualLaunchMode && (sidebarView === 'patrol' || compact || experienceMode === 'pipeline');
+  const shouldShowInlineStageIntro = !activeTask;
+  const shouldShowDialogViewer = isVisualLaunchMode
+    || sidebarView === 'chat'
+    || chatMessages.length > 0
+    || chatLoading
+    || (Boolean(activeTask) && experienceMode === 'pipeline');
+  const shouldShowFooterStrip = visibleTasks.length > 0 && !isVisualLaunchMode;
+  
   return (
     <div style={{ minHeight: '100vh', background: `radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 32%), ${TOKENS.bg}`, color: TOKENS.text }}>
       <div ref={builderRef} style={{ position: 'relative', maxWidth: 1680, margin: '0 auto', padding: compact ? '18px 16px 28px' : '22px 22px 32px' }}>
@@ -1750,84 +3321,60 @@ export function BuilderStudioPage() {
             pointerEvents: 'none',
           }}
         />
-        <header
-          style={{
-            border: `1.5px solid ${TOKENS.b2}`,
-            borderRadius: 24,
-            background: TOKENS.card,
-            boxShadow: TOKENS.shadow.card,
-            padding: compact ? 18 : 22,
-            marginBottom: 18,
+        <BuilderStudioTopbar
+          compact={compact}
+          sidebarExpanded={sidebarExpanded}
+          greeting={greeting}
+          statusLeft={topbarStatus.left}
+          statusRight={topbarStatus.right}
+          currentFocusLabel={currentFocusLabel}
+          maskedToken={maskToken(token)}
+          tasksCount={tasks.length}
+          filesCount={files.length}
+          tasksExist={tasks.length > 0}
+          hasOutputContext={hasOutputContext}
+          drawerView={drawerView}
+          showConfig={showConfig}
+          effectiveOpusToken={effectiveOpusToken}
+          onToggleSidebarExpanded={() => setSidebarExpanded((current) => !current)}
+          onNavigateHome={() => navigate('/')}
+          onRefresh={() => {
+            void refreshTasks();
+            void refreshFiles();
+            void refreshMayaContext().catch(() => {});
+            if (patrolOpen) {
+              void refreshPatrolFeed();
+            }
           }}
-        >
-          <CosmicTrail intensity={64} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: 11, color: TOKENS.text2, textTransform: 'uppercase', letterSpacing: '0.14em', fontFamily: TOKENS.font.body }}>
-              Builder Control Surface
-            </div>
-            <div style={{ marginTop: 8, fontFamily: TOKENS.font.display, fontSize: compact ? 28 : 34, color: TOKENS.text, letterSpacing: '0.05em' }}>
-              Builder Studio
-            </div>
-            <div style={{ marginTop: 8, fontFamily: TOKENS.font.body, fontSize: 13, lineHeight: 1.7, color: TOKENS.text2, maxWidth: 760 }}>
-              Task-Orchestrierung, Dialog-Review und Evidence Packs in einer operativen Oberfläche.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button onClick={() => navigate('/')} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.b1}`, background: 'transparent', color: TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                Zur App
-              </button>
-              <button onClick={() => { void refreshTasks(); void refreshFiles(); void refreshMayaContext().catch(() => {}); if (patrolOpen) { void refreshPatrolFeed(); } }} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                Refresh
-              </button>
-              <button onClick={handleStartMayaTour} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(124,106,247,0.14)', color: TOKENS.text, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                🧭 Maya Tour
-              </button>
-              <button onClick={() => setShowConfig(!showConfig)} style={{ borderRadius: 999, border: `1.5px solid ${showConfig ? '#7c6af7' : TOKENS.b1}`, background: showConfig ? 'rgba(124,106,247,0.14)' : 'transparent', color: showConfig ? '#7c6af7' : TOKENS.text2, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                {showConfig ? 'Config ✕' : 'Config'}
-              </button>
-              <a
-                data-maya-target="patrol-console"
-                href="/patrol?opus_token=opus-bridge-2026-geheim"
-                style={{
-                  borderRadius: 999,
-                  border: '1.5px solid #f97316',
-                  background: 'rgba(249,115,22,0.14)',
-                  color: '#f97316',
-                  textDecoration: 'none',
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                🛡️ Patrol Console
-              </a>
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: TOKENS.text2, fontSize: 12 }}>
-              <span>Token {maskToken(token)}</span>
-              <span>{tasks.length} Tasks</span>
-              <span>{files.length} Files</span>
-            </div>
-          </div>
-        </header>
-
+          onStartMayaTour={handleStartMayaTour}
+          onToggleDrawer={(view) => setDrawerView((current) => current === view ? null : view)}
+          onOpenModels={() => {
+            setDrawerView((current) => current === 'models' ? null : 'models');
+            setShowConfig(true);
+          }}
+          onMissingPatrolToken={() => setPatrolError('Patrol Console braucht einen gueltigen Opus-Token.')}
+        />
+        
         {pageError ? (
           <div style={{ marginBottom: 16, borderRadius: 16, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(127,29,29,0.24)', color: '#fecaca', padding: '12px 14px', fontSize: 13 }}>
             {pageError}
           </div>
         ) : null}
 
-        <PoolBar
-          pools={pools}
-          openPool={openPool}
-          onTogglePool={handleTogglePool}
-          onToggleModel={handleTogglePoolModel}
-          taskId={selectedTaskId}
-          fetchObservation={getTaskObservation}
-        />
+        {experienceMode === 'pipeline' || drawerView === 'models' ? (
+          <PoolBar
+            pools={pools}
+            poolConfig={poolConfig}
+            modelMap={poolModelMap}
+            openPool={openPool}
+            onTogglePool={handleTogglePool}
+            onToggleModel={handleTogglePoolModel}
+            taskId={selectedTaskId}
+            fetchObservation={getTaskObservation}
+          />
+        ) : null}
 
-        {sessionSummary ? (
+        {shouldShowSessionSummary ? (
           <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
             <button
               data-maya-target="session"
@@ -1856,7 +3403,7 @@ export function BuilderStudioPage() {
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: 12, color: TOKENS.gold, fontWeight: 700, width: 16, flexShrink: 0 }}>{patrolOpen ? '▾' : '▸'}</span>
+              <span style={{ fontSize: 12, color: TOKENS.gold, fontWeight: 700, width: 16, flexShrink: 0 }}>{patrolOpen ? 'v' : '>'}</span>
               <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.gold, whiteSpace: 'nowrap', borderRadius: 999, border: `1px solid ${TOKENS.gold}40`, padding: '2px 8px' }}>Session</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sessionSummary}</span>
             </button>
@@ -1868,7 +3415,7 @@ export function BuilderStudioPage() {
                     <div style={{ fontSize: 11, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>Patrol Findings</div>
                     <div style={{ fontSize: 12, color: TOKENS.text2 }}>
                       {patrolStatus
-                        ? `${patrolStatus.totalFindings ?? 0} Findings · ${patrolStatus.crossConfirmed ?? 0} cross-confirmed · ${patrolStatus.triaged ?? 0} triaged`
+                        ? `${patrolStatus.totalFindings ?? 0} Findings  -  ${patrolStatus.crossConfirmed ?? 0} cross-confirmed  -  ${patrolStatus.triaged ?? 0} triaged`
                         : 'Patrol-Status wird geladen...'}
                     </div>
                   </div>
@@ -1898,6 +3445,22 @@ export function BuilderStudioPage() {
                     })}
                   </div>
                 </div>
+                {patrolStatus ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Findings</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.totalFindings ?? 0}</div>
+                    </div>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Cross-confirmed</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.crossConfirmed ?? 0}</div>
+                    </div>
+                    <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.03)', padding: '10px 12px', display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 10.5, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Triaged</div>
+                      <div style={{ fontSize: 14, color: TOKENS.text, fontWeight: 700 }}>{patrolStatus.triaged ?? 0}</div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div style={{ maxHeight: 400, overflowY: 'auto', display: 'grid', gap: 10, paddingRight: 2 }}>
                   {patrolLoading ? (
@@ -1933,7 +3496,7 @@ export function BuilderStudioPage() {
                               cursor: 'pointer',
                               padding: '12px 14px',
                               display: 'grid',
-                              gridTemplateColumns: compact ? '1fr' : '148px minmax(0, 1fr) minmax(0, 220px)',
+                              gridTemplateColumns: compact ? '1fr' : '160px minmax(0, 1fr) minmax(0, 180px)',
                               gap: 10,
                               alignItems: 'center',
                               textAlign: 'left',
@@ -1944,7 +3507,7 @@ export function BuilderStudioPage() {
                                 <span>{config.icon}</span>
                                 <span>{config.label}</span>
                               </span>
-                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{expanded ? '▾' : '▸'}</span>
+                              <span style={{ fontSize: 11, color: TOKENS.text3 }}>{expanded ? 'v' : '>'}</span>
                             </div>
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{finding.title}</div>
@@ -1954,7 +3517,7 @@ export function BuilderStudioPage() {
                               </div>
                             </div>
                             <div style={{ minWidth: 0, fontSize: 11, color: TOKENS.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {formatPatrolAffectedFiles(finding.affectedFiles)}
+                              {(finding.affectedFiles?.length ?? 0) > 0 ? `${finding.affectedFiles!.length} Dateien` : 'Ohne Dateiliste'}
                             </div>
                           </button>
                           {expanded ? (
@@ -1992,746 +3555,299 @@ export function BuilderStudioPage() {
           style={{
             display: 'grid',
             gap: 18,
-            gridTemplateColumns: compact ? '1fr' : '280px minmax(0, 1fr) 340px',
+            gridTemplateColumns: compact ? '1fr' : `${sidebarWidth}px minmax(0, 1fr) ${showDrawerColumn ? '360px' : '0px'}`,
             alignItems: 'start',
           }}
         >
           <div style={{ display: 'grid', gap: 18 }}>
-            <div data-maya-target="tasklist">
-              <BuilderPanel title="Task-Liste" subtitle="Aktive Builder-Queues und Statusfarben." accent={TOKENS.cyan}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                {tasks.map((task) => {
-                  const selected = task.id === selectedTaskId;
-                  const isActive = !['done', 'cancelled', 'blocked', 'deleted'].includes(task.status);
-                  return (
-                    <div
-                      key={task.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(0, 1fr) auto',
-                        gap: 8,
-                        alignItems: 'start',
-                      }}
-                    >
-                      <button
-                        onClick={() => setSelectedTaskId(task.id)}
-                        style={{
-                          textAlign: 'left',
-                          borderRadius: 18,
-                          border: `1.5px solid ${selected ? TOKENS.gold : TOKENS.b2}`,
-                          background: selected ? 'rgba(212,175,55,0.10)' : TOKENS.card2,
-                          padding: '12px 14px',
-                          cursor: 'pointer',
-                          overflow: 'hidden',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                          <div
-                            style={{
-                              minWidth: 0,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: TOKENS.text,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              wordBreak: 'break-word',
-                              overflowWrap: 'break-word',
-                            }}
-                          >
-                            {task.title}
-                          </div>
-                          <span
-                            style={{
-                              borderRadius: 999,
-                              border: `1px solid ${TOKENS.b1}`,
-                              color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                              padding: '3px 8px',
-                              fontSize: 11,
-                              textTransform: 'uppercase',
-                              flexShrink: 0,
-                              maxWidth: 80,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {task.status}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 8,
-                            fontSize: 12,
-                            lineHeight: 1.55,
-                            color: TOKENS.text2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'break-word',
-                          }}
-                        >
-                          {task.goal}
-                        </div>
-                      </button>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignSelf: 'center' }}>
-                        {isActive ? (
-                          <button
-                            onClick={() => { void handleCancelTask(task.id); }}
-                            title="Task abbrechen"
-                            disabled={isBusy}
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 999,
-                              border: `1.5px solid rgba(239,68,68,0.45)`,
-                              background: 'rgba(127,29,29,0.22)',
-                              color: '#fecaca',
-                              cursor: isBusy ? 'not-allowed' : 'pointer',
-                              fontSize: 16,
-                              lineHeight: 1,
-                              opacity: isBusy ? 0.6 : 1,
-                            }}
-                          >
-                            ×
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={() => { void handleDeleteInline(task.id); }}
-                          title="Task löschen"
-                          disabled={isBusy}
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 999,
-                            border: `1.5px solid rgba(161,98,7,0.45)`,
-                            background: 'rgba(120,53,15,0.22)',
-                            color: '#fde68a',
-                            cursor: isBusy ? 'not-allowed' : 'pointer',
-                            fontSize: 15,
-                            lineHeight: 1,
-                            opacity: isBusy ? 0.6 : 1,
-                          }}
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                  {tasks.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Builder-Tasks vorhanden.</div> : null}
-                </div>
-              </BuilderPanel>
-            </div>
-
-            <BuilderPanel title="File Explorer" subtitle="Repo-Dateien bis Tiefe 3, direkt aus dem Builder-Endpoint." accent={TOKENS.purple}>
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'grid', gap: 12, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
-                  {groupedFiles.map(([group, entries]) => (
-                    <div key={group}>
-                      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: TOKENS.text3, marginBottom: 8 }}>{group}</div>
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {entries.slice(0, 14).map((file) => (
-                          <button
-                            key={file}
-                            onClick={() => setSelectedFilePath(file)}
-                            style={{
-                              textAlign: 'left',
-                              borderRadius: 12,
-                              border: `1px solid ${selectedFilePath === file ? TOKENS.gold : TOKENS.b3}`,
-                              background: selectedFilePath === file ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)',
-                              color: TOKENS.text2,
-                              padding: '8px 10px',
-                              fontSize: 12,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {file}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ borderRadius: 16, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                  <div style={{ fontSize: 12, color: TOKENS.text3, marginBottom: 8 }}>{selectedFilePath ?? 'Keine Datei gewählt'}</div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, lineHeight: 1.55, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {selectedFileContent ? toLines(selectedFileContent).join('\n') : 'Dateiinhalt erscheint hier als kurzer Preview-Ausschnitt.'}
-                  </pre>
-                </div>
-              </div>
-            </BuilderPanel>
-          </div>
-
-          <div data-maya-target="dialog-viewer">
-            <BuilderPanel title="Dialog Viewer" subtitle="BDL oder Textansicht mit Bubble-Gruppierung pro Akteur und Runde." accent={TOKENS.gold}>
-              <div
-                data-maya-target="maya-chat"
-              style={{
-                background: TOKENS.bg2,
-                borderRadius: 22,
-                border: `1px solid ${TOKENS.b1}`,
-                padding: 16,
-                marginBottom: 16,
+            <BuilderSidebarNav
+              compact={compact}
+              sidebarExpanded={sidebarExpanded}
+              sidebarView={sidebarView}
+              patrolOpen={patrolOpen}
+              selectedTaskId={selectedTaskId}
+              selectedFilePath={selectedFilePath ?? (files.length > 0 ? `${files.length} Builder-Dateien indexiert` : null)}
+              sidebarTasks={sidebarTasks}
+              continuityNotes={continuityNotes}
+              patrolStatus={patrolStatus}
+              patrolSeverityConfig={PATROL_SEVERITY_CONFIG}
+              collapsedLabelFor={getCollapsedSidebarLabel}
+              formatDate={formatDate}
+              onSelectSidebarView={(view) => {
+                setSidebarExpanded(true);
+                setSidebarView(view);
               }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: TOKENS.gold,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
-                  marginBottom: 10,
-                  fontFamily: TOKENS.font.display,
+              onFocusChat={() => focusMayaTarget('maya-chat')}
+              onSelectTask={(taskId) => {
+                setSelectedTaskId(taskId);
+                setDrawerView('task');
+              }}
+              onFocusFileExplorer={() => focusMayaTarget('file-explorer')}
+              onTogglePatrolFeed={() => {
+                setPatrolOpen((current) => !current);
+                focusMayaTarget('session');
+              }}
+            />
+            {sidebarView === 'tasks' || compact ? (
+              <BuilderTaskListPanel
+                compact={compact}
+                taskQueueFilter={taskQueueFilter}
+                taskQueueSort={taskQueueSort}
+                visibleTasks={visibleTasks}
+                tasksCount={tasks.length}
+                selectedTaskId={selectedTaskId}
+                isBusy={isBusy}
+                deriveTaskQueueSignal={deriveTaskQueueSignal}
+                deriveTaskCardTone={deriveTaskCardTone}
+                formatLaneList={formatLaneList}
+                onTaskQueueFilterChange={setTaskQueueFilter}
+                onTaskQueueSortChange={setTaskQueueSort}
+                onSelectTask={(taskId) => {
+                  setSelectedTaskId(taskId);
+                  setDrawerView('task');
                 }}
-              >
-                Maya Chat
-              </div>
-              <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button
-                    onClick={() => setDirectorModel((current) => current ? null : 'opus')}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${directorModel ? '#7c6af7' : TOKENS.b1}`,
-                      background: directorModel ? 'rgba(124,106,247,0.14)' : 'transparent',
-                      color: directorModel ? '#c4b5fd' : TOKENS.text2,
-                      padding: '7px 12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Maya Brain {directorModel ? 'AN' : 'AUS'}
-                  </button>
-                  {directorModel ? (Object.entries(DIRECTOR_MODEL_META) as Array<[DirectorModel, { label: string }]>).map(([id, meta]) => (
-                    <button
-                      key={id}
-                      onClick={() => setDirectorModel(id)}
-                      style={{
-                        borderRadius: 999,
-                        border: `1px solid ${directorModel === id ? TOKENS.gold : TOKENS.b1}`,
-                        background: directorModel === id ? 'rgba(212,175,55,0.14)' : 'transparent',
-                        color: directorModel === id ? TOKENS.gold : TOKENS.text2,
-                        padding: '6px 11px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {meta.label}
-                    </button>
-                  )) : null}
-                  {directorModel ? (
-                    <button
-                      onClick={() => setDirectorThinking((current) => !current)}
-                      style={{
-                        borderRadius: 999,
-                        border: `1px solid ${directorThinking ? TOKENS.cyan : TOKENS.b1}`,
-                        background: directorThinking ? 'rgba(34,211,238,0.12)' : 'transparent',
-                        color: directorThinking ? TOKENS.cyan : TOKENS.text2,
-                        padding: '6px 11px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {directorThinking ? 'Deep' : 'Fast'}
-                    </button>
-                  ) : null}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 14, border: `1px solid ${TOKENS.b1}`, background: 'rgba(255,255,255,0.03)' }}>
-                  <span style={{ fontSize: 12, color: TOKENS.text }}>
-                    {directorModel ? 'Mehrstufiger Maya-Brain aktiv' : 'Normaler Builder-Chat aktiv'}
-                  </span>
-                  <span style={{ fontSize: 11, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {activeChatLabel} · {activeChatEndpoint}
-                  </span>
-                </div>
-              </div>
-              <div
-                ref={chatContainerRef}
-                style={{
-                  maxHeight: 420,
-                  overflowY: 'auto',
-                  marginBottom: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
+                onCancelTask={(taskId) => {
+                  void handleCancelTask(taskId);
                 }}
-              >
-                {chatMessages.length === 0 ? (
-                  <div style={{ color: TOKENS.text3, fontSize: 13, fontStyle: 'italic' }}>
-                    {directorModel
-                      ? 'Beschreibe den naechsten Builder-Schritt — Maya Brain kann analysieren, delegieren und Actions ausfuehren.'
-                      : 'Beschreibe was du aendern willst — Maya erstellt den Task automatisch.'}
-                  </div>
-                ) : null}
-                {chatMessages.map((message, index) => {
-                  const parsedTask = message.role === 'assistant'
-                    ? parseTaskConfirmation(message.content)
-                    : null;
+                onDeleteTask={(taskId) => {
+                  void handleDeleteInline(taskId);
+                }}
+              />
+            ) : null}
 
-                  return (
-                    <div
-                      key={`${message.role}-${index}`}
-                      style={{
-                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                        background: message.role === 'user' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${message.role === 'user' ? `${TOKENS.gold}30` : TOKENS.b1}`,
-                        borderRadius: 14,
-                        padding: '8px 12px',
-                        maxWidth: '85%',
-                        fontSize: 13,
-                        color: TOKENS.text,
-                        lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {message.role === 'assistant' && message.label ? (
-                        <div style={{ marginBottom: 6, fontSize: 10, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
-                          {message.label}
-                        </div>
-                      ) : null}
-                      {parsedTask ? (
-                        <div
-                          style={{
-                            background: 'rgba(212,175,55,0.08)',
-                            border: '1px solid rgba(212,175,55,0.25)',
-                            borderRadius: 10,
-                            padding: '12px 16px',
-                          }}
-                        >
-                          <div style={{ fontSize: 11, color: '#d4af37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                            ✨ Task erstellt
-                          </div>
-                          <div style={{ fontSize: 15, color: '#e2e4f0', fontWeight: 600 }}>
-                            {parsedTask.title}
-                          </div>
-                          {parsedTask.goal ? (
-                            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                              {parsedTask.goal}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <>
-                          {message.content}
-                          {message.actions && message.actions.length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                              {message.actions.map((action, actionIndex) => (
-                                <span
-                                  key={`${action.tool}-${actionIndex}`}
-                                  style={{
-                                    borderRadius: 999,
-                                    border: `1px solid ${action.ok ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.35)'}`,
-                                    background: action.ok ? 'rgba(20,83,45,0.26)' : 'rgba(127,29,29,0.22)',
-                                    color: action.ok ? '#bbf7d0' : '#fecaca',
-                                    padding: '3px 8px',
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                  }}
-                                  title={action.summary}
-                                >
-                                  {action.tool}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                          {message.actions
-                            ?.map((action) => getReadFilePreview(action))
-                            .filter((preview): preview is ReadFilePreview => preview !== null)
-                            .map((preview, previewIndex) => (
-                              <details
-                                key={`${preview.path}-${previewIndex}`}
-                                style={{
-                                  marginTop: 10,
-                                  borderRadius: 12,
-                                  border: `1px solid ${TOKENS.b2}`,
-                                  background: 'rgba(255,255,255,0.03)',
-                                  padding: '10px 12px',
-                                }}
-                              >
-                                <summary style={{ cursor: 'pointer', color: TOKENS.gold, fontSize: 12, fontWeight: 700 }}>
-                                  read-file · {preview.path}
-                                </summary>
-                                <pre
-                                  style={{
-                                    margin: '10px 0 0',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    fontSize: 11,
-                                    lineHeight: 1.6,
-                                    color: TOKENS.text2,
-                                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-                                  }}
-                                >
-                                  {preview.content}
-                                </pre>
-                              </details>
-                            ))}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                {chatLoading && !directorModel ? (
-                  <div style={{ color: TOKENS.gold, fontSize: 12, fontStyle: 'italic' }}>
-                    Maya denkt nach...
-                  </div>
-                ) : null}
-                <div ref={chatEndRef} />
-              </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={chatInput}
-                    onChange={(event) => setChatInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        void handleSendChat();
-                      }
-                    }}
-                    placeholder={directorModel ? "z.B. 'Pruefe den Patrol-Status und delegiere den naechsten sinnvollen Schritt'" : "z.B. 'Erstelle einen Health-Check Endpoint'"}
-                    style={{
-                      flex: 1,
-                      borderRadius: 12,
-                      border: `1.5px solid ${TOKENS.b1}`,
-                      background: TOKENS.bg,
-                      color: TOKENS.text,
-                      padding: '10px 12px',
-                      fontSize: 13,
-                      outline: 'none',
-                    }}
-                    disabled={chatLoading}
-                  />
-                  <button
-                    onClick={handleMicClick}
-                    disabled={!speech.isSupported || chatLoading}
-                    title={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
-                    aria-label={speech.isSupported ? (speech.isListening ? 'Mikrofon stoppen' : 'Mikrofon starten') : 'Spracherkennung nicht verfuegbar'}
-                    style={{
-                      borderRadius: 12,
-                      border: `1.5px solid ${speech.isListening ? TOKENS.green : TOKENS.b1}`,
-                      background: speech.isListening ? 'rgba(16,185,129,0.16)' : 'transparent',
-                      color: speech.isListening ? TOKENS.green : TOKENS.text2,
-                      padding: '10px 14px',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: !speech.isSupported || chatLoading ? 'not-allowed' : 'pointer',
-                      opacity: !speech.isSupported || chatLoading ? 0.45 : 1,
-                    }}
-                  >
-                    {speech.isListening ? 'Stop' : 'Mic'}
-                  </button>
-                  <button
-                    data-maya-target="send-button"
-                    onClick={() => {
-                      void handleSendChat();
-                    }}
-                    disabled={chatLoading || !chatInput.trim()}
-                    style={{
-                      borderRadius: 12,
-                      border: `1.5px solid ${TOKENS.gold}`,
-                      background: 'rgba(212,175,55,0.12)',
-                      color: TOKENS.gold,
-                      padding: '10px 16px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: chatLoading ? 'not-allowed' : 'pointer',
-                      opacity: chatLoading || !chatInput.trim() ? 0.5 : 1,
-                    }}
-                  >
-                    Senden
-                  </button>
-                </div>
-                {speech.micBlocked || speech.isListening ? (
-                  <div
-                    style={{
-                      minHeight: 18,
-                      color: speech.micBlocked ? '#fca5a5' : TOKENS.green,
-                      fontSize: 12,
-                    }}
-                  >
-                    {speech.micBlocked ? 'Mikrofon blockiert. Bitte Browser-Freigabe pruefen.' : 'Maya hoert zu...'}
-                  </div>
-                ) : null}
-                {directorModel && directorStatusText ? (
-                  <div
-                    style={{
-                      minHeight: 20,
-                      color: directorLiveStatus?.phase === 'error'
-                        ? '#fca5a5'
-                        : directorLiveStatus?.phase === 'tool' || chatLoading
-                          ? TOKENS.green
-                          : TOKENS.text2,
-                      fontSize: 12,
-                    }}
-                  >
-                    {directorStatusText}
-                  </div>
-                ) : null}
-              </div>
-              </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-              <div style={{ color: TOKENS.text2, fontSize: 13 }}>
-                Aktiver Task: {activeTask?.title ?? '—'}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {(['dsl', 'text'] as const).map((format) => (
-                  <button
-                    key={format}
-                    onClick={() => setDialogFormat(format)}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${dialogFormat === format ? TOKENS.gold : TOKENS.b1}`,
-                      background: dialogFormat === format ? 'rgba(212,175,55,0.12)' : 'transparent',
-                      color: dialogFormat === format ? TOKENS.text : TOKENS.text2,
-                      padding: '8px 14px',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {format.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gap: 14, minHeight: 720 }}>
-              {dialogBubbles.map((bubble) => (
-                <article
-                  key={bubble.id}
-                  style={{
-                    justifySelf: bubble.actor === 'chatgpt' ? 'end' : 'start',
-                    width: 'min(86%, 760px)',
-                    borderRadius: 22,
-                    border: `1.5px solid ${ACTOR_COLORS[bubble.actor] ?? TOKENS.b2}`,
-                    background: bubble.actor === 'chatgpt' ? 'rgba(34,211,238,0.07)' : bubble.actor === 'claude' ? 'rgba(212,175,55,0.08)' : TOKENS.card2,
-                    padding: '14px 16px',
-                    boxShadow: TOKENS.shadow.card,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em', color: ACTOR_COLORS[bubble.actor] ?? TOKENS.text2 }}>{bubble.actor}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: TOKENS.text3 }}>Runde {bubble.roundNumber || '—'} · {bubble.role}</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: TOKENS.text3 }}>{formatDate(bubble.createdAt)}</div>
-                  </div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, lineHeight: 1.7, color: TOKENS.text, fontFamily: dialogFormat === 'dsl' ? 'ui-monospace, SFMono-Regular, monospace' : TOKENS.font.body }}>
-                    {bubble.content}
-                  </pre>
-                </article>
-              ))}
-              {dialogBubbles.length === 0 ? <div style={{ fontSize: 14, color: TOKENS.text2 }}>Noch kein Dialog für den gewählten Task vorhanden.</div> : null}
-            </div>
-            </BuilderPanel>
-          </div>
-
-          <div style={{ display: 'grid', gap: 18 }}>
-            <div data-maya-target="task-detail">
-              <BuilderPanel title="Task Detail" subtitle="Erstellen, starten und final markieren." accent={TOKENS.green}>
-                <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Task-Titel" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
-                  <textarea value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value }))} placeholder="Task-Ziel" rows={4} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13, resize: 'vertical' }} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <select value={draft.risk ?? 'low'} onChange={(event) => setDraft((current) => ({ ...current, risk: event.target.value }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
-                      <option value="low">low</option>
-                      <option value="medium">medium</option>
-                      <option value="high">high</option>
-                    </select>
-                    <select value={draft.taskType} onChange={(event) => setDraft((current) => ({ ...current, taskType: event.target.value }))} style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }}>
-                      {['A', 'B', 'C', 'D', 'P', 'S'].map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={() => { void handleCreateTask(); }} disabled={isBusy || draft.title.trim().length === 0 || draft.goal.trim().length === 0} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.14)', color: TOKENS.text, padding: '11px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isBusy ? 0.7 : 1 }}>
-                    Neue Task erstellen
-                  </button>
-                </div>
-
-                <div style={{ borderTop: `1px solid ${TOKENS.b3}`, paddingTop: 14, display: 'grid', gap: 10 }}>
-                  {showConfig && (
-                    <div style={{ border: `1.5px solid rgba(124,106,247,0.3)`, borderRadius: 18, background: TOKENS.card, overflow: 'hidden', marginBottom: 10 }}>
-                      <BuilderConfigPanel token={token} ctx={mayaCtx} />
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      fontFamily: TOKENS.font.display,
-                      fontSize: 22,
-                      color: TOKENS.text,
-                      overflowWrap: 'break-word',
-                      wordBreak: 'normal',
-                      hyphens: 'auto',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                    }}
-                  >
-                    {activeTask?.title ?? 'Keine Task gewählt'}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: TOKENS.text2,
-                      lineHeight: 1.7,
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {activeTask?.goal ?? 'Links eine Task wählen oder oben eine neue erstellen.'}
-                  </div>
-                  <div style={{ display: 'grid', gap: 6, fontSize: 12, color: TOKENS.text2 }}>
-                    <span>Status: <strong style={{ color: STATUS_COLORS[activeTask?.status ?? ''] ?? TOKENS.text }}>{activeTask?.status ?? '—'}</strong></span>
-                    <span>Risk: {activeTask?.risk ?? '—'} · Type: {activeTask?.taskType ?? '—'}</span>
-                    <span>Policy: {activeTask?.policyProfile ?? '—'}</span>
-                    <span>Updated: {formatDate(activeTask?.updatedAt)}</span>
-                  </div>
-                  <input value={commitHash} onChange={(event) => setCommitHash(event.target.value)} placeholder="Commit-Hash für Approve" style={{ borderRadius: 12, border: `1.5px solid ${TOKENS.b1}`, background: TOKENS.bg2, color: TOKENS.text, padding: '11px 12px', fontSize: 13 }} />
-                  <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                    <button data-maya-target="run-button" onClick={() => { void handleRunTask(); }} disabled={isRunDisabled} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.cyan}`, background: 'rgba(34,211,238,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Run</button>
-                    <button data-maya-target="approve-button" onClick={() => { void handleApproveTask(); }} disabled={isBusy || !selectedTaskId || isPrototypeReview} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isPrototypeReview ? 'not-allowed' : 'pointer', opacity: isPrototypeReview ? 0.45 : 1 }}>Approve</button>
-                    <button data-maya-target="revert-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{isPrototypeReview ? 'Discard' : 'Revert'}</button>
-                  </div>
-                  <button
-                    onClick={() => { void handleDeleteTask(); }}
-                    disabled={isBusy || !selectedTaskId}
-                    style={{
-                      borderRadius: 999,
-                      border: `1.5px solid ${confirmDelete ? '#ef4444' : TOKENS.b1}`,
-                      background: confirmDelete ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.03)',
-                      color: confirmDelete ? '#ef4444' : TOKENS.text2,
-                      padding: '8px 14px',
-                      fontSize: 11,
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      marginTop: 6,
-                      width: '100%',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {confirmDelete ? 'Wirklich löschen?' : 'Task löschen'}
-                  </button>
-                  {isPrototypeReview && previewUrl ? (
-                    <div style={{ marginTop: 8, display: 'grid', gap: 12 }}>
-                      <div style={{ borderRadius: 18, border: `1px solid ${TOKENS.b2}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                        <div style={{ fontSize: 11, color: TOKENS.gold, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Prototype Preview</div>
-                        <div style={{ marginTop: 6, fontSize: 12.5, color: TOKENS.text2, lineHeight: 1.6 }}>
-                          Der Builder stoppt hier bewusst. Preview prüfen und dann explizit freigeben, überarbeiten lassen oder verwerfen.
-                        </div>
-                        <iframe
-                          title={`Prototype Preview ${activeTask.id}`}
-                          src={previewUrl}
-                          style={{ width: '100%', height: 400, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, marginTop: 12, background: '#0f0f17' }}
-                        />
-                      </div>
-                      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0,1fr))' }}>
-                        <button data-maya-target="approve-prototype-button" onClick={() => { void handleApprovePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.green}`, background: 'rgba(74,222,128,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Approve Prototype</button>
-                        <button data-maya-target="revise-prototype-button" onClick={() => { void handleRevisePrototype(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.gold}`, background: 'rgba(212,175,55,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Revise</button>
-                        <button data-maya-target="discard-prototype-button" onClick={() => { void handleRevertTask(); }} disabled={isBusy || !selectedTaskId} style={{ borderRadius: 999, border: `1.5px solid ${TOKENS.rose}`, background: 'rgba(244,114,182,0.10)', color: TOKENS.text, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Discard</button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                </div>
+            {sidebarView === 'files' || compact ? (
+              <BuilderFileExplorerPanel
+                groupedFiles={groupedFiles}
+                selectedFilePath={selectedFilePath}
+                selectedFileContent={selectedFileContent}
+                toLines={toLines}
+                onSelectFile={setSelectedFilePath}
+              />
+            ) : null}
+            {sidebarView === 'notes' || compact ? (
+              <BuilderPanel title="Context" subtitle="Continuity Notes und Memory-Episoden fuer Maya im einklappbaren Sidebar-Kontext." accent={TOKENS.gold}>
+                <BuilderContextPanel
+                  ctx={mayaCtx}
+                  formatDate={formatDate}
+                  onDeleteMemory={(id) => { void handleDeleteMemory(id); }}
+                  onAddNote={(summary) => { void handleAddNote(summary); }}
+                />
               </BuilderPanel>
-            </div>
-
-            <BuilderPanel title="Context" subtitle="Continuity Notes, Memory Episodes und Systemstatus aus dem Maya-Context." accent={TOKENS.gold}>
-              <ContextPanel ctx={mayaCtx} onDeleteMemory={(id) => { void handleDeleteMemory(id); }} onAddNote={(summary) => { void handleAddNote(summary); }} />
-            </BuilderPanel>
-
-            <BuilderPanel title="Check Results" subtitle="Runtime- und Build-Befunde aus dem aktuellen Evidence Pack." accent={TOKENS.cyan}>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>TSC</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.tsc === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.tsc ?? '—'}</div>
-                  </div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Build</div>
-                    <div style={{ marginTop: 6, fontSize: 18, color: evidencePack?.checks.build === 'pass' ? TOKENS.green : TOKENS.text }}>{evidencePack?.checks.build ?? '—'}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {(evidencePack?.runtime_results ?? []).slice(0, 8).map((result) => (
-                    <div key={`${result.test}-${result.details}`} style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                        <span style={{ fontSize: 12.5, color: TOKENS.text }}>{result.test}</span>
-                        <span style={{ fontSize: 12, color: result.result === 'pass' ? TOKENS.green : '#fca5a5' }}>{result.result}</span>
-                      </div>
-                      <div style={{ marginTop: 6, fontSize: 12, color: TOKENS.text2 }}>{result.details}</div>
-                    </div>
-                  ))}
-                  {!evidencePack || evidencePack.runtime_results.length === 0 ? <div style={{ fontSize: 13, color: TOKENS.text2 }}>Noch keine Test- oder Runtime-Ergebnisse vorhanden.</div> : null}
-                </div>
-              </div>
-            </BuilderPanel>
-
-            <BuilderPanel title="Evidence Pack" subtitle="Verdichteter Review-, Check- und Diff-Stand des gewählten Tasks." accent={TOKENS.rose}>
-              {evidencePack ? (
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Final Status: <strong style={{ color: STATUS_COLORS[evidencePack.final_status] ?? TOKENS.text }}>{evidencePack.final_status}</strong></div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Agreement: {evidencePack.agreement_level ?? '—'} · Tokens: {evidencePack.total_tokens}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>Counterexamples: {evidencePack.counterexamples_passed}/{evidencePack.counterexamples_tested}</div>
-                  <div style={{ fontSize: 12, color: TOKENS.text2 }}>False success detected: {evidencePack.false_success_detected ? 'ja' : 'nein'}</div>
-                  <div style={{ borderRadius: 14, border: `1px solid ${TOKENS.b3}`, background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                    <div style={{ fontSize: 11, color: TOKENS.text3, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Reviews</div>
-                    <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                      {Object.entries(evidencePack.reviews).map(([reviewer, review]) => (
-                        <div key={reviewer} style={{ fontSize: 12.5, color: TOKENS.text2 }}>
-                          <strong style={{ color: ACTOR_COLORS[reviewer] ?? TOKENS.text }}>{reviewer}</strong>: {review.verdict}
-                          {review.notes ? <div style={{ marginTop: 3 }}>{review.notes}</div> : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11.5, lineHeight: 1.7, color: TOKENS.text2, fontFamily: 'ui-monospace, SFMono-Regular, monospace', maxHeight: 280, overflowY: 'auto' }}>
-                    {JSON.stringify(evidencePack, null, 2)}
-                  </pre>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: TOKENS.text2 }}>Für diese Task liegt noch kein Evidence Pack vor.</div>
-              )}
-            </BuilderPanel>
+            ) : null}
           </div>
+
+          <div style={{ display: 'grid', gap: shouldShowDialogViewer ? 18 : 12 }}>
+            {shouldShowInlineStageIntro ? (
+              <BuilderStageIntro
+                compact={compact}
+                greeting={greeting}
+                isVisualLaunchMode={isVisualLaunchMode}
+                experienceModeLabel={experienceMode === 'single_specialist' ? 'Single Specialist' : 'Universal Maya Studio'}
+                visualLaunchChecklist={visualLaunchChecklist}
+                chatLoading={chatLoading}
+                onFocusChat={() => focusMayaTarget('maya-chat')}
+                onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
+                onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
+              />
+            ) : (
+              <BuilderTribuneStage
+                compact={compact}
+                experienceMode={experienceMode}
+                activeTask={activeTask}
+                attentionTask={attentionTask}
+                attentionDetail={attentionDetail}
+                isBusy={isBusy}
+                selectedTaskId={selectedTaskId}
+                tribuneHeroTitle={tribuneHeroTitle}
+                tribuneHeroSummary={tribuneHeroSummary}
+                tribuneHeroPhaseTone={tribuneHeroPhaseTone}
+                tribuneTimeline={tribuneTimeline}
+                effectiveTribunePhase={effectiveTribunePhase}
+                mayaTribuneSentence={mayaTribuneSentence}
+                currentTribuneEntry={currentTribuneEntry}
+                previewUrl={previewUrl}
+                operatorGuidance={operatorGuidance}
+                tribunePhaseDetail={tribunePhaseDetail}
+                fallbackContent={null}
+                onSelectTribunePhase={(phase) => setSelectedTribunePhase(phase as BuilderUniversalLifecyclePhase | null)}
+                onFocusOutput={() => focusMayaTarget('delivery-surface')}
+                onFocusDialog={() => focusMayaTarget('dialog-viewer')}
+                onFocusTechnicalDetails={() => focusMayaTarget('technical-details')}
+                onFocusPreview={() => focusMayaTarget('preview-panel')}
+                onOpenAttentionTask={handleOpenAttentionTask}
+                onApprovePrototype={() => { void handleApprovePrototype(); }}
+                onApproveTask={() => { void handleApproveTask(); }}
+                onOperatorAction={(key) => handleOperatorAction(key as OperatorActionKey)}
+                isOperatorActionDisabled={(key) => isOperatorActionDisabled(key as OperatorActionKey)}
+              />
+            )}
+
+            {shouldShowDialogViewer ? (
+              <BuilderDialogViewerPanel
+                isVisualLaunchMode={isVisualLaunchMode}
+                directorModel={directorModel}
+                directorThinking={directorThinking}
+                activeChatLabel={activeChatLabel}
+                activeChatEndpoint={activeChatEndpoint}
+                directorModelMeta={DIRECTOR_MODEL_META}
+                directorStatusText={directorStatusText}
+                directorLivePhase={directorLiveStatus?.phase ?? null}
+                chatMessages={chatMessages}
+                dialogBubbles={dialogBubbles}
+                chatInput={chatInput}
+                chatLoading={chatLoading}
+                speech={speech}
+                activeTaskTitle={activeTask?.title ?? null}
+                dialogFormat={dialogFormat}
+                chatContainerRef={chatContainerRef}
+                chatEndRef={chatEndRef}
+                actorColors={ACTOR_COLORS}
+                formatDate={formatDate}
+                parseTaskConfirmation={parseTaskConfirmation}
+                getReadFilePreview={getReadFilePreview}
+                onToggleDirectorMode={() => setDirectorModel((current) => current ? null : 'opus')}
+                onSelectDirectorModel={setDirectorModel}
+                onToggleDirectorThinking={() => setDirectorThinking((current) => !current)}
+                onChatInputChange={setChatInput}
+                onSendChat={() => {
+                  void handleSendChat();
+                }}
+                onMicClick={handleMicClick}
+                onSetDialogFormat={setDialogFormat}
+              />
+            ) : null}
+          </div>
+
+          {showDrawerColumn || compact ? (
+          <div style={{ display: 'grid', gap: 18 }}>
+            {drawerView === 'task' || compact ? (
+              <BuilderTaskDetailPanel
+                compact={compact}
+                showConfig={showConfig}
+                mayaCtx={mayaCtx}
+                poolConfig={poolConfig}
+                pools={pools}
+                openPool={openPool}
+                activeTask={activeTask}
+                selectedTaskId={selectedTaskId}
+                operatorGuidance={operatorGuidance}
+                executionState={executionState}
+                commitHash={commitHash}
+                isRunDisabled={isRunDisabled}
+                isBusy={isBusy}
+                isPrototypeReview={isPrototypeReview}
+                confirmDelete={confirmDelete}
+                previewUrl={previewUrl}
+                executionSummaryText={formatExecutionSummary(evidencePack)}
+                onOpenPool={setOpenPool}
+                onTogglePoolModel={handleTogglePoolModel}
+                onCommitHashChange={setCommitHash}
+                onFocusChat={() => focusMayaTarget('maya-chat')}
+                onRunTask={() => { void handleRunTask(); }}
+                onApproveTask={() => { void handleApproveTask(); }}
+                onRevertTask={() => { void handleRevertTask(); }}
+                onDeleteTask={() => { void handleDeleteTask(); }}
+                onApprovePrototype={() => { void handleApprovePrototype(); }}
+                onRevisePrototype={() => { void handleRevisePrototype(); }}
+                formatDate={formatDate}
+              />
+            ) : null}
+
+            {drawerView === 'models' || compact ? (
+              <BuilderModelConfigDrawer
+                compact={compact}
+                showConfig={showConfig}
+                mayaCtx={mayaCtx}
+                poolConfig={poolConfig}
+                pools={pools}
+                openPool={openPool}
+                poolLabels={POOL_LABELS}
+                onOpenPool={setOpenPool}
+                onTogglePoolModel={handleTogglePoolModel}
+                onShowConfig={() => setShowConfig(true)}
+              />
+            ) : null}
+
+            {drawerView === 'visual' || compact ? (
+              <BuilderVisualReviewPanel
+                compact={compact}
+                selectedTaskId={selectedTaskId}
+                activeTask={activeTask}
+                visualReviewTaskCandidate={visualReviewTaskCandidate}
+                tasksCount={tasks.length}
+                selectedVisualModelIds={selectedVisualModelIds}
+                selectedVisualArtifactIds={selectedVisualArtifactIds}
+                visualTaskType={visualTaskType}
+                visualPrompt={visualPrompt}
+                visualRunLoading={visualRunLoading}
+                visualAutoPicking={visualAutoPicking}
+                visualCouncilLoading={visualCouncilLoading}
+                visualFixTasksLoading={visualFixTasksLoading}
+                chatLoading={chatLoading}
+                visionModels={visionModels}
+                visionScores={visionScores}
+                activeCouncilModels={activeCouncilModels}
+                browserScreenshotArtifacts={browserScreenshotArtifacts}
+                displayedVisualRunResult={displayedVisualRunResult}
+                visualCouncilResult={visualCouncilResult}
+                visualFixTaskResult={visualFixTaskResult}
+                visualReviewReportArtifactsCount={visualReviewReportArtifacts.length}
+                visualReviewBlockingReason={visualReviewBlockingReason}
+                visualFeedbackSavingKey={visualFeedbackSavingKey}
+                onSelectTaskType={setVisualTaskType}
+                onPromptChange={setVisualPrompt}
+                onToggleVisualModel={handleToggleVisualModel}
+                onToggleVisualArtifact={handleToggleVisualArtifact}
+                onSelectVisualReviewTask={handleSelectVisualReviewTask}
+                onAutoPickVisualModels={() => { void handleAutoPickVisualModels(); }}
+                onRunVisualCaptureFlow={() => { void handleRunVisualCaptureFlow(); }}
+                onSeedVisualCapturePrompt={handleSeedVisualCapturePrompt}
+                onRunVisualReview={() => { void handleRunVisualReview(); }}
+                onEscalateVisualCouncil={() => { void handleEscalateVisualCouncil(); }}
+                onCreateVisualFixTasks={() => { void handleCreateVisualFixTasks(); }}
+                onSubmitVisualFeedback={(reportArtifactId, modelId, verdict) => {
+                  void handleSubmitVisualFeedback(reportArtifactId, modelId, verdict);
+                }}
+              />
+            ) : null}
+
+            {drawerView === 'output' || compact ? (
+              <BuilderOutputPanels
+                activeTask={activeTask}
+                deliveryArtifacts={deliveryArtifacts}
+                latestPrototypeArtifact={latestPrototypeArtifact}
+                latestApprovalArtifact={latestApprovalArtifact}
+                latestStructuredArtifact={latestStructuredArtifact}
+                latestDialogSnippet={latestDialogSnippet}
+                previewUrl={previewUrl}
+                screenshotPreviewSrc={screenshotPreviewSrc}
+                evidencePack={evidencePack}
+                statusColors={STATUS_COLORS}
+                actorColors={ACTOR_COLORS}
+                formatDate={formatDate}
+                formatArtifactTypeLabel={formatArtifactTypeLabel}
+                formatExecutionChannelLabel={formatExecutionChannelLabel}
+                getArtifactPreviewText={getArtifactPreviewText}
+                getArtifactPayloadString={getArtifactPayloadString}
+                onTransitionJump={handleTransitionJump}
+              />
+            ) : null}
+          </div>
+          ) : null}
         </div>
 
-        <footer style={{ marginTop: 18, borderRadius: 22, border: `1.5px solid ${TOKENS.b2}`, background: TOKENS.card, boxShadow: TOKENS.shadow.card, padding: '14px 16px' }}>
-          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
-            {tasks.map((task) => (
-              <button
-                key={task.id}
-                onClick={() => setSelectedTaskId(task.id)}
-                style={{
-                  borderRadius: 999,
-                  border: `1px solid ${selectedTaskId === task.id ? TOKENS.gold : TOKENS.b1}`,
-                  background: selectedTaskId === task.id ? 'rgba(212,175,55,0.10)' : 'rgba(255,255,255,0.03)',
-                  color: STATUS_COLORS[task.status] ?? TOKENS.text2,
-                  padding: '8px 12px',
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                }}
-              >
-                {task.title} · {task.status}
-              </button>
-            ))}
-          </div>
-        </footer>
+        {shouldShowFooterStrip ? (
+          <BuilderTaskFooterStrip
+            visibleTasks={visibleTasks}
+            selectedTaskId={selectedTaskId}
+            statusColors={STATUS_COLORS}
+            deriveTaskQueueSignal={deriveTaskQueueSignal}
+            onSelectTask={(taskId) => {
+              setSelectedTaskId(taskId);
+              setDrawerView('task');
+            }}
+          />
+        ) : null}
 
         <MayaFigure
           phase={mayaFigurePhase}

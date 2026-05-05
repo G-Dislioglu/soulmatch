@@ -304,7 +304,7 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
   deepseek: {
     apiUrl: 'https://api.deepseek.com/chat/completions',
     envKey: 'DEEPSEEK_API_KEY',
-    defaultModel: 'deepseek-chat',
+    defaultModel: 'deepseek-v4-flash',
     engineVersion: 'studio-1.0-deepseek',
     supportsStructuredOutputs: false,
   },

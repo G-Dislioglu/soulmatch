@@ -52,6 +52,12 @@ RUN corepack enable
 # Copy only runtime artifacts
 COPY --from=build /app/server /app/server
 COPY --from=build /app/client/dist /app/client/dist
+# Builder live workers need source files for scoped READ/PATCH operations.
+# The served frontend still uses dist; src is runtime context for Builder only.
+COPY --from=build /app/client/src /app/client/src
+COPY --from=build /app/client/package.json /app/client/package.json
+COPY --from=build /app/client/tsconfig.json /app/client/tsconfig.json
+COPY --from=build /app/docs /app/docs
 
 WORKDIR /app/server
 

@@ -54,18 +54,21 @@ export interface PatrolEvent {
 }
 
 // ── Model Registry ──
+// Patrol keeps its own roster on purpose. It may move faster than the Builder-core
+// pool registry, but only within already supported provider/model families.
 export const ROUTINE_MODELS: PatrolModel[] = [
 	{ id: 'glm-flash', provider: 'zhipu', model: 'glm-4.7-flashx', label: 'GLM 4.7 FlashX', tier: 'routine', priceIn: 0.07, priceOut: 0.40 },
-	{ id: 'deepseek', provider: 'deepseek', model: 'deepseek-chat', label: 'DeepSeek Chat', tier: 'routine', priceIn: 0.28, priceOut: 0.42 },
+	{ id: 'deepseek', provider: 'deepseek', model: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', tier: 'routine', priceIn: 0.28, priceOut: 0.42 },
 ];
 
 export const DEEP_MODELS: PatrolModel[] = [
 	{ id: 'glm-5.1', provider: 'zhipu', model: 'glm-5.1', label: 'GLM 5.1', tier: 'deep', priceIn: 1.40, priceOut: 4.40 },
 	{ id: 'glm-5-turbo', provider: 'zhipu', model: 'glm-5-turbo', label: 'GLM 5 Turbo', tier: 'deep', priceIn: 1.20, priceOut: 4.00 },
-	{ id: 'gpt-5.4', provider: 'openai', model: 'gpt-5.4', label: 'GPT 5.4', tier: 'deep', priceIn: 2.50, priceOut: 15.00 },
+	{ id: 'gpt-5.5', provider: 'openai', model: 'gpt-5.5', label: 'GPT 5.5', tier: 'deep', priceIn: 5.00, priceOut: 30.00 },
 	{ id: 'sonnet-4.6', provider: 'anthropic', model: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tier: 'deep', priceIn: 3.00, priceOut: 15.00 },
-	{ id: 'deepseek-r', provider: 'deepseek', model: 'deepseek-reasoner', label: 'DeepSeek Reasoner', tier: 'deep', priceIn: 0.28, priceOut: 0.42 },
-	{ id: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.5', label: 'Kimi K2.5', tier: 'deep', priceIn: 0.60, priceOut: 3.00 },
+	{ id: 'deepseek-v4-pro', provider: 'deepseek', model: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', tier: 'deep', priceIn: 0.435, priceOut: 0.87 },
+	{ id: 'kimi', provider: 'openrouter', model: 'moonshotai/kimi-k2.6', label: 'Kimi K2.6', tier: 'deep', priceIn: 0.74, priceOut: 3.49 },
+	{ id: 'mimo-pro', provider: 'openrouter', model: 'xiaomi/mimo-v2.5-pro', label: 'MiMo V2.5 Pro', tier: 'deep', priceIn: 1.00, priceOut: 3.00 },
 ];
 
 // ── Config ──

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -21,44 +21,29 @@ interface PatrolStatus {
   triaged?: number;
   crossConfirmed?: number;
   bySeverity?: Partial<Record<Severity, number>>;
+  routineModels?: PatrolRosterModel[];
+  deepModels?: PatrolRosterModel[];
 }
 
 interface DeepResult {
   model: string;
+  scanned?: number;
+  found?: number;
+  inserted?: number;
   severity?: string;
   analysis?: string;
   verdict?: string;
 }
 
-interface PatrolModelSlot {
-  role: string;
-  model: string;
-  color: string;
+interface PatrolRosterModel {
+  id: string;
+  label: string;
+  price?: string;
 }
 
-const API = 'https://soulmatch-1.onrender.com/api/builder/opus-bridge';
-
-const AVAILABLE_MODELS = [
-  'GLM-5-Turbo', 'GLM-5.1', 'GLM-5', 'GLM-4.7',
-  'GPT-5.4', 'GPT-5-mini', 'GPT-5-nano',
-  'Sonnet 4.6', 'Opus 4.6',
-  'DeepSeek-R', 'DeepSeek Chat',
-  'Kimi', 'Qwen', 'Minimax',
-];
-
-const ROUTINE_SCOUT_SLOTS: PatrolModelSlot[] = [
-  { role: 'SCOUT #1', model: 'GLM-5-Turbo', color: '#39ff14' },
-  { role: 'SCOUT #2', model: 'DeepSeek Chat', color: '#39ff14' },
-  { role: 'SCOUT #3', model: 'Minimax', color: '#39ff14' },
-];
-
-const DEEP_ANALYSIS_SLOTS: PatrolModelSlot[] = [
-  { role: 'DEEP #1', model: 'GPT-5.4', color: '#00f0ff' },
-  { role: 'DEEP #2', model: 'Sonnet 4.6', color: '#a78bfa' },
-  { role: 'DEEP #3', model: 'DeepSeek-R', color: '#f97316' },
-  { role: 'DEEP #4', model: 'Kimi', color: '#f472b6' },
-  { role: 'DEEP #5', model: 'GLM-5.1', color: '#22d3ee' },
-];
+const API = '/api/builder/opus-bridge';
+const ROUTINE_CARD_COLORS = ['#39ff14', '#00f0ff', '#facc15'];
+const DEEP_CARD_COLORS = ['#00f0ff', '#a78bfa', '#f97316', '#f472b6', '#22d3ee', '#f59e0b', '#34d399'];
 
 const SEV_CONFIG: Record<Severity, { color: string; bg: string; icon: string; label: string }> = {
   critical: { color: '#ff3b5c', bg: '#ff3b5c18', icon: '⛔', label: 'Kritisch' },
@@ -180,96 +165,10 @@ interface PatrolModelCardProps {
   role: string;
   model: string;
   color: string;
-  onChange: (value: string) => void;
+  price?: string;
 }
 
-function ModelSelect({ value, onChange, models }: {
-  value: string;
-  onChange: (v: string) => void;
-  models: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handler);
-
-    return () => {
-      document.removeEventListener('mousedown', handler);
-    };
-  }, []);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <div
-        onClick={() => setOpen((current) => !current)}
-        style={{
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: 14, color: '#e2e4f0' }}>{value}</span>
-        <span style={{ fontSize: 10, opacity: 0.5 }}>▼</span>
-      </div>
-      {open ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: -12,
-            marginTop: 8,
-            background: '#1a1a2e',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 8,
-            padding: '4px 0',
-            zIndex: 1000,
-            minWidth: 180,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            maxHeight: 280,
-            overflowY: 'auto',
-          }}
-        >
-          {models.map((entry) => (
-            <div
-              key={entry}
-              onClick={() => {
-                onChange(entry);
-                setOpen(false);
-              }}
-              style={{
-                padding: '8px 14px',
-                cursor: 'pointer',
-                fontSize: 13,
-                color: entry === value ? '#d4af37' : '#e2e4f0',
-                background: entry === value ? 'rgba(212,175,55,0.1)' : 'transparent',
-                fontWeight: entry === value ? 700 : 400,
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = entry === value ? 'rgba(212,175,55,0.1)' : 'transparent';
-              }}
-            >
-              {entry}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps) {
+function PatrolModelCard({ role, model, color, price }: PatrolModelCardProps) {
   return (
     <div
       style={{
@@ -283,9 +182,8 @@ function PatrolModelCard({ role, model, color, onChange }: PatrolModelCardProps)
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <div>
           <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{role}</div>
-          <div style={{ marginTop: 4 }}>
-            <ModelSelect value={model} onChange={onChange} models={AVAILABLE_MODELS} />
-          </div>
+          <div style={{ marginTop: 4, fontSize: 14, color: '#e2e4f0' }}>{model}</div>
+          {price ? <div style={{ marginTop: 3, fontSize: 11, color: '#6b7084' }}>{price}</div> : null}
         </div>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 12px ${color}66`, flexShrink: 0 }} />
       </div>
@@ -299,10 +197,11 @@ interface FindingCardProps {
   onToggle: () => void;
   deepResult: DeepResult[] | null;
   deepLoading: boolean;
+  deepAvailable: boolean;
   onDeepPatrol: () => void;
 }
 
-function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onDeepPatrol }: FindingCardProps) {
+function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, deepAvailable, onDeepPatrol }: FindingCardProps) {
   const cfg = SEV_CONFIG[finding.severity] || SEV_CONFIG.info;
   return (
     <div
@@ -350,19 +249,19 @@ function FindingCard({ finding, expanded, onToggle, deepResult, deepLoading, onD
           <div style={{ marginBottom: 12 }}>
             <button
               onClick={(e) => { e.stopPropagation(); onDeepPatrol(); }}
-              disabled={deepLoading}
+              disabled={deepLoading || !deepAvailable}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                background: deepLoading ? '#4a4d80' : '#7c6af7',
+                background: deepLoading || !deepAvailable ? '#4a4d80' : '#7c6af7',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 8,
                 padding: '7px 14px',
                 fontSize: 12,
                 fontWeight: 600,
-                cursor: deepLoading ? 'not-allowed' : 'pointer',
+                cursor: deepLoading || !deepAvailable ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -421,12 +320,7 @@ export function PatrolConsole() {
   const [loading, setLoading] = useState(true);
   const [deepResults, setDeepResults] = useState<Record<string, DeepResult[]>>({});
   const [deepLoading, setDeepLoading] = useState<Record<string, boolean>>({});
-  const [routineModels, setRoutineModels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(ROUTINE_SCOUT_SLOTS.map((slot) => [slot.role, slot.model])),
-  );
-  const [deepModels, setDeepModels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(DEEP_ANALYSIS_SLOTS.map((slot) => [slot.role, slot.model])),
-  );
+  const [selectedDeepModelIds, setSelectedDeepModelIds] = useState<string[]>([]);
 
   const api = useCallback(async <T,>(endpoint: string, extraParams = ''): Promise<T> => {
     const response = await fetch(`${API}/${endpoint}?opus_token=${encodeURIComponent(token)}${extraParams}`);
@@ -436,23 +330,42 @@ export function PatrolConsole() {
     return response.json() as Promise<T>;
   }, [token]);
 
-  const triggerDeep = useCallback(async (findingId: string) => {
+  const triggerDeep = useCallback(async (finding: PatrolFinding) => {
+    const findingId = finding.id;
+    const files = [...new Set((finding.affectedFiles ?? []).filter((file): file is string => typeof file === 'string' && file.trim().length > 0))];
+    const availableModelIds = new Set((status?.deepModels ?? []).map((model) => model.id));
+    const models = [...new Set(selectedDeepModelIds.filter((id) => availableModelIds.has(id)))];
+
+    if (files.length === 0 || models.length === 0) {
+      console.warn('Deep patrol skipped: missing files or supported models', { findingId, files, models });
+      return;
+    }
+
     setDeepLoading((prev) => ({ ...prev, [findingId]: true }));
     try {
       const response = await fetch(`${API}/patrol-trigger-deep?opus_token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ findingId }),
+        body: JSON.stringify({ models, files }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json() as DeepResult[];
-      setDeepResults((prev) => ({ ...prev, [findingId]: data }));
+      const data = await response.json() as { results?: Array<{ model: string; scanned: number; found: number; inserted: number }> };
+      const normalized: DeepResult[] = (data.results ?? []).map((entry) => ({
+        model: entry.model,
+        scanned: entry.scanned,
+        found: entry.found,
+        inserted: entry.inserted,
+        severity: entry.inserted > 0 ? 'triaged' : 'clean',
+        verdict: entry.inserted > 0 ? `${entry.inserted} Findings eingetragen` : 'Keine neuen Findings eingetragen',
+        analysis: `${entry.scanned} Dateien gescannt · ${entry.found} Findings gelesen · ${entry.inserted} neu eingetragen`,
+      }));
+      setDeepResults((prev) => ({ ...prev, [findingId]: normalized }));
     } catch (error) {
       console.error('Deep patrol error:', error);
     } finally {
       setDeepLoading((prev) => ({ ...prev, [findingId]: false }));
     }
-  }, [token]);
+  }, [selectedDeepModelIds, status?.deepModels, token]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -462,6 +375,14 @@ export function PatrolConsole() {
         api<{ findings?: PatrolFinding[] } | PatrolFinding[]>('patrol-findings', '&limit=100'),
       ]);
       setStatus(nextStatus);
+      setSelectedDeepModelIds((current) => {
+        const nextIds = (nextStatus.deepModels ?? []).map((model) => model.id);
+        if (current.length === 0) {
+          return nextIds;
+        }
+        const preserved = current.filter((id) => nextIds.includes(id));
+        return preserved.length > 0 ? preserved : nextIds;
+      });
       setFindings(Array.isArray(nextFindings) ? nextFindings : nextFindings.findings || []);
     } catch (error) {
       console.error('Patrol load error:', error);
@@ -476,6 +397,8 @@ export function PatrolConsole() {
 
   const filtered = filter === 'all' ? findings : findings.filter((finding) => finding.severity === filter);
   const sev = status?.bySeverity || {};
+  const routineRoster = status?.routineModels ?? [];
+  const deepRoster = status?.deepModels ?? [];
 
   return (
     <div
@@ -550,30 +473,63 @@ export function PatrolConsole() {
       <div style={{ margin: '20px 0 24px' }}>
         <div style={{ fontSize: 11, color: '#39ff14', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Routine Scouts</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-          {ROUTINE_SCOUT_SLOTS.map((slot) => (
+          {routineRoster.map((slot, index) => (
             <PatrolModelCard
-              key={slot.role}
-              role={slot.role}
-              model={routineModels[slot.role] ?? slot.model}
-              color={slot.color}
-              onChange={(value) => setRoutineModels((current) => ({ ...current, [slot.role]: value }))}
+              key={slot.id}
+              role={`SCOUT #${index + 1}`}
+              model={slot.label}
+              price={slot.price}
+              color={ROUTINE_CARD_COLORS[index % ROUTINE_CARD_COLORS.length] ?? '#39ff14'}
             />
           ))}
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7084', marginBottom: 4 }}>
+          Aktive Routine-Besetzung kommt direkt aus dem Server-Roster und ist nicht separat in der Konsole umkonfigurierbar.
         </div>
 
         <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0 16px' }} />
 
         <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Deep Analysis</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {DEEP_ANALYSIS_SLOTS.map((slot) => (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          {deepRoster.map((slot, index) => (
             <PatrolModelCard
-              key={slot.role}
-              role={slot.role}
-              model={deepModels[slot.role] ?? slot.model}
-              color={slot.color}
-              onChange={(value) => setDeepModels((current) => ({ ...current, [slot.role]: value }))}
+              key={slot.id}
+              role={`DEEP #${index + 1}`}
+              model={slot.label}
+              price={slot.price}
+              color={DEEP_CARD_COLORS[index % DEEP_CARD_COLORS.length] ?? '#00f0ff'}
             />
           ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {deepRoster.map((model) => {
+            const selected = selectedDeepModelIds.includes(model.id);
+            return (
+              <button
+                key={model.id}
+                onClick={() => setSelectedDeepModelIds((current) =>
+                  current.includes(model.id)
+                    ? current.filter((id) => id !== model.id)
+                    : [...current, model.id],
+                )}
+                style={{
+                  background: selected ? '#7c6af722' : '#1a1b2e',
+                  color: selected ? '#c4b5fd' : '#8b8fa3',
+                  border: `1px solid ${selected ? '#7c6af766' : '#2a2b40'}`,
+                  borderRadius: 999,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {selected ? '✓ ' : ''}{model.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7084', marginTop: 8 }}>
+          Deep-Analysen laufen nur mit den hier aktivierten Server-Modellen.
         </div>
       </div>
 
@@ -627,7 +583,8 @@ export function PatrolConsole() {
               onToggle={() => setExpanded(expanded === finding.id ? null : finding.id)}
               deepResult={deepResults[finding.id] ?? null}
               deepLoading={!!deepLoading[finding.id]}
-              onDeepPatrol={() => void triggerDeep(finding.id)}
+              deepAvailable={(finding.affectedFiles ?? []).some((file) => typeof file === 'string' && file.trim().length > 0)}
+              onDeepPatrol={() => void triggerDeep(finding)}
             />
           ))
         )}

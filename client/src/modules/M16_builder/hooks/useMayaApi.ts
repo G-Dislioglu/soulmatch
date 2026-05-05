@@ -1,5 +1,39 @@
 import { useCallback } from 'react';
 
+export type PoolType = 'maya' | 'council' | 'distiller' | 'worker' | 'scout';
+
+export interface PoolState {
+  maya: string[];
+  council: string[];
+  distiller: string[];
+  worker: string[];
+  scout: string[];
+}
+
+export interface MayaPoolModel {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+  quality: number;
+  speed: 'slow' | 'medium' | 'fast';
+  color: string;
+  pools: PoolType[];
+  visionCapable?: boolean;
+  supportsMultiImage?: boolean;
+  supportsWebResearch?: boolean;
+  recommendedVisualRoles?: string[];
+  experimental?: boolean;
+}
+
+export interface MayaPoolConfig {
+  selectionMode: 'manual';
+  autoSelectionAvailable: boolean;
+  active: PoolState;
+  available: Record<PoolType, string[]>;
+  models: MayaPoolModel[];
+}
+
 export interface MayaContext {
   tasks: Array<{
     id: string;
@@ -12,7 +46,143 @@ export interface MayaContext {
   memory: { episodes: Array<{ id?: string; key: string; summary: string; updatedAt: string }> };
   continuityNotes: Array<{ id?: string; key: string; summary: string; updatedAt: string }>;
   workerStats: Array<{ worker: string; avg_quality: number; task_count: number }>;
+  poolConfig: MayaPoolConfig;
   timestamp: string;
+}
+
+export type VisualReviewTaskType =
+  | 'ui_review'
+  | 'layout_drift'
+  | 'ocr_and_label_check'
+  | 'frontend_recreation_hint'
+  | 'multi_state_review';
+
+export interface VisualReviewFinding {
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  title: string;
+  description: string;
+  suggestedFix?: string;
+  confidence?: number;
+  screenshotRef?: string;
+  regionHint?: string;
+}
+
+export interface VisualReviewModelResult {
+  modelId: string;
+  provider: string;
+  model: string;
+  summary: string;
+  findings: VisualReviewFinding[];
+  raw?: string;
+  error?: string | null;
+}
+
+export interface VisualReviewRunResponse {
+  success: boolean;
+  taskId: string;
+  reportArtifactId: string | null;
+  taskType: VisualReviewTaskType;
+  screenshotArtifactIds: string[];
+  modelResults: VisualReviewModelResult[];
+  mayaSynthesis: {
+    modelId: string;
+    provider: string;
+    model: string;
+    summary: string;
+  };
+}
+
+export interface VisionModelScoreAggregate {
+  modelId: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
+  taskTypes: string[];
+  taskTypeScores: VisionModelTaskTypeScore[];
+}
+
+export interface VisionModelTaskTypeScore {
+  taskType: string;
+  runs: number;
+  findingsEmitted: number;
+  feedbackCount: number;
+  confirmedCount: number;
+  mixedCount: number;
+  falsePositiveCount: number;
+  avgUsefulness: number | null;
+  score: number;
+}
+
+export interface VisionAutoPickModel {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+  quality: number;
+  score: number | null;
+  runs: number;
+  feedbackCount: number;
+  compositeScore: number;
+  reason: string;
+}
+
+export interface VisionAutoPickResponse {
+  success: boolean;
+  taskType: VisualReviewTaskType;
+  modelIds: string[];
+  selected: VisionAutoPickModel[];
+  scores: VisionModelScoreAggregate[];
+}
+
+export interface VisualCouncilModelResponse {
+  modelId: string;
+  provider: string;
+  model: string;
+  position: string;
+  recommendations: string[];
+  risks: string[];
+  error?: string | null;
+  raw?: string;
+}
+
+export interface VisualCouncilEscalationResponse {
+  success: boolean;
+  taskId: string;
+  reportArtifactId: string;
+  debateArtifactId: string | null;
+  councilResults: VisualCouncilModelResponse[];
+  mayaSynthesis: {
+    modelId: string;
+    provider: string;
+    model: string;
+    summary: string;
+  };
+}
+
+export interface VisualFixTaskCreationResponse {
+  success: boolean;
+  sourceTaskId: string;
+  reportArtifactId: string;
+  createdCount: number;
+  tasks: Array<{
+    task: {
+      id: string;
+      title: string;
+      status: string;
+      risk: string;
+      taskType: string;
+    };
+    goalState: {
+      honesty: { status: 'stub_only'; summary: string };
+      budget: { iterations: number; used: number; remaining: number; exhausted: boolean };
+    };
+  }>;
 }
 
 export interface MayaChatResponse {
@@ -60,6 +230,60 @@ export function useMayaApi(token: string | null) {
   }, [token]);
 
   const getContext = useCallback(() => request<MayaContext>('/maya/context'), [request]);
+  const getPoolConfig = useCallback(() => request<MayaPoolConfig>('/maya/pools'), [request]);
+  const getVisionModels = useCallback(() => request<{ models: MayaPoolModel[]; count: number }>('/maya/vision-models'), [request]);
+  const getVisionScores = useCallback(() => request<{ scores: VisionModelScoreAggregate[]; count: number }>('/maya/vision-scores'), [request]);
+  const autoPickVisionModels = useCallback((input: {
+    taskType?: VisualReviewTaskType;
+    limit?: number;
+  }) =>
+    request<VisionAutoPickResponse>('/visual-perception/auto-pick', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const updatePools = useCallback((pools: PoolState) =>
+    request<{ success: boolean; pools: PoolState; poolConfig: MayaPoolConfig }>('/maya/pools', {
+      method: 'POST',
+      body: JSON.stringify({ pools }),
+    }), [request]);
+  const runVisualPerception = useCallback((input: {
+    taskId: string;
+    artifactIds?: string[];
+    modelIds: string[];
+    taskType?: VisualReviewTaskType;
+    prompt?: string;
+  }) =>
+    request<VisualReviewRunResponse>('/visual-perception/run', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const submitVisualFeedback = useCallback((reportArtifactId: string, input: {
+    modelId: string;
+    verdict: 'confirmed' | 'mixed' | 'false_positive';
+    usefulness?: number;
+    notes?: string;
+  }) =>
+    request<{ success: boolean; feedbackArtifactId: string | null; reportArtifactId: string; modelId: string; verdict: string; usefulness: number }>(`/visual-perception/reports/${reportArtifactId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const escalateVisualReportToCouncil = useCallback((reportArtifactId: string, input: {
+    councilModelIds?: string[];
+    prompt?: string;
+    confirmed?: boolean;
+  } = {}) =>
+    request<VisualCouncilEscalationResponse>(`/visual-perception/reports/${reportArtifactId}/council`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
+  const createVisualFixTasks = useCallback((reportArtifactId: string, input: {
+    maxTasks?: number;
+    severities?: Array<'critical' | 'high' | 'medium' | 'low'>;
+  } = {}) =>
+    request<VisualFixTaskCreationResponse>(`/visual-perception/reports/${reportArtifactId}/fix-tasks`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }), [request]);
 
   const chat = useCallback((message: string, history: MayaChatMessage[] = []) =>
     request<MayaChatResponse>('/maya/chat', {
@@ -116,5 +340,27 @@ export function useMayaApi(token: string | null) {
   const deleteTask = useCallback((taskId: string) =>
     request<{ deleted: boolean; taskId: string }>(`/tasks/${taskId}`, { method: 'DELETE' }), [request]);
 
-  return { getContext, chat, directorChat, chatWithFile, executeAction, cancelTask, deleteTask, createMemory, updateMemory, deleteMemory, getTaskDialog, getTaskEvidence };
+  return {
+    getContext,
+    getPoolConfig,
+    getVisionModels,
+    getVisionScores,
+    autoPickVisionModels,
+    updatePools,
+    runVisualPerception,
+    submitVisualFeedback,
+    escalateVisualReportToCouncil,
+    createVisualFixTasks,
+    chat,
+    directorChat,
+    chatWithFile,
+    executeAction,
+    cancelTask,
+    deleteTask,
+    createMemory,
+    updateMemory,
+    deleteMemory,
+    getTaskDialog,
+    getTaskEvidence,
+  };
 }

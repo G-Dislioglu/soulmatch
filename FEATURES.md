@@ -34,6 +34,16 @@ reale Features, ihren Wahrheitsstatus, erkennbare Luecken und die letzte Pruefun
 - `next_recommended_step`: Nur dann weiter zentralisieren, wenn ein konkreter Audio-Bug mehrere Pfade zugleich betrifft.
 - `evidence`: `client/src/modules/M01_app-shell/Sidebar.tsx`, `client/src/modules/M01_app-shell/Topbar.tsx`, `client/src/hooks/useLiveTalk.ts`, `client/src/lib/globalMediaController.ts`, `client/src/modules/M06_discuss/ui/DiscussionChat.tsx`, `client/src/modules/M08_studio-chat/ui/StudioSession.tsx`, `client/src/app/App.tsx`.
 
+### Builder Tribune UI
+
+- `status`: `active`
+- `truth_basis`: `repo_visible`
+- `last_checked`: `2026-05-01`
+- `quality`: `live_on_main_with_small_env_metadata_gap`
+- `known_gap`: Die Tribuene ist jetzt auf `main` und live erreichbar, aber die neue Env-Metadatenwahrheit ist auf Render noch nicht produktionssauber konfiguriert: `/api/health` und `/api/meta` melden aktuell `development` / `Local / Development`, weil `APP_ENV` offenbar nicht explizit gesetzt ist. Zusaetzlich ist die Oberflaeche erst technisch live, noch nicht durch echte Nutzerbeobachtung feinjustiert.
+- `next_recommended_step`: Erst echte Live-Sichtung auf `/builder`, dann optional kleiner Render-Konfigurationsblock (`APP_ENV=production`, optional `APP_ENV_LABEL=Live`) oder der naechste gezielte UI-Slice aus realem Feedback.
+- `evidence`: `client/src/modules/M16_builder/ui/BuilderStudioPage.tsx`, `client/src/modules/M16_builder/ui/PatrolConsole.tsx`, `docs/BUILDER-TRIBUNE-CONTRACT-v0.1.md`, `docs/BUILDER-TRIBUNE-AUDIT-v0.1.md`, `docs/BUILDER-UI-VS-BACKEND-DRIFT.md`; Merge-Head `f8482ac` live auf `https://soulmatch-1.onrender.com/builder`.
+
 ### Startseite / Home Dashboard
 
 - `status`: `active`

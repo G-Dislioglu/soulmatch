@@ -52,7 +52,7 @@ export const WORKER_PROFILES: WorkerProfile[] = [
   {
     id: 'kimi',
     provider: 'openrouter',
-    model: 'moonshotai/kimi-k2.5',
+    model: 'moonshotai/kimi-k2.6',
     role: 'code-worker',
     strengths: ['strong reasoning', 'good at complex logic', 'handles edge cases'],
     weaknesses: ['slower', 'sometimes over-engineers', 'occasional syntax issues'],
@@ -62,6 +62,20 @@ export const WORKER_PROFILES: WorkerProfile[] = [
     speedTier: 'medium',
     codeQuality: 70,
     reliability: 75,
+  },
+  {
+    id: 'mimo',
+    provider: 'openrouter',
+    model: 'xiaomi/mimo-v2.5',
+    role: 'code-worker',
+    strengths: ['strong autonomous coding', 'good long-context synthesis', 'solid multi-file planning'],
+    weaknesses: ['newer provider family in this stack', 'can still overcommit on unfamiliar repo patterns'],
+    bestFor: ['multi-file implementation', 'tool-heavy coding tasks', 'iterative cleanup passes'],
+    avoidFor: ['tiny one-line fixes', 'latency-sensitive quick answers'],
+    costTier: 'medium',
+    speedTier: 'medium',
+    codeQuality: 76,
+    reliability: 77,
   },
   {
     id: 'qwen',
@@ -78,9 +92,9 @@ export const WORKER_PROFILES: WorkerProfile[] = [
     reliability: 72,
   },
   {
-    id: 'gpt-5.4',
+    id: 'gpt-5.5',
     provider: 'openai',
-    model: 'gpt-5.4',
+    model: 'gpt-5.5',
     role: 'senior-worker',
     strengths: ['strong reasoning', 'good architecture sense', 'reliable code quality'],
     weaknesses: ['expensive', 'slower', 'sometimes overthinks simple tasks'],
@@ -94,7 +108,7 @@ export const WORKER_PROFILES: WorkerProfile[] = [
   {
     id: 'deepseek',
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-flash',
     role: 'scout-reviewer',
     strengths: ['excellent reasoning', 'very cheap', 'good at analysis'],
     weaknesses: ['code patches sometimes need adjustment', 'not always precise on TS types'],
@@ -110,9 +124,9 @@ export const WORKER_PROFILES: WorkerProfile[] = [
 export function pickWorker(taskDescription: string): WorkerProfile {
   const desc = taskDescription.toLowerCase();
 
-  // Architecture/complex → GPT-5.4
+  // Architecture/complex → GPT-5.5
   if (/architect|refactor|complex|redesign|multi.file/i.test(desc)) {
-    return WORKER_PROFILES.find(w => w.id === 'gpt-5.4')!;
+    return WORKER_PROFILES.find(w => w.id === 'gpt-5.5')!;
   }
   // Review/analysis → DeepSeek
   if (/review|analyze|scout|plan|check/i.test(desc)) {

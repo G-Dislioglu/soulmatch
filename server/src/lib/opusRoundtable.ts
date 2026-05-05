@@ -73,23 +73,23 @@ export const DEFAULT_ROUNDTABLE_CONFIG: RoundtableConfig = {
   participants: [
     {
       actor: 'opus',
-      model: 'claude-opus-4-6',
+      model: 'claude-opus-4-7',
       provider: 'anthropic',
       strengths: 'Architektur, Systemdesign, komplexe Logik, saubere Abstraktionen',
       maxTokensPerRound: 2500,
     },
     {
-      actor: 'gpt-5.4',
-      model: 'gpt-5.4',
+      actor: 'gpt-5.5',
+      model: 'gpt-5.5',
       provider: 'openai',
-      strengths: 'Edge-Cases, Fehlersuche, Sicherheitslücken, alternative Ansätze',
+      strengths: 'Edge-Cases, Fehlersuche, SicherheitslÃ¼cken, alternative AnsÃ¤tze',
       maxTokensPerRound: 2000,
     },
     {
       actor: 'glm-turbo',
       model: 'z-ai/glm-5-turbo',
       provider: 'openrouter',
-      strengths: 'Agent-optimiert, niedrigste Tool-Error Rate, findet Architektur-Fehler die andere übersehen',
+      strengths: 'Agent-optimiert, niedrigste Tool-Error Rate, findet Architektur-Fehler die andere Ã¼bersehen',
       maxTokensPerRound: 1500,
     },
   ],
@@ -161,7 +161,7 @@ async function resolveReadCommands(commands: BdlCommand[]): Promise<string> {
     }
 
     if (!content) {
-      reads.push(`[FILE: ${filePath}] — Datei nicht gefunden (lokal + GitHub)`);
+      reads.push(`[FILE: ${filePath}] â€” Datei nicht gefunden (lokal + GitHub)`);
       continue;
     }
 
@@ -226,7 +226,7 @@ async function resolveFindPatternCommands(commands: BdlCommand[]): Promise<strin
       }
     }
 
-    results.push(`[FIND_PATTERN: "${pattern}"${fileGlob ? ` glob:${fileGlob}` : ''}] — Kein Treffer gefunden`);
+    results.push(`[FIND_PATTERN: "${pattern}"${fileGlob ? ` glob:${fileGlob}` : ''}] â€” Kein Treffer gefunden`);
     console.log(`[find-pattern] no results for "${pattern}"`);
   }
 
@@ -241,12 +241,12 @@ function buildRoundtableSystemPrompt(
 ): string {
   const lines = [
     '=== KOMMUNIKATIONS-FORMAT (PFLICHT) ===',
-    'Halte JEDEN Beitrag UNTER 150 Wörtern. Kein Wiederholen.',
+    'Halte JEDEN Beitrag UNTER 150 WÃ¶rtern. Kein Wiederholen.',
     'Struktur:',
     'POS: agree/disagree/partial + wer (z.B. "agree opus-R1")',
-    'EIGENES: Was siehst DU das andere nicht sehen? (1-2 Sätze max)',
-    'AKTION: @READ/@PATCH/@APPROVE/@BLOCK + Begründung (1 Satz)',
-    'WICHTIG: @READ, @PATCH, @APPROVE, @BLOCK Befehle MÜSSEN auf einer EIGENEN Zeile stehen, direkt mit @ beginnend. Nicht nach "AKTION:".',
+    'EIGENES: Was siehst DU das andere nicht sehen? (1-2 SÃ¤tze max)',
+    'AKTION: @READ/@PATCH/@APPROVE/@BLOCK + BegrÃ¼ndung (1 Satz)',
+    'WICHTIG: @READ, @PATCH, @APPROVE, @BLOCK Befehle MÃœSSEN auf einer EIGENEN Zeile stehen, direkt mit @ beginnend. Nicht nach "AKTION:".',
     'Richtig:',
     '  POS: agree opus-R1',
     '  EIGENES: Zero-check fehlt',
@@ -262,16 +262,16 @@ function buildRoundtableSystemPrompt(
     '=== PROJEKT-DNA ===',
     projectDna || '(keine Project DNA geladen)',
     '',
-    '=== DEINE STÄRKE ===',
+    '=== DEINE STÃ„RKE ===',
     participant.strengths,
     '',
-    'Nutze deine Stärke aktiv, aber beschränke dich nicht darauf.',
+    'Nutze deine StÃ¤rke aktiv, aber beschrÃ¤nke dich nicht darauf.',
     'Du kannst alles tun: Ideen einbringen, Code schreiben, Fehler finden, zustimmen.',
     '',
     '=== TEAMARBEIT ===',
     '- Lies was die anderen geschrieben haben und REAGIERE darauf',
     '- Baue auf guten Ideen auf, widersprich bei Fehlern',
-    '- Bringe eigene Perspektiven ein die andere übersehen',
+    '- Bringe eigene Perspektiven ein die andere Ã¼bersehen',
     '- Wiederhole nicht was schon gesagt wurde',
     '- Verstehe die Mission des Teams, nicht nur deinen Einzelbeitrag',
     '- Frag zuerst nach oder markiere eine knappe Annahme, wenn Ambiguitaet lokal aufloesbar ist',
@@ -291,13 +291,13 @@ function buildRoundtableSystemPrompt(
     '@SEARCH query:"..." (nur wenn du Web-Zugang hast)',
     '',
     '=== GROSSE DATEIEN ===',
-    'Schreibe @PATCH auch für große Dateien. Das System erkennt automatisch',
+    'Schreibe @PATCH auch fÃ¼r groÃŸe Dateien. Das System erkennt automatisch',
     'ob die Datei >200 Zeilen hat und routet dann durch die Decomposer-Pipeline.',
-    'Du musst dich NICHT um die Zerlegung kümmern — nur um den korrekten @PATCH.',
+    'Du musst dich NICHT um die Zerlegung kÃ¼mmern â€” nur um den korrekten @PATCH.',
     '',
     '=== ENTSCHEIDUNGEN ===',
     'Sage @APPROVE wenn du mit dem aktuellen Code-Stand zufrieden bist.',
-    'Sage @BLOCK mit Begründung wenn du ein Problem siehst.',
+    'Sage @BLOCK mit BegrÃ¼ndung wenn du ein Problem siehst.',
     'Sage @NEEDS_DISCUSSION wenn du eine Frage ans Team hast.',
     'Nutze @NEEDS_DISCUSSION oder eine klare Rueckfrage vor @BLOCK, wenn das Problem nur Ambiguitaet und kein harter Risikowechsel ist.',
     'Biete bei @BLOCK wenn moeglich eine sichere naechste Option an.',
@@ -309,31 +309,31 @@ function buildRoundtableSystemPrompt(
 
   lines.push(
     '',
-    '=== QUALITÄTS-CHECK (Crush-Prinzipien) ===',
+    '=== QUALITÃ„TS-CHECK (Crush-Prinzipien) ===',
     'Bevor du @APPROVE sagst:',
-    '- Prüfe: Gibt es etwas das das Team stillschweigend annimmt? (Missing Branch)',
-    '- Prüfe: Passt die Sprachstärke zur Evidenzlage? (Nicht "sicher" sagen wenn unsicher)',
-    '- Prüfe: Gibt es eine bestehende Lösung die wiederverwendet werden kann? (Reuse First)',
+    '- PrÃ¼fe: Gibt es etwas das das Team stillschweigend annimmt? (Missing Branch)',
+    '- PrÃ¼fe: Passt die SprachstÃ¤rke zur Evidenzlage? (Nicht "sicher" sagen wenn unsicher)',
+    '- PrÃ¼fe: Gibt es eine bestehende LÃ¶sung die wiederverwendet werden kann? (Reuse First)',
     '- Wenn du ein Problem findest, nenne es BEVOR du @APPROVE sagst.',
-    'Kein Crush-Theater: Fülle keine Felder der Form halber aus. Nur echte Erkenntnisse.',
+    'Kein Crush-Theater: FÃ¼lle keine Felder der Form halber aus. Nur echte Erkenntnisse.',
     '',
     '=== AWARENESS CHECK ===',
-    'Bevor du @APPROVE sagst, prüfe zusätzlich:',
-    '- Hält dein Vorschlag den Kontext über alle bisherigen Runden? (Context Maintained)',
-    '- Hast du etwas Nützliches gefunden, das nicht im Task stand? (Unexpected Value)',
-    '- Hast du etwas behauptet, das du nicht belegen kannst? (Hallucination Flag — wenn ja, streiche es)',
+    'Bevor du @APPROVE sagst, prÃ¼fe zusÃ¤tzlich:',
+    '- HÃ¤lt dein Vorschlag den Kontext Ã¼ber alle bisherigen Runden? (Context Maintained)',
+    '- Hast du etwas NÃ¼tzliches gefunden, das nicht im Task stand? (Unexpected Value)',
+    '- Hast du etwas behauptet, das du nicht belegen kannst? (Hallucination Flag â€” wenn ja, streiche es)',
     '',
-    '=== AUFTRAGS-PRÜFUNG ===',
-    'Bevor du @APPROVE sagst, prüfe den Auftrag selbst:',
-    '- SCOPE-CHECK: Ist der Task richtig geschnitten? Fehlt eine Datei im Scope, die mitgeändert werden müsste? Ist der Scope zu eng oder zu breit?',
-    '- RÜCKMELDUNG: Gibt es etwas, das über diesen Task hinaus für die Pipeline relevant ist? (z.B. ein entdecktes Pattern, ein Architektur-Risiko, eine Empfehlung für den nächsten Task)',
+    '=== AUFTRAGS-PRÃœFUNG ===',
+    'Bevor du @APPROVE sagst, prÃ¼fe den Auftrag selbst:',
+    '- SCOPE-CHECK: Ist der Task richtig geschnitten? Fehlt eine Datei im Scope, die mitgeÃ¤ndert werden mÃ¼sste? Ist der Scope zu eng oder zu breit?',
+    '- RÃœCKMELDUNG: Gibt es etwas, das Ã¼ber diesen Task hinaus fÃ¼r die Pipeline relevant ist? (z.B. ein entdecktes Pattern, ein Architektur-Risiko, eine Empfehlung fÃ¼r den nÃ¤chsten Task)',
     'Wenn ja: Schreibe es als @FEEDBACK auf einer eigenen Zeile.',
     'Wenn nein: Nichts erzwingen. Nur echte Erkenntnisse.',
     '',
     '=== AKTUELLER TASK ===',
     `Titel: ${task.title}`,
     `Ziel: ${task.goal}`,
-    `Scope: ${task.scope?.join(', ') || 'nicht eingeschränkt'}`,
+    `Scope: ${task.scope?.join(', ') || 'nicht eingeschrÃ¤nkt'}`,
     `Risiko: ${task.risk || 'low'}`,
   );
 
@@ -536,10 +536,10 @@ export async function runRoundtable(
     if (moderator && round < config.maxRounds) {
       try {
         const decision = await moderator(round, roundMessages, chatPool, approvals.count, blocks.count);
-        console.log(`[roundtable] Maya moderation R${round}: ${decision.action} — ${decision.reason}`);
+        console.log(`[roundtable] Maya moderation R${round}: ${decision.action} â€” ${decision.reason}`);
 
         if (decision.action === 'conclude') {
-          // Maya says stop — treat current state as best effort
+          // Maya says stop â€” treat current state as best effort
           const finalApprovals = countApprovals(chatPool);
           return {
             status: finalApprovals.count >= config.consensusThreshold ? 'consensus' : 'no_consensus',
@@ -647,20 +647,20 @@ export async function validatePatch(
   try {
     const response = await callProvider('deepseek', 'deepseek-reasoner', {
       system: [
-        'Du bist ein Code-Validator. Prüfe den folgenden Patch Schritt für Schritt.',
+        'Du bist ein Code-Validator. PrÃ¼fe den folgenden Patch Schritt fÃ¼r Schritt.',
         '',
-        'Prüfe auf:',
+        'PrÃ¼fe auf:',
         '1. Race Conditions bei concurrent Access',
-        '2. Vergessene Imports oder Abhängigkeiten',
+        '2. Vergessene Imports oder AbhÃ¤ngigkeiten',
         '3. FK-Constraints bei Delete/Insert Operationen',
         '4. Null/undefined Edge-Cases',
         '5. Scope-Verletzungen',
         '6. Logik-Fehler',
         '',
         `Task-Ziel: ${task.goal}`,
-        `Scope: ${task.scope?.join(', ') || 'nicht eingeschränkt'}`,
+        `Scope: ${task.scope?.join(', ') || 'nicht eingeschrÃ¤nkt'}`,
         '',
-        'Schreibe deine Analyse als Fließtext. Am Ende, füge einen JSON-Block ein:',
+        'Schreibe deine Analyse als FlieÃŸtext. Am Ende, fÃ¼ge einen JSON-Block ein:',
         '{"passed": true/false, "issues": [{"severity":"...","description":"...","file":"...","suggestion":"..."}]}',
       ].join('\n'),
       messages: [{ role: 'user', content: `Team-Diskussion:\n${chatPoolSummary}\n\nPatch:\n${patchDiff}` }],

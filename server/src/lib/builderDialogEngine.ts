@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import { asc, eq } from 'drizzle-orm';
 import { getDb } from '../db.js';
-import { builderActions, builderTasks } from '../schema/builder.js';
+import { builderActions, builderMemory, builderTasks } from '../schema/builder.js';
 import { BUILDER_POLICY_PROFILES, TASK_TYPE_TO_PROFILE } from './builderPolicyProfiles.js';
 import { callProvider } from './providers.js';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
@@ -9,7 +9,7 @@ import { checkScope, checkTokenBudget } from './builderGates.js';
 import { diffFiles, findPattern, readFile } from './builderFileIO.js';
 import { createWorktree, removeWorktree, runCheck } from './builderExecutor.js';
 import { applyPatch } from './builderPatchExecutor.js';
-import { triggerGithubAction, convertBdlPatchesToPayload } from './builderGithubBridge.js';
+import { triggerGithubAction, convertBdlPatchesToPayload, validatePatchPayloads } from './builderGithubBridge.js';
 import { webSearch } from './builderSearch.js';
 import { runBrowserLane } from './builderBrowserLane.js';
 import { executePrototype } from './builderPrototypeLane.js';
@@ -31,6 +31,8 @@ import {
 import { generateEvidencePack, saveEvidencePack } from './builderEvidencePack.js';
 import { evaluateCanaryGate } from './builderCanary.js';
 import { setActiveBuilderTask, syncBuilderMemoryForTask } from './builderMemory.js';
+import { buildBuilderTaskContract } from './builderTaskContract.js';
+import { buildTeamAwarenessBrief, buildTeamContextPack } from './builderTeamAwareness.js';
 
 type ComplexityTier = 1 | 2 | 3;
 
@@ -38,7 +40,10 @@ async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promi
   try {
     const response = await callProvider('gemini', 'gemini-3-flash-preview', {
       system: 'Klassifiziere die Komplexitaet dieses Builder-Tasks. Antworte NUR mit 1, 2 oder 3.\n1 = einfach (neue Datei, kleiner Fix, 1 Datei)\n2 = mittel (mehrere Dateien, Pattern-Suche noetig, Logik-Aenderung)\n3 = komplex (Architektur, mehrere Module, Abhaengigkeiten)',
-      messages: [{ role: 'user', content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nRisk: ${task.risk}` }],
+      messages: [{
+        role: 'user',
+        content: `Title: ${task.title}\nGoal: ${task.goal}\nType: ${task.taskType}\nIntent: ${task.intentKind}\nRequestedOutput: ${task.requestedOutputKind}\nRequestedFormat: ${task.requestedOutputFormat}\nRisk: ${task.risk}`,
+      }],
       maxTokens: 10,
       temperature: 0,
     });
@@ -55,11 +60,20 @@ async function classifyComplexity(task: typeof builderTasks.$inferSelect): Promi
 async function runCollaborativeAnalysis(
   task: typeof builderTasks.$inferSelect,
   worktreePath: string,
+  contextPack = '',
 ): Promise<{ claudeAnalysis: string; chatgptAnalysis: string; combined: string }> {
+  const scoutBrief = buildTeamAwarenessBrief(task, 'scout');
+  const reviewerBrief = buildTeamAwarenessBrief(task, 'reviewer');
   const analysisPrompt = [
+    scoutBrief,
+    contextPack,
+    '',
     'Analysiere diesen Task OHNE ihn umzusetzen.',
     `Title: ${task.title}`,
     `Goal: ${task.goal}`,
+    `Intent: ${task.intentKind}`,
+    `Requested Output: ${task.requestedOutputKind}`,
+    `Requested Format: ${task.requestedOutputFormat}`,
     `Scope: ${task.scope.join(', ') || '(alle Dateien erlaubt)'}`,
     `Worktree: ${worktreePath}`,
     '',
@@ -74,13 +88,19 @@ async function runCollaborativeAnalysis(
 
   const [claudeResult, chatgptResult] = await Promise.all([
     callProvider('anthropic', 'claude-sonnet-4-20250514', {
-      system: 'Du bist ein Senior Backend-Architect. Analysiere den Task aus Architektur-Perspektive.',
+      system: [
+        'Du bist ein Senior Backend-Architect. Analysiere den Task aus Architektur-Perspektive.',
+        scoutBrief,
+      ].join('\n\n'),
       messages: [{ role: 'user', content: analysisPrompt }],
       maxTokens: 800,
       temperature: 0.5,
     }).catch(() => 'Claude-Analyse nicht verfuegbar.'),
     callProvider('openai', 'gpt-4.1-mini', {
-      system: 'Du bist ein Senior Code-Reviewer. Analysiere den Task aus Qualitaets- und Sicherheits-Perspektive.',
+      system: [
+        'Du bist ein Senior Code-Reviewer. Analysiere den Task aus Qualitaets- und Sicherheits-Perspektive.',
+        reviewerBrief,
+      ].join('\n\n'),
       messages: [{ role: 'user', content: analysisPrompt }],
       maxTokens: 800,
       temperature: 0.5,
@@ -125,12 +145,49 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
+function needsVisualPrototype(task: typeof builderTasks.$inferSelect, laneFlags: { prototype: boolean }): boolean {
+  if (!laneFlags.prototype) {
+    return false;
+  }
+
+  if (task.goalKind === 'visual_fix') {
+    return false;
+  }
+
+  return task.requestedOutputKind === 'html_artifact'
+    || task.requestedOutputKind === 'presentation_artifact'
+    || task.requestedOutputKind === 'visual_artifact'
+    || task.intentKind === 'app_build'
+    || ['B', 'C', 'P'].includes(task.taskType);
+}
+
+function needsBrowserLane(task: typeof builderTasks.$inferSelect, laneFlags: { browser: boolean }): boolean {
+  if (!laneFlags.browser) {
+    return false;
+  }
+
+  if (task.goalKind === 'visual_fix') {
+    return false;
+  }
+
+  return task.requestedOutputKind === 'html_artifact'
+    || task.requestedOutputKind === 'presentation_artifact'
+    || task.requestedOutputKind === 'visual_artifact'
+    || task.intentKind === 'app_build'
+    || ['B', 'C'].includes(task.taskType);
+}
+
 function buildArchitectSystemPrompt(
   task: typeof builderTasks.$inferSelect,
   laneFlags: { browser: boolean },
+  codeEvidenceReady: boolean,
 ) {
+  const isVisualFix = task.goalKind === 'visual_fix';
+  const teamBrief = buildTeamAwarenessBrief(task, 'architect');
   return [
     'Du bist der Builder-Architect fuer Soulmatch.',
+    teamBrief,
+    '',
     'Antworte NUR in BDL (Builder Dialog Language). Kein Fliesstext, kein Markdown, kein Bash.',
     '',
     '=== BDL Syntax-Referenz ===',
@@ -151,30 +208,69 @@ function buildArchitectSystemPrompt(
     '  -> Fuehrt alle gepufferten @PATCH Befehle aus. PFLICHT nach @PATCH.',
     '@SEARCH query:"suchbegriff oder technische frage"',
     '  -> Web-Suche. Nutze wenn du eine API-Referenz, ein Pattern oder aktuelle Doku brauchst.',
+    '@ASSUMPTION { ... }',
+    '  -> Markiert niedrige Unsicherheit und erlaubt Weiterarbeit mit klarer Annahme.',
+    '@CLARIFY target:"maya" { ... }',
+    '  -> Kurze Rueckfrage an Maya bei Ziel-, Scope- oder Intent-Konflikt. Nicht automatisch blockierend.',
+    '@CONSULT target:"scout|reviewer|judge|maya" { ... }',
+    '  -> Fachliche Team-Rueckfrage, ohne den ganzen Lauf zu killen.',
     '',
     '=== VERBOTEN ===',
     '@EXECUTE, @READ_FILE, @VERIFY, @BASH - existieren NICHT.',
     'Nutze @READ statt @READ_FILE. Nutze @PATCH + @APPLY statt @EXECUTE.',
     '',
     '=== Ablauf ===',
-    '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN -> 4. @PATCH -> 5. @APPLY',
+    '1. @FIND_PATTERN (Pflicht) -> 2. @READ/@SEARCH (optional) -> 3. @PLAN plus ggf. @ASSUMPTION/@CLARIFY/@CONSULT -> 4. @PATCH -> 5. @APPLY',
+    '',
+    '=== Patch-Sicherheitsregeln ===',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Nutze BDL nur als Transportformat. Denke wie ein erfahrener Frontend-Engineer: Kontext aufnehmen, kleinstmoeglichen sinnvollen Fix planen, dann umsetzen. Blockiere nicht wegen Formular- oder Reuse-Buerokratie.'
+      : 'Jeder @PATCH mit -Zeilen muss exakt Text ersetzen, den du vorher per @READ in derselben Runde gesehen hast.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Du darfst kleine Inline-Labels, aria-label/title, Hilfstexte und konsistente Inline-Styles einfuehren, wenn sie zur bestehenden Datei passen. Keine externen UI-Libraries einfuehren, ausser sie sind schon im File vorhanden.'
+      : 'Wenn der Zieltext nicht im @READ-Kontext vorkommt, gib @PLAN und @BLOCK statt @PATCH.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Wenn der relevante Source-Kontext in den bisherigen Beobachtungen steht, darfst du direkt patchen. Wenn dir Kontext fehlt, lies gezielt nach.'
+      : 'Erfinde keine Komponenten, Imports, CSS-Klassen oder UI-Bibliotheken, die im gelesenen Code nicht vorkommen.',
+    isVisualFix
+      ? 'VISUAL_FIX-AUTONOMY: Ein guter, kleiner Fix ist besser als ein perfektes Schema. GitHub Typecheck/Build bleibt die harte Sicherheitsgrenze.'
+      : 'Nutze keine shadcn/Tailwind/Button/Tooltip-Patterns, ausser sie stehen exakt im gelesenen Ziel-File.',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: Wenn du einen bestehenden JSX-Block verbesserst, ersetze ihn. Dupliziere keine Buttons, Panels oder Labels. In @PATCH muessen entfernte alte Zeilen mit - und neue Zeilen mit + markiert sein.'
+      : '',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: oldText muss exakt im aktuellen Source-Kontext vorkommen. Wenn ein Reviewer oder Tool oldText_not_found meldet, lies/verwende einen kleineren stabilen Textanker und versuche es erneut.'
+      : '',
+    isVisualFix
+      ? 'VISUAL_FIX PATCH REGEL: Keine append/write-Aenderung an bestehenden TSX-Dateien. Nutze replace mit stabilem altem Textanker, sonst riskierst du kaputtes JSX.'
+      : '',
+    !isVisualFix && !codeEvidenceReady
+      ? 'DISCOVERY-ROUND: Liefere nur @FIND_PATTERN, @READ und @PLAN. Kein @PATCH und kein @APPLY, weil du den @READ-Output erst nach dieser Runde bekommst.'
+      : '',
     '',
     'Wenn dir eine KOLLABORATIVE ANALYSE mitgegeben wird, beruecksichtige die Erkenntnisse beider Experten.',
     'Baue auf ihren Risiko-Einschaetzungen und Ansaetzen auf statt sie zu ignorieren.',
     '',
     `Task: ${task.goal}`,
+    `IntentKind: ${task.intentKind ?? 'code_change'}`,
+    `Requested Output: ${task.requestedOutputKind ?? 'code_artifact'} / ${task.requestedOutputFormat ?? 'code'}`,
     `Scope: ${task.scope.join(', ') || '(leer - alle Dateien erlaubt)'}`,
     `Not-Scope: ${task.notScope.join(', ') || '(leer)'}`,
     `Policy: ${task.policyProfile ?? TASK_TYPE_TO_PROFILE[task.taskType as keyof typeof TASK_TYPE_TO_PROFILE]}`,
-    laneFlags.browser && ['B', 'C'].includes(task.taskType)
-      ? 'Fuer Typ B/C musst du mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
+    'Halte die Code-Lane voll funktionsfaehig, auch wenn die Aufgabe als universeller Maya-Task geroutet wurde.',
+    needsBrowserLane(task, laneFlags)
+      ? 'Du musst mindestens einen @UI_RUN Block liefern: route/path ist Pflicht, selector/text/waitFor optional.'
       : '',
   ].join('\n');
 }
 
-function buildReviewerSystemPrompt(mode: 'primary' | 'secondary') {
+function buildReviewerSystemPrompt(mode: 'primary' | 'secondary', task: typeof builderTasks.$inferSelect) {
+  const isVisualFix = task.goalKind === 'visual_fix';
+  const teamBrief = buildTeamAwarenessBrief(task, 'reviewer');
   return [
     'Du bist der Builder-Reviewer fuer Soulmatch.',
+    teamBrief,
+    '',
     'Antworte NUR in BDL.',
     'Pruefe den Vorschlag des Architects. Achte auf:',
     '1. Scope-Einhaltung',
@@ -183,8 +279,21 @@ function buildReviewerSystemPrompt(mode: 'primary' | 'secondary') {
     mode === 'secondary'
       ? 'Du bist der zweite Reviewer. Beurteile auch UX-Heuristik, Taeuscht-Pruefung und Dissens zum ersten Review.'
       : 'Du bist der erste Reviewer. Liefere eine harte Code- und Reuse-Pruefung.',
+    isVisualFix
+      ? 'VISUAL_FIX Review: Nicht wegen fehlendem Schema blockieren. Blockiere nur bei echtem Scope-Bruch, fehlender Abhaengigkeit, offensichtlich kaputtem Code, Security-Risiko oder klar falscher Ziel-Datei. Sonst APPROVE oder REQUEST_CHANGE.'
+      : '',
     'Gib genau einen @REVIEW Block mit diesen Feldern: verdict, lane, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check, agreement.',
-    'Wenn searched_codebase=false, musst du blockieren.',
+    'reuse_check muss ein Objekt sein: reuse_check: { searched_codebase: true|false, existing_pattern_found: true|false, pattern_reused: true|false|adapted, justification_if_new: "..." }.',
+    isVisualFix
+      ? 'Bei visual_fix ist searched_codebase=false ein Hinweis, aber kein automatischer Blocker, wenn der Patch plausibel im Scope bleibt.'
+      : 'Blockiere, wenn der Patch Code ersetzt, der nicht im Execution summary aus @READ sichtbar war.',
+    isVisualFix
+      ? 'VISUAL_FIX_SOURCE_CONTEXT gilt als Code-Evidenz. Blockiere nicht nur deshalb, weil der Architect keinen separaten @READ in derselben Runde erzeugt hat.'
+      : '',
+    isVisualFix
+      ? 'Neue kleine Inline-Hilfen sind erlaubt. Neue externe UI-Bibliotheken oder nicht vorhandene Importpfade sind echte Blocker.'
+      : 'Blockiere, wenn der Patch eine UI-Bibliothek oder Komponente einfuehrt, die im Ziel-File nicht vorkommt.',
+    isVisualFix ? '' : 'Wenn searched_codebase=false, musst du blockieren.',
     'Danach genau eine Entscheidung: @APPROVE, @REQUEST_CHANGE oder @BLOCK.',
   ].join('\n');
 }
@@ -201,8 +310,63 @@ function decideVerdict(verdicts: ReviewVerdict[]) {
   return 'issue';
 }
 
+function isHardVisualReviewBlock(review: ParsedReview) {
+  if (review.scopeOk === false) {
+    return true;
+  }
+
+  const notes = review.notes.join(' ').toLowerCase();
+  return [
+    'secret',
+    'auth',
+    'provider',
+    'deploy',
+    'migration',
+    'security',
+    'wrong file',
+    'falsche ziel-datei',
+    'scope-bruch',
+    'external library',
+    'extern',
+  ].some((needle) => notes.includes(needle));
+}
+
 function summarizeCommandResult(command: BdlCommand, result: Record<string, unknown>) {
   return JSON.stringify({ kind: command.kind, params: command.params, result });
+}
+
+async function buildVisualFixSourceContext(
+  task: typeof builderTasks.$inferSelect,
+  worktreePath: string,
+  forbiddenFiles: string[],
+) {
+  if (task.goalKind !== 'visual_fix' || task.scope.length === 0) {
+    return '';
+  }
+
+  const maxCharsPerFile = 70000;
+  const chunks: string[] = [];
+  for (const file of task.scope.slice(0, 6)) {
+    try {
+      const readResult = await readFile(worktreePath, file, task.scope, forbiddenFiles);
+      const content = readResult.content.length > maxCharsPerFile
+        ? `${readResult.content.slice(0, maxCharsPerFile)}\n\n/* truncated: ${readResult.content.length - maxCharsPerFile} chars omitted */`
+        : readResult.content;
+      chunks.push([
+        `--- SOURCE ${file} (${readResult.lines} lines) ---`,
+        content,
+      ].join('\n'));
+    } catch (error) {
+      chunks.push(`--- SOURCE ${file} unavailable: ${error instanceof Error ? error.message : String(error)} ---`);
+    }
+  }
+
+  return [
+    'VISUAL_FIX_SOURCE_CONTEXT:',
+    'Maya gibt dem Worker diesen Source-Kontext direkt, damit er autonom planen und handeln kann.',
+    'Nutze ihn wie gelesenen Code. Wenn du patchst, ersetze vorhandene Textanker aus diesem Kontext oder lies gezielt nach.',
+    chunks.join('\n\n'),
+  ].join('\n\n');
 }
 
 function parseStageFiles(value: string) {
@@ -228,7 +392,42 @@ function runGitCommand(command: string, cwd: string) {
   }
 }
 
+function buildTaskSnapshot(
+  task: typeof builderTasks.$inferSelect,
+  patch: Partial<typeof builderTasks.$inferSelect> = {},
+): typeof builderTasks.$inferSelect {
+  return {
+    ...task,
+    ...patch,
+  };
+}
+
+async function recordContractAction(input: {
+  task: typeof builderTasks.$inferSelect;
+  lane: string;
+  kind: string;
+  actor: string;
+  payload?: Record<string, unknown>;
+  result?: Record<string, unknown> | null;
+  tokenCount?: number;
+}) {
+  const db = getDb();
+  await db.insert(builderActions).values({
+    taskId: input.task.id,
+    lane: input.lane,
+    kind: input.kind,
+    actor: input.actor,
+    payload: {
+      ...(input.payload ?? {}),
+      contract: buildBuilderTaskContract(input.task),
+    },
+    result: input.result ?? null,
+    tokenCount: input.tokenCount ?? 0,
+  });
+}
+
 async function saveCommandActions(
+  task: typeof builderTasks.$inferSelect,
   taskId: string,
   actor: DialogRound['actor'],
   role: DialogRound['role'],
@@ -252,6 +451,7 @@ async function saveCommandActions(
         role,
         rawResponse,
         params: {},
+        contract: buildBuilderTaskContract(task),
       },
       result: { emptyBdl: true },
       tokenCount: tokensUsed,
@@ -272,6 +472,7 @@ async function saveCommandActions(
         rawCommand: command.raw,
         params: command.params,
         body: command.body,
+        contract: buildBuilderTaskContract(task),
       },
       result: results[index] ?? { stub: true },
       tokenCount: tokensUsed,
@@ -283,13 +484,16 @@ async function executeArchitectCommands(
   task: typeof builderTasks.$inferSelect,
   worktreePath: string,
   commands: BdlCommand[],
+  options: { allowPatches: boolean } = { allowPatches: true },
 ) {
   const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
   const forbiddenFiles = policy?.forbidden_files ?? [];
+  const isVisualFix = task.goalKind === 'visual_fix';
   const outputs: string[] = [];
   const results: Array<Record<string, unknown>> = [];
   const pendingPatches: Array<{ file: string; body: string }> = [];
+  const deferredGithubPatches: ReturnType<typeof convertBdlPatchesToPayload> = [];
   let lastCallResult: RuntimeCallResult | null = null;
 
   for (const command of commands) {
@@ -441,11 +645,80 @@ async function executeArchitectCommands(
       continue;
     }
 
+    if (kind === 'ASSUMPTION') {
+      const text = command.body || command.params.text || command.params.arg1 || '';
+      const result: Record<string, unknown> = {
+        recorded: true,
+        nonBlocking: true,
+        text,
+        note: 'Low-risk uncertainty was marked and work may continue unless a hard risk boundary is reached.',
+      };
+
+      if (text.trim()) {
+        try {
+          await getDb().insert(builderMemory).values({
+            layer: 'assumption',
+            key: `assumption:${task.id}:${Date.now()}`,
+            taskId: task.id,
+            worker: 'architect',
+            summary: text.trim().slice(0, 500),
+            payload: {
+              source: 'bdl_assumption',
+              role: 'architect',
+              policy: 'continue_with_marked_assumption',
+            },
+            updatedAt: new Date(),
+          });
+        } catch (error) {
+          result.recorded = false;
+          result.memoryError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'CLARIFY') {
+      const question = command.body || command.params.question || command.params.arg1 || '';
+      const result = {
+        queued: true,
+        target: command.params.target || 'maya',
+        nonBlocking: true,
+        question,
+        note: 'Clarification need recorded. Continue with a safe assumption unless this is a hard risk boundary.',
+      };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
+    if (kind === 'CONSULT') {
+      const target = command.params.target || command.params.role || command.params.arg1 || 'maya';
+      const question = command.body || command.params.question || '';
+      const result = {
+        queued: true,
+        target,
+        nonBlocking: true,
+        question,
+        note: 'Team consult recorded. Do not kill the run for consultable uncertainty.',
+      };
+      results.push(result);
+      outputs.push(summarizeCommandResult(command, result));
+      continue;
+    }
+
     if (kind === 'PATCH') {
       const filePath = command.params.file;
       let result: Record<string, unknown>;
 
-      if (!filePath) {
+      if (!options.allowPatches) {
+        result = {
+          error: 'patch_requires_prior_read_round',
+          note: 'Patch ignored. The architect must first read code in one round, then patch in a later round.',
+        };
+      } else if (!filePath) {
         result = { error: 'missing_file_param' };
       } else {
         pendingPatches.push({ file: filePath, body: command.body ?? '' });
@@ -458,6 +731,17 @@ async function executeArchitectCommands(
     }
 
     if (kind === 'APPLY') {
+      if (!options.allowPatches) {
+        const result = {
+          error: 'apply_requires_prior_read_round',
+          note: 'Apply ignored. GitHub Actions can only be triggered after a reviewed patch round.',
+        };
+        pendingPatches.length = 0;
+        results.push(result);
+        outputs.push(summarizeCommandResult(command, result));
+        continue;
+      }
+
       const hasGithubPat = !!process.env.GITHUB_PAT;
       let result: Record<string, unknown>;
 
@@ -470,16 +754,25 @@ async function executeArchitectCommands(
             raw: '',
           })),
         );
-        const triggerResult = await triggerGithubAction(task.id, patchPayloads);
+        const validation = validatePatchPayloads(worktreePath, patchPayloads, {
+          disallowAppendToExisting: isVisualFix,
+        });
         pendingPatches.length = 0;
-        result = {
-          mode: 'github_actions',
-          triggered: triggerResult.triggered,
-          error: triggerResult.error || null,
-          note: triggerResult.triggered
-            ? 'Patches sent to GitHub Actions. Results will arrive via callback.'
-            : 'GitHub bridge not available. Patches saved but not executed.',
-        };
+        if (!validation.ok) {
+          result = {
+            error: 'patch_validation_failed',
+            reason: validation.error,
+            file: validation.patch.file,
+            note: 'Patch was not sent to GitHub. The worker should retry with an exact smaller oldText anchor.',
+          };
+        } else {
+          deferredGithubPatches.push(...patchPayloads);
+          result = {
+            mode: 'github_actions_deferred',
+            queued: patchPayloads.length,
+            note: 'Patches buffered. GitHub Actions will be triggered only after reviewer approval.',
+          };
+        }
       } else {
         const patchResults = [];
         for (const patch of pendingPatches) {
@@ -551,6 +844,7 @@ async function executeArchitectCommands(
   return {
     results,
     contextText: outputs.join('\n'),
+    deferredGithubPatches,
   };
 }
 
@@ -561,16 +855,55 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   if (!task) {
     throw new Error(`Task ${taskId} not found`);
   }
+  let currentTask = task;
 
-  const canaryGate = await evaluateCanaryGate(task);
-  if (!canaryGate.allowed) {
+  const updateTaskStatus = async (
+    nextStatus: typeof builderTasks.$inferSelect.status,
+    lane: 'code' | 'review' | 'runtime' | 'prototype',
+    reason: string,
+    patch: Partial<typeof builderTasks.$inferSelect> = {},
+  ) => {
+    const nextTask = buildTaskSnapshot(currentTask, {
+      ...patch,
+      status: nextStatus,
+      updatedAt: new Date(),
+    });
+
     await db
       .update(builderTasks)
-      .set({ status: 'blocked', updatedAt: new Date() })
+      .set({
+        status: nextStatus,
+        updatedAt: nextTask.updatedAt,
+        ...(patch.commitHash !== undefined ? { commitHash: patch.commitHash } : {}),
+        ...(patch.tokenCount !== undefined ? { tokenCount: patch.tokenCount } : {}),
+      })
       .where(eq(builderTasks.id, taskId));
 
-    await db.insert(builderActions).values({
-      taskId,
+    await recordContractAction({
+      task: nextTask,
+      lane,
+      kind: 'STATUS_TRANSITION',
+      actor: 'system',
+      payload: {
+        fromStatus: currentTask.status,
+        toStatus: nextStatus,
+        reason,
+      },
+      result: {
+        status: nextStatus,
+        lifecyclePhase: buildBuilderTaskContract(nextTask).lifecycle.phase,
+      },
+      tokenCount: 0,
+    });
+
+    currentTask = nextTask;
+  };
+
+  const canaryGate = await evaluateCanaryGate(currentTask);
+  if (!canaryGate.allowed) {
+    await updateTaskStatus('blocked', 'review', 'canary_gate_blocked');
+    await recordContractAction({
+      task: currentTask,
       lane: 'review',
       kind: 'BLOCK',
       actor: 'system',
@@ -594,28 +927,30 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
   const laneFlags = canaryGate.laneFlags;
 
-  const policyName = task.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
+  const policyName = currentTask.policyProfile as keyof typeof BUILDER_POLICY_PROFILES | null;
   const policy = policyName ? BUILDER_POLICY_PROFILES[policyName] : null;
-  const maxRounds = policy?.max_rounds ?? 3;
-  const tokenBudget = task.tokenBudget ?? (task.risk === 'high' ? 10000 : task.risk === 'medium' ? 5000 : 2000);
+  const forbiddenFiles = policy?.forbidden_files ?? [];
+  const isVisualFix = currentTask.goalKind === 'visual_fix';
+  const maxRounds = isVisualFix ? Math.max(policy?.max_rounds ?? 3, 6) : policy?.max_rounds ?? 3;
+  const baseTokenBudget = currentTask.tokenBudget ?? (currentTask.risk === 'high' ? 10000 : currentTask.risk === 'medium' ? 5000 : 2000);
+  const tokenBudget = isVisualFix ? Math.max(baseTokenBudget, 50000) : baseTokenBudget;
 
   const rounds: DialogRound[] = [];
   const worktree = createWorktree(taskId);
+  const initialContextPack = await buildTeamContextPack(currentTask, 'architect');
   let totalTokens = 0;
   let finalStatus = 'needs_human_review';
   let abortReason: string | undefined;
-  let latestContext = '';
-  const needsPrototype = laneFlags.prototype && ['B', 'C', 'P'].includes(task.taskType);
-  const shouldRunPrototypeLane = needsPrototype && task.status !== 'planning' && task.status !== 'prototype_review';
+  let latestContext = initialContextPack;
+  let codeEvidenceReady = false;
+  const needsPrototype = needsVisualPrototype(currentTask, laneFlags);
+  const shouldRunPrototypeLane = needsPrototype && currentTask.status !== 'planning' && currentTask.status !== 'prototype_review';
 
   try {
-    if (task.status === 'prototype_review') {
+    if (currentTask.status === 'prototype_review') {
       finalStatus = 'prototype_review';
     } else if (shouldRunPrototypeLane) {
-      await db
-        .update(builderTasks)
-        .set({ status: 'prototyping', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('prototyping', 'prototype', 'prototype_lane_started');
 
       const protoResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
         system: [
@@ -628,7 +963,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         messages: [
           {
             role: 'user',
-            content: `Task: ${task.goal}\nScope: ${task.scope.join(', ')}`,
+            content: `Task: ${currentTask.goal}\nIntent: ${currentTask.intentKind}\nRequested Output: ${currentTask.requestedOutputKind}\nRequested Format: ${currentTask.requestedOutputFormat}\nScope: ${currentTask.scope.join(', ')}`,
           },
         ],
         maxTokens: 3000,
@@ -658,6 +993,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       });
 
       await saveCommandActions(
+        currentTask,
         taskId,
         'claude',
         'architect',
@@ -669,23 +1005,20 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         'prototype',
       );
 
-      await db
-        .update(builderTasks)
-        .set({ status: 'prototype_review', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('prototype_review', 'prototype', 'prototype_ready_for_review');
 
       finalStatus = 'prototype_review';
     }
 
-    const tier = await classifyComplexity(task);
+    const tier = await classifyComplexity(currentTask);
     console.log(`[builder] Task ${taskId} classified as Tier ${tier}`);
 
     if (tier >= 2) {
-      const analysis = await runCollaborativeAnalysis(task, worktree.worktreePath);
-      latestContext = analysis.combined;
+      const analysis = await runCollaborativeAnalysis(currentTask, worktree.worktreePath, initialContextPack);
+      latestContext = [latestContext, analysis.combined].filter(Boolean).join('\n\n');
 
-      await db.insert(builderActions).values({
-        taskId,
+      await recordContractAction({
+        task: currentTask,
         lane: 'review',
         kind: 'COLLABORATIVE_ANALYSIS',
         actor: 'system',
@@ -702,34 +1035,44 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       totalTokens += analysisTokens;
     }
 
-    if (!needsPrototype || task.status === 'planning') {
+    if (isVisualFix) {
+      const sourceContext = await buildVisualFixSourceContext(currentTask, worktree.worktreePath, forbiddenFiles);
+      if (sourceContext) {
+        latestContext = [latestContext, sourceContext].filter(Boolean).join('\n\n');
+        codeEvidenceReady = true;
+      }
+    }
+
+    if (!needsPrototype || currentTask.status === 'planning') {
       for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
-        await db
-          .update(builderTasks)
-          .set({ status: 'planning', updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+        await updateTaskStatus('planning', 'code', 'architect_round_started');
 
         const architectResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildArchitectSystemPrompt(task, laneFlags),
+          system: buildArchitectSystemPrompt(currentTask, laneFlags, codeEvidenceReady),
           messages: [
             {
               role: 'user',
               content: [
-                `Task title: ${task.title}`,
-                `Task goal: ${task.goal}`,
+                `Task title: ${currentTask.title}`,
+                `Task goal: ${currentTask.goal}`,
                 latestContext ? `Bisherige Beobachtungen:\n${latestContext}` : 'Noch keine Beobachtungen.',
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.7,
+          maxTokens: isVisualFix ? 4500 : 2000,
+          temperature: isVisualFix ? 0.45 : 0.7,
         });
 
         const architectTokens = estimateTokens(architectResponse);
         totalTokens += architectTokens;
 
         const architectCommands = parseBdl(architectResponse);
-        const architectExecution = await executeArchitectCommands(task, worktree.worktreePath, architectCommands);
+        const architectExecution = await executeArchitectCommands(
+          currentTask,
+          worktree.worktreePath,
+          architectCommands,
+          { allowPatches: codeEvidenceReady },
+        );
 
         const architectRound: DialogRound = {
           roundNumber,
@@ -743,6 +1086,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(architectRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'claude',
           'architect',
@@ -760,32 +1104,46 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           break;
         }
 
-        await db
-          .update(builderTasks)
-          .set({ status: 'reviewing', updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+        if (!codeEvidenceReady) {
+          const gatheredCodeEvidence = architectCommands.some((command) => command.kind === 'READ');
+          if (gatheredCodeEvidence) {
+            codeEvidenceReady = true;
+            latestContext = [
+              latestContext,
+              'CODE-EVIDENCE from previous round:',
+              architectExecution.contextText,
+              'Next round: produce a small patch only if the exact target text appears in the READ output above. Otherwise block honestly.',
+            ].filter(Boolean).join('\n\n');
+            continue;
+          }
+        }
+
+        await updateTaskStatus('reviewing', 'review', 'review_round_started');
 
         const reviewerResponse = await callProvider('openai', 'gpt-4.1-mini', {
-          system: buildReviewerSystemPrompt('primary'),
+          system: buildReviewerSystemPrompt('primary', currentTask),
           messages: [
             {
               role: 'user',
               content: [
-                `Task goal: ${task.goal}`,
+                `Task goal: ${currentTask.goal}`,
+                latestContext ? `Task context and memory:\n${latestContext.slice(0, 12000)}` : '',
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.7,
+          maxTokens: isVisualFix ? 3000 : 2000,
+          temperature: isVisualFix ? 0.3 : 0.7,
         });
 
         const reviewerTokens = estimateTokens(reviewerResponse);
         totalTokens += reviewerTokens;
         const reviewerCommands = parseBdl(reviewerResponse);
         const reviewerReviewCommand = reviewerCommands.find((command) => command.kind === 'REVIEW');
-        const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse);
+        const reviewerReview = parseReviewBody(reviewerReviewCommand?.body ?? reviewerResponse, {
+          requireReuseSearch: !isVisualFix,
+        });
 
         const reviewerRound: DialogRound = {
           roundNumber,
@@ -799,6 +1157,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(reviewerRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'chatgpt',
           'reviewer',
@@ -819,27 +1178,30 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         const claudeReviewerResponse = await callProvider('anthropic', 'claude-sonnet-4-20250514', {
-          system: buildReviewerSystemPrompt('secondary'),
+          system: buildReviewerSystemPrompt('secondary', currentTask),
           messages: [
             {
               role: 'user',
               content: [
-                `Task goal: ${task.goal}`,
+                `Task goal: ${currentTask.goal}`,
+                latestContext ? `Task context and memory:\n${latestContext.slice(0, 12000)}` : '',
                 `Architect BDL:\n${architectResponse}`,
                 architectExecution.contextText ? `Execution summary:\n${architectExecution.contextText}` : 'No execution summary.',
                 `Erstes Review (ChatGPT):\n${reviewerResponse}`,
               ].join('\n\n'),
             },
           ],
-          maxTokens: 2000,
-          temperature: 0.5,
+          maxTokens: isVisualFix ? 3000 : 2000,
+          temperature: isVisualFix ? 0.3 : 0.5,
         });
 
         const claudeReviewerTokens = estimateTokens(claudeReviewerResponse);
         totalTokens += claudeReviewerTokens;
         const claudeReviewerCommands = parseBdl(claudeReviewerResponse);
         const claudeReviewCommand = claudeReviewerCommands.find((command) => command.kind === 'REVIEW');
-        const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse);
+        const claudeReview = parseReviewBody(claudeReviewCommand?.body ?? claudeReviewerResponse, {
+          requireReuseSearch: !isVisualFix,
+        });
 
         const claudeReviewerRound: DialogRound = {
           roundNumber,
@@ -853,6 +1215,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         rounds.push(claudeReviewerRound);
 
         await saveCommandActions(
+          currentTask,
           taskId,
           'claude',
           'reviewer',
@@ -875,7 +1238,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
         let observerReview: ParsedReview | null = null;
         const observerResult = await runObserver(
-          task,
+          currentTask,
           agreement,
           [
             `Architect BDL:\n${architectResponse}`,
@@ -898,6 +1261,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           });
 
           await saveCommandActions(
+            currentTask,
             taskId,
             'deepseek',
             'observer',
@@ -920,6 +1284,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         }
 
         latestContext = [
+          latestContext,
           architectExecution.contextText,
           reviewerResponse,
           claudeReviewerResponse,
@@ -932,26 +1297,64 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
           ? observerReview.verdict
           : decideVerdict([reviewerReview.verdict, claudeReview.verdict]);
 
-        if (combinedVerdict === 'block') {
+        const effectiveVerdict = isVisualFix && combinedVerdict === 'issue'
+          && !reviewerReview.blocking
+          && !claudeReview.blocking
+          ? 'ok'
+          : combinedVerdict;
+
+        if (effectiveVerdict === 'block') {
+          const softVisualBlock = isVisualFix
+            && roundNumber < maxRounds
+            && !isHardVisualReviewBlock(reviewerReview)
+            && !isHardVisualReviewBlock(claudeReview)
+            && (!observerReview || !isHardVisualReviewBlock(observerReview));
+
+          if (softVisualBlock) {
+            latestContext = [
+              latestContext,
+              'VISUAL_FIX_RETRY: Reviewer found a repairable implementation defect, not a hard safety stop. Fix the patch in the next round. Do not repeat the same patch. Replace existing code instead of duplicating UI.',
+            ].join('\n\n');
+            continue;
+          }
+
           finalStatus = 'blocked';
           abortReason = observerReview ? 'observer_blocked' : 'dual_review_blocked';
           break;
         }
 
-        if (combinedVerdict === 'ok') {
-          if (laneFlags.browser && ['B', 'C'].includes(task.taskType)) {
+        if (effectiveVerdict === 'ok') {
+          const attemptedPatch = architectCommands.some((command) => command.kind === 'PATCH');
+          if (
+            isVisualFix
+            && attemptedPatch
+            && process.env.GITHUB_PAT
+            && architectExecution.deferredGithubPatches.length === 0
+          ) {
+            if (roundNumber < maxRounds) {
+              latestContext = [
+                latestContext,
+                'VISUAL_FIX_RETRY: Patch validation failed before GitHub dispatch. Retry with an exact oldText anchor from source context. Prefer a smaller replace block.',
+              ].join('\n\n');
+              continue;
+            }
+
+            finalStatus = 'review_needed';
+            abortReason = 'patch_validation_failed';
+            break;
+          }
+
+          if (needsBrowserLane(currentTask, laneFlags)) {
             const uiRunCommands = architectCommands.filter((command) => command.kind === 'UI_RUN');
 
-            await db
-              .update(builderTasks)
-              .set({ status: 'browser_testing', updatedAt: new Date() })
-              .where(eq(builderTasks.id, taskId));
+            await updateTaskStatus('browser_testing', 'runtime', 'browser_lane_started');
 
             try {
               const browserExecution = await runBrowserLane(taskId, worktree.worktreePath, uiRunCommands);
 
               if (uiRunCommands.length > 0) {
                 await saveCommandActions(
+                  currentTask,
                   taskId,
                   'system',
                   'system',
@@ -964,6 +1367,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
                 );
               } else {
                 await saveCommandActions(
+                  currentTask,
                   taskId,
                   'system',
                   'system',
@@ -990,6 +1394,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
             } catch (browserError) {
               const message = browserError instanceof Error ? browserError.message : String(browserError);
               await saveCommandActions(
+                currentTask,
                 taskId,
                 'system',
                 'system',
@@ -1002,6 +1407,31 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
               );
               finalStatus = 'review_needed';
               abortReason = `browser_lane_error:${message}`;
+              break;
+            }
+          }
+
+          if (architectExecution.deferredGithubPatches.length > 0) {
+            const triggerResult = await triggerGithubAction(taskId, architectExecution.deferredGithubPatches);
+            await recordContractAction({
+              task: currentTask,
+              lane: 'code',
+              kind: 'APPLY',
+              actor: 'system',
+              payload: {
+                mode: 'github_actions',
+                patches: architectExecution.deferredGithubPatches.length,
+              },
+              result: {
+                triggered: triggerResult.triggered,
+                error: triggerResult.error || null,
+              },
+              tokenCount: 0,
+            });
+
+            if (!triggerResult.triggered) {
+              finalStatus = 'blocked';
+              abortReason = triggerResult.error || 'github_action_trigger_failed';
               break;
             }
           }
@@ -1024,13 +1454,10 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
 
     const needsCounterexamples = laneFlags.counterexample
       && policy?.counterexamples_required === true
-      && (task.risk === 'medium' || task.risk === 'high');
+      && (currentTask.risk === 'medium' || currentTask.risk === 'high');
 
     if (needsCounterexamples && finalStatus === 'push_candidate') {
-      await db
-        .update(builderTasks)
-        .set({ status: 'counterexampling', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+      await updateTaskStatus('counterexampling', 'review', 'counterexample_lane_started');
 
       const counterexampleResponse = await callProvider('openai', 'gpt-4.1-mini', {
         system: [
@@ -1043,7 +1470,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
         messages: [
           {
             role: 'user',
-            content: `Task: ${task.goal}\n\nBisheriger Dialog:\n${latestContext}`,
+            content: `Task: ${currentTask.goal}\n\nBisheriger Dialog:\n${latestContext}`,
           },
         ],
         maxTokens: 1500,
@@ -1065,6 +1492,7 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
       });
 
       await saveCommandActions(
+        currentTask,
         taskId,
         'chatgpt',
         'reviewer',
@@ -1087,8 +1515,8 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
   } catch (error) {
     finalStatus = 'blocked';
     abortReason = error instanceof Error ? error.message : String(error);
-    await db.insert(builderActions).values({
-      taskId,
+    await recordContractAction({
+      task: currentTask,
       lane: 'review',
       kind: 'BLOCK',
       actor: 'system',
@@ -1100,14 +1528,12 @@ export async function runDialogEngine(taskId: string): Promise<EngineResult> {
     removeWorktree(taskId);
   }
 
-  await db
-    .update(builderTasks)
-    .set({
-      status: finalStatus,
-      tokenCount: totalTokens,
-      updatedAt: new Date(),
-    })
-    .where(eq(builderTasks.id, taskId));
+  await updateTaskStatus(
+    finalStatus as typeof builderTasks.$inferSelect.status,
+    finalStatus === 'prototype_review' ? 'prototype' : finalStatus === 'push_candidate' ? 'review' : finalStatus === 'done' ? 'code' : 'review',
+    'dialog_engine_completed',
+    { tokenCount: totalTokens },
+  );
 
   try {
     const evidencePack = await generateEvidencePack(taskId);

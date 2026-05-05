@@ -36,6 +36,10 @@ import { regenerateRepoIndex } from '../lib/opusIndexGenerator.js';
 import { outboundFetch } from '../lib/outboundHttp.js';
 import repoFileRouter from './repoFile.js';
 import {
+  buildBuilderTaskContract,
+  deriveTaskCreationDefaults,
+} from '../lib/builderTaskContract.js';
+import {
   builderActions,
   builderArtifacts,
   builderChatpool,
@@ -52,6 +56,36 @@ export const opusBridgeRouter = Router();
 
 const ACCEPTANCE_SMOKE_MARKER = '[ACCEPTANCE_SMOKE]';
 const ACCEPTANCE_SMOKE_SCOPE = 'docs/archive/push-test.md';
+
+async function recordBuilderStatusTransition(input: {
+  before: typeof builderTasks.$inferSelect;
+  after: typeof builderTasks.$inferSelect;
+  lane: string;
+  reason: string;
+  actor?: string;
+  extraPayload?: Record<string, unknown>;
+}) {
+  const db = getDb();
+  const contract = buildBuilderTaskContract(input.after);
+  await db.insert(builderActions).values({
+    taskId: input.after.id,
+    lane: input.lane,
+    kind: 'STATUS_TRANSITION',
+    actor: input.actor ?? 'system',
+    payload: {
+      fromStatus: input.before.status,
+      toStatus: input.after.status,
+      reason: input.reason,
+      contract,
+      ...(input.extraPayload ?? {}),
+    },
+    result: {
+      status: input.after.status,
+      lifecyclePhase: contract.lifecycle.phase,
+    },
+    tokenCount: 0,
+  });
+}
 
 opusBridgeRouter.use(requireOpusToken);
 opusBridgeRouter.use(repoFileRouter);
@@ -395,33 +429,71 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
       if (allPatches.length > 0) {
         const ghResult = await triggerGithubAction(taskId, allPatches);
         newStatus = ghResult.triggered ? 'applying' : 'error';
-        await db
+        const [updatedTask] = await db
           .update(builderTasks)
           .set({ status: newStatus, updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+          .where(eq(builderTasks.id, taskId))
+          .returning();
+        if (updatedTask) {
+          await recordBuilderStatusTransition({
+            before: task,
+            after: updatedTask,
+            lane: 'code',
+            reason: 'opus_override_approved',
+            extraPayload: { githubTriggered: ghResult.triggered, githubError: ghResult.error ?? null },
+          });
+        }
       } else {
         newStatus = 'done';
-        await db
+        const [updatedTask] = await db
           .update(builderTasks)
           .set({ status: newStatus, updatedAt: new Date() })
-          .where(eq(builderTasks.id, taskId));
+          .where(eq(builderTasks.id, taskId))
+          .returning();
+        if (updatedTask) {
+          await recordBuilderStatusTransition({
+            before: task,
+            after: updatedTask,
+            lane: 'review',
+            reason: 'opus_override_approved_without_patches',
+          });
+        }
       }
     }
 
     if (action === 'block') {
       newStatus = 'blocked';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_blocked',
+        });
+      }
     }
 
     if (action === 'retry') {
       newStatus = 'queued';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_retry',
+          extraPayload: { retryHints: retryHints ?? null },
+        });
+      }
 
       if (retryHints) {
         await addChatPoolMessage({
@@ -430,7 +502,7 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
           phase: 'chain_decision',
           actor: 'opus-override',
           model: 'manual',
-          content: `[OPUS OVERRIDE — RETRY]\nGrund: ${reason || 'k.A.'}\nHinweise für nächsten Versuch: ${retryHints}`,
+          content: `[OPUS OVERRIDE â€” RETRY]\nGrund: ${reason || 'k.A.'}\nHinweise fÃ¼r nÃ¤chsten Versuch: ${retryHints}`,
           tokensUsed: 0,
           durationMs: 0,
         });
@@ -439,10 +511,19 @@ opusBridgeRouter.post('/override/:taskId', async (req: Request, res: Response) =
 
     if (action === 'cancel') {
       newStatus = 'cancelled';
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: newStatus, updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'opus_override_cancelled',
+        });
+      }
     }
 
     if (action === 'delete') {
@@ -557,8 +638,13 @@ opusBridgeRouter.get('/audit', async (_req: Request, res: Response) => {
 
 opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
   try {
+    const patrol = getPatrolStatus();
     const db = getDb();
-    const errorCards = await db.select().from(builderErrorCards).orderBy(desc(builderErrorCards.createdAt));
+    const errorCards = await db
+      .select()
+      .from(builderErrorCards)
+      .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`)
+      .orderBy(desc(builderErrorCards.createdAt));
 
     const bySeverity: Record<PatrolSeverity, number> = {
       critical: 0,
@@ -590,6 +676,8 @@ opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
       triaged,
       crossConfirmed,
       bySeverity,
+      routineModels: patrol.routineModels,
+      deepModels: patrol.deepModels,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -600,13 +688,25 @@ opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => 
   try {
     const rawLimit = Number(req.query.limit ?? 100);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.trunc(rawLimit), 500)) : 100;
+    const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
 
     const db = getDb();
-    const findings = await db
-      .select()
-      .from(builderErrorCards)
-      .orderBy(desc(builderErrorCards.createdAt))
-      .limit(limit);
+    const findings = severity
+      ? await db
+          .select()
+          .from(builderErrorCards)
+          .where(
+            sql`(${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%')
+              AND ${builderErrorCards.severity} = ${severity}`,
+          )
+          .orderBy(desc(builderErrorCards.createdAt))
+          .limit(limit)
+      : await db
+          .select()
+          .from(builderErrorCards)
+          .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`)
+          .orderBy(desc(builderErrorCards.createdAt))
+          .limit(limit);
 
     res.json({
       findings: findings.map(toPatrolFinding),
@@ -617,8 +717,32 @@ opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => 
   }
 });
 
+opusBridgeRouter.post('/patrol-trigger-round', async (_req: Request, res: Response) => {
+  try {
+    const result = await runRoutinePatrol();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 
-// GET /metrics — builder task stats and recent completions
+opusBridgeRouter.post('/patrol-trigger-deep', async (req: Request, res: Response) => {
+  try {
+    const { models, files } = req.body as { models?: string[]; files?: string[] };
+    if (!models?.length || !files?.length) {
+      res.status(400).json({ error: 'models[] and files[] are required' });
+      return;
+    }
+
+    const results = await runDeepPatrol(models, files);
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+
+// GET /metrics â€” builder task stats and recent completions
 opusBridgeRouter.get('/metrics', async (_req: Request, res: Response) => {
   try {
     const [stats, recentTasks] = await Promise.all([
@@ -631,7 +755,7 @@ opusBridgeRouter.get('/metrics', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /cleanup — bulk-delete old blocked/cancelled/error tasks
+// POST /cleanup â€” bulk-delete old blocked/cancelled/error tasks
 opusBridgeRouter.post('/cleanup', async (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -697,18 +821,20 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
     }
 
     const defaultModelMap: Record<string, string> = {
-      opus: 'claude-opus-4-6',
-      claude: 'claude-opus-4-6',
+      opus: 'claude-opus-4-7',
+      claude: 'claude-opus-4-7',
       sonnet: 'claude-sonnet-4-6',
-      gpt: 'gpt-5.4',
-      'gpt-5.4': 'gpt-5.4',
+      gpt: 'gpt-5.5',
+      'gpt-5.5': 'gpt-5.5',
       gemini: 'gemini-3-flash-preview',
-      deepseek: 'deepseek-chat',
+      deepseek: 'deepseek-v4-flash',
       glm: 'glm-5.1',
       'glm-turbo': 'glm-5-turbo',
       'glm-flash': 'glm-4.7-flashx',
       minimax: 'minimax/minimax-m2.7',
-      kimi: 'moonshotai/kimi-k2.5',
+      kimi: 'moonshotai/kimi-k2.6',
+      mimo: 'xiaomi/mimo-v2.5',
+      'mimo-pro': 'xiaomi/mimo-v2.5-pro',
       qwen: 'qwen/qwen3.6-plus',
       grok: 'grok-4-1-fast',
     };
@@ -718,7 +844,7 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
       opus: 'anthropic',
       claude: 'anthropic',
       sonnet: 'anthropic',
-      'gpt-5.4': 'openai',
+      'gpt-5.5': 'openai',
       gpt: 'openai',
       gemini: 'gemini',
       deepseek: 'deepseek',
@@ -727,6 +853,8 @@ opusBridgeRouter.post('/worker-direct', async (req: Request, res: Response) => {
       'glm-flash': 'zhipu',
       minimax: 'openrouter',
       kimi: 'openrouter',
+      mimo: 'openrouter',
+      'mimo-pro': 'openrouter',
       qwen: 'openrouter',
       grok: 'xai',
     };
@@ -849,6 +977,15 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
     }
 
     const db = getDb();
+    const swarmDefaults = deriveTaskCreationDefaults({
+      title: goal.slice(0, 100),
+      goal,
+      taskType: 'C',
+      risk: 'low',
+      intentKind: 'code_change',
+      requestedOutputKind: 'code_artifact',
+      requestedOutputFormat: 'code',
+    });
     const [task] = await db
       .insert(builderTasks)
       .values({
@@ -856,10 +993,22 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
         goal,
         scope: assignments.map((assignment: { file: string }) => assignment.file),
         risk: 'low',
+        taskType: 'C',
+        intentKind: swarmDefaults.intentKind,
+        requestedOutputKind: swarmDefaults.requestedOutputKind,
+        requestedOutputFormat: swarmDefaults.requestedOutputFormat,
+        requiredLanes: swarmDefaults.requiredLanes,
         status: 'swarm',
       })
       .returning();
     const id = task.id;
+
+    await recordBuilderStatusTransition({
+      before: { ...task, status: 'queued' },
+      after: task,
+      lane: 'code',
+      reason: 'opus_swarm_task_created',
+    });
 
     const autoFileContents = new Map<string, string>();
     if (fileContents) {
@@ -905,10 +1054,20 @@ opusBridgeRouter.post('/swarm', async (req: Request, res: Response) => {
         patches.map((patch) => ({ kind: 'PATCH', params: { file: patch.file }, body: patch.body, raw: patch.body })),
       );
       githubAction = await triggerGithubAction(id, patchPayloads);
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: githubAction.triggered ? 'applying' : 'error' })
-        .where(eq(builderTasks.id, id));
+        .where(eq(builderTasks.id, id))
+        .returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'code',
+          reason: 'opus_swarm_dispatched',
+          extraPayload: { githubTriggered: githubAction.triggered, githubError: githubAction.error ?? null },
+        });
+      }
     }
 
     res.json({
@@ -1033,7 +1192,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
 
     const patches = files.map((f) => {
       if (f.search !== undefined && f.replace !== undefined) {
-        // LEGACY: SEARCH/REPLACE mode — prefer full overwrite via {file, content}
+        // LEGACY: SEARCH/REPLACE mode â€” prefer full overwrite via {file, content}
         return {
           file: f.file,
           action: 'replace' as const,
@@ -1058,6 +1217,15 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
     const baseGoal = `${message || 'Direct file push via /push endpoint'}${controlledAcceptanceSmoke ? ` ${ACCEPTANCE_SMOKE_MARKER}` : ''}`;
 
     const db = getDb();
+    const pushDefaults = deriveTaskCreationDefaults({
+      title: (message || 'direct push').slice(0, 100),
+      goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
+      taskType: 'C',
+      risk: 'low',
+      intentKind: 'code_change',
+      requestedOutputKind: 'code_artifact',
+      requestedOutputFormat: 'code',
+    });
     const [task] = await db
       .insert(builderTasks)
       .values({
@@ -1065,6 +1233,11 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
         goal: appendBuilderSideEffectsMarker(baseGoal, normalizedSideEffects),
         scope: files.map((f) => f.file),
         risk: 'low',
+        taskType: 'C',
+        intentKind: pushDefaults.intentKind,
+        requestedOutputKind: pushDefaults.requestedOutputKind,
+        requestedOutputFormat: pushDefaults.requestedOutputFormat,
+        requiredLanes: pushDefaults.requiredLanes,
         sourceAsyncJobId: typeof sourceAsyncJobId === 'string' && sourceAsyncJobId.length > 0
           ? sourceAsyncJobId
           : null,
@@ -1072,10 +1245,26 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
       })
       .returning();
 
+    await recordBuilderStatusTransition({
+      before: { ...task, status: 'queued' },
+      after: task,
+      lane: 'code',
+      reason: 'opus_direct_push_task_created',
+    });
+
     const result = await triggerGithubActionChunked(task.id, patches, branch);
 
     if (!result.triggered) {
-      await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id));
+      const [updatedTask] = await db.update(builderTasks).set({ status: 'error' }).where(eq(builderTasks.id, task.id)).returning();
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'code',
+          reason: 'opus_direct_push_failed_to_dispatch',
+          extraPayload: { error: result.error ?? null },
+        });
+      }
     }
 
     res.json({
@@ -1095,7 +1284,7 @@ opusBridgeRouter.post('/push', async (req: Request, res: Response) => {
 // ==================== DB MIGRATE (drizzle-kit push) ====================
 opusBridgeRouter.post('/migrate', (_req: Request, res: Response) => {
   try {
-    // drizzle.config.ts lives in server/ — which is process.cwd() on Render
+    // drizzle.config.ts lives in server/ â€” which is process.cwd() on Render
     const output = execSync('npx drizzle-kit push', {
       cwd: process.cwd(),
       env: { ...process.env },
@@ -1182,7 +1371,7 @@ opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
   pipeline: 'opus-task-v2',
   scopeMethod: 'deterministic-index',
   changeContract: 'json-overwrite',
-  judge: 'gpt-5.4',
+  judge: 'gpt-5.5',
   workers: ['glm', 'minimax', 'qwen', 'kimi'],  // deepseek removed from code workers (unreliable patches)
   denkerTriade: {
     vordenker: 'opusVordenker.ts',
@@ -1191,7 +1380,7 @@ opusBridgeRouter.get('/pipeline-info', (_req, res) => res.json({
     orchestrator: 'opusFeatureOrchestrator.ts',
   },
   legacy: ['/opus-task', '/build'],
-  promotionNote: 'triggered ≠ committed — Action may reject on red build',
+  promotionNote: 'triggered â‰  committed â€” Action may reject on red build',
 }));
 
 // ==================== DAILY STANDUP ($0, keine LLM-Kosten) ====================
@@ -1298,7 +1487,7 @@ opusBridgeRouter.put('/render/env/:key', async (req: Request, res: Response) => 
     res.status(500).json({ error: String(err) });
   }
 });
-// ==================== POST /build — LEGACY/SHADOW — Use /opus-task instead ====================
+// ==================== POST /build â€” LEGACY/SHADOW â€” Use /opus-task instead ====================
 // Kept for: advisory analysis, complex multi-file research, backward compatibility.
 // NOT the canonical executor. Do not use for standard deployments.
 
@@ -1309,7 +1498,7 @@ opusBridgeRouter.post('/build', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'instruction is required' });
       return;
     }
-    // Long-running — increase timeout
+    // Long-running â€” increase timeout
     req.setTimeout(300_000); // 5 min
     const result = await runBuildPipeline(input);
     res.json(result);
@@ -1318,7 +1507,7 @@ opusBridgeRouter.post('/build', async (req: Request, res: Response) => {
   }
 });
 
-// ==================== POST /self-test — Builder tests itself ====================
+// ==================== POST /self-test â€” Builder tests itself ====================
 
 opusBridgeRouter.post('/self-test', async (req: Request, res: Response) => {
   try {
@@ -1337,7 +1526,7 @@ opusBridgeRouter.post('/self-test', async (req: Request, res: Response) => {
 });
 
 
-// ─── /benchmark: Alle Worker parallel, gesammelte Ergebnisse ───
+// â”€â”€â”€ /benchmark: Alle Worker parallel, gesammelte Ergebnisse â”€â”€â”€
 opusBridgeRouter.post('/benchmark', async (req: Request, res: Response) => {
   try {
     const { task, workers, maxTokens, system, featureKeywords, timeoutMs } = req.body as {
@@ -1359,7 +1548,7 @@ opusBridgeRouter.post('/benchmark', async (req: Request, res: Response) => {
   }
 });
 
-// ─── /deploy-wait: Wartet bis Render-Deploy live ist ───
+// â”€â”€â”€ /deploy-wait: Wartet bis Render-Deploy live ist â”€â”€â”€
 opusBridgeRouter.post('/deploy-wait', async (_req: Request, res: Response) => {
   try {
     const { waitForDeploy } = await import('../lib/opusAssist.js');
@@ -1404,7 +1593,7 @@ opusBridgeRouter.post('/approval-validate', async (req: Request, res: Response) 
   }
 });
 
-// ─── /opus-task: CANONICAL EXECUTOR — deterministic scope, JSON overwrite, validated ───
+// â”€â”€â”€ /opus-task: CANONICAL EXECUTOR â€” deterministic scope, JSON overwrite, validated â”€â”€â”€
 opusBridgeRouter.post('/opus-task', async (req: Request, res: Response) => {
   try {
     const { instruction, scope, targetFile, workers, maxTokens, skipDeploy, skipInlinePostPushChecks, dryRun, approvalId, hasApprovedPlan, sourceTaskId, sourceRunId, sourceAsyncJobId, metaSourceIds, assumptions, assumptionIds, acceptanceSmoke, sideEffects } = req.body as {
@@ -1502,7 +1691,7 @@ opusBridgeRouter.get('/opus-status', (_req: Request, res: Response) => {
 
 
 // ==================== COUNCIL DEBATE ENDPOINT ====================
-// POST /council-debate — run an architecture debate with 4 AI perspectives
+// POST /council-debate â€” run an architecture debate with 4 AI perspectives
 opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => {
   try {
     const { topic, context, requirements, constraints } = req.body as {
@@ -1519,7 +1708,7 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
 
     const debateId = `debate-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-    // Wait for the task row to exist (fast — just one INSERT), then return
+    // Wait for the task row to exist (fast â€” just one INSERT), then return
     // the real taskId to the caller. The rest of the debate runs in background.
     let resolveTaskId!: (id: string) => void;
     let rejectTaskId!: (err: unknown) => void;
@@ -1528,7 +1717,7 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
       rejectTaskId = reject;
     });
 
-    // Fire-and-forget the debate — results land in chatPool
+    // Fire-and-forget the debate â€” results land in chatPool
     runCouncilDebate({
       topic,
       context,
@@ -1557,7 +1746,7 @@ opusBridgeRouter.post('/council-debate', async (req: Request, res: Response) => 
   }
 });
 
-// GET /council-debate/status/:taskId — check debate progress
+// GET /council-debate/status/:taskId â€” check debate progress
 // Query: ?full=true returns full `content` per round instead of a 200-char preview.
 opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res: Response) => {
   try {
@@ -1595,116 +1784,6 @@ opusBridgeRouter.get('/council-debate/status/:taskId', async (req: Request, res:
   }
 });
 
-// ==================== PATROL ENDPOINTS ====================
-// GET /patrol-status — aggregated patrol statistics
-opusBridgeRouter.get('/patrol-status', async (_req: Request, res: Response) => {
-  try {
-    const db = getDb();
-
-    // Count all patrol findings by severity
-    const allFindings = await db
-      .select({ severity: builderErrorCards.severity, tags: builderErrorCards.tags })
-      .from(builderErrorCards)
-      .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`);
-
-    const bySeverity = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-    let triaged = 0;
-    let crossConfirmed = 0;
-
-    for (const f of allFindings) {
-      const sev = (f.severity ?? 'medium') as keyof typeof bySeverity;
-      if (sev in bySeverity) bySeverity[sev]++;
-
-      const tags = f.tags ?? [];
-      if (tags.includes('triaged') || tags.includes('verified') || tags.includes('fixed')) triaged++;
-      if (tags.includes('cross-confirmed')) crossConfirmed++;
-    }
-
-    // Get latest round timestamp
-    const [latest] = await db
-      .select({ createdAt: builderErrorCards.createdAt })
-      .from(builderErrorCards)
-      .where(sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`)
-      .orderBy(desc(builderErrorCards.createdAt))
-      .limit(1);
-
-    res.json({
-      lastRound: latest?.createdAt ?? null,
-      totalFindings: allFindings.length,
-      bySeverity,
-      triaged,
-      crossConfirmed,
-    });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-// GET /patrol-findings — list patrol findings with optional filters
-opusBridgeRouter.get('/patrol-findings', async (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
-    const limit = Math.min(parseInt(String(req.query.limit ?? '50'), 10), 200);
-
-    const baseWhere = sql`${builderErrorCards.foundBy} LIKE 'routine-patrol' OR ${builderErrorCards.foundBy} LIKE 'deep-%'`;
-    const severityWhere = severity ? sql`${builderErrorCards.severity} = ${severity}` : sql``;
-
-    const findings = await db
-      .select()
-      .from(builderErrorCards)
-      .where(severity ? and(baseWhere, severityWhere) : baseWhere)
-      .orderBy(desc(builderErrorCards.createdAt))
-      .limit(limit);
-
-    res.json({
-      count: findings.length,
-      findings: findings.map((f) => ({
-        id: f.id,
-        title: f.title,
-        category: f.category,
-        severity: f.severity,
-        tags: f.tags,
-        problem: f.problem,
-        solution: f.solution,
-        affectedFiles: f.affectedFiles,
-        foundBy: f.foundBy,
-        createdAt: f.createdAt,
-        resolvedAt: f.resolvedAt,
-      })),
-    });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-// POST /patrol-trigger-round — trigger a routine patrol round
-opusBridgeRouter.post('/patrol-trigger-round', async (_req: Request, res: Response) => {
-  try {
-    const result = await runRoutinePatrol();
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-// POST /patrol-trigger-deep — trigger a deep patrol scan
-opusBridgeRouter.post('/patrol-trigger-deep', async (req: Request, res: Response) => {
-  try {
-    const { models, files } = req.body as { models?: string[]; files?: string[] };
-
-    if (!models?.length || !files?.length) {
-      res.status(400).json({ error: 'models[] and files[] are required' });
-      return;
-    }
-
-    const results = await runDeepPatrol(models, files);
-    res.json({ ok: true, results });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
 opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
   try {
     const { query, glob, maxFiles = 8, maxLinesPerFile = 200 } = req.body as {
@@ -1718,7 +1797,7 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
     const repoRoot = getRepoRoot();
 
     const keywords = query
-      .replace(/[^a-zA-Z0-9äöüÄÖÜß\s_-]/g, '')
+      .replace(/[^a-zA-Z0-9Ã¤Ã¶Ã¼Ã„Ã–ÃœÃŸ\s_-]/g, '')
       .split(/\s+/)
       .filter((w: string) => w.length > 3 && !['wird','werden','nicht','eine','einen','dieser','diese','welche','warum','soll','kann','haben','sein','ueber','auch','noch','schon','dass'].includes(w.toLowerCase()));
 
@@ -1777,7 +1856,7 @@ opusBridgeRouter.post('/repo-query', async (req: Request, res: Response) => {
 
 // ==================== Phase 3: Continuity Memory + UI ====================
 
-// GET /task-history — recent tasks with status, duration, worker info
+// GET /task-history â€” recent tasks with status, duration, worker info
 opusBridgeRouter.get('/task-history', async (_req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -1806,7 +1885,7 @@ opusBridgeRouter.get('/task-history', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /memory — current builder memory state
+// GET /memory â€” current builder memory state
 opusBridgeRouter.get('/memory', async (_req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -1829,7 +1908,7 @@ opusBridgeRouter.get('/memory', async (_req: Request, res: Response) => {
   }
 });
 
-// POST /continuity-note — save a session handoff note
+// POST /continuity-note â€” save a session handoff note
 opusBridgeRouter.post('/continuity-note', async (req: Request, res: Response) => {
   try {
     const { note, session } = req.body as { note?: string; session?: string };
@@ -1851,7 +1930,7 @@ opusBridgeRouter.post('/continuity-note', async (req: Request, res: Response) =>
   }
 });
 
-// GET /continuity-note — read latest continuity notes
+// GET /continuity-note â€” read latest continuity notes
 opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -1864,7 +1943,7 @@ opusBridgeRouter.get('/continuity-note', async (_req: Request, res: Response) =>
 
 // ==================== Direct GitHub Push (no GH Action needed) ====================
 
-// POST /git-push — push files directly via GitHub Git Data API as one atomic commit.
+// POST /git-push â€” push files directly via GitHub Git Data API as one atomic commit.
 // Bypasses the GH Action pipeline. Use for config files, workflow changes, cleanup.
 opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
   const { files, message, branch, sessionLog, sideEffects } = req.body as {
@@ -1995,7 +2074,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       blobShas.set(file.file, blob.sha);
     }
 
-    // Tree-Items für die User-Files vorab bauen, damit wir ggf. Session-Log-Einträge injizieren können.
+    // Tree-Items fÃ¼r die User-Files vorab bauen, damit wir ggf. Session-Log-EintrÃ¤ge injizieren kÃ¶nnen.
     const treeItems: Array<{ path: string; mode: string; type: string; sha?: string | null; content?: string }> = normalizedFiles.map((file) => {
       if (file.delete) {
         return { path: file.file, mode: '100644', type: 'blob', sha: null };
@@ -2026,7 +2105,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           }
         }
 
-        // Files-Liste für den Log-Eintrag: die Log-Datei selbst und Archiv-Dateien ausschließen.
+        // Files-Liste fÃ¼r den Log-Eintrag: die Log-Datei selbst und Archiv-Dateien ausschlieÃŸen.
         const filesForLog = normalizedFiles
           .map((f) => f.file)
           .filter((p) => p !== 'docs/SESSION-LOG.md' && !p.startsWith('docs/SESSION-LOG-archive-'));
@@ -2046,7 +2125,7 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           newEntry,
         );
 
-        // Bei Rotation: ggf. existierendes Archiv holen und neuen Archiv-Content anhängen.
+        // Bei Rotation: ggf. existierendes Archiv holen und neuen Archiv-Content anhÃ¤ngen.
         let finalArchiveContent = archiveContent;
         if (archiveContent && archiveFileName) {
           try {
@@ -2159,9 +2238,9 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
     });
 
     // Session-Log-SHA-Nachzug: nach erfolgreichem Hauptcommit den `pending`-Marker
-    // durch den echten Commit-SHA ersetzen. Fault-tolerant — Fehler hier blockieren
+    // durch den echten Commit-SHA ersetzen. Fault-tolerant â€” Fehler hier blockieren
     // nichts, der User hat schon seine Response. docs/** liegt im paths-ignore der
-    // render-deploy.yml, dieser Zweitcommit löst also keinen Render-Deploy aus.
+    // render-deploy.yml, dieser Zweitcommit lÃ¶st also keinen Render-Deploy aus.
     if (!sessionLogSkip && normalizedSideEffects.allowShaBackfill && sessionLogTimestamp && commit.sha) {
       void (async () => {
         try {
@@ -2178,10 +2257,10 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
           }
           const currentText = Buffer.from(fresh.content, 'base64').toString('utf-8');
 
-          // Finde den Eintrag über den eindeutigen Timestamp und ersetze 'pending'.
-          // Der Eintrag hat die Form:  ## <timestamp>\n- **Commit:** `pending` — ...
-          const pendingMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`pending\` —`;
-          const realMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`${shortSha}\` —`;
+          // Finde den Eintrag Ã¼ber den eindeutigen Timestamp und ersetze 'pending'.
+          // Der Eintrag hat die Form:  ## <timestamp>\n- **Commit:** `pending` â€” ...
+          const pendingMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`pending\` â€”`;
+          const realMarker = `## ${sessionLogTimestamp}\n- **Commit:** \`${shortSha}\` â€”`;
           if (!currentText.includes(pendingMarker)) {
             console.warn('[session-log] sha-backfill: pending marker not found, skipping');
             return;
@@ -2210,11 +2289,11 @@ opusBridgeRouter.post('/git-push', async (req: Request, res: Response) => {
       })();
     }
 
-    // Deploy-Trigger wird ausschließlich von .github/workflows/render-deploy.yml übernommen:
-    // Contents-API-Commits lösen push-Events aus → die Action wartet auf Render-Auto-Deploy
-    // und fällt bei Bedarf auf den Deploy-Hook zurück. Ein zusätzlicher triggerRedeploy()
-    // hier führte zu parallelen Deploys (Doppel-/Triple-Deploy-Bug, S29-Befund).
-    // Für explizit erzwungene Redeploys existiert POST /render/redeploy.
+    // Deploy-Trigger wird ausschlieÃŸlich von .github/workflows/render-deploy.yml Ã¼bernommen:
+    // Contents-API-Commits lÃ¶sen push-Events aus â†’ die Action wartet auf Render-Auto-Deploy
+    // und fÃ¤llt bei Bedarf auf den Deploy-Hook zurÃ¼ck. Ein zusÃ¤tzlicher triggerRedeploy()
+    // hier fÃ¼hrte zu parallelen Deploys (Doppel-/Triple-Deploy-Bug, S29-Befund).
+    // FÃ¼r explizit erzwungene Redeploys existiert POST /render/redeploy.
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     res.json({

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { parsePatchBody } from './builderPatchExecutor.js';
 import type { BdlCommand } from './builderBdlParser.js';
 import { outboundFetch } from './outboundHttp.js';
@@ -111,6 +113,44 @@ export function convertBdlPatchesToPayload(
   }
 
   return payloads;
+}
+
+export function validatePatchPayloads(
+  repoRoot: string,
+  patches: PatchPayload[],
+  options: { disallowAppendToExisting?: boolean } = {},
+): { ok: true } | { ok: false; error: string; patch: PatchPayload } {
+  const root = path.resolve(repoRoot);
+
+  for (const patch of patches) {
+    const target = path.resolve(root, patch.file);
+    if (!target.startsWith(root + path.sep)) {
+      return { ok: false, error: `patch_path_outside_repo:${patch.file}`, patch };
+    }
+
+    if (
+      options.disallowAppendToExisting
+      && (patch.action === 'append' || patch.action === 'write')
+      && fs.existsSync(target)
+    ) {
+      return { ok: false, error: `append_to_existing_disallowed:${patch.file}`, patch };
+    }
+
+    if (patch.action !== 'replace') {
+      continue;
+    }
+
+    if (!fs.existsSync(target)) {
+      return { ok: false, error: `replace_target_missing:${patch.file}`, patch };
+    }
+
+    const current = fs.readFileSync(target, 'utf8');
+    if (!patch.oldText || !current.includes(patch.oldText)) {
+      return { ok: false, error: `replace_old_text_not_found:${patch.file}`, patch };
+    }
+  }
+
+  return { ok: true };
 }
 export function formatSessionLogEntry(params: {
   commitShaShort: string;

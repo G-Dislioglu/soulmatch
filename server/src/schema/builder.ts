@@ -1,4 +1,4 @@
-import { boolean as pgBoolean, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { type AnyPgColumn, boolean as pgBoolean, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 export const BUILDER_STATUS = [
   'queued',
@@ -29,6 +29,15 @@ export const builderTasks = pgTable('builder_tasks', {
   goal: text('goal').notNull(),
   risk: varchar('risk', { length: 10 }).notNull().default('low'),
   taskType: varchar('task_type', { length: 5 }).notNull().default('A'),
+  intentKind: varchar('intent_kind', { length: 40 }).notNull().default('code_change'),
+  requestedOutputKind: varchar('requested_output_kind', { length: 40 }).notNull().default('code_artifact'),
+  requestedOutputFormat: varchar('requested_output_format', { length: 20 }).notNull().default('code'),
+  parentTaskId: uuid('parent_task_id').references((): AnyPgColumn => builderTasks.id),
+  goalKind: varchar('goal_kind', { length: 30 }).notNull().default('task'),
+  successConditions: jsonb('success_conditions').$type<string[]>().notNull().default([]),
+  revisionLog: jsonb('revision_log').$type<Record<string, unknown>[]>().notNull().default([]),
+  budgetIterations: integer('budget_iterations').notNull().default(1),
+  budgetUsed: integer('budget_used').notNull().default(0),
   policyProfile: varchar('policy_profile', { length: 30 }),
   scope: jsonb('scope').$type<string[]>().notNull().default([]),
   notScope: jsonb('not_scope').$type<string[]>().notNull().default([]),

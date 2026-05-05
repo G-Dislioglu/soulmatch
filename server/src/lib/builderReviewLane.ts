@@ -1,6 +1,7 @@
 import { getDb } from '../db.js';
 import { builderReviews, builderTasks } from '../schema/builder.js';
 import { parseBdl, type BdlCommand } from './builderBdlParser.js';
+import { buildTeamAwarenessBrief } from './builderTeamAwareness.js';
 import { callProvider } from './providers.js';
 
 export type ReviewVerdict = 'ok' | 'issue' | 'block';
@@ -151,13 +152,15 @@ function parseReviewBodyBlock(body: string) {
     scopeOk: parseBoolean(extractField(body, 'scope_ok')) ?? true,
     blocking: parseBoolean(extractField(body, 'blocking')) ?? false,
     notes: extractNotes(body),
+    reuseScalar: parseBoolean(extractField(body, 'reuse_check')),
     reuseBody: extractObjectBody(body, 'reuse_check') ?? '',
     uxBody: extractObjectBody(body, 'ux_heuristic') ?? '',
     falseSuccessBody: extractObjectBody(body, 'false_success_check') ?? '',
   };
 }
 
-export function parseReviewBody(body: string): ParsedReview {
+export function parseReviewBody(body: string, options: { requireReuseSearch?: boolean } = {}): ParsedReview {
+  const requireReuseSearch = options.requireReuseSearch ?? true;
   const parsed = parseReviewBodyBlock(body);
 
   const review: ParsedReview = {
@@ -167,7 +170,7 @@ export function parseReviewBody(body: string): ParsedReview {
     blocking: parsed.blocking,
     notes: parsed.notes,
     reuseCheck: {
-      searchedCodebase: parseBoolean(extractField(parsed.reuseBody, 'searched_codebase')) ?? false,
+      searchedCodebase: parseBoolean(extractField(parsed.reuseBody, 'searched_codebase')) ?? parsed.reuseScalar ?? false,
       existingPatternFound: parseBoolean(extractField(parsed.reuseBody, 'existing_pattern_found')),
       patternReused: parseEnum(extractField(parsed.reuseBody, 'pattern_reused'), ['true', 'false', 'adapted'] as const),
       justificationIfNew: extractField(parsed.reuseBody, 'justification_if_new')?.replace(/^"|"$/g, ''),
@@ -187,7 +190,7 @@ export function parseReviewBody(body: string): ParsedReview {
     },
   };
 
-  if (review.reuseCheck.searchedCodebase === false) {
+  if (requireReuseSearch && review.reuseCheck.searchedCodebase === false) {
     review.verdict = 'block';
     review.blocking = true;
     review.reuseCheck.forcedBlock = true;
@@ -285,12 +288,15 @@ export async function runObserver(
     return null;
   }
 
-  const rawResponse = await callProvider('deepseek', 'deepseek-chat', {
+  const rawResponse = await callProvider('deepseek', 'deepseek-v4-flash', {
     system: [
       'Du bist der Builder-Observer fuer Soulmatch.',
+      buildTeamAwarenessBrief(task, 'observer'),
+      '',
       'Du bist nur Tie-Breaker bei Dissens.',
       'Antworte NUR in BDL.',
       'Gib genau einen @REVIEW Block mit verdict, scope_ok, blocking, notes, reuse_check, ux_heuristic, false_success_check.',
+      'reuse_check muss ein Objekt sein: reuse_check: { searched_codebase: true|false, existing_pattern_found: true|false, pattern_reused: true|false|adapted, justification_if_new: "..." }.',
       'Danach genau eine Entscheidung: @APPROVE, @REQUEST_CHANGE oder @BLOCK.',
     ].join('\n'),
     messages: [
@@ -312,7 +318,9 @@ export async function runObserver(
 
   const commands = parseBdl(rawResponse);
   const reviewCommand = commands.find((command) => command.kind === 'REVIEW');
-  const review = parseReviewBody(reviewCommand?.body ?? rawResponse);
+  const review = parseReviewBody(reviewCommand?.body ?? rawResponse, {
+    requireReuseSearch: task.goalKind !== 'visual_fix',
+  });
 
   return {
     rawResponse,

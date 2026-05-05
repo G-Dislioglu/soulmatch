@@ -2329,18 +2329,53 @@ function StudioPage() {
 }
 
 export function App() {
+  const [appMeta, setAppMeta] = useState<{ appEnv?: string; appEnvLabel?: string } | null>(null);
+  const isSandboxApp = appMeta?.appEnv === 'sandbox';
+
+  useEffect(() => {
+    fetch('/api/meta')
+      .then((r) => r.json())
+      .then((d) => setAppMeta(d as { appEnv?: string; appEnvLabel?: string }))
+      .catch(() => null);
+  }, []);
+
   return (
     <>
     <DisclaimerModal />
-    <GuideProvider>
-      <Switch>
-        <Route path="/studio" component={StudioPage} />
-        <Route path="/patrol" component={PatrolConsole} />
-        <Route path="/builder" component={BuilderStudioPage} />
-        <Route path="/" component={HomePage} />
-        <Route component={NotFound} />
-      </Switch>
-    </GuideProvider>
+    {isSandboxApp ? (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 120,
+          padding: '9px 16px',
+          borderBottom: '1px solid rgba(212,175,55,0.35)',
+          background: 'rgba(42,31,10,0.94)',
+          color: '#f3d68a',
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          textAlign: 'center',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        {appMeta.appEnvLabel ?? 'Sandbox / Nicht live'}
+      </div>
+    ) : null}
+    <div style={{ paddingTop: isSandboxApp ? 38 : 0 }}>
+      <GuideProvider>
+        <Switch>
+          <Route path="/studio" component={StudioPage} />
+          <Route path="/patrol" component={PatrolConsole} />
+          <Route path="/builder" component={BuilderStudioPage} />
+          <Route path="/" component={HomePage} />
+          <Route component={NotFound} />
+        </Switch>
+      </GuideProvider>
+    </div>
     </>
   );
 }

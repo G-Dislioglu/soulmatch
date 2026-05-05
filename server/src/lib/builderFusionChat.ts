@@ -7,6 +7,16 @@ import {
   builderTasks,
   builderTestResults,
 } from '../schema/builder.js';
+import {
+  buildBuilderTaskContract,
+  deriveTaskCreationDefaults,
+  normalizeIntentKind,
+  normalizeOutputFormat,
+  normalizeOutputKind,
+  type BuilderOutputFormat,
+  type BuilderOutputKind,
+  type BuilderTaskIntentKind,
+} from './builderTaskContract.js';
 import { TASK_TYPE_TO_PROFILE, type TaskType } from './builderPolicyProfiles.js';
 import { orchestrateTask } from './opusTaskOrchestrator.js';
 import { runBuildPipeline } from './opusBuildPipeline.js';
@@ -18,6 +28,7 @@ import {
   rememberBuilderUserMessage,
   setActiveBuilderTask,
 } from './builderMemory.js';
+import { runDialogEngine } from './builderDialogEngine.js';
 import { callProvider } from './providers.js';
 import { assembleBuilderContext } from './builderContextAssembler.js';
 import { resolveScope } from './builderScopeResolver.js';
@@ -40,6 +51,9 @@ interface ClassifiedIntent {
   goal?: string;
   risk?: string;
   taskType?: string;
+  intentKind?: BuilderTaskIntentKind;
+  requestedOutputKind?: BuilderOutputKind;
+  requestedOutputFormat?: BuilderOutputFormat;
   taskId?: string;
   message?: string;
 }
@@ -91,6 +105,36 @@ function mapOrchestratorResultToTaskStatus(result: { status: string; phases?: Ar
   }
 
   return 'done';
+}
+
+async function recordBuilderStatusTransition(input: {
+  before: typeof builderTasks.$inferSelect;
+  after: typeof builderTasks.$inferSelect;
+  lane: string;
+  reason: string;
+  actor?: string;
+  extraPayload?: Record<string, unknown>;
+}) {
+  const db = getDb();
+  const contract = buildBuilderTaskContract(input.after);
+  await db.insert(builderActions).values({
+    taskId: input.after.id,
+    lane: input.lane,
+    kind: 'STATUS_TRANSITION',
+    actor: input.actor ?? 'system',
+    payload: {
+      fromStatus: input.before.status,
+      toStatus: input.after.status,
+      reason: input.reason,
+      contract,
+      ...(input.extraPayload ?? {}),
+    },
+    result: {
+      status: input.after.status,
+      lifecyclePhase: contract.lifecycle.phase,
+    },
+    tokenCount: 0,
+  });
 }
 
 const SYSTEM_PROMPT = `Du bist Maya, die KI-Assistentin im Builder Studio von Soulmatch.
@@ -254,9 +298,62 @@ function inferRiskFromMessage(message: string): string {
 
 // ─── MODE ROUTER: Quick (/opus-task) vs Pipeline (/build) ───
 
-type BuildMode = 'quick' | 'pipeline';
+type ExecutionMode = 'quick' | 'pipeline' | 'dialog';
 
-function determineBuildMode(message: string, classified: ClassifiedIntent): BuildMode {
+function inferRequestedOutputKind(message: string, taskType: string, intentKind: BuilderTaskIntentKind): BuilderOutputKind {
+  const normalized = message.toLowerCase();
+
+  if (/\b(html|prototype|preview|mockup|wireframe)\b/.test(normalized)) {
+    return 'html_artifact';
+  }
+  if (/\b(markdown|md)\b/.test(normalized)) {
+    return 'markdown_artifact';
+  }
+  if (/\bjson\b/.test(normalized)) {
+    return 'json_artifact';
+  }
+  if (/\b(answer|antwort|summary|zusammenfassung|brief|analyse)\b/.test(normalized) && intentKind !== 'app_build') {
+    return 'structured_answer';
+  }
+  if (taskType === 'P') {
+    return 'html_artifact';
+  }
+
+  return 'code_artifact';
+}
+
+function inferRequestedOutputFormat(message: string, outputKind: BuilderOutputKind): BuilderOutputFormat {
+  const normalized = message.toLowerCase();
+
+  if (/\bhtml\b/.test(normalized)) {
+    return 'html';
+  }
+  if (/\bmarkdown|md\b/.test(normalized)) {
+    return 'markdown';
+  }
+  if (/\bjson\b/.test(normalized)) {
+    return 'json';
+  }
+  if (outputKind === 'structured_answer') {
+    return 'markdown';
+  }
+  if (outputKind === 'chat_answer') {
+    return 'chat';
+  }
+  if (outputKind === 'html_artifact') {
+    return 'html';
+  }
+
+  return 'code';
+}
+
+function isDialogOutputKind(outputKind: BuilderOutputKind | undefined): boolean {
+  return outputKind === 'html_artifact'
+    || outputKind === 'presentation_artifact'
+    || outputKind === 'visual_artifact';
+}
+
+function determineExecutionMode(message: string, classified: ClassifiedIntent): ExecutionMode {
   const normalized = message.toLowerCase();
 
   // Explicit user triggers → pipeline
@@ -265,16 +362,30 @@ function determineBuildMode(message: string, classified: ClassifiedIntent): Buil
   }
 
   // Architecture tasks → pipeline
-  if (classified.taskType === 'S') {
+  if (classified.taskType === 'S' || classified.risk === 'high') {
     return 'pipeline';
   }
 
   // High risk → pipeline
-  if (classified.risk === 'high') {
+
+  // Multi-file signals → pipeline
+  if (
+    classified.intentKind === 'technical_review'
+    || classified.intentKind === 'research'
+    || classified.intentKind === 'analysis'
+    || classified.intentKind === 'strategy'
+  ) {
     return 'pipeline';
   }
 
-  // Multi-file signals → pipeline
+  if (isDialogOutputKind(classified.requestedOutputKind)) {
+    return 'dialog';
+  }
+
+  if (classified.intentKind === 'app_build' && ['B', 'C', 'P'].includes(classified.taskType ?? 'A')) {
+    return 'dialog';
+  }
+
   if (/\b(mehrere dateien|multi.?file|multiple files|3\+ dateien|cross.?module)\b/.test(normalized)) {
     return 'pipeline';
   }
@@ -501,13 +612,20 @@ function buildFallbackTaskIntent(message: string): ClassifiedIntent {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
+  const goal = message.trim();
+  const taskType = inferTaskTypeFromMessage(message);
+  const intentKind = normalizeIntentKind(undefined, title, goal);
+  const requestedOutputKind = inferRequestedOutputKind(message, taskType, intentKind);
 
   return {
     intent: 'task',
     title: title.length > 0 ? title : 'Builder-Task aus Chat',
-    goal: message.trim(),
+    goal,
     risk: inferRiskFromMessage(message),
-    taskType: inferTaskTypeFromMessage(message),
+    taskType,
+    intentKind,
+    requestedOutputKind,
+    requestedOutputFormat: inferRequestedOutputFormat(message, requestedOutputKind),
   };
 }
 
@@ -527,12 +645,26 @@ function normalizeClassifiedIntent(message: string, classified: ClassifiedIntent
   }
 
   if (classified.intent === 'task') {
+    const title = classified.title?.trim() || message.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Builder-Task aus Chat';
+    const goal = classified.goal?.trim() || message.trim();
+    const taskType = classified.taskType?.trim() || inferTaskTypeFromMessage(message);
+    const intentKind = normalizeIntentKind(classified.intentKind, title, goal);
+    const inferredOutputKind = inferRequestedOutputKind(message, taskType, intentKind);
+    const requestedOutputKind = classified.requestedOutputKind
+      ? normalizeOutputKind(classified.requestedOutputKind, undefined)
+      : inferredOutputKind;
+
     return {
       ...classified,
-      title: classified.title?.trim() || message.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Builder-Task aus Chat',
-      goal: classified.goal?.trim() || message.trim(),
+      title,
+      goal,
       risk: classified.risk?.trim() || inferRiskFromMessage(message),
-      taskType: classified.taskType?.trim() || inferTaskTypeFromMessage(message),
+      taskType,
+      intentKind,
+      requestedOutputKind,
+      requestedOutputFormat: classified.requestedOutputFormat
+        ? normalizeOutputFormat(classified.requestedOutputFormat, requestedOutputKind)
+        : inferRequestedOutputFormat(message, requestedOutputKind),
     };
   }
 
@@ -697,8 +829,17 @@ export async function handleBuilderChat(
 
       const taskType = (classified.taskType || 'A') as TaskType;
       const policyProfile = TASK_TYPE_TO_PROFILE[taskType] ?? null;
-      const buildMode = determineBuildMode(message, classified);
+      const executionMode = determineExecutionMode(message, classified);
       const resolvedScope = resolveChatTaskScope(message, classified.title, classified.goal);
+      const creationDefaults = deriveTaskCreationDefaults({
+        title: classified.title,
+        goal: classified.goal,
+        taskType,
+        risk: classified.risk || 'low',
+        intentKind: classified.intentKind,
+        requestedOutputKind: classified.requestedOutputKind,
+        requestedOutputFormat: classified.requestedOutputFormat,
+      });
 
       const [created] = await db
         .insert(builderTasks)
@@ -707,6 +848,10 @@ export async function handleBuilderChat(
           goal: classified.goal,
           risk: classified.risk || 'low',
           taskType,
+          intentKind: creationDefaults.intentKind,
+          requestedOutputKind: creationDefaults.requestedOutputKind,
+          requestedOutputFormat: creationDefaults.requestedOutputFormat,
+          requiredLanes: creationDefaults.requiredLanes,
           policyProfile,
           scope: resolvedScope,
         })
@@ -716,23 +861,43 @@ export async function handleBuilderChat(
         return { type: 'error', message: 'Task konnte nicht erstellt werden.' };
       }
 
-      await db
+      const [classifiedTask] = await db
         .update(builderTasks)
         .set({ status: 'classifying', updatedAt: new Date() })
-        .where(eq(builderTasks.id, created.id));
+        .where(eq(builderTasks.id, created.id))
+        .returning();
+
+      if (classifiedTask) {
+        await recordBuilderStatusTransition({
+          before: created,
+          after: classifiedTask,
+          lane: 'code',
+          reason: 'chat_task_created',
+        });
+      }
 
       setActiveBuilderTask(created.id);
 
-      if (buildMode === 'pipeline') {
+      if (executionMode === 'pipeline') {
         // ─── PIPELINE MODE: Scout → Destillierer → Council → Worker → TSC → Push ───
         void (async () => {
           try {
             console.log('[maya-router] ', `Pipeline-Modus gestartet: ${classified.title}`);
             console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
-            await db
+            const [planningTask] = await db
               .update(builderTasks)
               .set({ status: 'planning', updatedAt: new Date() })
-              .where(eq(builderTasks.id, created.id));
+              .where(eq(builderTasks.id, created.id))
+              .returning();
+
+            if (planningTask && classifiedTask) {
+              await recordBuilderStatusTransition({
+                before: classifiedTask,
+                after: planningTask,
+                lane: 'code',
+                reason: 'pipeline_started',
+              });
+            }
 
             const result = await runBuildPipeline({
               instruction: classified.goal!,
@@ -741,14 +906,25 @@ export async function handleBuilderChat(
             });
 
             const finalStatus = result.status === 'success' || result.status === 'deployed' ? 'done' : 'blocked';
-            await db
+            const [completedTask] = await db
               .update(builderTasks)
               .set({
                 status: finalStatus,
                 commitHash: result.deploy?.commitId ?? null,
                 updatedAt: new Date(),
               })
-              .where(eq(builderTasks.id, created.id));
+              .where(eq(builderTasks.id, created.id))
+              .returning();
+
+            if (completedTask && planningTask) {
+              await recordBuilderStatusTransition({
+                before: planningTask,
+                after: completedTask,
+                lane: 'code',
+                reason: 'pipeline_completed',
+                extraPayload: { pipelineStatus: result.status },
+              });
+            }
 
             console.log('[maya-router]',
               finalStatus === 'done'
@@ -775,14 +951,59 @@ export async function handleBuilderChat(
       }
 
       // ─── QUICK MODE: Scope → canonical orchestrateTask executor ───
+      if (executionMode === 'dialog') {
+        void (async () => {
+          try {
+            console.log('[maya-router] ', `Dialog-Modus gestartet: ${classified.title}`);
+            console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
+            await runDialogEngine(created.id);
+          } catch (err) {
+            console.error('[fusion] dialog-mode error:', err);
+            const [blockedTask] = await db
+              .update(builderTasks)
+              .set({ status: 'blocked', updatedAt: new Date() })
+              .where(eq(builderTasks.id, created.id))
+              .returning();
+            if (blockedTask) {
+              await recordBuilderStatusTransition({
+                before: classifiedTask ?? created,
+                after: blockedTask,
+                lane: 'code',
+                reason: 'pipeline_failed',
+                extraPayload: { error: err instanceof Error ? err.message : 'unknown' },
+              });
+            }
+            console.log('[maya-router] ', `Dialog-Modus-Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
+          }
+        })();
+
+        rememberBuilderAssistantMessage(`Dialog-Modus: ${classified.title}`);
+        return {
+          type: 'task_created',
+          message: `Dialog-Modus fuer: "${classified.title}". Maya routed jetzt ueber Prototype-, Review- und Browser-Lane statt nur Schnellmodus.`,
+          taskId: created.id,
+          taskTitle: classified.title,
+        };
+      }
+
       void (async () => {
-        try {
-          console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
-          console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
-          await db
+          try {
+            console.log('[maya-router] ', `Schnellmodus gestartet: ${classified.title}`);
+            console.log('[maya-router] ', `Resolved scope (${resolvedScope.length}): ${resolvedScope.join(', ') || 'none'}`);
+          const [planningTask] = await db
             .update(builderTasks)
             .set({ status: 'planning', updatedAt: new Date() })
-            .where(eq(builderTasks.id, created.id));
+            .where(eq(builderTasks.id, created.id))
+            .returning();
+
+          if (planningTask && classifiedTask) {
+            await recordBuilderStatusTransition({
+              before: classifiedTask,
+              after: planningTask,
+              lane: 'code',
+              reason: 'quick_mode_started',
+            });
+          }
 
           const result = await orchestrateTask({
             instruction: classified.goal!,
@@ -791,13 +1012,24 @@ export async function handleBuilderChat(
           });
 
           const finalStatus = mapOrchestratorResultToTaskStatus(result);
-          await db
+          const [completedTask] = await db
             .update(builderTasks)
             .set({
               status: finalStatus,
               updatedAt: new Date(),
             })
-            .where(eq(builderTasks.id, created.id));
+            .where(eq(builderTasks.id, created.id))
+            .returning();
+
+          if (completedTask && planningTask) {
+            await recordBuilderStatusTransition({
+              before: planningTask,
+              after: completedTask,
+              lane: 'code',
+              reason: 'quick_mode_completed',
+              extraPayload: { orchestratorStatus: result.status },
+            });
+          }
 
           console.log('[maya-router]',
             finalStatus === 'done' || finalStatus === 'applying'
@@ -806,10 +1038,20 @@ export async function handleBuilderChat(
           );
         } catch (err) {
           console.error('[fusion] quick-mode error:', err);
-          await db
+          const [blockedTask] = await db
             .update(builderTasks)
             .set({ status: 'blocked', updatedAt: new Date() })
-            .where(eq(builderTasks.id, created.id));
+            .where(eq(builderTasks.id, created.id))
+            .returning();
+          if (blockedTask) {
+            await recordBuilderStatusTransition({
+              before: classifiedTask ?? created,
+              after: blockedTask,
+              lane: 'code',
+              reason: 'quick_mode_failed',
+              extraPayload: { error: err instanceof Error ? err.message : 'unknown' },
+            });
+          }
           console.log('[maya-router] ', `Schnellmodus-Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
         }
       })();
@@ -871,7 +1113,7 @@ export async function handleBuilderChat(
         };
       }
 
-      await db
+      const [reclassifiedTask] = await db
         .update(builderTasks)
         .set({
           status: 'classifying',
@@ -880,7 +1122,17 @@ export async function handleBuilderChat(
             : resolveChatTaskScope(task.title, task.goal),
           updatedAt: new Date(),
         })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+
+      if (reclassifiedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: reclassifiedTask,
+          lane: 'code',
+          reason: 'retry_requested',
+        });
+      }
 
       const retryScope = Array.isArray(task.scope) && task.scope.length > 0
         ? task.scope
@@ -893,39 +1145,106 @@ export async function handleBuilderChat(
         goal: task.goal,
         risk: task.risk ?? 'low',
         taskType: task.taskType ?? 'A',
+        intentKind: normalizeIntentKind(task.intentKind, task.title, task.goal),
+        requestedOutputKind: normalizeOutputKind(task.requestedOutputKind, task.status),
+        requestedOutputFormat: normalizeOutputFormat(
+          task.requestedOutputFormat,
+          normalizeOutputKind(task.requestedOutputKind, task.status),
+        ),
       };
-      const retryMode = determineBuildMode(task.goal, retryIntent);
+      const retryMode = determineExecutionMode(task.goal, retryIntent);
 
       if (retryMode === 'pipeline') {
         void (async () => {
           try {
-            await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const [planningTask] = await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (planningTask && reclassifiedTask) {
+              await recordBuilderStatusTransition({
+                before: reclassifiedTask,
+                after: planningTask,
+                lane: 'code',
+                reason: 'retry_pipeline_started',
+              });
+            }
             const result = await runBuildPipeline({
               instruction: task.goal,
               scope: retryScope.length > 0 ? retryScope : undefined,
               risk: (task.risk as 'low' | 'medium' | 'high') || 'medium',
             });
             const finalStatus = result.status === 'success' || result.status === 'deployed' ? 'done' : 'blocked';
-            await db.update(builderTasks).set({ status: finalStatus, commitHash: result.deploy?.commitId ?? null, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const [completedTask] = await db.update(builderTasks).set({ status: finalStatus, commitHash: result.deploy?.commitId ?? null, updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (completedTask && planningTask) {
+              await recordBuilderStatusTransition({
+                before: planningTask,
+                after: completedTask,
+                lane: 'code',
+                reason: 'retry_pipeline_completed',
+                extraPayload: { pipelineStatus: result.status },
+              });
+            }
           } catch (err) {
             console.error('[fusion] retry pipeline error:', err);
+            const [blockedTask] = await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (blockedTask) {
+              await recordBuilderStatusTransition({
+                before: reclassifiedTask ?? task,
+                after: blockedTask,
+                lane: 'code',
+                reason: 'retry_pipeline_failed',
+                extraPayload: { error: err instanceof Error ? err.message : 'unknown' },
+              });
+            }
+          }
+        })();
+      } else if (retryMode === 'dialog') {
+        void (async () => {
+          try {
+            await runDialogEngine(taskId);
+          } catch (err) {
+            console.error('[fusion] retry dialog-mode error:', err);
             await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
           }
         })();
       } else {
         void (async () => {
           try {
-            await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const [planningTask] = await db.update(builderTasks).set({ status: 'planning', updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (planningTask && reclassifiedTask) {
+              await recordBuilderStatusTransition({
+                before: reclassifiedTask,
+                after: planningTask,
+                lane: 'code',
+                reason: 'retry_quick_mode_started',
+              });
+            }
             const result = await orchestrateTask({
               instruction: task.goal,
               scope: retryScope.length > 0 ? retryScope : undefined,
               dryRun: false,
             });
             const finalStatus = mapOrchestratorResultToTaskStatus(result);
-            await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const [completedTask] = await db.update(builderTasks).set({ status: finalStatus, updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (completedTask && planningTask) {
+              await recordBuilderStatusTransition({
+                before: planningTask,
+                after: completedTask,
+                lane: 'code',
+                reason: 'retry_quick_mode_completed',
+                extraPayload: { orchestratorStatus: result.status },
+              });
+            }
           } catch (err) {
             console.error('[fusion] retry quick-mode error:', err);
-            await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId));
+            const [blockedTask] = await db.update(builderTasks).set({ status: 'blocked', updatedAt: new Date() }).where(eq(builderTasks.id, taskId)).returning();
+            if (blockedTask) {
+              await recordBuilderStatusTransition({
+                before: reclassifiedTask ?? task,
+                after: blockedTask,
+                lane: 'code',
+                reason: 'retry_quick_mode_failed',
+                extraPayload: { error: err instanceof Error ? err.message : 'unknown' },
+              });
+            }
           }
         })();
       }
@@ -951,10 +1270,20 @@ export async function handleBuilderChat(
         return { type: 'error', message: 'Task nicht gefunden.' };
       }
 
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: 'done', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'chat_approved',
+        });
+      }
 
       setActiveBuilderTask(taskId);
       rememberBuilderAssistantMessage(`Task genehmigt: ${task.title}`);
@@ -977,10 +1306,20 @@ export async function handleBuilderChat(
         return { type: 'error', message: 'Task nicht gefunden.' };
       }
 
-      await db
+      const [updatedTask] = await db
         .update(builderTasks)
         .set({ status: 'reverted', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+
+      if (updatedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: updatedTask,
+          lane: 'review',
+          reason: 'chat_reverted',
+        });
+      }
 
       setActiveBuilderTask(taskId);
       rememberBuilderAssistantMessage(`Task revertiert: ${task.title}`);
@@ -1049,7 +1388,7 @@ export async function handleBuilderChat(
       if (classified.taskId === 'all_stuck') {
         const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
         const stuck = await db
-          .select({ id: builderTasks.id, title: builderTasks.title, status: builderTasks.status })
+          .select()
           .from(builderTasks)
           .where(
             and(
@@ -1060,10 +1399,19 @@ export async function handleBuilderChat(
 
         let count = 0;
         for (const task of stuck) {
-          await db
+          const [blockedTask] = await db
             .update(builderTasks)
             .set({ status: 'blocked', updatedAt: new Date() })
-            .where(eq(builderTasks.id, task.id));
+            .where(eq(builderTasks.id, task.id))
+            .returning();
+          if (blockedTask) {
+            await recordBuilderStatusTransition({
+              before: task,
+              after: blockedTask,
+              lane: 'review',
+              reason: 'chat_cancelled_as_stuck',
+            });
+          }
           count += 1;
         }
 
@@ -1089,10 +1437,20 @@ export async function handleBuilderChat(
         return { type: 'error', message: 'Task ist bereits abgeschlossen.' };
       }
 
-      await db
+      const [blockedTask] = await db
         .update(builderTasks)
         .set({ status: 'blocked', updatedAt: new Date() })
-        .where(eq(builderTasks.id, taskId));
+        .where(eq(builderTasks.id, taskId))
+        .returning();
+
+      if (blockedTask) {
+        await recordBuilderStatusTransition({
+          before: task,
+          after: blockedTask,
+          lane: 'review',
+          reason: 'chat_cancelled',
+        });
+      }
 
       return {
         type: 'task_action',

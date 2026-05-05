@@ -33,6 +33,7 @@ import { opusBridgeRouter } from './routes/opusBridge.js';
 import { devLogger } from './devLogger.js';
 import { startStaleDetector } from './lib/builderStaleDetector.js';
 import { patrolRouter, startPatrol } from './lib/scoutPatrol.js';
+import { seedBuilderSandboxIfNeeded } from './lib/sandboxSeed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,4 +96,15 @@ app.listen(PORT, () => {
   void initializePoolState();
   // F10: hydrate async opus jobs from DB best-effort; in-memory fallback remains active.
   void initializeAsyncJobsCache();
+  void seedBuilderSandboxIfNeeded()
+    .then((result) => {
+      if (result.seeded) {
+        console.log(`[sandbox-seed] inserted ${result.taskCount} synthetic builder tasks`);
+      } else if (result.reason === 'tasks_present') {
+        console.log('[sandbox-seed] skipped because builder tasks already exist');
+      }
+    })
+    .catch((error) => {
+      console.warn('[sandbox-seed] skipped due to error:', error);
+    });
 });
