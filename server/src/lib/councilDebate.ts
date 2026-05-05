@@ -152,12 +152,12 @@ function toErrorSnippet(error: unknown): string {
   return error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
 }
 
-function hasFailureSignal(content: string): boolean {
-  return /Fehler|Error|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND/i.test(content);
+export function hasFailureSignal(content: string): boolean {
+  return /\[(?:Repo-Scout|Web-Scout|AICOS|Crush|Scout)[^\]]*(?:Fehler|Error):[^\]]*\]|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND|\[Fehler bei [^\]]+\]/i.test(content);
 }
 
-function firstFailureSignal(content: string): string | null {
-  return content.match(/(?:Fehler|Error|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND)[^\n]*/i)?.[0]?.slice(0, 500) ?? null;
+export function firstFailureSignal(content: string): string | null {
+  return content.match(/(?:\[(?:Repo-Scout|Web-Scout|AICOS|Crush|Scout)[^\]]*(?:Fehler|Error):[^\]]*\]|HTTP \d{3}|No API key|temporarily degraded|EAI_|ENOTFOUND|\[Fehler bei [^\]]+\])[^\n]*/i)?.[0]?.slice(0, 500) ?? null;
 }
 
 // â”€â”€â”€ Council Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
